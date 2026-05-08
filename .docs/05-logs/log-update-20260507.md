@@ -67,12 +67,13 @@ Memastikan stabilitas aplikasi melalui standarisasi kode.
 - **Cleanup**: Menghapus `TopBar.tsx` lama dan menggantikannya dengan arsitektur TitleBar yang lebih terintegrasi.
 
 ## 7. Redesain Modern UI Library Lagu
+
 - **Modern Card Layout**: Mengubah daftar lagu menjadi kartu-kartu modern dengan sudut melengkung (`rounded-xl`) dan efek bayangan halus.
 - **Visual Thumbnails**: Penambahan thumbnail placeholder dengan gradien abstrak dan nomor lagu untuk identifikasi visual yang lebih cepat.
 - **Typography Hierarchy**: Penataan ulang tipografi untuk Judul, Sub-judul Inggris, dan Metadata (Penulis, Nada Dasar, Tempo) agar lebih mudah dipindai.
 - **Quick Action Icons**: Tombol aksi cepat (Favorit, Tambah ke Playlist, Play Now) yang intuitif dan responsif terhadap interaksi hover.
 - **Enhanced Empty State**: Redesain tampilan "Lagu Tidak Ditemukan" dengan visual yang lebih premium dan tombol aksi yang jelas.
-- **Micro-interactions**: Implementasi animasi *bounce* pada tombol favorit dan transisi halus pada seluruh elemen kartu.
+- **Micro-interactions**: Implementasi animasi _bounce_ pada tombol favorit dan transisi halus pada seluruh elemen kartu.
 - **Aksi Langsung pada Kartu**: Tombol Edit dan Hapus kini selalu terlihat pada setiap kartu lagu, dengan ukuran ikon yang lebih besar dan konsisten dengan tombol Favorit dan Play.
 
 ## 8. Audit Stabilitas Live Projection & Stage Display

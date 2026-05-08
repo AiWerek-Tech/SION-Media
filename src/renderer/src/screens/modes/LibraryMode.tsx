@@ -18,11 +18,12 @@ export function LibraryMode(): React.JSX.Element {
           <div>
             <h2 className="text-h3 text-text-primary">Library Mode</h2>
             <p className="text-xs text-text-muted mt-1">
-              Mode ini difokuskan untuk pencarian lirik dan penyusunan playlist. Layar proyektor dinonaktifkan.
+              Mode ini difokuskan untuk pencarian lirik dan penyusunan playlist. Layar proyektor
+              dinonaktifkan.
             </p>
           </div>
         </div>
-        
+
         <div className="flex-1 grid grid-cols-[minmax(360px,50%)_minmax(420px,50%)] min-h-0 bg-bg-base">
           <div className="min-w-0 border-r border-border-default p-2">
             <SongLibraryPanel />

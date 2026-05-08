@@ -205,8 +205,12 @@ function App(): React.JSX.Element {
       }
 
       // Dashboard-only shortcuts
-      if (useModeStore.getState().currentMode !== 'PROJECTION' && useModeStore.getState().currentMode !== 'BROADCAST') return
-      
+      if (
+        useModeStore.getState().currentMode !== 'PROJECTION' &&
+        useModeStore.getState().currentMode !== 'BROADCAST'
+      )
+        return
+
       const store = useProjectionStore.getState()
 
       switch (e.code) {

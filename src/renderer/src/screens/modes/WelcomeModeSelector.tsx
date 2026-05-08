@@ -25,7 +25,8 @@ export function WelcomeModeSelector(): React.JSX.Element {
         </div>
         <h1 className="text-h1 mb-4">Selamat Datang di SION Media</h1>
         <p className="text-text-secondary text-lg">
-          Platform Presentasi Ibadah Profesional. Silakan pilih mode operasional yang sesuai dengan kebutuhan Anda saat ini.
+          Platform Presentasi Ibadah Profesional. Silakan pilih mode operasional yang sesuai dengan
+          kebutuhan Anda saat ini.
         </p>
       </motion.div>
 
@@ -62,7 +63,8 @@ export function WelcomeModeSelector(): React.JSX.Element {
           </div>
           <h3 className="text-h3 mb-3 text-center w-full">Library Mode</h3>
           <p className="text-sm text-text-muted text-center leading-relaxed">
-            Layar tunggal sederhana untuk sekadar mencari lirik atau menyusun daftar lagu tanpa menampilkan ke proyektor.
+            Layar tunggal sederhana untuk sekadar mencari lirik atau menyusun daftar lagu tanpa
+            menampilkan ke proyektor.
           </p>
         </motion.button>
 
@@ -98,7 +100,8 @@ export function WelcomeModeSelector(): React.JSX.Element {
           </div>
           <h3 className="text-h3 mb-3 text-center w-full">Content Management</h3>
           <p className="text-sm text-text-muted text-center leading-relaxed">
-            Mode administratif untuk mengatur database lagu, sinkronisasi, dan konfigurasi buku lagu.
+            Mode administratif untuk mengatur database lagu, sinkronisasi, dan konfigurasi buku
+            lagu.
           </p>
         </motion.button>
       </div>

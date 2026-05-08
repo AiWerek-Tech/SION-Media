@@ -1,36 +1,44 @@
 # UI/UX Audit Report - SION Media
 
 ## 1. Executive Summary
+
 Audit ini mengevaluasi interface SION Media terhadap standar desain modern 2024, prinsip Material Design 3, dan Human Interface Guidelines. Meskipun aplikasi memiliki fondasi yang kuat dengan tema gelap yang profesional, terdapat beberapa area kritis yang memerlukan perbaikan untuk meningkatkan usability, accessibility, dan estetika secara keseluruhan.
 
 ## 2. Analisis Komponen
 
 ### A. Tata Letak (Layout)
-*   **Kelemahan**: Tata letak Dashboard bersifat kaku dengan pembagian flexbox statis (5:4). Hal ini membatasi fleksibilitas pengguna pada monitor dengan resolusi berbeda.
-*   **Rekomendasi**: Implementasikan layout yang lebih dinamis dengan *resizable panels* atau grid system yang lebih adaptif. Gunakan margin dan padding yang lebih konsisten (8px/16px/24px).
+
+- **Kelemahan**: Tata letak Dashboard bersifat kaku dengan pembagian flexbox statis (5:4). Hal ini membatasi fleksibilitas pengguna pada monitor dengan resolusi berbeda.
+- **Rekomendasi**: Implementasikan layout yang lebih dinamis dengan _resizable panels_ atau grid system yang lebih adaptif. Gunakan margin dan padding yang lebih konsisten (8px/16px/24px).
 
 ### B. Tipografi (Typography)
-*   **Kelemahan**: Penggunaan font size yang terlalu kecil (9px - 11px) pada banyak elemen caption dan label. Hal ini melanggar prinsip aksesibilitas dan menyulitkan pembacaan cepat saat live production.
-*   **Rekomendasi**: Skala tipografi minimum harus 12px untuk caption. Gunakan font Inter untuk interface dan Poppins untuk heading dengan hierarki yang lebih jelas menggunakan font-weight dan color contrast.
+
+- **Kelemahan**: Penggunaan font size yang terlalu kecil (9px - 11px) pada banyak elemen caption dan label. Hal ini melanggar prinsip aksesibilitas dan menyulitkan pembacaan cepat saat live production.
+- **Rekomendasi**: Skala tipografi minimum harus 12px untuk caption. Gunakan font Inter untuk interface dan Poppins untuk heading dengan hierarki yang lebih jelas menggunakan font-weight dan color contrast.
 
 ### C. Skema Warna (Color Scheme)
-*   **Kelemahan**: Warna-warna "Live" dan "Program" sangat dominan tetapi kurang memiliki variasi tone. Tidak ada dukungan sistem tema (Light/Dark mode) yang terintegrasi secara modular.
-*   **Rekomendasi**: Gunakan Design Tokens untuk warna. Terapkan sistem warna primer, sekunder, dan surface yang mengikuti standar WCAG 2.1 untuk rasio kontras.
+
+- **Kelemahan**: Warna-warna "Live" dan "Program" sangat dominan tetapi kurang memiliki variasi tone. Tidak ada dukungan sistem tema (Light/Dark mode) yang terintegrasi secara modular.
+- **Rekomendasi**: Gunakan Design Tokens untuk warna. Terapkan sistem warna primer, sekunder, dan surface yang mengikuti standar WCAG 2.1 untuk rasio kontras.
 
 ### D. Ikonografi (Iconography)
-*   **Kelemahan**: Ikon pada SongCard dan ControlBar terlalu kecil (14px). Jarak antar ikon seringkali terlalu rapat, meningkatkan risiko salah klik.
-*   **Rekomendasi**: Ukuran ikon standar minimal 16px atau 18px dengan target sentuh/klik minimal 32x32px atau 44x44px untuk elemen kritis.
+
+- **Kelemahan**: Ikon pada SongCard dan ControlBar terlalu kecil (14px). Jarak antar ikon seringkali terlalu rapat, meningkatkan risiko salah klik.
+- **Rekomendasi**: Ukuran ikon standar minimal 16px atau 18px dengan target sentuh/klik minimal 32x32px atau 44x44px untuk elemen kritis.
 
 ### E. Spacing & Konsistensi
-*   **Kelemahan**: Inkonsistensi penggunaan border-radius (ada yang 4px, 6px, 8px). Spacing antar komponen seringkali tidak mengikuti grid sistem yang ketat.
-*   **Rekomendasi**: Standarisasi border-radius (misal: 8px untuk cards, 4px untuk small buttons). Gunakan unit spacing berbasis 4px (4, 8, 12, 16, 24, 32).
+
+- **Kelemahan**: Inkonsistensi penggunaan border-radius (ada yang 4px, 6px, 8px). Spacing antar komponen seringkali tidak mengikuti grid sistem yang ketat.
+- **Rekomendasi**: Standarisasi border-radius (misal: 8px untuk cards, 4px untuk small buttons). Gunakan unit spacing berbasis 4px (4, 8, 12, 16, 24, 32).
 
 ## 3. Identifikasi Masalah Utama
+
 1.  **High Cognitive Load**: Dashboard terlalu padat dengan informasi dan tombol yang memiliki prioritas visual yang hampir sama.
 2.  **Low Accessibility**: Kontras teks muted pada background gelap seringkali di bawah standar ( < 4.5:1).
 3.  **Static UI**: Kurangnya micro-interactions dan loading states yang informatif membuat aplikasi terasa kurang responsif secara visual.
 
 ## 4. Daftar Prioritas Perbaikan (Priority List)
+
 1.  **P1 (Critical)**: Standarisasi Design Tokens & Spacing System.
 2.  **P1 (Critical)**: Redesign SongCard & Playlist Item untuk readability yang lebih baik.
 3.  **P2 (High)**: Implementasi Global Design System (Reusable Components).
@@ -39,10 +47,11 @@ Audit ini mengevaluasi interface SION Media terhadap standar desain modern 2024,
 6.  **P3 (Medium)**: Peningkatan Accessibility (Aria-labels, Keyboard focus).
 
 ## 5. Rekomendasi Teknis
-*   **Tailwind CSS 4**: Manfaatkan fitur `@theme` untuk mendefinisikan tokens secara global.
-*   **Framer Motion**: Gunakan untuk transisi antar layar dan loading states.
-*   **Lucide React**: Konsisten menggunakan satu library ikon dengan stroke-width yang seragam.
-*   **Zustand**: Pisahkan state UI (modals, active panels) dari state data untuk performa yang lebih baik.
+
+- **Tailwind CSS 4**: Manfaatkan fitur `@theme` untuk mendefinisikan tokens secara global.
+- **Framer Motion**: Gunakan untuk transisi antar layar dan loading states.
+- **Lucide React**: Konsisten menggunakan satu library ikon dengan stroke-width yang seragam.
+- **Zustand**: Pisahkan state UI (modals, active panels) dari state data untuk performa yang lebih baik.
 
 ## 6. Audit Lanjutan — Screenshot Regression 2026-05-07
 

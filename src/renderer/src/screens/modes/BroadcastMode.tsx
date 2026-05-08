@@ -9,9 +9,11 @@ export function BroadcastMode(): React.JSX.Element {
       </div>
       <h2 className="text-h2 mb-4">Broadcast Mode</h2>
       <p className="text-text-muted text-center max-w-lg mb-8">
-        Mode ini sedang dalam tahap pengembangan (Beta). Nantinya, Broadcast Mode akan menyediakan antarmuka khusus untuk operator vMix/OBS dengan dukungan NDI dan Multi-Preview yang terpisah dari jendela proyektor standar.
+        Mode ini sedang dalam tahap pengembangan (Beta). Nantinya, Broadcast Mode akan menyediakan
+        antarmuka khusus untuk operator vMix/OBS dengan dukungan NDI dan Multi-Preview yang terpisah
+        dari jendela proyektor standar.
       </p>
-      
+
       <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-bg-elevated border border-border-default">
         <Radio size={16} className="text-status-warning animate-pulse" />
         <span className="text-sm font-medium">Coming Soon</span>

@@ -23,7 +23,8 @@ export function ManagementMode(): React.JSX.Element {
             </div>
             <h3 className="text-h3 mb-2">Editor Lagu & Buku Lagu</h3>
             <p className="text-sm text-text-muted">
-              Tambah, edit, atau hapus lagu dari database. Atur struktur koleksi buku lagu Anda di sini.
+              Tambah, edit, atau hapus lagu dari database. Atur struktur koleksi buku lagu Anda di
+              sini.
             </p>
           </button>
 
@@ -49,7 +50,8 @@ export function ManagementMode(): React.JSX.Element {
             </div>
             <h3 className="text-h3 mb-2">Pengaturan Sistem</h3>
             <p className="text-sm text-text-muted max-w-xl mx-auto">
-              Konfigurasi tampilan proyektor, tema font, warna latar, dan preferensi aplikasi SION Media secara umum.
+              Konfigurasi tampilan proyektor, tema font, warna latar, dan preferensi aplikasi SION
+              Media secara umum.
             </p>
           </button>
         </div>

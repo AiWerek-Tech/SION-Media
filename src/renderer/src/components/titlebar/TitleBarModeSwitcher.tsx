@@ -3,9 +3,17 @@ import { MonitorPlay, Library, LayoutDashboard, Settings, ChevronDown } from 'lu
 import { useModeStore, AppMode } from '../../store/useModeStore'
 
 const MODE_CONFIG: Record<AppMode, { label: string; icon: React.ReactNode; colorClass: string }> = {
-  PROJECTION: { label: 'Projection', icon: <MonitorPlay size={12} />, colorClass: 'text-brand-primary' },
+  PROJECTION: {
+    label: 'Projection',
+    icon: <MonitorPlay size={12} />,
+    colorClass: 'text-brand-primary'
+  },
   LIBRARY: { label: 'Library', icon: <Library size={12} />, colorClass: 'text-brand-secondary' },
-  BROADCAST: { label: 'Broadcast', icon: <LayoutDashboard size={12} />, colorClass: 'text-status-warning' },
+  BROADCAST: {
+    label: 'Broadcast',
+    icon: <LayoutDashboard size={12} />,
+    colorClass: 'text-status-warning'
+  },
   MANAGEMENT: { label: 'Management', icon: <Settings size={12} />, colorClass: 'text-text-primary' }
 }
 
@@ -34,8 +42,13 @@ export function TitleBarModeSwitcher(): React.JSX.Element {
         className="flex items-center gap-1.5 px-2.5 py-1 rounded-md hover:bg-bg-elevated transition-colors mx-1"
       >
         <span className={`${config.colorClass} flex items-center`}>{config.icon}</span>
-        <span className="text-[11px] font-semibold text-text-primary uppercase tracking-wider">{config.label}</span>
-        <ChevronDown size={12} className={`text-text-muted transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <span className="text-[11px] font-semibold text-text-primary uppercase tracking-wider">
+          {config.label}
+        </span>
+        <ChevronDown
+          size={12}
+          className={`text-text-muted transition-transform ${isOpen ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {isOpen && (
@@ -56,7 +69,9 @@ export function TitleBarModeSwitcher(): React.JSX.Element {
               >
                 <div className="flex items-center gap-2">
                   <span className={`${item.colorClass}`}>{item.icon}</span>
-                  <span className={`text-[12px] ${isActive ? 'text-text-primary font-bold' : 'text-text-secondary font-medium'}`}>
+                  <span
+                    className={`text-[12px] ${isActive ? 'text-text-primary font-bold' : 'text-text-secondary font-medium'}`}
+                  >
                     {item.label}
                   </span>
                 </div>

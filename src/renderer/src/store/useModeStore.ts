@@ -30,7 +30,10 @@ export const useModeStore = create<ModeState>()(
     }),
     {
       name: 'sion-mode-storage', // key in localStorage
-      partialize: (state) => ({ currentMode: state.currentMode, isFirstInstall: state.isFirstInstall })
+      partialize: (state) => ({
+        currentMode: state.currentMode,
+        isFirstInstall: state.isFirstInstall
+      })
     }
   )
 )
