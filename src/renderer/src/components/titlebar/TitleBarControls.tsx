@@ -1,12 +1,16 @@
 import React, { useEffect } from 'react'
 import { Minus, Square, X, Copy } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
+import { logger } from '../../utils/logger'
 
 export function TitleBarControls(): React.JSX.Element {
   const { isMaximized, setMaximized } = useAppStore()
 
   useEffect(() => {
-    window.api.window.isMaximized().then(setMaximized)
+    window.api.window
+      .isMaximized()
+      .then(setMaximized)
+      .catch((err) => logger.error('isMaximized failed:', err))
     return window.api.window.onMaximizedChanged(setMaximized)
   }, [setMaximized])
 

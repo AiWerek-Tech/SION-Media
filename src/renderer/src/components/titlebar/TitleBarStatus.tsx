@@ -2,6 +2,7 @@ import React from 'react'
 import { Monitor, MonitorOff, Tv, Users } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import { useProjectionStore } from '../../store/useProjectionStore'
+import { logger } from '../../utils/logger'
 
 const STATE_CONFIG: Record<string, { label: string; dotClass: string; color: string }> = {
   LIVE: { label: 'LIVE', dotClass: 'live', color: 'var(--color-program)' },
@@ -19,22 +20,32 @@ export function TitleBarStatus(): React.JSX.Element {
   const hasExternal = displayCount > 1
 
   const handleToggleProjection = (): void => {
-    if (isProjectionVisible) {
-      window.api.projection.hide()
-      useAppStore.getState().setProjectionVisible(false)
-    } else {
-      window.api.projection.show()
-      useAppStore.getState().setProjectionVisible(true)
+    try {
+      if (isProjectionVisible) {
+        window.api.projection.hide()
+        useAppStore.getState().setProjectionVisible(false)
+      } else {
+        window.api.projection.show()
+        useAppStore.getState().setProjectionVisible(true)
+      }
+    } catch (err) {
+      logger.error('Failed to toggle projection window:', err)
+      useAppStore.getState().showToast('Gagal mengubah status proyektor', 'error')
     }
   }
 
   const handleToggleStage = (): void => {
-    if (isStageDisplayVisible) {
-      window.api.stage.hide()
-      useAppStore.getState().setStageDisplayVisible(false)
-    } else {
-      window.api.stage.show()
-      useAppStore.getState().setStageDisplayVisible(true)
+    try {
+      if (isStageDisplayVisible) {
+        window.api.stage.hide()
+        useAppStore.getState().setStageDisplayVisible(false)
+      } else {
+        window.api.stage.show()
+        useAppStore.getState().setStageDisplayVisible(true)
+      }
+    } catch (err) {
+      logger.error('Failed to toggle stage display window:', err)
+      useAppStore.getState().showToast('Gagal mengubah status stage display', 'error')
     }
   }
 

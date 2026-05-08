@@ -31,4 +31,11 @@ Perubahan V2 tambahan:
 - Memadatkan `SongLibraryPanel.tsx`, `SongCard.tsx`, `PlaylistPanel.tsx`, dan `PlaylistItemCard.tsx` dengan zebra rows, metadata `LS`, judul Inggris, nada dasar, tempo, dan affordance action 20% idle / 100% hover.
 - Menambahkan warning kehilangan proyektor pada title bar dan simulasi monitor tunggal pada live preview.
 - Menambahkan cleanup cache Chromium pada `src/main/index.ts` untuk mode development agar startup `npm run dev` lebih stabil.
-- Memvalidasi ulang `typecheck`, `lint`, dan `build` setelah seluruh perubahan renderer dan main process.
+- Audit & Finalisasi Database Multi-Hymnal: Menyelesaikan perombakan total skema database SQLite untuk mendukung banyak buku lagu (Hymnals).
+- Menghapus registrasi ganda IPC handler di `src/main/ipc-handlers.ts` yang menyebabkan crash saat startup (Bible/Slides channels).
+- Memperbaiki penamaan channel IPC display monitor agar sinkron antara main dan renderer (`display_get-all`).
+- Menambahkan interface `BibleTranslation`, `BibleBook`, dan `BibleVerse` di `src/shared/types.ts` untuk integritas data antar proses.
+- Ekspos namespace `window.api.bible` dan `window.api.slides` secara penuh di `src/preload/index.ts`.
+- Refaktor `BibleScreen.tsx` untuk menghilangkan 6 linting/type errors, termasuk implementasi `useEffect` cleanup pattern untuk menghindari cascading renders.
+- Memperbaiki query FTS5 Alkitab di `src/main/database.ts` agar menggunakan JOIN yang benar.
+- Memvalidasi ulang `typecheck`, `lint`, dan `build` setelah seluruh perubahan arsitektur database dan IPC.

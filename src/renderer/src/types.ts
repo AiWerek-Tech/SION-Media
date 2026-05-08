@@ -44,6 +44,9 @@ export interface SlideData {
   text: string
   sectionLabel: string
   nextSlideText?: string
+  // Bible projection support
+  bibleId?: number
+  bibleReference?: string
 }
 
 export interface Playlist {
@@ -84,4 +87,68 @@ export interface RecoveryState {
 
 export type FilterTab = 'all' | 'favorites' | 'recent' | 'category'
 
-export type AppScreen = 'dashboard' | 'song-editor' | 'import-export' | 'settings'
+export type AppScreen = 'dashboard' | 'song-editor' | 'import-export' | 'settings' | 'bible'
+
+// ============================================================================
+// Bible Module Types (re-exported from shared)
+// ============================================================================
+
+export interface BibleTranslation {
+  id: number
+  code: string
+  name: string
+  language: string
+  source: string
+  is_default: number
+  created_at: string
+}
+
+export interface BibleBook {
+  id: number
+  translation_id: number
+  book_number: number
+  short_name: string
+  long_name: string
+  testament: 'OT' | 'NT'
+  chapter_count: number
+}
+
+export interface BibleVerse {
+  id: number
+  translation_id: number
+  book_id: number
+  chapter: number
+  verse: number
+  text: string
+}
+
+// ============================================================================
+// Custom Slides Types (re-exported from shared)
+// ============================================================================
+
+export type SlideType = 'announcement' | 'liturgy' | 'welcome' | 'offering' | 'custom'
+
+export interface CustomSlide {
+  id: number
+  title: string
+  content: string
+  slide_type: SlideType
+  background_color: string
+  background_image: string
+  text_color: string
+  font_size: number
+  display_duration: number
+  is_active: number
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface SlideGroup {
+  id: number
+  name: string
+  description: string
+  loop_interval: number
+  is_active: number
+  created_at: string
+}

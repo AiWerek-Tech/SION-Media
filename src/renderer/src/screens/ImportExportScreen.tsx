@@ -3,6 +3,7 @@ import { ArrowLeft, Upload, CheckCircle2, AlertCircle, Download } from 'lucide-r
 import { useAppStore } from '../store/useAppStore'
 import { useCacheStore } from '../store/useCacheStore'
 import type { Song } from '../types'
+import { logger } from '../utils/logger'
 
 export function ImportExportScreen(): React.JSX.Element {
   const { setScreen, songs, hymnals, loadSongs, showToast } = useAppStore()
@@ -35,7 +36,8 @@ export function ImportExportScreen(): React.JSX.Element {
         }
 
         processImportedItems(items)
-      } catch {
+      } catch (err) {
+        logger.error('Failed to parse Excel:', err)
         showToast('Gagal mem-parsing file Excel', 'error')
       }
       return
@@ -58,7 +60,8 @@ export function ImportExportScreen(): React.JSX.Element {
             return
           }
           processImportedItems(items, playlistMeta)
-        } catch {
+        } catch (err) {
+          logger.error('Failed to parse JSON:', err)
           showToast('Gagal mem-parsing file JSON', 'error')
         }
       }
@@ -186,7 +189,8 @@ export function ImportExportScreen(): React.JSX.Element {
       await loadSongs()
       clearCache()
       setScreen('dashboard')
-    } catch {
+    } catch (err) {
+      logger.error('Import failed:', err)
       showToast('Terjadi kesalahan saat mengimpor', 'error')
     } finally {
       setImporting(false)

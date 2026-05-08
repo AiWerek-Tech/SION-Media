@@ -8,6 +8,7 @@ import { generateSlides } from '../engine/slideEngine'
 import { logger } from '../utils/logger'
 import type { Song, FilterTab } from '../types'
 import { SongCard } from './SongCard'
+import { HymnalSidebar } from './HymnalSidebar'
 
 const FILTER_TABS: { key: FilterTab; label: string; icon: React.JSX.Element }[] = [
   { key: 'all', label: 'Semua', icon: <FolderOpen size={11} /> },
@@ -26,11 +27,13 @@ export function SongLibraryPanel(): React.JSX.Element {
     activeFilter,
     selectedSong,
     setActiveFilter,
-    setSelectedHymnalId,
     setScreen,
     setEditingSong,
     loadSongs,
-    searchSongs
+    searchSongs,
+    loadMoreSongs,
+    hasMoreResults,
+    isLoadingMore
   } = useAppStore()
   const { addSongToPlaylist } = usePlaylistStore()
   const { setSlides } = useProjectionStore()
@@ -102,17 +105,27 @@ export function SongLibraryPanel(): React.JSX.Element {
 
   const handleDelete = async (song: Song): Promise<void> => {
     if (confirm(`Hapus lagu "${song.title}"?`)) {
-      await window.api.songs.delete(song.id)
-      await loadSongs()
-      if (useAppStore.getState().selectedSong?.id === song.id) {
-        useAppStore.getState().setSelectedSong(null)
+      try {
+        await window.api.songs.delete(song.id)
+        await loadSongs()
+        if (useAppStore.getState().selectedSong?.id === song.id) {
+          useAppStore.getState().setSelectedSong(null)
+        }
+      } catch (err) {
+        logger.error('Failed to delete song:', err)
+        useAppStore.getState().showToast('Gagal menghapus lagu', 'error')
       }
     }
   }
 
   const handleToggleFavorite = async (song: Song): Promise<void> => {
-    await window.api.songs.toggleFavorite(song.id)
-    await loadSongs()
+    try {
+      await window.api.songs.toggleFavorite(song.id)
+      await loadSongs()
+    } catch (err) {
+      logger.error('Failed to toggle favorite:', err)
+      useAppStore.getState().showToast('Gagal mengubah favorit', 'error')
+    }
   }
 
   const handleNewSong = (): void => {
@@ -132,43 +145,8 @@ export function SongLibraryPanel(): React.JSX.Element {
 
   return (
     <div className="flex-1 flex flex-row min-h-0 rounded-md border border-border-default bg-bg-surface/86 shadow-sm backdrop-blur overflow-hidden">
-      {/* Hymnal Sidebar */}
-      <div className="w-16 flex flex-col items-center py-4 border-r border-border-subtle bg-bg-base/40 gap-4">
-        <button
-          onClick={() => setSelectedHymnalId(null)}
-          className={`group relative flex h-10 w-10 items-center justify-center rounded-xl transition-all ${
-            selectedHymnalId === null
-              ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20'
-              : 'bg-bg-elevated text-text-muted hover:bg-bg-active hover:text-text-primary'
-          }`}
-          title="Semua Buku"
-        >
-          <FolderOpen size={18} />
-          <span className="absolute left-14 hidden group-hover:block z-50 px-2 py-1 rounded bg-bg-surface border border-border-strong text-[10px] font-bold whitespace-nowrap">
-            Semua Buku
-          </span>
-        </button>
-
-        <div className="w-8 h-px bg-border-subtle mx-auto" />
-
-        {hymnals.map((hymnal) => (
-          <button
-            key={hymnal.id}
-            onClick={() => setSelectedHymnalId(hymnal.id)}
-            className={`group relative flex h-10 w-10 items-center justify-center rounded-xl font-black text-[11px] transition-all ${
-              selectedHymnalId === hymnal.id
-                ? 'bg-brand-secondary text-white shadow-lg shadow-brand-secondary/20'
-                : 'bg-bg-elevated text-text-muted hover:bg-bg-active hover:text-text-primary'
-            }`}
-            title={hymnal.name}
-          >
-            {hymnal.code}
-            <span className="absolute left-14 hidden group-hover:block z-50 px-2 py-1 rounded bg-bg-surface border border-border-strong text-[10px] font-bold whitespace-nowrap">
-              {hymnal.name}
-            </span>
-          </button>
-        ))}
-      </div>
+      {/* Hymnal Sidebar — extracted component */}
+      <HymnalSidebar />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -184,6 +162,14 @@ export function SongLibraryPanel(): React.JSX.Element {
                   ? hymnals.find((h) => h.id === selectedHymnalId)?.name
                   : 'Library Lagu'}
               </h2>
+              <span className="rounded-full bg-bg-elevated border border-border-subtle px-2 py-0.5 text-[10px] font-bold text-text-muted">
+                {filteredSongs.length} lagu
+                {localQuery && songs.length >= 120 && (
+                  <span className="ml-1 text-status-warning" title="Hasil mungkin terpotong (maks 120). Perkecil pencarian.">
+                    ⚠
+                  </span>
+                )}
+              </span>
             </div>
             <button onClick={handleNewSong} className="btn btn-primary h-7 px-2 text-[12px]">
               <Plus size={13} strokeWidth={3} />
@@ -201,7 +187,7 @@ export function SongLibraryPanel(): React.JSX.Element {
               type="text"
               value={localQuery}
               onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Cari judul, lirik, atau nomor lagu..."
+              placeholder="Cari judul, lirik, atau nomor lagu... (Ctrl+K)"
               className="w-full rounded-md border border-border-default bg-bg-base pl-9 pr-9 py-2 text-[12px] text-text-primary placeholder:text-text-disabled transition-all focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary/20"
             />
             {localQuery && (
@@ -303,6 +289,30 @@ export function SongLibraryPanel(): React.JSX.Element {
               <p className="text-text-muted text-xs max-w-[200px]">
                 Coba gunakan kata kunci lain atau filter yang berbeda.
               </p>
+            </div>
+          )}
+
+          {/* Load More Button */}
+          {localQuery.trim() && hasMoreResults && filteredSongs.length > 0 && (
+            <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-bg-base via-bg-base/95 to-transparent">
+              <button
+                onClick={() => {
+                  loadMoreSongs()
+                }}
+                disabled={isLoadingMore}
+                className="w-full py-2.5 rounded-lg border border-border-default bg-bg-surface/80 text-xs font-semibold text-text-secondary hover:bg-bg-elevated hover:text-text-primary transition-colors disabled:opacity-50"
+              >
+                {isLoadingMore ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="animate-spin">⏳</span> Memuat...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center gap-1.5">
+                    <Plus size={14} />
+                    Muat Lebih Banyak
+                  </span>
+                )}
+              </button>
             </div>
           )}
         </div>

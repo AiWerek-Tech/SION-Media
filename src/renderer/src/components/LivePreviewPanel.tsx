@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { logger } from '../utils/logger'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, Radio, ScreenShare } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
@@ -152,9 +153,12 @@ export function LivePreviewPanel(): React.JSX.Element {
 
   useEffect(() => {
     let mounted = true
-    window.api.settings.getAll().then((settings) => {
-      if (mounted) setTheme(settings)
-    })
+    window.api.settings
+      .getAll()
+      .then((settings) => {
+        if (mounted) setTheme(settings)
+      })
+      .catch((err) => logger.error('Failed to load theme:', err))
     const unsubscribeTheme = window.api.projection.onThemeUpdate((data) => {
       setTheme((currentTheme) => ({ ...currentTheme, ...(data as Record<string, string>) }))
     })

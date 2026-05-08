@@ -1,9 +1,12 @@
 import { create } from 'zustand'
 import type { SlideData, ProjectionState } from '../types'
+import { logger } from '../utils/logger'
 
 interface ProjectionStore {
   slides: SlideData[]
-  setSlides: (slides: SlideData[]) => void
+  setSlides: (slides: SlideData[], meta?: { hymnalCode: string; hymnalName: string }) => void
+  cuedSongMeta: { hymnalCode: string; hymnalName: string } | null
+  programSongMeta: { hymnalCode: string; hymnalName: string } | null
   programSlide: SlideData | null
   programSlides: SlideData[]
   programSlideIndex: number
@@ -41,9 +44,11 @@ function sendLiveSlide(slideData: SlideData): void {
 
 export const useProjectionStore = create<ProjectionStore>((set, get) => ({
   slides: [],
-  setSlides: (slides) => {
-    set({ slides, currentSlideIndex: 0 })
+  setSlides: (slides, meta) => {
+    set({ slides, currentSlideIndex: 0, cuedSongMeta: meta ?? null })
   },
+  cuedSongMeta: null,
+  programSongMeta: null,
   programSlide: null,
   programSlides: [],
   programSlideIndex: -1,
@@ -61,7 +66,9 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
   fadeSpeed: 0.4,
   setFadeSpeed: (speed) => {
     set({ fadeSpeed: speed })
-    window.api.settings.update('transition_duration', speed.toString())
+    window.api.settings
+      .update('transition_duration', speed.toString())
+      .catch((err) => logger.error('Failed to save transition_duration:', err))
     window.api.projection.themeUpdate({ transition_duration: speed.toString() })
   },
 
@@ -78,7 +85,8 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
   },
 
   takeCue: () => {
-    const { currentSlideIndex } = get()
+    const { currentSlideIndex, cuedSongMeta } = get()
+    set({ programSongMeta: cuedSongMeta })
     get().goToSlide(currentSlideIndex)
   },
 

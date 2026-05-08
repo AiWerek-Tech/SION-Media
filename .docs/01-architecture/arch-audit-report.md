@@ -55,12 +55,21 @@ Temuan utama:
 - control bar, monitor, dan title bar sudah selaras dengan gaya production switcher
 
 ## 5. Database & Search
+ 
+ Temuan utama:
+ 
+- SQLite + FTS5 dirombak total menjadi Arsitektur Multi-Hymnal.
+- Tabel `hymnals` memisahkan buku lagu resmi (LS, SDAH) dari koleksi custom user.
+- Tabel `songs` terhubung secara relasional ke `hymnals` dengan `ON DELETE CASCADE`.
+- Pencarian FTS5 ditingkatkan untuk mendukung Global Search (lintas buku lagu) dengan info asal buku lagu dalam hasil query.
+- Backup dan restore sudah memakai langkah aman WAL checkpoint dan cleanup WAL/SHM.
 
-Temuan utama:
+## 8. Multi-Hymnal & IPC Stabilization (Update 2026-05-08)
 
-- SQLite + FTS5 tetap menjadi fondasi pencarian lagu
-- pencarian tetap instan meski UI dirombak
-- backup dan restore sudah memakai langkah aman WAL checkpoint dan cleanup WAL/SHM
+Temuan Audit Akhir:
+- **IPC Hardening**: Menghapus registrasi handler ganda yang menyebabkan crash startup. Memperbaiki mismatch channel display monitor.
+- **Renderer Parity**: Memperbaiki `BibleScreen.tsx` dari error linting dan tipe data. Implementasi `useEffect` cleanup pattern untuk data fetching yang aman.
+- **Shared Integrity**: Menambahkan tipe data Alkitab ke `shared/types.ts` untuk memastikan konsistensi main-to-renderer communication.
 
 ## 6. Kesimpulan Audit
 

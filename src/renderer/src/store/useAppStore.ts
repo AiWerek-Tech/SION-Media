@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import type { Song, Hymnal, FilterTab, AppScreen } from '../types'
 import { logger } from '../utils/logger'
 
+let toastTimeout: ReturnType<typeof setTimeout> | null = null
+
 interface AppState {
   // Navigation
   currentScreen: AppScreen
@@ -60,7 +62,13 @@ interface AppState {
 
   // Actions
   loadSongs: (hymnalId?: number) => Promise<void>
-  searchSongs: (query: string) => Promise<void>
+  searchSongs: (query: string, append?: boolean) => Promise<void>
+  loadMoreSongs: () => Promise<void>
+
+  // Pagination state
+  searchOffset: number
+  hasMoreResults: boolean
+  isLoadingMore: boolean
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -75,8 +83,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().loadSongs(id || undefined)
   },
   loadHymnals: async () => {
-    const hymnals = (await window.api.hymnals.getAll()) as Hymnal[]
-    set({ hymnals })
+    try {
+      const hymnals = (await window.api.hymnals.getAll()) as Hymnal[]
+      set({ hymnals })
+    } catch (err) {
+      logger.error('Failed to load hymnals:', err)
+      get().showToast('Gagal memuat buku lagu', 'error')
+    }
   },
 
   songs: [],
@@ -94,6 +107,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   setActiveFilter: (filter) => set({ activeFilter: filter }),
   editingSong: null,
   setEditingSong: (song) => set({ editingSong: song }),
+
+  // Pagination state
+  searchOffset: 0,
+  hasMoreResults: false,
+  isLoadingMore: false,
 
   displayCount: 1,
   setDisplayCount: (count) => set({ displayCount: count }),
@@ -124,26 +142,67 @@ export const useAppStore = create<AppState>((set, get) => ({
   setLoadingMessage: (message) => set({ loadingMessage: message }),
 
   loadSongs: async (hymnalId?: number) => {
-    const id = hymnalId !== undefined ? hymnalId : get().selectedHymnalId
-    const songs = (await window.api.songs.getAll(id || undefined)) as Song[]
-    set({ songs })
+    try {
+      const id = hymnalId !== undefined ? hymnalId : get().selectedHymnalId
+      const songs = (await window.api.songs.getAll(id || undefined)) as Song[]
+      set({ songs })
+    } catch (err) {
+      logger.error('Failed to load songs:', err)
+      get().showToast('Gagal memuat lagu', 'error')
+    }
   },
 
-  searchSongs: async (query: string) => {
-    const hymnalId = get().selectedHymnalId || undefined
-    if (!query.trim()) {
-      const songs = (await window.api.songs.getAll(hymnalId)) as Song[]
-      set({ songs, searchQuery: query })
-    } else {
-      const songs = (await window.api.songs.search(query, hymnalId)) as Song[]
-      set({ songs, searchQuery: query })
+  searchSongs: async (query: string, append = false) => {
+    try {
+      const hymnalId = get().selectedHymnalId || undefined
+      const SEARCH_LIMIT = 120
+      const offset = append ? get().searchOffset : 0
+
+      if (!query.trim()) {
+        const songs = (await window.api.songs.getAll(hymnalId)) as Song[]
+        set({ songs, searchQuery: query, searchOffset: 0, hasMoreResults: false })
+      } else {
+        if (!append) set({ isLoadingMore: true })
+
+        const newSongs = (await window.api.songs.search(query, hymnalId, {
+          offset,
+          limit: SEARCH_LIMIT
+        })) as Song[]
+
+        const existingSongs = append ? get().songs : []
+        const songs = [...existingSongs, ...newSongs]
+
+        set({
+          songs,
+          searchQuery: query,
+          searchOffset: offset + newSongs.length,
+          hasMoreResults: newSongs.length === SEARCH_LIMIT,
+          isLoadingMore: false
+        })
+      }
+    } catch (err) {
+      logger.error('Failed to search songs:', err)
+      get().showToast('Gagal mencari lagu', 'error')
+      set({ isLoadingMore: false })
     }
+  },
+
+  loadMoreSongs: async () => {
+    const { searchQuery, hasMoreResults, isLoadingMore } = get()
+    if (!searchQuery.trim() || !hasMoreResults || isLoadingMore) return
+    await get().searchSongs(searchQuery, true)
   },
 
   toast: null,
   showToast: (message, type = 'info') => {
     set({ toast: { message, type } })
-    setTimeout(() => {
+
+    if (toastTimeout) {
+      clearTimeout(toastTimeout)
+      toastTimeout = null
+    }
+
+    toastTimeout = setTimeout(() => {
       set((state) => (state.toast?.message === message ? { toast: null } : state))
     }, 3000)
   }

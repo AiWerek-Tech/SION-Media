@@ -13,6 +13,7 @@ import {
 import { useAppStore } from '../../store/useAppStore'
 import { useProjectionStore } from '../../store/useProjectionStore'
 import { usePlaylistStore } from '../../store/usePlaylistStore'
+import { logger } from '../../utils/logger'
 
 interface MenuItem {
   label?: string
@@ -190,7 +191,10 @@ export function TitleBarMenu(): React.JSX.Element {
             window.api.system
               .createBackup()
               .then(() => useAppStore.getState().showToast('Backup created', 'success'))
-              .catch(() => useAppStore.getState().showToast('Backup failed', 'error'))
+              .catch((err) => {
+                logger.error('Backup failed:', err)
+                useAppStore.getState().showToast('Backup failed', 'error')
+              })
           }
         },
         { separator: true },
@@ -319,7 +323,10 @@ export function TitleBarMenu(): React.JSX.Element {
                 useAppStore.getState().loadSongs()
                 useAppStore.getState().showToast('Database reseeded', 'success')
               })
-              .catch(() => useAppStore.getState().showToast('Reseed failed', 'error'))
+              .catch((err) => {
+                logger.error('Reseed failed:', err)
+                useAppStore.getState().showToast('Reseed failed', 'error')
+              })
           }
         }
       ]

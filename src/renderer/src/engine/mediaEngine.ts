@@ -34,11 +34,36 @@ class MediaEngine {
       const video = document.createElement('video')
       video.src = url.startsWith('http') ? url : `file://${url.replace(/\\/g, '/')}`
       video.preload = 'auto'
-      video.oncanplaythrough = () => {
-        this.videoCache.set(url, video)
-        resolve()
+
+      let settled = false
+      const settleOnce = (fn: () => void): void => {
+        if (settled) return
+        settled = true
+        video.oncanplaythrough = null
+        video.onerror = null
+        video.onstalled = null
+        fn()
       }
-      video.onerror = reject
+
+      const timeout = setTimeout(() => {
+        settleOnce(() => reject(new Error('Video preload timeout')))
+      }, 10000)
+
+      video.oncanplaythrough = () => {
+        clearTimeout(timeout)
+        settleOnce(() => {
+          this.videoCache.set(url, video)
+          resolve()
+        })
+      }
+      video.onerror = () => {
+        clearTimeout(timeout)
+        settleOnce(() => reject(new Error('Video preload failed')))
+      }
+      video.onstalled = () => {
+        clearTimeout(timeout)
+        settleOnce(() => reject(new Error('Video preload stalled')))
+      }
     })
   }
 

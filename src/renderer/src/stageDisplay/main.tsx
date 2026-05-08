@@ -12,9 +12,12 @@ import '../assets/main.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { StageDisplayApp } from './StageDisplayApp'
+import { ErrorBoundary } from '../components/ErrorBoundary'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <StageDisplayApp />
+    <ErrorBoundary>
+      <StageDisplayApp />
+    </ErrorBoundary>
   </React.StrictMode>
 )

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useAppStore } from '../../store/useAppStore'
 import { usePlaylistStore } from '../../store/usePlaylistStore'
+import { logger } from '../../utils/logger'
 
 export function TitleBarIdentity(): React.JSX.Element {
   const { workspaceName, setWorkspaceName } = useAppStore()
@@ -11,11 +12,14 @@ export function TitleBarIdentity(): React.JSX.Element {
 
   // Load saved workspace name on mount
   useEffect(() => {
-    window.api.settings.getAll().then((settings) => {
-      if (settings.workspace_name) {
-        useAppStore.getState().setWorkspaceName(settings.workspace_name)
-      }
-    })
+    window.api.settings
+      .getAll()
+      .then((settings) => {
+        if (settings.workspace_name) {
+          useAppStore.getState().setWorkspaceName(settings.workspace_name)
+        }
+      })
+      .catch((err) => logger.error('Failed to load workspace name:', err))
   }, [])
 
   useEffect(() => {
@@ -28,7 +32,9 @@ export function TitleBarIdentity(): React.JSX.Element {
   const handleSave = (): void => {
     const trimmed = editValue.trim()
     setWorkspaceName(trimmed)
-    window.api.settings.update('workspace_name', trimmed)
+    window.api.settings
+      .update('workspace_name', trimmed)
+      .catch((err) => logger.error('Failed to save workspace name:', err))
     setIsEditing(false)
   }
 

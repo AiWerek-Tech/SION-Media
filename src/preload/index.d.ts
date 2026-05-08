@@ -30,13 +30,27 @@ interface DisplayAPI {
   onDisplayChanged: (callback: (count: number) => void) => () => void
 }
 
-interface SongsAPI {
+interface HymnalsAPI {
   getAll: () => Promise<unknown[]>
-  search: (query: string) => Promise<unknown[]>
+  add: (hymnal: unknown) => Promise<unknown>
+  update: (id: number, hymnal: unknown) => Promise<unknown>
+  delete: (id: number) => Promise<boolean>
+}
+
+interface SongsAPI {
+  getAll: (hymnalId?: number) => Promise<unknown[]>
+  search: (
+    query: string,
+    hymnalId?: number,
+    options?: { offset?: number; limit?: number }
+  ) => Promise<unknown[]>
   add: (song: unknown) => Promise<unknown>
   update: (id: number, song: unknown) => Promise<unknown>
   delete: (id: number) => Promise<boolean>
   toggleFavorite: (id: number) => Promise<unknown>
+  getRelations: (songId: number) => Promise<unknown[]>
+  addRelation: (relation: unknown) => Promise<unknown>
+  deleteRelation: (id: number) => Promise<boolean>
 }
 
 interface PlaylistsAPI {
@@ -65,12 +79,51 @@ interface SystemAPI {
   getRecoveryState: () => Promise<unknown>
   markCleanExit: () => Promise<void>
   reseed: () => Promise<void>
+  checkMultiHymnalIntegrity: (hymnalId?: number) => Promise<unknown>
   getMemory: () => Promise<unknown>
-  setMode?: (mode: string) => Promise<void>
+  setMode: (mode: string) => Promise<void>
 }
 
 interface FileAPI {
   parseExcel: (filePath: string) => Promise<unknown[]>
+}
+
+interface BibleAPI {
+  getTranslations: () => Promise<unknown[]>
+  addTranslation: (translation: unknown) => Promise<unknown>
+  deleteTranslation: (id: number) => Promise<unknown>
+  getBooks: (translationId: number) => Promise<unknown[]>
+  addBook: (book: unknown) => Promise<unknown>
+  getVerses: (translationId: number, bookId: number, chapter: number) => Promise<unknown[]>
+  getVerseRange: (
+    translationId: number,
+    bookId: number,
+    chapter: number,
+    verseStart: number,
+    verseEnd: number
+  ) => Promise<unknown[]>
+  addVerse: (verse: unknown) => Promise<unknown>
+  addVersesBatch: (verses: unknown[]) => Promise<void>
+  searchVerses: (query: string, translationId?: number) => Promise<unknown[]>
+}
+
+interface SlidesAPI {
+  getAll: () => Promise<unknown[]>
+  getByType: (slideType: string) => Promise<unknown[]>
+  add: (slide: unknown) => Promise<unknown>
+  update: (id: number, updates: unknown) => Promise<unknown>
+  delete: (id: number) => Promise<unknown>
+  getGroups: () => Promise<unknown[]>
+  addGroup: (group: unknown) => Promise<unknown>
+  updateGroup: (id: number, updates: unknown) => Promise<unknown>
+  deleteGroup: (id: number) => Promise<unknown>
+  getGroupSlides: (groupId: number) => Promise<unknown[]>
+  addSlideToGroup: (groupId: number, slideId: number, sortOrder?: number) => Promise<unknown>
+  removeSlideFromGroup: (groupId: number, slideId: number) => Promise<unknown>
+  reorderGroupSlides: (
+    groupId: number,
+    items: Array<{ slide_id: number; sort_order: number }>
+  ) => Promise<void>
 }
 
 interface API {
@@ -78,11 +131,14 @@ interface API {
   projection: ProjectionAPI
   stage: StageAPI
   display: DisplayAPI
+  hymnals: HymnalsAPI
   songs: SongsAPI
   playlists: PlaylistsAPI
   settings: SettingsAPI
   system: SystemAPI
   file: FileAPI
+  bible: BibleAPI
+  slides: SlidesAPI
 }
 
 declare global {

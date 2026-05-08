@@ -1,6 +1,7 @@
 import React from 'react'
 import { AlertTriangle, Edit, Eye, Plus, Star, Trash2 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
+import { getHymnalColor, getHymnalBgColor, getHymnalBorderColor } from '../utils/hymnal-colors'
 import type { Song } from '../types'
 
 interface SongCardProps {
@@ -39,6 +40,10 @@ export function SongCard({
 
   const hasEmptyLyrics = !song.lyrics_raw?.trim()
   const meta = [song.key_note ? `Nada ${song.key_note}` : '', song.tempo || ''].filter(Boolean)
+  const hymnalCode = song.hymnal_code || 'LS'
+  const hymnalAccent = getHymnalColor(hymnalCode)
+  const hymnalBg = getHymnalBgColor(hymnalCode)
+  const hymnalBorder = getHymnalBorderColor(hymnalCode)
 
   return (
     <div
@@ -53,15 +58,18 @@ export function SongCard({
       {/* Left info: Song identity */}
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
         <div
-          className={`flex h-9 w-12 shrink-0 flex-col items-center justify-center rounded border font-mono text-[12px] font-black leading-none transition-colors ${
+          className="flex h-9 w-12 shrink-0 flex-col items-center justify-center rounded border font-mono text-[12px] font-black leading-none transition-colors"
+          style={
             isActive
-              ? 'border-preview/40 bg-preview/18 text-preview'
-              : 'border-border-default bg-bg-base/70 text-text-muted'
-          }`}
+              ? {
+                  borderColor: 'rgba(52,199,89,0.4)',
+                  backgroundColor: 'rgba(52,199,89,0.18)',
+                  color: 'var(--color-preview)'
+                }
+              : { borderColor: hymnalBorder, backgroundColor: hymnalBg, color: hymnalAccent }
+          }
         >
-          <span className="text-[12px] uppercase tracking-[0.04em] opacity-70">
-            {song.hymnal_code || 'LS'}
-          </span>
+          <span className="text-[10px] uppercase tracking-[0.04em] opacity-80">{hymnalCode}</span>
           <span>{song.number || '---'}</span>
         </div>
 

@@ -3,22 +3,27 @@ import { join } from 'path'
 import { app } from 'electron'
 import { copyFileSync, existsSync, mkdirSync, unlinkSync } from 'fs'
 import { initialSongs } from './seed-data'
+import { runMigrations } from './migrations'
 
 let db: Database.Database
 
 export function initDatabase(): void {
   const dbPath = join(app.getPath('userData'), 'sion.db')
 
-  // PHASE 1: Audit Check - if old schema exists (no hymnals table), perform a wipe-out
-  const tempDb = new Database(dbPath)
-  const hymnalTableExists = tempDb
+  db = new Database(dbPath)
+  db.pragma('journal_mode = WAL')
+  db.pragma('foreign_keys = ON')
+
+  // Legacy schema handling (Destructive Reset)
+  // If the old schema exists (no hymnals table), wipe the DB files and start fresh.
+  const hymnalTableExists = db
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='hymnals'")
     .get()
-  tempDb.close()
 
   if (!hymnalTableExists) {
     console.log('Old schema detected. Performing mandatory wipe-out for Multi-Hymnal revamp...')
     try {
+      db.close()
       for (const suffix of ['', '-wal', '-shm']) {
         const filePath = `${dbPath}${suffix}`
         if (existsSync(filePath)) unlinkSync(filePath)
@@ -26,198 +31,17 @@ export function initDatabase(): void {
     } catch (e) {
       console.error('Failed to wipe out old database:', e)
     }
+
+    db = new Database(dbPath)
+    db.pragma('journal_mode = WAL')
+    db.pragma('foreign_keys = ON')
   }
 
-  db = new Database(dbPath)
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
-  createTables()
-  setupFTS()
+  // Run migrations (non-destructive schema updates)
+  runMigrations(db)
+
+  // Seed database if empty (only if no songs exist)
   seedDatabase()
-}
-
-function createTables(): void {
-  db.exec(`
-    -- Multi-Hymnal: Koleksi Buku Lagu
-    CREATE TABLE IF NOT EXISTS hymnals (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      code TEXT NOT NULL UNIQUE,
-      name TEXT NOT NULL,
-      language TEXT DEFAULT 'Indonesia',
-      region TEXT DEFAULT '',
-      version TEXT DEFAULT '',
-      publisher TEXT DEFAULT '',
-      is_official INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
-    );
-
-    -- Multi-Hymnal: Master Data Lagu (relasi ke hymnals)
-    CREATE TABLE IF NOT EXISTS songs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      hymnal_id INTEGER NOT NULL,
-      number TEXT NOT NULL,
-      title TEXT NOT NULL,
-      alternate_title TEXT NOT NULL DEFAULT '',
-      lyrics_raw TEXT NOT NULL DEFAULT '',
-      category TEXT DEFAULT '',
-      language TEXT DEFAULT 'Indonesia',
-      author TEXT DEFAULT '',
-      composer TEXT DEFAULT '',
-      key_note TEXT DEFAULT '',
-      tempo TEXT DEFAULT '',
-      tags TEXT DEFAULT '',
-      theme TEXT DEFAULT '',
-      scripture_reference TEXT DEFAULT '',
-      is_favorite INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (hymnal_id) REFERENCES hymnals(id) ON DELETE CASCADE
-    );
-
-    -- Song Relation System (Linked Songs lintas buku/bahasa)
-    CREATE TABLE IF NOT EXISTS song_relations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      source_song_id INTEGER NOT NULL,
-      target_song_id INTEGER NOT NULL,
-      relation_type TEXT DEFAULT 'translation',
-      FOREIGN KEY (source_song_id) REFERENCES songs(id) ON DELETE CASCADE,
-      FOREIGN KEY (target_song_id) REFERENCES songs(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS playlists (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      service_date TEXT DEFAULT '',
-      description TEXT DEFAULT '',
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS playlist_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      playlist_id INTEGER NOT NULL,
-      song_id INTEGER NOT NULL,
-      sort_order INTEGER NOT NULL DEFAULT 0,
-      section_label TEXT DEFAULT '',
-      FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
-      FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS song_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      song_id INTEGER NOT NULL,
-      played_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
-    );
-  `)
-
-  // Default settings
-  const defaults = [
-    ['projection_font_family', 'Inter'],
-    ['projection_font_size', '48'],
-    ['projection_text_color', '#ffffff'],
-    ['projection_text_shadow', '1'],
-    ['projection_bg_color', '#0f0f1a'],
-    ['projection_bg_image', ''],
-    ['projection_bg_opacity', '0.7'],
-    ['projection_text_align', 'center'],
-    ['projection_max_lines', '4'],
-    ['projection_max_chars', '40'],
-    ['projection_logo', ''],
-    ['projection_logo_position', 'bottom-right'],
-    ['projection_logo_opacity', '0.5'],
-    ['transition_type', 'dissolve'],
-    ['transition_duration', '0.5']
-  ]
-
-  const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
-  for (const [key, value] of defaults) {
-    insertSetting.run(key, value)
-  }
-}
-
-// FTS5 Full-Text Search setup for Multi-Hymnal
-function setupFTS(): void {
-  // App state table for crash recovery
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS app_state (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL,
-      updated_at TEXT DEFAULT (datetime('now'))
-    );
-  `)
-
-  // Slide themes table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS slide_themes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      font_family TEXT DEFAULT 'Inter',
-      font_size INTEGER DEFAULT 48,
-      bg_color TEXT DEFAULT '#0f0f1a',
-      bg_image TEXT DEFAULT '',
-      text_color TEXT DEFAULT '#ffffff',
-      animation TEXT DEFAULT 'dissolve'
-    );
-  `)
-
-  // FTS5 virtual table for full-text search (Multi-Hymnal)
-  try {
-    db.exec(`
-      CREATE VIRTUAL TABLE IF NOT EXISTS songs_fts USING fts5(
-        number,
-        title,
-        alternate_title,
-        lyrics_raw,
-        tags,
-        category,
-        content='songs',
-        content_rowid='id',
-        tokenize='unicode61 remove_diacritics 2'
-      );
-    `)
-
-    // Populate FTS from existing songs (only if empty)
-    const ftsCount = db.prepare('SELECT COUNT(*) as c FROM songs_fts').get() as { c: number }
-    const songsCount = db.prepare('SELECT COUNT(*) as c FROM songs').get() as { c: number }
-
-    if (ftsCount.c === 0 && songsCount.c > 0) {
-      db.exec(`
-        INSERT INTO songs_fts(rowid, number, title, alternate_title, lyrics_raw, tags, category)
-        SELECT id, number, title, alternate_title, lyrics_raw, tags, category FROM songs;
-      `)
-    }
-
-    // Create triggers to keep FTS in sync
-    db.exec(`
-      CREATE TRIGGER IF NOT EXISTS songs_ai AFTER INSERT ON songs BEGIN
-        INSERT INTO songs_fts(rowid, number, title, alternate_title, lyrics_raw, tags, category)
-        VALUES (new.id, new.number, new.title, new.alternate_title, new.lyrics_raw, new.tags, new.category);
-      END;
-    `)
-    db.exec(`
-      CREATE TRIGGER IF NOT EXISTS songs_ad AFTER DELETE ON songs BEGIN
-        INSERT INTO songs_fts(songs_fts, rowid, number, title, alternate_title, lyrics_raw, tags, category)
-        VALUES ('delete', old.id, old.number, old.title, old.alternate_title, old.lyrics_raw, old.tags, old.category);
-      END;
-    `)
-    db.exec(`
-      CREATE TRIGGER IF NOT EXISTS songs_au AFTER UPDATE ON songs BEGIN
-        INSERT INTO songs_fts(songs_fts, rowid, number, title, alternate_title, lyrics_raw, tags, category)
-        VALUES ('delete', old.id, old.number, old.title, old.alternate_title, old.lyrics_raw, old.tags, old.category);
-        INSERT INTO songs_fts(rowid, number, title, alternate_title, lyrics_raw, tags, category)
-        VALUES (new.id, new.number, new.title, new.alternate_title, new.lyrics_raw, new.tags, new.category);
-      END;
-    `)
-  } catch (err) {
-    console.warn('FTS5 setup note:', err)
-  }
 }
 
 function seedDatabase(): void {
@@ -303,8 +127,8 @@ export function reseedDatabase(): void {
       }
     })()
 
-    // 6. Re-create FTS table and triggers
-    setupFTS()
+    // 6. Re-run migrations to recreate FTS table and triggers
+    runMigrations(db)
 
     console.log('Reseed complete.')
   } catch (err) {
@@ -384,6 +208,140 @@ export function deleteHymnal(id: number): boolean {
 
 // ========== Song Operations (Multi-Hymnal) ==========
 
+export function checkMultiHymnalIntegrity(hymnalId?: number): {
+  generatedAt: string
+  totalHymnals: number
+  totalSongs: number
+  orphanSongs: number
+  orphanSample: Array<{ id: number; number: string | null; title: string | null }>
+  hymnals: Array<{
+    hymnal_id: number
+    hymnal_code: string
+    hymnal_name: string
+    song_count: number
+    duplicate_numbers: number
+    duplicate_titles: number
+    topDupeNumbers: Array<{ number: string; count: number; samples: Array<{ id: number; title: string | null }> }>
+    topDupeTitles: Array<{ title: string; count: number; samples: Array<{ id: number; number: string | null }> }>
+  }>
+} {
+  const generatedAt = new Date().toISOString()
+
+  const totalHymnalsRow = db.prepare('SELECT COUNT(*) as c FROM hymnals').get() as { c: number }
+  const totalSongsRow = db.prepare(
+    hymnalId ? 'SELECT COUNT(*) as c FROM songs WHERE hymnal_id = ?' : 'SELECT COUNT(*) as c FROM songs'
+  ).get(hymnalId ?? undefined) as { c: number }
+
+  const orphanSongsRow = db
+    .prepare(
+      `SELECT COUNT(*) as c
+       FROM songs s
+       LEFT JOIN hymnals h ON s.hymnal_id = h.id
+       WHERE h.id IS NULL ${hymnalId ? 'AND s.hymnal_id = ?' : ''}`
+    )
+    .get(hymnalId ?? undefined) as { c: number }
+
+  const orphanSample = db
+    .prepare(
+      `SELECT id, number, title FROM songs
+       WHERE hymnal_id NOT IN (SELECT id FROM hymnals) ${hymnalId ? 'AND hymnal_id = ?' : ''}
+       LIMIT 10`
+    )
+    .all(hymnalId ?? undefined) as Array<{ id: number; number: string | null; title: string | null }>
+
+  const hymnalsRaw = db
+    .prepare(
+      `SELECT h.id as hymnal_id, h.code as hymnal_code, h.name as hymnal_name,
+              (SELECT COUNT(*) FROM songs s WHERE s.hymnal_id = h.id) as song_count,
+              (
+                SELECT COUNT(*) FROM (
+                  SELECT s.number
+                  FROM songs s
+                  WHERE s.hymnal_id = h.id AND s.number IS NOT NULL AND TRIM(s.number) <> ''
+                  GROUP BY s.number
+                  HAVING COUNT(*) > 1
+                )
+              ) as duplicate_numbers,
+              (
+                SELECT COUNT(*) FROM (
+                  SELECT s.title
+                  FROM songs s
+                  WHERE s.hymnal_id = h.id AND s.title IS NOT NULL AND TRIM(s.title) <> ''
+                  GROUP BY s.title
+                  HAVING COUNT(*) > 1
+                )
+              ) as duplicate_titles
+       FROM hymnals h
+       ${hymnalId ? 'WHERE h.id = ?' : ''}
+       ORDER BY h.is_official DESC, h.code ASC`
+    )
+    .all(hymnalId ?? undefined) as Array<{
+    hymnal_id: number
+    hymnal_code: string
+    hymnal_name: string
+    song_count: number
+    duplicate_numbers: number
+    duplicate_titles: number
+  }>
+
+  const hymnals = hymnalsRaw.map((h) => {
+    // Top duplicate numbers with samples
+    const dupeNumbers = db
+      .prepare(
+        `SELECT number, COUNT(*) as cnt
+         FROM songs
+         WHERE hymnal_id = ? AND number IS NOT NULL AND TRIM(number) <> ''
+         GROUP BY number
+         HAVING cnt > 1
+         ORDER BY cnt DESC
+         LIMIT 5`
+      )
+      .all(h.hymnal_id) as Array<{ number: string; cnt: number }>
+
+    const topDupeNumbers = dupeNumbers.map((dn) => {
+      const samples = db
+        .prepare(
+          `SELECT id, title FROM songs WHERE hymnal_id = ? AND number = ? LIMIT 3`
+        )
+        .all(h.hymnal_id, dn.number) as Array<{ id: number; title: string | null }>
+      return { number: dn.number, count: dn.cnt, samples }
+    })
+
+    // Top duplicate titles with samples
+    const dupeTitles = db
+      .prepare(
+        `SELECT title, COUNT(*) as cnt
+         FROM songs
+         WHERE hymnal_id = ? AND title IS NOT NULL AND TRIM(title) <> ''
+         GROUP BY title
+         HAVING cnt > 1
+         ORDER BY cnt DESC
+         LIMIT 5`
+      )
+      .all(h.hymnal_id) as Array<{ title: string; cnt: number }>
+
+    const topDupeTitles = dupeTitles.map((dt) => {
+      const samples = db
+        .prepare(
+          `SELECT id, number FROM songs WHERE hymnal_id = ? AND title = ? LIMIT 3`
+        )
+        .all(h.hymnal_id, dt.title) as Array<{ id: number; number: string | null }>
+      return { title: dt.title, count: dt.cnt, samples }
+    })
+
+    return { ...h, topDupeNumbers, topDupeTitles }
+  })
+
+  return {
+    generatedAt,
+    totalHymnals: hymnalId ? 1 : totalHymnalsRow.c,
+    totalSongs: totalSongsRow.c,
+    orphanSongs: orphanSongsRow.c,
+    orphanSample,
+    hymnals
+  }
+}
+
 export function getSongs(hymnalId?: number): unknown[] {
   if (hymnalId) {
     return db
@@ -404,30 +362,91 @@ export function getSongs(hymnalId?: number): unknown[] {
     .all()
 }
 
-export function searchSongs(query: string, hymnalId?: number): unknown[] {
+export function searchSongs(
+  query: string,
+  hymnalId?: number,
+  options?: { offset?: number; limit?: number }
+): unknown[] {
   if (!query.trim()) return getSongs(hymnalId)
+
+  const MAX_QUERY_LENGTH = 80
+  const DEFAULT_LIMIT = 120
+  const MAX_LIMIT = 500
+  const offset = Math.max(0, options?.offset ?? 0)
+  const limit = Math.min(MAX_LIMIT, options?.limit ?? DEFAULT_LIMIT)
+  const rawQuery = query.slice(0, MAX_QUERY_LENGTH)
+
+  const normalizeQuery = (q: string): string => {
+    return q
+      .replace(/[\u0000-\u001F\u007F]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  const sanitizeFtsTerm = (term: string): string => {
+    // Remove characters that can break FTS5 syntax or be used as operators.
+    // Keep letters/numbers (Unicode letters are not fully supported here; this is a safe baseline).
+    return term
+      .replace(/["'`]/g, '')
+      .replace(/[\*:\^\(\)\[\]\{\}\!\?\~\+\-\=\|\&\<\>]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  const isNumericQuery = (q: string): boolean => /^\d{1,6}$/.test(q)
+
+  const normalized = normalizeQuery(rawQuery)
+  const numericExact = isNumericQuery(normalized) ? normalized : null
+
+  const buildFtsQuery = (q: string): string | null => {
+    const cleaned = normalizeQuery(q)
+    if (!cleaned) return null
+
+    const parts = cleaned.split(' ').map(sanitizeFtsTerm).filter(Boolean)
+    if (parts.length === 0) return null
+
+    // Use AND across tokens; within a token search across prioritized columns.
+    // Prefix search (*) to keep results responsive for partial terms.
+    return parts
+      .map((t) => {
+        const token = t.includes(' ') ? `"${t}"` : t
+        const prefix = `${token}*`
+        return `(
+          number:${prefix}
+          OR title:${prefix}
+          OR alternate_title:${prefix}
+          OR lyrics_raw:${prefix}
+          OR tags:${prefix}
+          OR category:${prefix}
+        )`
+      })
+      .join(' AND ')
+  }
 
   // Try FTS5 first
   try {
-    const ftsQuery = query
-      .trim()
-      .split(/\s+/)
-      .map((term) => `"${term}"*`)
-      .join(' ')
+    const ftsQuery = buildFtsQuery(normalized)
+    if (!ftsQuery) return getSongs(hymnalId)
 
-    let sql = `SELECT s.*, h.code as hymnal_code, h.name as hymnal_name
+    // Ranking:
+    // - numericExact (song number) gets priority
+    // - bm25 with per-column weights (lower is more important)
+    let sql = `SELECT s.*, h.code as hymnal_code, h.name as hymnal_name,
+                 CASE WHEN ? IS NOT NULL AND s.number = ? THEN 0 ELSE 1 END AS number_exact_rank,
+                 bm25(f, 0.8, 1.0, 1.2, 2.8, 3.2, 3.2) AS fts_rank
                FROM songs s
                JOIN songs_fts f ON s.id = f.rowid
                JOIN hymnals h ON s.hymnal_id = h.id
-               WHERE songs_fts MATCH ?`
-    const params: unknown[] = [ftsQuery]
+               WHERE f MATCH ?`
+    const params: unknown[] = [numericExact, numericExact, ftsQuery]
 
     if (hymnalId) {
       sql += ` AND s.hymnal_id = ?`
       params.push(hymnalId)
     }
 
-    sql += ` ORDER BY rank LIMIT 100`
+    sql += ` ORDER BY number_exact_rank ASC, fts_rank ASC, h.code ASC, CAST(s.number AS INTEGER), s.number LIMIT ? OFFSET ?`
+    params.push(limit, offset)
 
     const results = db.prepare(sql).all(...params)
     if (results.length > 0) return results
@@ -435,8 +454,8 @@ export function searchSongs(query: string, hymnalId?: number): unknown[] {
     // FTS fallback
   }
 
-  // Fallback to LIKE
-  const q = `%${query}%`
+  // Fallback to LIKE (safe, but slower; keep strict limit)
+  const q = `%${normalized}%`
   let sql = `SELECT s.*, h.code as hymnal_code, h.name as hymnal_name
              FROM songs s JOIN hymnals h ON s.hymnal_id = h.id
              WHERE (s.number LIKE ? OR s.title LIKE ? OR s.alternate_title LIKE ? OR s.lyrics_raw LIKE ? OR s.tags LIKE ?)`
@@ -447,7 +466,8 @@ export function searchSongs(query: string, hymnalId?: number): unknown[] {
     params.push(hymnalId)
   }
 
-  sql += ` ORDER BY h.code, CAST(s.number AS INTEGER), s.number`
+  sql += ` ORDER BY h.code, CAST(s.number AS INTEGER), s.number LIMIT ? OFFSET ?`
+  params.push(limit, offset)
   return db.prepare(sql).all(...params)
 }
 
@@ -849,4 +869,279 @@ export function restoreBackup(backupPath: string): boolean {
     }
     throw error
   }
+}
+
+// ========== Bible Operations ==========
+
+export function getBibleTranslations(): unknown[] {
+  return db.prepare('SELECT * FROM bible_translations ORDER BY is_default DESC, name').all()
+}
+
+export function addBibleTranslation(translation: {
+  code: string
+  name: string
+  language: string
+  source?: string
+  is_default?: number
+}): Database.RunResult {
+  return db
+    .prepare(
+      'INSERT INTO bible_translations (code, name, language, source, is_default) VALUES (?, ?, ?, ?, ?)'
+    )
+    .run(
+      translation.code,
+      translation.name,
+      translation.language,
+      translation.source || '',
+      translation.is_default || 0
+    )
+}
+
+export function deleteBibleTranslation(id: number): Database.RunResult {
+  return db.prepare('DELETE FROM bible_translations WHERE id = ?').run(id)
+}
+
+export function getBibleBooks(translationId: number): unknown[] {
+  return db
+    .prepare('SELECT * FROM bible_books WHERE translation_id = ? ORDER BY book_number')
+    .all(translationId)
+}
+
+export function addBibleBook(book: {
+  translation_id: number
+  book_number: number
+  short_name: string
+  long_name: string
+  testament: string
+  chapter_count: number
+}): Database.RunResult {
+  return db
+    .prepare(
+      'INSERT INTO bible_books (translation_id, book_number, short_name, long_name, testament, chapter_count) VALUES (?, ?, ?, ?, ?, ?)'
+    )
+    .run(
+      book.translation_id,
+      book.book_number,
+      book.short_name,
+      book.long_name,
+      book.testament,
+      book.chapter_count
+    )
+}
+
+export function getBibleVerses(translationId: number, bookId: number, chapter: number): unknown[] {
+  return db
+    .prepare(
+      'SELECT * FROM bible_verses WHERE translation_id = ? AND book_id = ? AND chapter = ? ORDER BY verse'
+    )
+    .all(translationId, bookId, chapter)
+}
+
+export function getBibleVerseRange(
+  translationId: number,
+  bookId: number,
+  chapter: number,
+  verseStart: number,
+  verseEnd: number
+): unknown[] {
+  return db
+    .prepare(
+      'SELECT * FROM bible_verses WHERE translation_id = ? AND book_id = ? AND chapter = ? AND verse >= ? AND verse <= ? ORDER BY verse'
+    )
+    .all(translationId, bookId, chapter, verseStart, verseEnd)
+}
+
+export function addBibleVerse(verse: {
+  translation_id: number
+  book_id: number
+  chapter: number
+  verse: number
+  text: string
+}): Database.RunResult {
+  return db
+    .prepare(
+      'INSERT OR REPLACE INTO bible_verses (translation_id, book_id, chapter, verse, text) VALUES (?, ?, ?, ?, ?)'
+    )
+    .run(verse.translation_id, verse.book_id, verse.chapter, verse.verse, verse.text)
+}
+
+export function addBibleVersesBatch(
+  verses: Array<{
+    translation_id: number
+    book_id: number
+    chapter: number
+    verse: number
+    text: string
+  }>
+): void {
+  const insert = db.prepare(
+    'INSERT OR REPLACE INTO bible_verses (translation_id, book_id, chapter, verse, text) VALUES (?, ?, ?, ?, ?)'
+  )
+  const transaction = db.transaction(() => {
+    for (const verse of verses) {
+      insert.run(verse.translation_id, verse.book_id, verse.chapter, verse.verse, verse.text)
+    }
+  })
+  transaction()
+}
+
+export function searchBibleVerses(query: string, translationId?: number): unknown[] {
+  const searchQuery = query.trim()
+  if (!searchQuery) return []
+
+  let sql = `
+    SELECT v.*, b.short_name as book_short, b.long_name as book_long, b.testament
+    FROM bible_verses v
+    JOIN bible_books b ON v.book_id = b.id
+    JOIN bible_verses_fts f ON v.id = f.rowid
+    WHERE f.text MATCH ?
+  `
+  const params: (string | number)[] = [searchQuery]
+
+  if (translationId) {
+    sql += ' AND v.translation_id = ?'
+    params.push(translationId)
+  }
+
+  sql += ' ORDER BY b.book_number, v.chapter, v.verse LIMIT 100'
+
+  return db.prepare(sql).all(...params)
+}
+
+// ========== Custom Slides Operations ==========
+
+export function getCustomSlides(): unknown[] {
+  return db.prepare('SELECT * FROM custom_slides ORDER BY sort_order, created_at DESC').all()
+}
+
+export function getSlidesByType(slideType: string): unknown[] {
+  return db
+    .prepare(
+      'SELECT * FROM custom_slides WHERE slide_type = ? ORDER BY sort_order, created_at DESC'
+    )
+    .all(slideType)
+}
+
+export function addCustomSlide(slide: {
+  title: string
+  content: string
+  slide_type?: string
+  background_color?: string
+  background_image?: string
+  text_color?: string
+  font_size?: number
+  display_duration?: number
+  is_active?: number
+  sort_order?: number
+}): Database.RunResult {
+  return db
+    .prepare(
+      `INSERT INTO custom_slides (title, content, slide_type, background_color, background_image, text_color, font_size, display_duration, is_active, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      slide.title,
+      slide.content,
+      slide.slide_type || 'announcement',
+      slide.background_color || '#0f0f1a',
+      slide.background_image || '',
+      slide.text_color || '#ffffff',
+      slide.font_size || 48,
+      slide.display_duration || 5,
+      slide.is_active ?? 1,
+      slide.sort_order || 0
+    )
+}
+
+export function updateCustomSlide(
+  id: number,
+  updates: Record<string, unknown>
+): Database.RunResult {
+  const fields = Object.keys(updates)
+    .map((key) => `${key} = ?`)
+    .join(', ')
+  const values = [...Object.values(updates), id]
+  return db
+    .prepare(`UPDATE custom_slides SET ${fields}, updated_at = datetime('now') WHERE id = ?`)
+    .run(...values)
+}
+
+export function deleteCustomSlide(id: number): Database.RunResult {
+  return db.prepare('DELETE FROM custom_slides WHERE id = ?').run(id)
+}
+
+// ========== Slide Groups Operations ==========
+
+export function getSlideGroups(): unknown[] {
+  return db.prepare('SELECT * FROM slide_groups ORDER BY name').all()
+}
+
+export function addSlideGroup(group: {
+  name: string
+  description?: string
+  loop_interval?: number
+  is_active?: number
+}): Database.RunResult {
+  return db
+    .prepare(
+      'INSERT INTO slide_groups (name, description, loop_interval, is_active) VALUES (?, ?, ?, ?)'
+    )
+    .run(group.name, group.description || '', group.loop_interval || 10, group.is_active ?? 1)
+}
+
+export function updateSlideGroup(id: number, updates: Record<string, unknown>): Database.RunResult {
+  const fields = Object.keys(updates)
+    .map((key) => `${key} = ?`)
+    .join(', ')
+  const values = [...Object.values(updates), id]
+  return db.prepare(`UPDATE slide_groups SET ${fields} WHERE id = ?`).run(...values)
+}
+
+export function deleteSlideGroup(id: number): Database.RunResult {
+  return db.prepare('DELETE FROM slide_groups WHERE id = ?').run(id)
+}
+
+export function getGroupSlides(groupId: number): unknown[] {
+  return db
+    .prepare(
+      `SELECT cs.*, sgi.sort_order as group_sort_order
+       FROM custom_slides cs
+       JOIN slide_group_items sgi ON cs.id = sgi.slide_id
+       WHERE sgi.group_id = ?
+       ORDER BY sgi.sort_order`
+    )
+    .all(groupId)
+}
+
+export function addSlideToGroup(
+  groupId: number,
+  slideId: number,
+  sortOrder?: number
+): Database.RunResult {
+  return db
+    .prepare(
+      'INSERT OR IGNORE INTO slide_group_items (group_id, slide_id, sort_order) VALUES (?, ?, ?)'
+    )
+    .run(groupId, slideId, sortOrder || 0)
+}
+
+export function removeSlideFromGroup(groupId: number, slideId: number): Database.RunResult {
+  return db
+    .prepare('DELETE FROM slide_group_items WHERE group_id = ? AND slide_id = ?')
+    .run(groupId, slideId)
+}
+
+export function reorderGroupSlides(
+  groupId: number,
+  items: Array<{ slide_id: number; sort_order: number }>
+): void {
+  const update = db.prepare(
+    'UPDATE slide_group_items SET sort_order = ? WHERE group_id = ? AND slide_id = ?'
+  )
+  const transaction = db.transaction(() => {
+    for (const item of items) {
+      update.run(item.sort_order, groupId, item.slide_id)
+    }
+  })
+  transaction()
 }

@@ -12,9 +12,12 @@ import '../assets/main.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { ProjectionApp } from './ProjectionApp'
+import { ErrorBoundary } from '../components/ErrorBoundary'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <ProjectionApp />
+    <ErrorBoundary>
+      <ProjectionApp />
+    </ErrorBoundary>
   </React.StrictMode>
 )

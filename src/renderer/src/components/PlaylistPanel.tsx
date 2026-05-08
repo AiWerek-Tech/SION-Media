@@ -1,9 +1,19 @@
-import React, { useState } from 'react'
-import { ListMusic, Plus, FolderOpen, Music, Trash2, Download } from 'lucide-react'
+import React, { useState, useMemo } from 'react'
+import {
+  ListMusic,
+  Plus,
+  FolderOpen,
+  Music,
+  Trash2,
+  Download,
+  SeparatorHorizontal,
+  ChevronDown
+} from 'lucide-react'
 import { usePlaylistStore } from '../store/usePlaylistStore'
 import { useAppStore } from '../store/useAppStore'
 import { useProjectionStore } from '../store/useProjectionStore'
 import { generateSlides } from '../engine/slideEngine'
+import { logger } from '../utils/logger'
 import type { PlaylistItem } from '../types'
 import PlaylistItemCard from '../components/PlaylistItemCard'
 import {
@@ -23,6 +33,15 @@ import {
 
 // SortablePlaylistItem component has been replaced by PlaylistItemCard (see components/PlaylistItemCard.tsx)
 
+const SECTION_PRESETS = [
+  'PEMBUKAAN',
+  'PUJIAN',
+  'PENYEMBAHAN',
+  'KHOTBAH',
+  'PERSEMBAHAN',
+  'PENUTUPAN'
+] as const
+
 export function PlaylistPanel(): React.JSX.Element {
   const {
     activePlaylist,
@@ -38,6 +57,7 @@ export function PlaylistPanel(): React.JSX.Element {
   const { setSlides, programSlide } = useProjectionStore()
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [showLoadDialog, setShowLoadDialog] = useState(false)
+  const [showSectionMenu, setShowSectionMenu] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0])
   const activeItemIndex = usePlaylistStore((s) => s.activeItemIndex)
@@ -45,6 +65,29 @@ export function PlaylistPanel(): React.JSX.Element {
 
   // Get currently projected song ID
   const projectedSongId = programSlide?.songId ?? null
+
+  // Total slide count across all playlist items
+  const totalSlideCount = useMemo(
+    () =>
+      playlistItems.reduce(
+        (sum, item) => sum + generateSlides(item.song_id, item.lyrics_raw || '').length,
+        0
+      ),
+    [playlistItems]
+  )
+
+  // Add section label to the next playlist item that doesn't have one
+  const handleAddSectionDivider = (label: string): void => {
+    const updateItemLabel = usePlaylistStore.getState().updateItemLabel
+    // Apply label to the last item in the list (or first without a label)
+    const target = playlistItems.find((item) => !item.section_label)
+    if (target) {
+      updateItemLabel(target.id, label)
+    } else if (playlistItems.length > 0) {
+      // If all items have labels, apply to last item
+      updateItemLabel(playlistItems[playlistItems.length - 1].id, label)
+    }
+  }
 
   const handleCreatePlaylist = async (): Promise<void> => {
     if (!newName.trim()) return
@@ -98,10 +141,15 @@ export function PlaylistPanel(): React.JSX.Element {
   const handleDeletePlaylist = async (): Promise<void> => {
     if (!activePlaylist) return
     if (confirm(`Hapus playlist "${activePlaylist.name}"?`)) {
-      await window.api.playlists.delete(activePlaylist.id)
-      usePlaylistStore.getState().setActivePlaylist(null)
-      usePlaylistStore.getState().setPlaylistItems([])
-      await usePlaylistStore.getState().loadPlaylists()
+      try {
+        await window.api.playlists.delete(activePlaylist.id)
+        usePlaylistStore.getState().setActivePlaylist(null)
+        usePlaylistStore.getState().setPlaylistItems([])
+        await usePlaylistStore.getState().loadPlaylists()
+      } catch (err) {
+        logger.error('Failed to delete playlist:', err)
+        useAppStore.getState().showToast('Gagal menghapus playlist', 'error')
+      }
     }
   }
 
@@ -195,9 +243,52 @@ export function PlaylistPanel(): React.JSX.Element {
         {activePlaylist && (
           <div className="flex items-center justify-between rounded-md border border-border-subtle bg-bg-base/50 p-1.5">
             <span className="text-[11px] text-text-muted font-medium ml-2">
-              {playlistItems.length} Item dalam daftar
+              {playlistItems.length} Item · {totalSlideCount} Slides
             </span>
             <div className="flex items-center gap-1">
+              {/* Section Divider Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowSectionMenu(!showSectionMenu)}
+                  className="flex items-center gap-1 p-1.5 rounded text-text-muted hover:text-brand-secondary hover:bg-brand-secondary/10 transition-colors"
+                  title="Tambah Pemisah Bagian"
+                >
+                  <SeparatorHorizontal size={14} />
+                  <ChevronDown size={10} />
+                </button>
+                {showSectionMenu && (
+                  <div className="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-lg border border-border-strong bg-bg-surface/98 shadow-2xl backdrop-blur-sm py-1 animate-fade-in">
+                    <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-text-disabled">
+                      Pemisah Bagian Ibadah
+                    </div>
+                    {SECTION_PRESETS.map((label) => (
+                      <button
+                        key={label}
+                        onClick={() => {
+                          handleAddSectionDivider(label)
+                          setShowSectionMenu(false)
+                        }}
+                        className="w-full px-3 py-2 text-left text-[12px] font-semibold text-text-secondary hover:bg-bg-elevated hover:text-text-primary transition-colors"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                    <div className="h-px bg-border-subtle mx-2 my-1" />
+                    <button
+                      onClick={() => {
+                        const custom = prompt('Masukkan nama bagian:')
+                        if (custom?.trim()) {
+                          handleAddSectionDivider(custom.trim().toUpperCase())
+                        }
+                        setShowSectionMenu(false)
+                      }}
+                      className="w-full px-3 py-2 text-left text-[12px] font-medium text-text-muted hover:bg-bg-elevated hover:text-text-primary transition-colors italic"
+                    >
+                      Custom...
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={handleExportPlaylist}
                 className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors"

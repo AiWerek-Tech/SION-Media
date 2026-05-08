@@ -49,7 +49,7 @@ const api = {
 
   // Display
   display: {
-    getAll: (): Promise<unknown[]> => ipcRenderer.invoke('display:get-all'),
+    getAll: (): Promise<unknown[]> => ipcRenderer.invoke('display_get-all'),
     isProjectionVisible: (): Promise<boolean> =>
       ipcRenderer.invoke('display:is-projection-visible'),
     onDisplayChanged: (callback: (count: number) => void): (() => void) => {
@@ -71,8 +71,11 @@ const api = {
   // Songs
   songs: {
     getAll: (hymnalId?: number): Promise<unknown[]> => ipcRenderer.invoke('db:get-songs', hymnalId),
-    search: (query: string, hymnalId?: number): Promise<unknown[]> =>
-      ipcRenderer.invoke('db:search-songs', query, hymnalId),
+    search: (
+      query: string,
+      hymnalId?: number,
+      options?: { offset?: number; limit?: number }
+    ): Promise<unknown[]> => ipcRenderer.invoke('db:search-songs', query, hymnalId, options),
     add: (song: unknown): Promise<unknown> => ipcRenderer.invoke('db:add-song', song),
     update: (id: number, song: unknown): Promise<unknown> =>
       ipcRenderer.invoke('db:update-song', id, song),
@@ -123,6 +126,8 @@ const api = {
     getRecoveryState: (): Promise<unknown> => ipcRenderer.invoke('db:get-recovery-state'),
     markCleanExit: (): Promise<void> => ipcRenderer.invoke('db:mark-clean-exit'),
     reseed: (): Promise<void> => ipcRenderer.invoke('db:reseed'),
+    checkMultiHymnalIntegrity: (hymnalId?: number): Promise<unknown> =>
+      ipcRenderer.invoke('db:check-multi-hymnal-integrity', hymnalId),
     getMemory: (): Promise<unknown> => ipcRenderer.invoke('system:get-memory'),
     setMode: (mode: string): Promise<void> => ipcRenderer.invoke('system:set-mode', mode)
   },
@@ -131,6 +136,66 @@ const api = {
   file: {
     parseExcel: (filePath: string): Promise<unknown[]> =>
       ipcRenderer.invoke('file:parse-excel', filePath)
+  },
+
+  // Bible
+  bible: {
+    getTranslations: (): Promise<unknown[]> => ipcRenderer.invoke('db:get-bible-translations'),
+    addTranslation: (translation: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('db:add-bible-translation', translation),
+    deleteTranslation: (id: number): Promise<unknown> =>
+      ipcRenderer.invoke('db:delete-bible-translation', id),
+    getBooks: (translationId: number): Promise<unknown[]> =>
+      ipcRenderer.invoke('db:get-bible-books', translationId),
+    addBook: (book: unknown): Promise<unknown> => ipcRenderer.invoke('db:add-bible-book', book),
+    getVerses: (translationId: number, bookId: number, chapter: number): Promise<unknown[]> =>
+      ipcRenderer.invoke('db:get-bible-verses', translationId, bookId, chapter),
+    getVerseRange: (
+      translationId: number,
+      bookId: number,
+      chapter: number,
+      verseStart: number,
+      verseEnd: number
+    ): Promise<unknown[]> =>
+      ipcRenderer.invoke(
+        'db:get-bible-verse-range',
+        translationId,
+        bookId,
+        chapter,
+        verseStart,
+        verseEnd
+      ),
+    addVerse: (verse: unknown): Promise<unknown> => ipcRenderer.invoke('db:add-bible-verse', verse),
+    addVersesBatch: (verses: unknown[]): Promise<void> =>
+      ipcRenderer.invoke('db:add-bible-verses-batch', verses),
+    searchVerses: (query: string, translationId?: number): Promise<unknown[]> =>
+      ipcRenderer.invoke('db:search-bible-verses', query, translationId)
+  },
+
+  // Custom Slides
+  slides: {
+    getAll: (): Promise<unknown[]> => ipcRenderer.invoke('db:get-custom-slides'),
+    getByType: (slideType: string): Promise<unknown[]> =>
+      ipcRenderer.invoke('db:get-slides-by-type', slideType),
+    add: (slide: unknown): Promise<unknown> => ipcRenderer.invoke('db:add-custom-slide', slide),
+    update: (id: number, updates: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('db:update-custom-slide', id, updates),
+    delete: (id: number): Promise<unknown> => ipcRenderer.invoke('db:delete-custom-slide', id),
+    getGroups: (): Promise<unknown[]> => ipcRenderer.invoke('db:get-slide-groups'),
+    addGroup: (group: unknown): Promise<unknown> => ipcRenderer.invoke('db:add-slide-group', group),
+    updateGroup: (id: number, updates: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('db:update-slide-group', id, updates),
+    deleteGroup: (id: number): Promise<unknown> => ipcRenderer.invoke('db:delete-slide-group', id),
+    getGroupSlides: (groupId: number): Promise<unknown[]> =>
+      ipcRenderer.invoke('db:get-group-slides', groupId),
+    addSlideToGroup: (groupId: number, slideId: number, sortOrder?: number): Promise<unknown> =>
+      ipcRenderer.invoke('db:add-slide-to-group', groupId, slideId, sortOrder),
+    removeSlideFromGroup: (groupId: number, slideId: number): Promise<unknown> =>
+      ipcRenderer.invoke('db:remove-slide-from-group', groupId, slideId),
+    reorderGroupSlides: (
+      groupId: number,
+      items: Array<{ slide_id: number; sort_order: number }>
+    ): Promise<void> => ipcRenderer.invoke('db:reorder-group-slides', groupId, items)
   }
 }
 

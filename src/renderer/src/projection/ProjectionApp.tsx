@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { logger } from '../utils/logger'
 
 interface SlideData {
   songId: number
@@ -33,7 +34,10 @@ export function ProjectionApp(): React.JSX.Element {
     })
 
     // Listen for theme changes
-    window.api.settings.getAll().then(setTheme)
+    window.api.settings
+      .getAll()
+      .then(setTheme)
+      .catch((err) => logger.error('Failed to load theme:', err))
     const unsubscribeTheme = window.api.projection.onThemeUpdate((data) => {
       setTheme((currentTheme) => ({ ...currentTheme, ...(data as Record<string, string>) }))
     })

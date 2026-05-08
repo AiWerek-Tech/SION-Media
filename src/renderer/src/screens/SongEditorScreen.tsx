@@ -23,7 +23,10 @@ export function SongEditorScreen(): React.JSX.Element {
   const [theme, setTheme] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    window.api.settings.getAll().then(setTheme)
+    window.api.settings
+      .getAll()
+      .then(setTheme)
+      .catch((err) => logger.error('Failed to load theme:', err))
   }, [])
 
   const previewSlides: SlideData[] = useMemo(() => {
