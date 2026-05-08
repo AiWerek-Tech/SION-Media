@@ -1,0 +1,30 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+out
+
+# Database (auto-generated saat runtime)
+*.db
+*.db-wal
+*.db-shm
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs & Cache
+.eslintcache
+*.log*
+
+# Environment
+.env
+.env.local
