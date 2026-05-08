@@ -221,16 +221,28 @@ export function checkMultiHymnalIntegrity(hymnalId?: number): {
     song_count: number
     duplicate_numbers: number
     duplicate_titles: number
-    topDupeNumbers: Array<{ number: string; count: number; samples: Array<{ id: number; title: string | null }> }>
-    topDupeTitles: Array<{ title: string; count: number; samples: Array<{ id: number; number: string | null }> }>
+    topDupeNumbers: Array<{
+      number: string
+      count: number
+      samples: Array<{ id: number; title: string | null }>
+    }>
+    topDupeTitles: Array<{
+      title: string
+      count: number
+      samples: Array<{ id: number; number: string | null }>
+    }>
   }>
 } {
   const generatedAt = new Date().toISOString()
 
   const totalHymnalsRow = db.prepare('SELECT COUNT(*) as c FROM hymnals').get() as { c: number }
-  const totalSongsRow = db.prepare(
-    hymnalId ? 'SELECT COUNT(*) as c FROM songs WHERE hymnal_id = ?' : 'SELECT COUNT(*) as c FROM songs'
-  ).get(hymnalId ?? undefined) as { c: number }
+  const totalSongsRow = db
+    .prepare(
+      hymnalId
+        ? 'SELECT COUNT(*) as c FROM songs WHERE hymnal_id = ?'
+        : 'SELECT COUNT(*) as c FROM songs'
+    )
+    .get(hymnalId ?? undefined) as { c: number }
 
   const orphanSongsRow = db
     .prepare(
@@ -247,7 +259,11 @@ export function checkMultiHymnalIntegrity(hymnalId?: number): {
        WHERE hymnal_id NOT IN (SELECT id FROM hymnals) ${hymnalId ? 'AND hymnal_id = ?' : ''}
        LIMIT 10`
     )
-    .all(hymnalId ?? undefined) as Array<{ id: number; number: string | null; title: string | null }>
+    .all(hymnalId ?? undefined) as Array<{
+    id: number
+    number: string | null
+    title: string | null
+  }>
 
   const hymnalsRaw = db
     .prepare(
@@ -300,9 +316,7 @@ export function checkMultiHymnalIntegrity(hymnalId?: number): {
 
     const topDupeNumbers = dupeNumbers.map((dn) => {
       const samples = db
-        .prepare(
-          `SELECT id, title FROM songs WHERE hymnal_id = ? AND number = ? LIMIT 3`
-        )
+        .prepare(`SELECT id, title FROM songs WHERE hymnal_id = ? AND number = ? LIMIT 3`)
         .all(h.hymnal_id, dn.number) as Array<{ id: number; title: string | null }>
       return { number: dn.number, count: dn.cnt, samples }
     })
@@ -322,9 +336,7 @@ export function checkMultiHymnalIntegrity(hymnalId?: number): {
 
     const topDupeTitles = dupeTitles.map((dt) => {
       const samples = db
-        .prepare(
-          `SELECT id, number FROM songs WHERE hymnal_id = ? AND title = ? LIMIT 3`
-        )
+        .prepare(`SELECT id, number FROM songs WHERE hymnal_id = ? AND title = ? LIMIT 3`)
         .all(h.hymnal_id, dt.title) as Array<{ id: number; number: string | null }>
       return { title: dt.title, count: dt.cnt, samples }
     })
@@ -377,10 +389,12 @@ export function searchSongs(
   const rawQuery = query.slice(0, MAX_QUERY_LENGTH)
 
   const normalizeQuery = (q: string): string => {
-    return q
-      .replace(/[\u0000-\u001F\u007F]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
+    let out = ''
+    for (let i = 0; i < q.length; i++) {
+      const code = q.charCodeAt(i)
+      out += code < 32 || code === 127 ? ' ' : q[i]
+    }
+    return out.replace(/\s+/g, ' ').trim()
   }
 
   const sanitizeFtsTerm = (term: string): string => {
@@ -388,7 +402,7 @@ export function searchSongs(
     // Keep letters/numbers (Unicode letters are not fully supported here; this is a safe baseline).
     return term
       .replace(/["'`]/g, '')
-      .replace(/[\*:\^\(\)\[\]\{\}\!\?\~\+\-\=\|\&\<\>]/g, ' ')
+      .replace(/[*:^()[\]{}!?~+\-=|&<>]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
   }

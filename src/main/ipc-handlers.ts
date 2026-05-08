@@ -196,7 +196,9 @@ export function setupIPC(): void {
   ipcMain.handle('db:get-recovery-state', () => getRecoveryState())
   ipcMain.handle('db:mark-clean-exit', () => markCleanExit())
   ipcMain.handle('db:reseed', () => reseedDatabase())
-  ipcMain.handle('db:check-multi-hymnal-integrity', (_e, hymnalId?) => checkMultiHymnalIntegrity(hymnalId))
+  ipcMain.handle('db:check-multi-hymnal-integrity', (_e, hymnalId?) =>
+    checkMultiHymnalIntegrity(hymnalId)
+  )
 
   // ========== Bible IPC Handlers ==========
   ipcMain.handle('db:get-bible-translations', () => getBibleTranslations())

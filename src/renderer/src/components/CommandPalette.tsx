@@ -52,17 +52,17 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps): React.
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  // Track previous isOpen to detect open transition
-  const prevIsOpenRef = useRef(false)
+  // Focus input and reset state on open
+  useEffect(() => {
+    if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setQuery('')
 
-  // Reset state when palette opens (ref-based to avoid set-state-in-effect)
-  if (isOpen && !prevIsOpenRef.current) {
-    // Transitioning from closed to open — reset inline (during render, before commit)
-    if (query !== '') setQuery('')
-    if (results.length > 0) setResults([])
-    if (selectedIndex !== 0) setSelectedIndex(0)
-  }
-  prevIsOpenRef.current = isOpen
+      setResults([])
+
+      setSelectedIndex(0)
+    }
+  }, [isOpen])
 
   // Focus input after open
   useEffect(() => {

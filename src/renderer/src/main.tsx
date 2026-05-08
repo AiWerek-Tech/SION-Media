@@ -15,6 +15,10 @@ import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import './i18n'
 
+if (navigator.userAgent.toLowerCase().includes('windows')) {
+  document.body.classList.add('win-titlebar-overlay')
+}
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <ErrorBoundary>

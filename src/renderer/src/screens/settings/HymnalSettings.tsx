@@ -31,8 +31,12 @@ export function HymnalSettings({
   const [importProgress, setImportProgress] = useState({ done: 0, total: 0 })
   const [importTargetHymnalId, setImportTargetHymnalId] = useState<number | null>(null)
   const [wizardSearch, setWizardSearch] = useState('')
-  const [wizardFilterConfidence, setWizardFilterConfidence] = useState<'all' | 'exact' | 'probable' | 'weak'>('all')
-  const [wizardFilterAction, setWizardFilterAction] = useState<'all' | 'skip' | 'overwrite' | 'copy' | 'merge'>('all')
+  const [wizardFilterConfidence, setWizardFilterConfidence] = useState<
+    'all' | 'exact' | 'probable' | 'weak'
+  >('all')
+  const [wizardFilterAction, setWizardFilterAction] = useState<
+    'all' | 'skip' | 'overwrite' | 'copy' | 'merge'
+  >('all')
   const [importPackage, setImportPackage] = useState<{
     hymnal: Partial<Hymnal>
     songs: Partial<Song>[]
@@ -47,7 +51,9 @@ export function HymnalSettings({
       action: 'skip' | 'overwrite' | 'copy' | 'merge'
     }>
   >([])
-  const [applyAllAction, setApplyAllAction] = useState<'skip' | 'overwrite' | 'copy' | 'merge'>('skip')
+  const [applyAllAction, setApplyAllAction] = useState<'skip' | 'overwrite' | 'copy' | 'merge'>(
+    'skip'
+  )
   const [applyAllScope, setApplyAllScope] = useState<'all' | 'exact' | 'probable' | 'weak'>('all')
   const [showAllItems, setShowAllItems] = useState(false)
   const [form, setForm] = useState({
@@ -59,11 +65,7 @@ export function HymnalSettings({
   })
 
   const normalizeText = (val: unknown): string => {
-    return (val ?? '')
-      .toString()
-      .toLowerCase()
-      .replace(/\s+/g, ' ')
-      .trim()
+    return (val ?? '').toString().toLowerCase().replace(/\s+/g, ' ').trim()
   }
 
   const normalizeTitle = (val: unknown): string => {
@@ -166,7 +168,17 @@ export function HymnalSettings({
     showToast(`Export hymnal ${hymnal.code} berhasil`, 'success')
   }
 
-  const buildConflicts = (targetHymnalId: number, packageSongs: Partial<Song>[]) => {
+  const buildConflicts = (
+    targetHymnalId: number,
+    packageSongs: Partial<Song>[]
+  ): Array<{
+    index: number
+    incoming: Partial<Song>
+    existing: Song
+    confidence: 'exact' | 'probable' | 'weak'
+    reason: string
+    action: 'skip' | 'overwrite' | 'copy' | 'merge'
+  }> => {
     const existingSongs = songs.filter((s) => s.hymnal_id === targetHymnalId)
 
     const byNumber = new Map<string, Song>()
@@ -202,7 +214,10 @@ export function HymnalSettings({
       let confidence: 'exact' | 'probable' | 'weak' | null = null
       let reason = ''
 
-      if ((matchByNumber && matchByFp && matchByNumber.id === matchByFp.id) || (matchByTitle && matchByFp && matchByTitle.id === matchByFp.id)) {
+      if (
+        (matchByNumber && matchByFp && matchByNumber.id === matchByFp.id) ||
+        (matchByTitle && matchByFp && matchByTitle.id === matchByFp.id)
+      ) {
         existing = matchByFp
         confidence = 'exact'
         reason = 'Fingerprint + number/title match'
@@ -452,7 +467,8 @@ export function HymnalSettings({
             alternate_title: item.alternate_title || '',
             lyrics_raw,
             category: item.category || '',
-            language: item.language || importPackage.hymnal.language || existing.language || 'Indonesia',
+            language:
+              item.language || importPackage.hymnal.language || existing.language || 'Indonesia',
             author: item.author || '',
             composer: item.composer || '',
             key_note: item.key_note || '',
@@ -480,7 +496,10 @@ export function HymnalSettings({
           if (Object.keys(updates).length > 0) {
             await window.api.songs.update(existing.id, updates)
             merged++
-            const updated: Song = { ...latestExisting, ...(updates as unknown as Partial<Song>) } as Song
+            const updated: Song = {
+              ...latestExisting,
+              ...(updates as unknown as Partial<Song>)
+            } as Song
             byId.set(existing.id, updated)
           } else {
             skipped++
@@ -489,7 +508,7 @@ export function HymnalSettings({
           const baseTitle = title
           let copyTitle = `${baseTitle} (Copy)`
           let attempt = 1
-          const titleKey = () => normalizeTitle(copyTitle)
+          const titleKey = (): string => normalizeTitle(copyTitle)
           while (byTitle.has(titleKey()) && attempt < 50) {
             attempt++
             copyTitle = `${baseTitle} (Copy ${attempt})`
@@ -497,7 +516,7 @@ export function HymnalSettings({
 
           let copyNumber = number
           let numAttempt = 1
-          const numberKey = () => normalizeText(copyNumber)
+          const numberKey = (): string => normalizeText(copyNumber)
           while (byNumber.has(numberKey()) && numAttempt < 50) {
             numAttempt++
             copyNumber = `${number}-${numAttempt}`
@@ -736,7 +755,9 @@ export function HymnalSettings({
                   <div className="text-2xl font-black text-text-primary">{conflicts.length}</div>
                 </div>
                 <div className="rounded-xl border border-border-default bg-bg-base p-3">
-                  <div className="text-[11px] font-black text-text-muted uppercase">Default Action</div>
+                  <div className="text-[11px] font-black text-text-muted uppercase">
+                    Default Action
+                  </div>
                   <div className="text-sm font-bold text-text-primary">Skip (aman)</div>
                 </div>
                 <div className="rounded-xl border border-border-default bg-bg-base p-3">
@@ -823,7 +844,9 @@ export function HymnalSettings({
                 />
                 <select
                   value={wizardFilterConfidence}
-                  onChange={(e) => setWizardFilterConfidence(e.target.value as typeof wizardFilterConfidence)}
+                  onChange={(e) =>
+                    setWizardFilterConfidence(e.target.value as typeof wizardFilterConfidence)
+                  }
                   className="h-9 rounded-lg border border-border-default bg-bg-base px-3 text-sm"
                   disabled={importing}
                 >
@@ -834,7 +857,9 @@ export function HymnalSettings({
                 </select>
                 <select
                   value={wizardFilterAction}
-                  onChange={(e) => setWizardFilterAction(e.target.value as typeof wizardFilterAction)}
+                  onChange={(e) =>
+                    setWizardFilterAction(e.target.value as typeof wizardFilterAction)
+                  }
                   className="h-9 rounded-lg border border-border-default bg-bg-base px-3 text-sm"
                   disabled={importing}
                 >
@@ -851,10 +876,18 @@ export function HymnalSettings({
                   <thead className="sticky top-0 bg-bg-elevated/80 backdrop-blur border-b border-border-default">
                     <tr>
                       <th className="px-3 py-2 text-xs font-black uppercase text-text-muted">#</th>
-                      <th className="px-3 py-2 text-xs font-black uppercase text-text-muted">Incoming</th>
-                      <th className="px-3 py-2 text-xs font-black uppercase text-text-muted">Existing</th>
-                      <th className="px-3 py-2 text-xs font-black uppercase text-text-muted">Confidence</th>
-                      <th className="px-3 py-2 text-xs font-black uppercase text-text-muted">Action</th>
+                      <th className="px-3 py-2 text-xs font-black uppercase text-text-muted">
+                        Incoming
+                      </th>
+                      <th className="px-3 py-2 text-xs font-black uppercase text-text-muted">
+                        Existing
+                      </th>
+                      <th className="px-3 py-2 text-xs font-black uppercase text-text-muted">
+                        Confidence
+                      </th>
+                      <th className="px-3 py-2 text-xs font-black uppercase text-text-muted">
+                        Action
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -867,7 +900,9 @@ export function HymnalSettings({
                         return n.includes(search) || t.includes(search)
                       }
 
-                      const passesConfidence = (c: (typeof conflicts)[number] | undefined): boolean => {
+                      const passesConfidence = (
+                        c: (typeof conflicts)[number] | undefined
+                      ): boolean => {
                         if (wizardFilterConfidence === 'all') return true
                         return c?.confidence === wizardFilterConfidence
                       }
@@ -878,13 +913,13 @@ export function HymnalSettings({
                       }
 
                       const rows = showAllItems
-                        ? importPackage.songs
+                        ? importPackage.songs.slice(0, 200).map((incoming, idx) => {
+                            const conflict = conflicts.find((c) => c.index === idx)
+                            return { idx, incoming, conflict }
+                          })
+                        : conflicts
                             .slice(0, 200)
-                            .map((incoming, idx) => {
-                              const conflict = conflicts.find((c) => c.index === idx)
-                              return { idx, incoming, conflict }
-                            })
-                        : conflicts.slice(0, 200).map((c) => ({ idx: c.index, incoming: c.incoming, conflict: c }))
+                            .map((c) => ({ idx: c.index, incoming: c.incoming, conflict: c }))
 
                       return rows
                         .filter((r) => passesSearch(r.incoming))
@@ -899,7 +934,10 @@ export function HymnalSettings({
                           const confidence = c ? c.confidence : '—'
 
                           return (
-                            <tr key={row.idx} className="border-b border-border-subtle hover:bg-bg-base/40">
+                            <tr
+                              key={row.idx}
+                              className="border-b border-border-subtle hover:bg-bg-base/40"
+                            >
                               <td className="px-3 py-2 text-xs text-text-muted">{row.idx + 1}</td>
                               <td className="px-3 py-2">
                                 <div className="font-bold text-text-primary">{incomingLabel}</div>
@@ -930,9 +968,12 @@ export function HymnalSettings({
                                   <select
                                     value={c.action}
                                     onChange={(e) => {
-                                      const next = e.target.value as (typeof conflicts)[number]['action']
+                                      const next = e.target
+                                        .value as (typeof conflicts)[number]['action']
                                       setConflicts((prev) =>
-                                        prev.map((x) => (x.index === c.index ? { ...x, action: next } : x))
+                                        prev.map((x) =>
+                                          x.index === c.index ? { ...x, action: next } : x
+                                        )
                                       )
                                     }}
                                     disabled={importing}

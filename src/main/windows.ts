@@ -101,7 +101,14 @@ export function createMainWindow(): void {
     show: false,
     frame: false,
     titleBarStyle: 'hidden',
-    titleBarOverlay: false,
+    titleBarOverlay:
+      process.platform === 'win32'
+        ? {
+            color: '#0b0f17',
+            symbolColor: '#cbd5e1',
+            height: 40
+          }
+        : false,
     autoHideMenuBar: true,
     title: 'SION Media',
     ...(process.platform === 'linux' ? { icon } : {}),

@@ -216,7 +216,10 @@ export function BibleScreen(): React.JSX.Element {
 
     setSlides(slides)
     goToSlide(0)
-    showToast(`${selectedVerses.bookName} ${selectedVerses.chapter}:${selectedVerses.verseStart}-${selectedVerses.verseEnd} diproyeksikan`, 'success')
+    showToast(
+      `${selectedVerses.bookName} ${selectedVerses.chapter}:${selectedVerses.verseStart}-${selectedVerses.verseEnd} diproyeksikan`,
+      'success'
+    )
   }
 
   const chapterCount = selectedBook?.chapter_count || 1

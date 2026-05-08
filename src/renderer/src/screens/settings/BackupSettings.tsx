@@ -170,7 +170,8 @@ export function BackupSettings({
           <div>
             <h4 className="text-sm font-bold text-text-primary">Integrity Check (Multi-Hymnal)</h4>
             <p className="text-xs text-text-muted leading-relaxed mt-1">
-              Buat laporan duplikat nomor/judul per hymnal dan cek orphan records. Laporan akan diunduh sebagai JSON.
+              Buat laporan duplikat nomor/judul per hymnal dan cek orphan records. Laporan akan
+              diunduh sebagai JSON.
             </p>
           </div>
           <div className="flex items-center gap-2">

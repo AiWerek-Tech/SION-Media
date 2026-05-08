@@ -4,15 +4,19 @@ import { useAppStore } from '../../store/useAppStore'
 import { logger } from '../../utils/logger'
 
 export function TitleBarControls(): React.JSX.Element {
+  const isWindows = navigator.userAgent.toLowerCase().includes('windows')
   const { isMaximized, setMaximized } = useAppStore()
 
   useEffect(() => {
+    if (isWindows) return
     window.api.window
       .isMaximized()
       .then(setMaximized)
       .catch((err) => logger.error('isMaximized failed:', err))
     return window.api.window.onMaximizedChanged(setMaximized)
-  }, [setMaximized])
+  }, [isWindows, setMaximized])
+
+  if (isWindows) return <></>
 
   return (
     <div className="window-controls">

@@ -193,9 +193,11 @@ export const useAnnouncementStore = create<AnnouncementStore>((set, get) => ({
       const group = state.groups.find((g) => g.id === groupId)
       if (group) {
         set({ activeGroup: group })
-        get().loadGroupSlides(groupId).then(() => {
-          startLoopInternal()
-        })
+        get()
+          .loadGroupSlides(groupId)
+          .then(() => {
+            startLoopInternal()
+          })
         return
       }
     }

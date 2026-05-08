@@ -165,7 +165,10 @@ export function SongLibraryPanel(): React.JSX.Element {
               <span className="rounded-full bg-bg-elevated border border-border-subtle px-2 py-0.5 text-[10px] font-bold text-text-muted">
                 {filteredSongs.length} lagu
                 {localQuery && songs.length >= 120 && (
-                  <span className="ml-1 text-status-warning" title="Hasil mungkin terpotong (maks 120). Perkecil pencarian.">
+                  <span
+                    className="ml-1 text-status-warning"
+                    title="Hasil mungkin terpotong (maks 120). Perkecil pencarian."
+                  >
                     ⚠
                   </span>
                 )}
