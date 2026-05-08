@@ -1,0 +1,249 @@
+import React, { useMemo, useRef } from 'react'
+import { Heart, ListMusic, MoreHorizontal, Music, Pin, Play, SortAsc, Type } from 'lucide-react'
+import { useVirtualizer } from '@tanstack/react-virtual'
+import { motion, AnimatePresence } from 'framer-motion'
+import type { Song } from '../../types'
+
+interface TitleViewProps {
+  songs: Song[]
+  selectedSongId?: number | null
+  onSelectSong: (song: Song) => void
+  onAddToPlaylist: (song: Song) => void
+  onToggleFavorite: (songId: number) => void
+}
+
+type SortMode = 'number' | 'title' | 'category' | 'favorite'
+
+export function LibraryTitleView({
+  songs,
+  selectedSongId,
+  onSelectSong,
+  onAddToPlaylist,
+  onToggleFavorite
+}: TitleViewProps): React.JSX.Element {
+  const [sortMode, setSortMode] = React.useState<SortMode>('number')
+  const [hoveredId, setHoveredId] = React.useState<number | null>(null)
+  const parentRef = useRef<HTMLDivElement>(null)
+
+  const sortedSongs = useMemo(() => {
+    const arr = [...songs]
+    switch (sortMode) {
+      case 'number':
+        return arr.sort((a, b) => {
+          const na = parseInt(a.number || '0', 10)
+          const nb = parseInt(b.number || '0', 10)
+          if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb
+          return (a.number || '').localeCompare(b.number || '')
+        })
+      case 'title':
+        return arr.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+      case 'category':
+        return arr.sort(
+          (a, b) =>
+            (a.category || '').localeCompare(b.category || '') ||
+            (a.number || '').localeCompare(b.number || '')
+        )
+      case 'favorite':
+        return arr.sort((a, b) => (b.is_favorite || 0) - (a.is_favorite || 0))
+      default:
+        return arr
+    }
+  }, [songs, sortMode])
+
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
+    count: sortedSongs.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 72,
+    overscan: 10
+  })
+
+  const virtualItems = rowVirtualizer.getVirtualItems()
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Toolbar */}
+      <div className="h-[48px] min-h-[48px] flex items-center justify-between px-4 border-b border-border-default/30 surface-2">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-lg bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center">
+            <Type size={14} className="text-brand-primary" />
+          </div>
+          <span className="text-[12px] font-semibold text-text-primary">
+            {sortedSongs.length} lagu
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1">
+          {(
+            [
+              { key: 'number', label: 'Nomor', icon: <SortAsc size={12} /> },
+              { key: 'title', label: 'Judul', icon: <Type size={12} /> },
+              { key: 'category', label: 'Kategori', icon: <Pin size={12} /> },
+              { key: 'favorite', label: 'Favorit', icon: <Heart size={12} /> }
+            ] as { key: SortMode; label: string; icon: React.ReactNode }[]
+          ).map((s) => (
+            <button
+              key={s.key}
+              onClick={() => setSortMode(s.key)}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
+                sortMode === s.key
+                  ? 'bg-surface-3 text-text-primary shadow-sm'
+                  : 'text-text-muted hover:text-text-secondary hover:bg-surface-2/60'
+              }`}
+            >
+              {s.icon}
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Virtualized List */}
+      <div ref={parentRef} className="flex-1 min-h-0 overflow-y-auto scrollbar-thin">
+        <div
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            width: '100%',
+            position: 'relative'
+          }}
+        >
+          {virtualItems.map((vr) => {
+            const song = sortedSongs[vr.index]
+            const isSelected = selectedSongId === song.id
+            const isHovered = hoveredId === song.id
+            const isFavorite = song.is_favorite === 1
+
+            return (
+              <div
+                key={vr.key}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: `${vr.size}px`,
+                  transform: `translateY(${vr.start}px)`
+                }}
+                className="px-3 py-1.5"
+              >
+                <motion.div
+                  layout
+                  onMouseEnter={() => setHoveredId(song.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  className={`h-full w-full rounded-xl border transition-all duration-200 flex items-center gap-3 px-3 group cursor-pointer ${
+                    isSelected
+                      ? 'bg-brand-primary/[0.06] border-brand-primary/20 shadow-sm'
+                      : 'bg-surface-1/[0.3] border-transparent hover:bg-surface-2/40 hover:border-border-default/30 hover:shadow-sm'
+                  }`}
+                  onClick={() => onSelectSong(song)}
+                >
+                  {/* Thumbnail / Number Badge */}
+                  <div
+                    className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 border ${
+                      isSelected
+                        ? 'bg-brand-primary/10 border-brand-primary/20 text-brand-primary'
+                        : 'bg-surface-2 border-border-default/30 text-text-muted'
+                    }`}
+                  >
+                    {song.number ? (
+                      <span className="text-[13px] font-bold font-mono">{song.number}</span>
+                    ) : (
+                      <Music size={16} />
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-[13px] font-semibold truncate ${
+                          isSelected ? 'text-brand-primary' : 'text-text-primary'
+                        }`}
+                      >
+                        {song.title}
+                      </span>
+                      {isFavorite && (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+                        >
+                          <Heart size={12} className="text-amber-400 fill-amber-400" />
+                        </motion.div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {song.category && (
+                        <span className="text-[10px] text-text-muted bg-surface-2 border border-border-default/20 px-1.5 py-0.5 rounded-md">
+                          {song.category}
+                        </span>
+                      )}
+                      {song.author && (
+                        <span className="text-[10px] text-text-muted truncate">{song.author}</span>
+                      )}
+                      {/* Lyric preview */}
+                      <span className="text-[10px] text-text-muted truncate max-w-[200px] opacity-60">
+                        {(song.lyrics_raw || '').split('\n')[0]}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Hover Actions */}
+                  <AnimatePresence>
+                    {isHovered && (
+                      <motion.div
+                        initial={{ opacity: 0, x: 8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 8 }}
+                        transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                        className="flex items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => onAddToPlaylist(song)}
+                          className="h-8 w-8 rounded-lg bg-surface-2 border border-border-default/30 flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-3 hover:border-border-default/50 transition-all"
+                          title="Tambah ke playlist"
+                        >
+                          <ListMusic size={14} />
+                        </button>
+                        <button
+                          onClick={() => onToggleFavorite(song.id)}
+                          className={`h-8 w-8 rounded-lg border flex items-center justify-center transition-all ${
+                            isFavorite
+                              ? 'bg-amber-400/10 border-amber-400/20 text-amber-400'
+                              : 'bg-surface-2 border-border-default/30 text-text-muted hover:text-amber-400 hover:bg-amber-400/5'
+                          }`}
+                          title="Favorit"
+                        >
+                          <Heart size={14} className={isFavorite ? 'fill-amber-400' : ''} />
+                        </button>
+                        <button
+                          className="h-8 w-8 rounded-lg bg-surface-2 border border-border-default/30 flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-3 hover:border-border-default/50 transition-all"
+                          title="Lainnya"
+                        >
+                          <MoreHorizontal size={14} />
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Play indicator on selected */}
+                  {isSelected && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                      className="h-7 w-7 rounded-full bg-brand-primary/15 border border-brand-primary/25 flex items-center justify-center text-brand-primary"
+                    >
+                      <Play size={12} fill="currentColor" />
+                    </motion.div>
+                  )}
+                </motion.div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}

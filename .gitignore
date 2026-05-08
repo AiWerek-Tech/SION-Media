@@ -22,6 +22,9 @@ Desktop.ini
 *.swp
 *.swo
 
+# Auto-generated electron-vite config artifacts
+electron.vite.config.*.mjs
+
 # Logs & Cache
 .eslintcache
 *.log*
