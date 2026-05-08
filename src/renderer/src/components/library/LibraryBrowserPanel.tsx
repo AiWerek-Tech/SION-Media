@@ -9,7 +9,7 @@ import { logger } from '../../utils/logger'
 import { LibrarySidebar } from './LibrarySidebar'
 import { LibraryNumberView } from './LibraryNumberView'
 import { LibraryTitleView } from './LibraryTitleView'
-import { LibraryPlaylistView } from './LibraryPlaylistView'
+import { LibraryPlaylistWorkspace } from './LibraryPlaylistWorkspace'
 import type { Song } from '../../types'
 
 type LibraryTab = 'playlist' | 'number' | 'title'
@@ -152,14 +152,7 @@ export function LibraryBrowserPanel(): React.JSX.Element {
                   onToggleFavorite={handleToggleFavorite}
                 />
               )}
-              {activeTab === 'playlist' && (
-                <LibraryPlaylistView
-                  songs={songs}
-                  selectedSongId={selectedSong?.id}
-                  onSelectSong={handleSelectSong}
-                  onAddToPlaylist={handleAddToPlaylist}
-                />
-              )}
+              {activeTab === 'playlist' && <LibraryPlaylistWorkspace />}
             </motion.div>
           </AnimatePresence>
         </div>

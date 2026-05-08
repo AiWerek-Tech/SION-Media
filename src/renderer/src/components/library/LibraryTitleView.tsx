@@ -3,6 +3,7 @@ import { Heart, ListMusic, MoreHorizontal, Music, Pin, Play, SortAsc, Type } fro
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Song } from '../../types'
+import { SongContextMenu } from './SongContextMenu'
 
 interface TitleViewProps {
   songs: Song[]
@@ -23,6 +24,9 @@ export function LibraryTitleView({
 }: TitleViewProps): React.JSX.Element {
   const [sortMode, setSortMode] = React.useState<SortMode>('number')
   const [hoveredId, setHoveredId] = React.useState<number | null>(null)
+  const [menuOpen, setMenuOpen] = React.useState(false)
+  const [menuPos, setMenuPos] = React.useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [menuSong, setMenuSong] = React.useState<Song | null>(null)
   const parentRef = useRef<HTMLDivElement>(null)
 
   const sortedSongs = useMemo(() => {
@@ -60,8 +64,55 @@ export function LibraryTitleView({
 
   const virtualItems = rowVirtualizer.getVirtualItems()
 
+  const openMenu = (e: React.MouseEvent, song: Song): void => {
+    e.preventDefault()
+    e.stopPropagation()
+    const x = Math.min(window.innerWidth - 240, e.clientX)
+    const y = Math.min(window.innerHeight - 240, e.clientY)
+    setMenuSong(song)
+    setMenuPos({ x, y })
+    setMenuOpen(true)
+  }
+
   return (
     <div className="h-full flex flex-col">
+      <SongContextMenu
+        open={menuOpen && !!menuSong}
+        x={menuPos.x}
+        y={menuPos.y}
+        onClose={() => setMenuOpen(false)}
+        actions={
+          menuSong
+            ? [
+                {
+                  id: 'add_to_playlist',
+                  label: 'Tambah ke playlist',
+                  icon: <ListMusic size={14} />,
+                  onClick: () => onAddToPlaylist(menuSong)
+                },
+                {
+                  id: 'toggle_favorite',
+                  label: menuSong.is_favorite === 1 ? 'Hapus favorit' : 'Jadikan favorit',
+                  icon: <Heart size={14} />,
+                  onClick: () => onToggleFavorite(menuSong.id)
+                },
+                {
+                  id: 'pin',
+                  label: 'Pin (coming soon)',
+                  icon: <Pin size={14} />,
+                  onClick: () => {}
+                },
+                {
+                  id: 'close',
+                  label: 'Tutup',
+                  icon: <MoreHorizontal size={14} />,
+                  onClick: () => {}
+                }
+              ]
+            : []
+        }
+      />
+
       {/* Toolbar */}
       <div className="h-[48px] min-h-[48px] flex items-center justify-between px-4 border-b border-border-default/30 surface-2">
         <div className="flex items-center gap-2">
@@ -112,6 +163,7 @@ export function LibraryTitleView({
             const isSelected = selectedSongId === song.id
             const isHovered = hoveredId === song.id
             const isFavorite = song.is_favorite === 1
+            const isRecent = !!song.last_used || !!song.last_played
 
             return (
               <div
@@ -162,6 +214,11 @@ export function LibraryTitleView({
                       >
                         {song.title}
                       </span>
+                      {isRecent && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-surface-2 border border-border-default/20 text-text-muted">
+                          Recent
+                        </span>
+                      )}
                       {isFavorite && (
                         <motion.div
                           initial={{ scale: 0 }}
@@ -203,6 +260,7 @@ export function LibraryTitleView({
                           onClick={() => onAddToPlaylist(song)}
                           className="h-8 w-8 rounded-lg bg-surface-2 border border-border-default/30 flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-3 hover:border-border-default/50 transition-all"
                           title="Tambah ke playlist"
+                          aria-label={`Tambah ${song.title} ke playlist`}
                         >
                           <ListMusic size={14} />
                         </button>
@@ -214,12 +272,15 @@ export function LibraryTitleView({
                               : 'bg-surface-2 border-border-default/30 text-text-muted hover:text-amber-400 hover:bg-amber-400/5'
                           }`}
                           title="Favorit"
+                          aria-label={`Toggle favorit ${song.title}`}
                         >
                           <Heart size={14} className={isFavorite ? 'fill-amber-400' : ''} />
                         </button>
                         <button
+                          onClick={(e) => openMenu(e, song)}
                           className="h-8 w-8 rounded-lg bg-surface-2 border border-border-default/30 flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-3 hover:border-border-default/50 transition-all"
                           title="Lainnya"
+                          aria-label={`Menu aksi untuk ${song.title}`}
                         >
                           <MoreHorizontal size={14} />
                         </button>

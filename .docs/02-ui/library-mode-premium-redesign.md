@@ -34,10 +34,10 @@ File: `src/renderer/src/assets/main.css`
 
 File: `src/renderer/src/screens/modes/LibraryMode.tsx`
 
-- Top command bar shell.
+- Top command bar (LibraryCommandBar).
 - Main workspace split:
   - Left: `LibraryBrowserPanel` (sidebar + main content)
-  - Right: existing `PlaylistPanel` kept as the queue workspace.
+  - Right: existing `PlaylistPanel` kept as the queue workspace (hidden when Focus Mode enabled).
 
 ### Library Browser (Modular)
 
@@ -47,31 +47,41 @@ Folder: `src/renderer/src/components/library/`
   - Resizable sidebar.
   - Pill tab navigation.
   - Animated tab transitions.
+- `LibraryCommandBar.tsx`
+  - Global search entry (opens CommandPalette).
+  - Hymnal selector.
+  - Theme toggle + Focus mode toggle.
 - `LibrarySidebar.tsx`
   - Modern hymnal selector (dropdown, glass panel).
   - Search with debounce.
   - Sections: Search / Recent / Favorites.
   - Relative time indicator for recents.
+  - Collapsible + compact mode.
+  - Pinned hymnals (stored in localStorage).
 - `LibraryNumberView.tsx`
   - Premium number grid cell styling.
   - Jump-to-number overlay (`/` shortcut).
   - Hover preview.
+  - Virtualized grid rows.
+  - Keyboard navigation (arrow keys + Enter).
+  - Compact mode toggle.
 - `LibraryTitleView.tsx`
   - Virtualized modern card/list hybrid.
   - Smooth hover actions.
   - Sort modes.
-- `LibraryPlaylistView.tsx`
-  - “Playlist workspace” style grouping baseline (category groups and song cards).
+- `LibraryPlaylistWorkspace.tsx`
+  - Centerpiece playlist workspace driven by `usePlaylistStore`.
+  - Drag-drop reorder, sections, export, clear.
+  - Uses existing `PlaylistItemCard` for consistent queue styling.
+- `SongContextMenu.tsx`
+  - Contextual menu overlay used in Title view.
 
 ## Next steps
 
-- Add a true **Top Command Bar** with:
-  - Global search (also usable in other modes)
-  - Quick actions + theme toggle
-  - Breadcrumb / view title
-- Integrate playlist queue state into the center `Playlist` tab (so center view becomes the true centerpiece).
-- Add keyboard navigation across the number grid and title list.
-- Accessibility pass (focus rings, aria labels for icon-only buttons).
+- Improve Top Command Bar quick actions beyond baseline (history, pin management, playlist shortcuts).
+- Expand contextual menu actions (pin song, open details, copy lyrics).
+- Performance profiling (React Profiler) for library views under large datasets.
+- Accessibility pass (aria labels already started; expand to proper roles + focus order).
 
 ## Notes
 

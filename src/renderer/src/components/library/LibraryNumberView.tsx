@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Search, Hash } from 'lucide-react'
+import { Search, Hash, LayoutGrid } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import type { Song } from '../../types'
 
 interface NumberViewProps {
@@ -16,8 +17,11 @@ export function LibraryNumberView({
 }: NumberViewProps): React.JSX.Element {
   const [jumpValue, setJumpValue] = useState('')
   const [showJump, setShowJump] = useState(false)
+  const [compact, setCompact] = useState(false)
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1)
   const jumpInputRef = useRef<HTMLInputElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
+  const parentRef = useRef<HTMLDivElement>(null)
 
   // Sort songs by number
   const sortedSongs = useMemo(() => {
@@ -29,10 +33,38 @@ export function LibraryNumberView({
     })
   }, [songs])
 
+  const cellSize = compact ? 54 : 68
+  const gapSize = compact ? 8 : 10
+
+  const columns = useMemo(() => {
+    const w = gridRef.current?.clientWidth ?? 900
+    return Math.max(4, Math.floor((w + gapSize) / (cellSize + gapSize)))
+  }, [cellSize, gapSize])
+
+  const rowCount = useMemo(
+    () => Math.ceil(sortedSongs.length / columns),
+    [sortedSongs.length, columns]
+  )
+
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
+    count: rowCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => cellSize + gapSize,
+    overscan: 6
+  })
+
+  const rows = rowVirtualizer.getVirtualItems()
+
   // Keyboard shortcut: / to open jump-to-number
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
+      const target = e.target as HTMLElement
+      const isTyping =
+        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable
+
       if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (isTyping) return
         e.preventDefault()
         setShowJump(true)
         setTimeout(() => jumpInputRef.current?.focus(), 50)
@@ -41,10 +73,41 @@ export function LibraryNumberView({
         setShowJump(false)
         setJumpValue('')
       }
+
+      if (isTyping) return
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        setFocusedIndex((i) => Math.min(i + 1, sortedSongs.length - 1))
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        setFocusedIndex((i) => Math.max(i - 1, 0))
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setFocusedIndex((i) => {
+          if (i < 0) return 0
+          return Math.min(i + columns, sortedSongs.length - 1)
+        })
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setFocusedIndex((i) => {
+          if (i < 0) return 0
+          return Math.max(i - columns, 0)
+        })
+      }
+      if (e.key === 'Enter') {
+        if (focusedIndex >= 0 && sortedSongs[focusedIndex]) {
+          e.preventDefault()
+          onSelectSong(sortedSongs[focusedIndex])
+        }
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [columns, focusedIndex, onSelectSong, sortedSongs])
 
   const handleJump = (val: string): void => {
     setJumpValue(val)
@@ -53,6 +116,7 @@ export function LibraryNumberView({
       const target = sortedSongs.find((s) => parseInt(s.number || '0', 10) === num)
       if (target) {
         onSelectSong(target)
+        setFocusedIndex(sortedSongs.findIndex((s) => s.id === target.id))
         setShowJump(false)
         setJumpValue('')
         // Scroll to element
@@ -63,6 +127,13 @@ export function LibraryNumberView({
       }
     }
   }
+
+  // Keep focused item visible
+  useEffect(() => {
+    if (focusedIndex < 0) return
+    const rowIndex = Math.floor(focusedIndex / columns)
+    rowVirtualizer.scrollToIndex(rowIndex, { align: 'center' })
+  }, [focusedIndex, columns, rowVirtualizer])
 
   return (
     <div className="h-full flex flex-col relative">
@@ -76,17 +147,34 @@ export function LibraryNumberView({
             {sortedSongs.length} lagu
           </span>
         </div>
-        <button
-          onClick={() => {
-            setShowJump((v) => !v)
-            if (!showJump) setTimeout(() => jumpInputRef.current?.focus(), 50)
-          }}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface-2/60 border border-border-default/30 text-[11px] text-text-muted hover:text-text-secondary hover:bg-surface-3/60 transition-all"
-          title="Tekan / untuk lompat ke nomor"
-        >
-          <Search size={12} />
-          <span className="font-mono">/</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCompact((v) => !v)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] transition-all ${
+              compact
+                ? 'bg-brand-primary/10 border-brand-primary/20 text-brand-primary'
+                : 'bg-surface-2/60 border-border-default/30 text-text-muted hover:text-text-secondary hover:bg-surface-3/60'
+            }`}
+            title="Compact mode"
+            aria-label="Toggle compact mode"
+          >
+            <LayoutGrid size={12} />
+            Compact
+          </button>
+
+          <button
+            onClick={() => {
+              setShowJump((v) => !v)
+              if (!showJump) setTimeout(() => jumpInputRef.current?.focus(), 50)
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface-2/60 border border-border-default/30 text-[11px] text-text-muted hover:text-text-secondary hover:bg-surface-3/60 transition-all"
+            title="Tekan / untuk lompat ke nomor"
+            aria-label="Jump to number"
+          >
+            <Search size={12} />
+            <span className="font-mono">/</span>
+          </button>
+        </div>
       </div>
 
       {/* Jump to Number Overlay */}
@@ -124,46 +212,84 @@ export function LibraryNumberView({
       </AnimatePresence>
 
       {/* Number Grid */}
-      <div ref={gridRef} className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-4">
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(64px,1fr))] gap-2.5">
-          {sortedSongs.map((song, index) => {
-            const isActive = selectedSongId === song.id
-            const num = song.number || '—'
+      <div ref={gridRef} className="flex-1 min-h-0 overflow-hidden">
+        <div ref={parentRef} className="h-full overflow-y-auto scrollbar-thin p-4">
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative'
+            }}
+          >
+            {rows.map((vr) => {
+              const rowIndex = vr.index
+              const startIndex = rowIndex * columns
+              const endIndex = Math.min(startIndex + columns, sortedSongs.length)
+              const rowSongs = sortedSongs.slice(startIndex, endIndex)
 
-            return (
-              <motion.button
-                key={song.id}
-                data-song-number={song.id}
-                initial={{ opacity: 0, scale: 0.92 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{
-                  duration: 0.2,
-                  delay: Math.min(index * 0.008, 0.4),
-                  ease: [0.16, 1, 0.3, 1]
-                }}
-                onClick={() => onSelectSong(song)}
-                className={`number-cell group ${isActive ? 'number-cell-active' : ''}`}
-                title={`${num}. ${song.title}`}
-              >
-                <span className="font-mono">{num}</span>
+              return (
+                <div
+                  key={vr.key}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: `${vr.size}px`,
+                    transform: `translateY(${vr.start}px)`
+                  }}
+                >
+                  <div
+                    className="grid"
+                    style={{
+                      gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                      gap: `${gapSize}px`
+                    }}
+                  >
+                    {rowSongs.map((song, colIdx) => {
+                      const index = startIndex + colIdx
+                      const isActive = selectedSongId === song.id
+                      const isFocused = focusedIndex === index
+                      const num = song.number || '—'
 
-                {/* Mini title on hover */}
-                <div className="absolute inset-x-0 bottom-0 translate-y-full pt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-20">
-                  <div className="glass-panel-strong px-2 py-1.5 text-[10px] text-text-primary font-medium whitespace-nowrap truncate max-w-[120px] mx-auto">
-                    {song.title}
+                      return (
+                        <button
+                          key={song.id}
+                          data-song-number={song.id}
+                          onClick={() => {
+                            setFocusedIndex(index)
+                            onSelectSong(song)
+                          }}
+                          onFocus={() => setFocusedIndex(index)}
+                          className={`number-cell group focus-ring ${isActive ? 'number-cell-active' : ''} ${
+                            isFocused ? 'ring-2 ring-brand-primary/25' : ''
+                          }`}
+                          style={{ height: `${cellSize}px` }}
+                          title={`${num}. ${song.title}`}
+                          aria-label={`${num}. ${song.title}`}
+                        >
+                          <span className="font-mono">{num}</span>
+
+                          <div className="absolute inset-x-0 bottom-0 translate-y-full pt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-20">
+                            <div className="glass-panel-strong px-2 py-1.5 text-[10px] text-text-primary font-medium whitespace-nowrap truncate max-w-[140px] mx-auto">
+                              {song.title}
+                            </div>
+                          </div>
+
+                          {isActive && (
+                            <motion.div
+                              layoutId="number-active-dot"
+                              className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-brand-primary shadow-glow-sm"
+                            />
+                          )}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
-
-                {/* Active indicator dot */}
-                {isActive && (
-                  <motion.div
-                    layoutId="number-active-dot"
-                    className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-brand-primary shadow-glow-sm"
-                  />
-                )}
-              </motion.button>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>
