@@ -1,13 +1,13 @@
 import React, { useEffect } from 'react'
 import { AlertTriangle, Maximize2 } from 'lucide-react'
-import { SongLibraryPanel } from '../components/SongLibraryPanel'
-import { LivePreviewPanel } from '../components/LivePreviewPanel'
-import { PlaylistPanel } from '../components/PlaylistPanel'
-import { ControlBar } from '../components/ControlBar'
-import { usePlaylistStore } from '../store/usePlaylistStore'
-import { useAppStore } from '../store/useAppStore'
+import { SongLibraryPanel } from '../../components/SongLibraryPanel'
+import { LivePreviewPanel } from '../../components/LivePreviewPanel'
+import { PlaylistPanel } from '../../components/PlaylistPanel'
+import { ControlBar } from '../../components/ControlBar'
+import { usePlaylistStore } from '../../store/usePlaylistStore'
+import { useAppStore } from '../../store/useAppStore'
 
-export function Dashboard(): React.JSX.Element {
+export function ProjectionMode(): React.JSX.Element {
   const { playlistItems } = usePlaylistStore()
   const { displayCount, isFocusMode, toggleFocusMode, loadHymnals, loadSongs } = useAppStore()
   const hasSingleMonitor = displayCount <= 1

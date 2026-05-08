@@ -234,6 +234,24 @@ function setupIPC(): void {
     return mem ? { private: mem.private, shared: mem.shared } : null
   })
 
+  // Mode change handler
+  ipcMain.handle('system:set-mode', async (_event, mode: string) => {
+    if (mode === 'LIBRARY' || mode === 'MANAGEMENT') {
+      // Hide or destroy projection window to save memory
+      if (projectionWindow && !projectionWindow.isDestroyed()) {
+        projectionWindow.hide()
+      }
+    } else if (mode === 'PROJECTION' || mode === 'BROADCAST') {
+      // Re-initialize or show projection window if needed
+      // Currently projectionWindow is created on boot and hidden by default.
+      // We don't auto-show it here to avoid hijacking user control, but we could
+      // ensure it exists if destroyed.
+      if (!projectionWindow || projectionWindow.isDestroyed()) {
+        createProjectionWindow()
+      }
+    }
+  })
+
   // Projection control
   ipcMain.on('projection:slide-update', (_event, slideData) => {
     latestSlideData = slideData

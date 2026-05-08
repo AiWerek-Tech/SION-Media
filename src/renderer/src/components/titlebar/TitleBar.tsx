@@ -1,6 +1,7 @@
 import React from 'react'
 import { TitleBarIdentity } from './TitleBarIdentity'
 import { TitleBarMenu } from './TitleBarMenu'
+import { TitleBarModeSwitcher } from './TitleBarModeSwitcher'
 import { TitleBarStatus } from './TitleBarStatus'
 import { TitleBarClock } from './TitleBarClock'
 import { TitleBarControls } from './TitleBarControls'
@@ -22,6 +23,7 @@ export function TitleBar(): React.JSX.Element {
       {/* Left: App Identity + Menu System */}
       <div className="title-bar-left">
         <TitleBarIdentity />
+        <TitleBarModeSwitcher />
         <TitleBarMenu />
       </div>
 

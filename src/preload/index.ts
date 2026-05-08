@@ -123,7 +123,8 @@ const api = {
     getRecoveryState: (): Promise<unknown> => ipcRenderer.invoke('db:get-recovery-state'),
     markCleanExit: (): Promise<void> => ipcRenderer.invoke('db:mark-clean-exit'),
     reseed: (): Promise<void> => ipcRenderer.invoke('db:reseed'),
-    getMemory: (): Promise<unknown> => ipcRenderer.invoke('system:get-memory')
+    getMemory: (): Promise<unknown> => ipcRenderer.invoke('system:get-memory'),
+    setMode: (mode: string): Promise<void> => ipcRenderer.invoke('system:set-mode', mode)
   },
 
   // File System

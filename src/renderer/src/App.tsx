@@ -4,10 +4,15 @@ import { useAppStore } from './store/useAppStore'
 import { usePlaylistStore } from './store/usePlaylistStore'
 import { useProjectionStore } from './store/useProjectionStore'
 import { SplashScreen } from './screens/SplashScreen'
-import { Dashboard } from './screens/Dashboard'
 import { SongEditorScreen } from './screens/SongEditorScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { ImportExportScreen } from './screens/ImportExportScreen'
+import { ProjectionMode } from './screens/modes/ProjectionMode'
+import { LibraryMode } from './screens/modes/LibraryMode'
+import { ManagementMode } from './screens/modes/ManagementMode'
+import { BroadcastMode } from './screens/modes/BroadcastMode'
+import { WelcomeModeSelector } from './screens/modes/WelcomeModeSelector'
+import { useModeStore } from './store/useModeStore'
 import { Toast } from './components/Toast'
 import { CommandPalette } from './components/CommandPalette'
 import { KeyboardCheatSheet } from './components/KeyboardCheatSheet'
@@ -20,6 +25,7 @@ function App(): React.JSX.Element {
   const { isLoading, setLoading, currentScreen, setScreen, loadSongs, setDisplayCount, showToast } =
     useAppStore()
   const { loadPlaylists, playlistItems, activePlaylist } = usePlaylistStore()
+  const { currentMode, isFirstInstall } = useModeStore()
   const [splashDone, setSplashDone] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
@@ -199,8 +205,8 @@ function App(): React.JSX.Element {
       }
 
       // Dashboard-only shortcuts
-      if (currentScreen !== 'dashboard') return
-
+      if (useModeStore.getState().currentMode !== 'PROJECTION' && useModeStore.getState().currentMode !== 'BROADCAST') return
+      
       const store = useProjectionStore.getState()
 
       switch (e.code) {
@@ -321,18 +327,62 @@ function App(): React.JSX.Element {
             >
               <ImportExportScreen />
             </motion.div>
-          ) : (
+          ) : isFirstInstall ? (
             <motion.div
-              key="dashboard"
+              key="welcome"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="absolute inset-0 z-50 bg-bg-base"
+            >
+              <WelcomeModeSelector />
+            </motion.div>
+          ) : currentMode === 'PROJECTION' ? (
+            <motion.div
+              key="projection"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5 }}
               className="absolute inset-0"
             >
-              <Dashboard />
+              <ProjectionMode />
             </motion.div>
-          )}
+          ) : currentMode === 'LIBRARY' ? (
+            <motion.div
+              key="library"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="absolute inset-0"
+            >
+              <LibraryMode />
+            </motion.div>
+          ) : currentMode === 'MANAGEMENT' ? (
+            <motion.div
+              key="management"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="absolute inset-0"
+            >
+              <ManagementMode />
+            </motion.div>
+          ) : currentMode === 'BROADCAST' ? (
+            <motion.div
+              key="broadcast"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="absolute inset-0"
+            >
+              <BroadcastMode />
+            </motion.div>
+          ) : null}
         </AnimatePresence>
       </div>
     </div>

@@ -66,6 +66,7 @@ interface SystemAPI {
   markCleanExit: () => Promise<void>
   reseed: () => Promise<void>
   getMemory: () => Promise<unknown>
+  setMode?: (mode: string) => Promise<void>
 }
 
 interface FileAPI {
