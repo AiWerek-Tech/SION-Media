@@ -7,7 +7,7 @@ import { logger } from '../../utils/logger'
 import { LibraryNumberView } from './LibraryNumberView'
 import { LibraryTitleView } from './LibraryTitleView'
 import { LibraryPlaylistWorkspace } from './LibraryPlaylistWorkspace'
-import { LibraryLyricsPane } from './LibraryLyricsPane'
+import { LibraryLyricsViewer } from './LibraryLyricsViewer'
 import type { Song } from '../../types'
 
 type LibraryTab = 'playlist' | 'number' | 'title'
@@ -53,6 +53,13 @@ export function LibraryBrowserPanel(): React.JSX.Element {
 
   return (
     <div className="h-full flex">
+      {selectedSong && (
+        <LibraryLyricsViewer
+          key={selectedSong.id}
+          song={selectedSong}
+          onClose={() => setSelectedSong(null)}
+        />
+      )}
       {/* Main Content */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Tabs */}
@@ -139,13 +146,6 @@ export function LibraryBrowserPanel(): React.JSX.Element {
           </AnimatePresence>
         </div>
       </div>
-
-      {/* Lyrics Pane */}
-      {selectedSong && (
-        <div className="w-[420px] min-w-[320px] max-w-[520px] flex-shrink-0">
-          <LibraryLyricsPane song={selectedSong} onClose={() => setSelectedSong(null)} />
-        </div>
-      )}
     </div>
   )
 }
