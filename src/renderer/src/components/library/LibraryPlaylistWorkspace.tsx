@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Calendar,
   Check,
@@ -27,8 +27,6 @@ import {
 } from '@dnd-kit/sortable'
 import { usePlaylistStore } from '../../store/usePlaylistStore'
 import { useAppStore } from '../../store/useAppStore'
-import { useProjectionStore } from '../../store/useProjectionStore'
-import { generateSlides } from '../../engine/slideEngine'
 import PlaylistItemCard from '../PlaylistItemCard'
 import { logger } from '../../utils/logger'
 
@@ -55,8 +53,6 @@ export function LibraryPlaylistWorkspace(): React.JSX.Element {
   } = usePlaylistStore()
 
   const { songs, setSelectedSong } = useAppStore()
-  const { setSlides, programSlide } = useProjectionStore()
-  const projectedSongId = programSlide?.songId ?? null
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
@@ -70,15 +66,6 @@ export function LibraryPlaylistWorkspace(): React.JSX.Element {
   useEffect(() => {
     if (activePlaylist) loadPlaylistItems(activePlaylist.id).catch(logger.error)
   }, [activePlaylist, loadPlaylistItems])
-
-  const totalSlideCount = useMemo(
-    () =>
-      playlistItems.reduce(
-        (sum, item) => sum + generateSlides(item.song_id, item.lyrics_raw || '').length,
-        0
-      ),
-    [playlistItems]
-  )
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -99,7 +86,6 @@ export function LibraryPlaylistWorkspace(): React.JSX.Element {
     const song = songs.find((s) => s.id === songId)
     if (!song) return
     setSelectedSong(song)
-    setSlides(generateSlides(song.id, song.lyrics_raw))
   }
 
   const handleCreate = async (): Promise<void> => {
@@ -239,11 +225,7 @@ export function LibraryPlaylistWorkspace(): React.JSX.Element {
 
           {activePlaylist && (
             <div className="hidden lg:flex items-center gap-2 ml-2">
-              <span className="chip chip-active">{playlistItems.length} item</span>
-              <span className="chip">{totalSlideCount} slides</span>
-              {projectedSongId && (
-                <span className="chip bg-live-red/10 border-live-red/20 text-live-red">LIVE</span>
-              )}
+              <span className="chip chip-active">{playlistItems.length} lagu</span>
             </div>
           )}
         </div>
@@ -368,7 +350,6 @@ export function LibraryPlaylistWorkspace(): React.JSX.Element {
               <div className="space-y-2">
                 {playlistItems.map((item, index) => {
                   const isActive = usePlaylistStore.getState().activeItemIndex === index
-                  const isProjected = projectedSongId === item.song_id
                   return (
                     <motion.div
                       key={item.id}
@@ -380,7 +361,6 @@ export function LibraryPlaylistWorkspace(): React.JSX.Element {
                         item={item}
                         index={index}
                         isActive={isActive}
-                        isProjected={isProjected}
                         onClick={() => handleItemClick(item.song_id, index)}
                         onRemove={(e) => {
                           e.stopPropagation()

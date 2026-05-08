@@ -6,11 +6,33 @@ import { PlaylistPanel } from '../components/PlaylistPanel'
 import { ControlBar } from '../components/ControlBar'
 import { usePlaylistStore } from '../store/usePlaylistStore'
 import { useAppStore } from '../store/useAppStore'
+import { useProjectionStore } from '../store/useProjectionStore'
+import { generateSlides } from '../engine/slideEngine'
+import type { PlaylistItem } from '../types'
 
 export function Dashboard(): React.JSX.Element {
   const { playlistItems } = usePlaylistStore()
-  const { displayCount, isFocusMode, toggleFocusMode, loadHymnals, loadSongs } = useAppStore()
+  const {
+    displayCount,
+    isFocusMode,
+    toggleFocusMode,
+    loadHymnals,
+    loadSongs,
+    setSelectedSong,
+    songs
+  } = useAppStore()
+  const { setSlides, programSlide } = useProjectionStore()
   const hasSingleMonitor = displayCount <= 1
+  const projectedSongId = programSlide?.songId ?? null
+
+  const handlePlaylistItemClick = (item: PlaylistItem, index: number): void => {
+    usePlaylistStore.getState().setActiveItemIndex(index)
+    const song = songs.find((s) => s.id === item.song_id)
+    if (song) {
+      setSelectedSong(song)
+      setSlides(generateSlides(song.id, song.lyrics_raw))
+    }
+  }
 
   useEffect(() => {
     loadHymnals()
@@ -63,7 +85,10 @@ export function Dashboard(): React.JSX.Element {
             <SongLibraryPanel />
           </div>
           <div className="min-w-0 p-2">
-            <PlaylistPanel />
+            <PlaylistPanel
+              projectedSongId={projectedSongId}
+              onItemClick={handlePlaylistItemClick}
+            />
           </div>
         </section>
       )}

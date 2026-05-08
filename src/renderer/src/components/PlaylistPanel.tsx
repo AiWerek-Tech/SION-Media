@@ -11,7 +11,6 @@ import {
 } from 'lucide-react'
 import { usePlaylistStore } from '../store/usePlaylistStore'
 import { useAppStore } from '../store/useAppStore'
-import { useProjectionStore } from '../store/useProjectionStore'
 import { generateSlides } from '../engine/slideEngine'
 import { logger } from '../utils/logger'
 import type { PlaylistItem } from '../types'
@@ -33,6 +32,11 @@ import {
 
 // SortablePlaylistItem component has been replaced by PlaylistItemCard (see components/PlaylistItemCard.tsx)
 
+interface PlaylistPanelProps {
+  projectedSongId?: number | null
+  onItemClick?: (item: PlaylistItem, index: number) => void
+}
+
 const SECTION_PRESETS = [
   'PEMBUKAAN',
   'PUJIAN',
@@ -42,7 +46,10 @@ const SECTION_PRESETS = [
   'PENUTUPAN'
 ] as const
 
-export function PlaylistPanel(): React.JSX.Element {
+export function PlaylistPanel({
+  projectedSongId,
+  onItemClick
+}: PlaylistPanelProps): React.JSX.Element {
   const {
     activePlaylist,
     playlistItems,
@@ -54,7 +61,6 @@ export function PlaylistPanel(): React.JSX.Element {
     reorderItems
   } = usePlaylistStore()
   const { setSelectedSong, songs } = useAppStore()
-  const { setSlides, programSlide } = useProjectionStore()
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [showLoadDialog, setShowLoadDialog] = useState(false)
   const [showSectionMenu, setShowSectionMenu] = useState(false)
@@ -62,9 +68,6 @@ export function PlaylistPanel(): React.JSX.Element {
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0])
   const activeItemIndex = usePlaylistStore((s) => s.activeItemIndex)
   const setActiveItemIndex = usePlaylistStore((s) => s.setActiveItemIndex)
-
-  // Get currently projected song ID
-  const projectedSongId = programSlide?.songId ?? null
 
   // Total slide count across all playlist items
   const totalSlideCount = useMemo(
@@ -105,12 +108,14 @@ export function PlaylistPanel(): React.JSX.Element {
   }
 
   const handleItemClick = (item: PlaylistItem, index: number): void => {
+    if (onItemClick) {
+      onItemClick(item, index)
+      return
+    }
     setActiveItemIndex(index)
     const song = songs.find((s) => s.id === item.song_id)
     if (song) {
       setSelectedSong(song)
-      const newSlides = generateSlides(song.id, song.lyrics_raw)
-      setSlides(newSlides)
     }
   }
 

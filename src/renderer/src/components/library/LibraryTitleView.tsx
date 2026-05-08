@@ -1,5 +1,5 @@
 import React, { useMemo, useRef } from 'react'
-import { Heart, ListMusic, MoreHorizontal, Music, Pin, Play, SortAsc, Type } from 'lucide-react'
+import { Check, Heart, ListMusic, MoreHorizontal, Music, Pin, SortAsc, Type } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Song } from '../../types'
@@ -288,15 +288,15 @@ export function LibraryTitleView({
                     )}
                   </AnimatePresence>
 
-                  {/* Play indicator on selected */}
+                  {/* Selected indicator */}
                   {isSelected && (
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                      className="h-7 w-7 rounded-full bg-brand-primary/15 border border-brand-primary/25 flex items-center justify-center text-brand-primary"
+                      className="h-6 w-6 rounded-full bg-brand-primary/15 border border-brand-primary/25 flex items-center justify-center text-brand-primary"
                     >
-                      <Play size={12} fill="currentColor" />
+                      <Check size={12} />
                     </motion.div>
                   )}
                 </motion.div>

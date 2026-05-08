@@ -3,8 +3,6 @@ import { Grid3X3, ListMusic, Type } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../../store/useAppStore'
 import { usePlaylistStore } from '../../store/usePlaylistStore'
-import { useProjectionStore } from '../../store/useProjectionStore'
-import { generateSlides } from '../../engine/slideEngine'
 import { logger } from '../../utils/logger'
 import { LibrarySidebar } from './LibrarySidebar'
 import { LibraryNumberView } from './LibraryNumberView'
@@ -24,7 +22,6 @@ export function LibraryBrowserPanel(): React.JSX.Element {
   const { songs, selectedSong, setSelectedSong, loadSongs } = useAppStore()
 
   const { addSongToPlaylist } = usePlaylistStore()
-  const { setSlides } = useProjectionStore()
 
   const [activeTab, setActiveTab] = useState<LibraryTab>('number')
   const [sidebarWidth, setSidebarWidth] = useState(300)
@@ -33,9 +30,8 @@ export function LibraryBrowserPanel(): React.JSX.Element {
   const handleSelectSong = useCallback(
     (song: Song) => {
       setSelectedSong(song)
-      setSlides(generateSlides(song.id, song.lyrics_raw))
     },
-    [setSelectedSong, setSlides]
+    [setSelectedSong]
   )
 
   const handleAddToPlaylist = useCallback(

@@ -10,7 +10,7 @@ interface PlaylistItemCardProps {
   item: PlaylistItem
   index: number
   isActive: boolean
-  isProjected: boolean
+  isProjected?: boolean
   onClick: () => void
   onRemove: (e: React.MouseEvent) => void
 }
@@ -19,7 +19,7 @@ export default function PlaylistItemCard({
   item,
   index,
   isActive,
-  isProjected,
+  isProjected = false,
   onClick,
   onRemove
 }: PlaylistItemCardProps): React.JSX.Element {
