@@ -1,7 +1,109 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Song } from '../../types'
-import { generateSlides } from '../../engine/slideEngine'
+
+type LyricsBlock = {
+  label: string
+  lines: string[]
+}
+
+function parseLyricsBlocks(lyricsRaw: string): LyricsBlock[] {
+  const blocks: LyricsBlock[] = []
+  let currentLabel = ''
+  let currentLines: string[] = []
+
+  const lines = (lyricsRaw || '').replace(/\r\n/g, '\n').split('\n')
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+
+    const sectionMatch = trimmed.match(/^\[(.+)\]$/)
+    if (sectionMatch) {
+      if (currentLines.length > 0) blocks.push({ label: currentLabel, lines: currentLines })
+      currentLabel = sectionMatch[1]
+      currentLines = []
+      continue
+    }
+
+    if (trimmed === '---') {
+      if (currentLines.length > 0) blocks.push({ label: currentLabel, lines: currentLines })
+      currentLines = []
+      continue
+    }
+
+    // Keep empty line inside a block as stanza separator hint, but we'll compact later.
+    currentLines.push(trimmed)
+  }
+
+  if (currentLines.length > 0) blocks.push({ label: currentLabel, lines: currentLines })
+
+  // Normalize: trim leading/trailing empty lines per block + collapse repeated empties.
+  return blocks
+    .map((b) => {
+      const normalized: string[] = []
+      for (const ln of b.lines) {
+        const v = ln.trim()
+        if (v === '' && normalized[normalized.length - 1] === '') continue
+        normalized.push(v)
+      }
+      while (normalized[0] === '') normalized.shift()
+      while (normalized[normalized.length - 1] === '') normalized.pop()
+
+      return { ...b, lines: normalized }
+    })
+    .filter((b) => b.lines.length > 0)
+}
+
+function isReffLabel(label: string): boolean {
+  const l = (label || '').toLowerCase()
+  return l.includes('reff') || l.includes('ref') || l.includes('chorus')
+}
+
+function blockText(block: LyricsBlock): string {
+  return block.lines.filter((l) => l !== '').join('\n')
+}
+
+function splitIntoStanzas(lines: string[]): string[] {
+  const stanzas: string[] = []
+  let current: string[] = []
+
+  for (const line of lines) {
+    if (line.trim() === '') {
+      if (current.length > 0) {
+        stanzas.push(current.join('\n'))
+        current = []
+      }
+      continue
+    }
+    current.push(line)
+  }
+
+  if (current.length > 0) stanzas.push(current.join('\n'))
+  return stanzas.filter((s) => s.trim().length > 0)
+}
+
+function buildStanzaPages(lyricsRaw: string): string[] {
+  const blocks = parseLyricsBlocks(lyricsRaw)
+  if (blocks.length === 0) return []
+
+  const reffBlocks = blocks.filter((b) => isReffLabel(b.label))
+  const reffStanzas = reffBlocks.flatMap((b) => splitIntoStanzas(b.lines))
+  const reffText = reffStanzas.length > 0 ? reffStanzas.join('\n\n') : ''
+
+  const stanzaBlocks = blocks.filter((b) => !isReffLabel(b.label))
+
+  // If the song is only Reff/Chorus, show those blocks as pages.
+  if (stanzaBlocks.length === 0) {
+    return reffStanzas.length > 0 ? reffStanzas : reffBlocks.map((b) => blockText(b))
+  }
+
+  const verseStanzas = stanzaBlocks.flatMap((b) => splitIntoStanzas(b.lines))
+
+  return verseStanzas.map((verse) => {
+    if (!reffText) return verse
+    return `${verse}\n\nReff:\n${reffText}`
+  })
+}
 
 export function LibraryLyricsViewer({
   song,
@@ -10,10 +112,7 @@ export function LibraryLyricsViewer({
   song: Song
   onClose: () => void
 }): React.JSX.Element {
-  const slides = useMemo(
-    () => generateSlides(song.id, song.lyrics_raw || ''),
-    [song.id, song.lyrics_raw]
-  )
+  const pages = useMemo(() => buildStanzaPages(song.lyrics_raw || ''), [song.lyrics_raw])
   const [index, setIndex] = useState(0)
 
   useEffect(() => {
@@ -24,13 +123,18 @@ export function LibraryLyricsViewer({
         return
       }
 
-      if (e.code === 'ArrowRight' || e.code === 'PageDown') {
+      if (
+        e.code === 'ArrowDown' ||
+        e.code === 'PageDown' ||
+        e.code === 'ArrowRight' ||
+        e.code === 'Space'
+      ) {
         e.preventDefault()
-        setIndex((i) => Math.min(i + 1, Math.max(0, slides.length - 1)))
+        setIndex((i) => Math.min(i + 1, Math.max(0, pages.length - 1)))
         return
       }
 
-      if (e.code === 'ArrowLeft' || e.code === 'PageUp') {
+      if (e.code === 'ArrowUp' || e.code === 'PageUp' || e.code === 'ArrowLeft') {
         e.preventDefault()
         setIndex((i) => Math.max(0, i - 1))
         return
@@ -39,10 +143,10 @@ export function LibraryLyricsViewer({
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose, slides.length])
+  }, [onClose, pages.length])
 
-  const total = Math.max(1, slides.length)
-  const currentText = slides[index]?.text || song.lyrics_raw || ''
+  const total = Math.max(1, pages.length)
+  const currentText = pages[index] || song.lyrics_raw || ''
 
   return (
     <div className="absolute inset-0 z-[80] overflow-hidden bg-bg-base">
