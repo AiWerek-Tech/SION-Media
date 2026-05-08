@@ -4,7 +4,8 @@
    SION Media V3 — Modern Design System
    ============================================================ */
 
-:root {
+/* stylelint-disable at-rule-no-unknown */
+@theme {
   /* === DESIGN TOKENS V3 === */
 
   /* Surface Colors */
