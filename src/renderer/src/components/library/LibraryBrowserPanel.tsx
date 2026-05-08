@@ -4,10 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../../store/useAppStore'
 import { usePlaylistStore } from '../../store/usePlaylistStore'
 import { logger } from '../../utils/logger'
-import { LibrarySidebar } from './LibrarySidebar'
 import { LibraryNumberView } from './LibraryNumberView'
 import { LibraryTitleView } from './LibraryTitleView'
 import { LibraryPlaylistWorkspace } from './LibraryPlaylistWorkspace'
+import { LibraryLyricsPane } from './LibraryLyricsPane'
 import type { Song } from '../../types'
 
 type LibraryTab = 'playlist' | 'number' | 'title'
@@ -24,8 +24,6 @@ export function LibraryBrowserPanel(): React.JSX.Element {
   const { addSongToPlaylist } = usePlaylistStore()
 
   const [activeTab, setActiveTab] = useState<LibraryTab>('number')
-  const [sidebarWidth, setSidebarWidth] = useState(300)
-  const [isResizing, setIsResizing] = useState(false)
 
   const handleSelectSong = useCallback(
     (song: Song) => {
@@ -53,44 +51,12 @@ export function LibraryBrowserPanel(): React.JSX.Element {
     [loadSongs]
   )
 
-  // Sidebar resize
-  const startResize = useCallback(() => {
-    setIsResizing(true)
-    const onMove = (e: MouseEvent): void => {
-      setSidebarWidth(Math.max(240, Math.min(420, e.clientX)))
-    }
-    const onUp = (): void => {
-      setIsResizing(false)
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }, [])
-
   return (
     <div className="h-full flex">
-      {/* Sidebar */}
-      <div
-        className="flex-shrink-0 flex flex-col border-r border-border-default/50 surface-1"
-        style={{ width: sidebarWidth }}
-      >
-        <LibrarySidebar onSelectSong={handleSelectSong} selectedSongId={selectedSong?.id} />
-      </div>
-
-      {/* Resize Handle */}
-      <div
-        onMouseDown={startResize}
-        className={`w-1 flex-shrink-0 cursor-col-resize transition-colors duration-150 ${
-          isResizing ? 'bg-brand-primary/40' : 'hover:bg-brand-primary/20'
-        }`}
-        style={{ cursor: isResizing ? 'col-resize' : 'ew-resize' }}
-      />
-
       {/* Main Content */}
-      <div className="flex-1 min-w-0 flex flex-col surface-0">
-        {/* Tab Bar */}
-        <div className="h-[48px] min-h-[48px] flex items-center justify-between px-4 border-b border-border-default/30 surface-2">
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Tabs */}
+        <div className="h-[54px] min-h-[54px] flex items-center justify-between px-4 border-b border-border-default/30 surface-2">
           <div className="pill-tabs">
             {TABS.map((tab) => {
               const Icon = tab.icon
@@ -124,22 +90,31 @@ export function LibraryBrowserPanel(): React.JSX.Element {
         {/* Tab Content */}
         <div className="flex-1 min-h-0 overflow-hidden">
           <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="h-full"
-            >
-              {activeTab === 'number' && (
+            {activeTab === 'number' && (
+              <motion.div
+                key="number"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                className="h-full"
+              >
                 <LibraryNumberView
                   songs={songs}
                   selectedSongId={selectedSong?.id}
                   onSelectSong={handleSelectSong}
                 />
-              )}
-              {activeTab === 'title' && (
+              </motion.div>
+            )}
+            {activeTab === 'title' && (
+              <motion.div
+                key="title"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                className="h-full"
+              >
                 <LibraryTitleView
                   songs={songs}
                   selectedSongId={selectedSong?.id}
@@ -147,12 +122,30 @@ export function LibraryBrowserPanel(): React.JSX.Element {
                   onAddToPlaylist={handleAddToPlaylist}
                   onToggleFavorite={handleToggleFavorite}
                 />
-              )}
-              {activeTab === 'playlist' && <LibraryPlaylistWorkspace />}
-            </motion.div>
+              </motion.div>
+            )}
+            {activeTab === 'playlist' && (
+              <motion.div
+                key="playlist"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                className="h-full"
+              >
+                <LibraryPlaylistWorkspace />
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
       </div>
+
+      {/* Lyrics Pane */}
+      {selectedSong && (
+        <div className="w-[420px] min-w-[320px] max-w-[520px] flex-shrink-0">
+          <LibraryLyricsPane song={selectedSong} onClose={() => setSelectedSong(null)} />
+        </div>
+      )}
     </div>
   )
 }

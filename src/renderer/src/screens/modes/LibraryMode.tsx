@@ -1,11 +1,10 @@
 import React, { useEffect } from 'react'
 import { LibraryBrowserPanel } from '../../components/library/LibraryBrowserPanel'
 import { LibraryCommandBar } from '../../components/library/LibraryCommandBar'
-import { PlaylistPanel } from '../../components/PlaylistPanel'
 import { useAppStore } from '../../store/useAppStore'
 
 export function LibraryMode(): React.JSX.Element {
-  const { loadHymnals, loadSongs, isFocusMode } = useAppStore()
+  const { loadHymnals, loadSongs } = useAppStore()
 
   useEffect(() => {
     loadHymnals()
@@ -22,13 +21,6 @@ export function LibraryMode(): React.JSX.Element {
         <div className="flex-1 min-w-0 flex flex-col">
           <LibraryBrowserPanel />
         </div>
-
-        {/* Right Panel — Active Playlist Queue */}
-        {!isFocusMode && (
-          <div className="w-[340px] min-w-[300px] max-w-[420px] flex-shrink-0 border-l border-border-default/50 surface-1">
-            <PlaylistPanel />
-          </div>
-        )}
       </div>
     </div>
   )

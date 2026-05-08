@@ -25,9 +25,15 @@ Desktop.ini
 # Auto-generated electron-vite config artifacts
 electron.vite.config.*.mjs
 
-# Logs & Cache
-.eslintcache
-*.log*
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+build-log.txt
 
 # Environment
 .env
