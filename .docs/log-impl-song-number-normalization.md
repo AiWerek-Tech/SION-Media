@@ -51,6 +51,18 @@ Walaupun DB akan jadi sumber kebenaran setelah migrasi, UI juga dibuat tolerant 
 
 # Verifikasi
 - `npm run typecheck`: lulus (manual verif).
+- `npm run lint`: lulus (0 errors, 0 warnings).
+- **Script verifikasi DB**: `scripts/verify-db-normalization.mjs`
+  - Menggunakan `sql.js` (pure JS SQLite) untuk kompatibilitas cross-platform.
+  - Mengecek versi migrasi, lagu dengan leading zeros, dan sample nomor.
+  - Jalankan: `node scripts/verify-db-normalization.mjs`
+
+# Status Migrasi
+- **2026-05-10**: Migrasi v9 berhasil dijalankan saat `npm run dev`.
+  - Output: `Running 1 pending migration(s) (from version 8 to version 9)...`
+  - Output: `Applying migration 9: normalize_song_numbers_remove_leading_zeros...`
+  - Output: `Migration 9 applied successfully.`
+  - Database kini berada di versi 9.
 
 # Catatan
 - Jika di dalam satu hymnal terdapat duplikasi yang baru terlihat setelah normalisasi (mis. `001` dan `1`), migrasi tidak menghapus data; konflik tersebut perlu resolusi domain (di luar scope perubahan ini).

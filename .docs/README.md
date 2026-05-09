@@ -33,9 +33,45 @@ Untuk menjaga kerapian, gunakan format penamaan berikut untuk file baru:
 
 ---
 
-_Terakhir diperbarui: 2026-05-08_
+_Terakhir diperbarui: 2026-05-10_
 
-## Current Implementation Snapshot (2026-05-08)
+## Current Implementation Snapshot (2026-05-10)
+
+### Library Immersive Player v6
+Library Mode kini menggunakan **full-width immersive lyrics overlay** menggantikan split-pane layout sebelumnya:
+- Klik lagu -> langsung masuk ke viewer full-screen overlay dengan animasi smooth.
+- **Stanza-based pagination**: 1 bait per layar dengan vertical dot navigation.
+- **Keyboard navigation**: Escape (close), Arrow/Page keys (navigasi bait), Space (play/pause auto-scroll).
+- **Responsive typography**: Slider font 14-48px, persist ke localStorage.
+- **Glassmorphism design**: Background blur, dynamic gradient overlay.
+
+### Song Number Normalization (Migration v9)
+Nomor lagu dinormalisasi agar **tidak menampilkan leading zeros**:
+- `001` -> `1`, `010` -> `10`, `001A` -> `1A`
+- Migrasi DB v9 mengupdate semua nomor di database.
+- Write-path normalization di `addSong/updateSong` mencegah regresi.
+- UI tolerance untuk data lama yang mungkin masih memiliki leading zeros.
+- FTS5 search konsisten dengan nomor yang dinormalisasi.
+
+### Bug Fixes
+- **Scroll jump fix**: Klik nomor lagu tidak lagi menyebabkan scroll melompat.
+- **Lint fixes**: React hooks set-state-in-effect errors resolved.
+- **Hook dependency**: ResizeObserver untuk grid width calculation.
+
+### Verifikasi
+- `npm run typecheck`: ✅
+- `npm run lint`: ✅ (0 errors, 0 warnings)
+- `npm run build`: ✅
+
+Dokumen yang perlu dirujuk untuk perubahan ini:
+- `log-impl-library-immersive-player-v6.md`
+- `log-impl-song-number-normalization.md`
+- `plan-library-immersive-player-v6.md`
+- `plan-song-number-normalization.md`
+
+---
+
+## Historical Snapshot (2026-05-08)
 
 Perombakan renderer terbaru mendorong SION Presenter lebih dekat ke model operasi broadcast console untuk ibadah live.
 
