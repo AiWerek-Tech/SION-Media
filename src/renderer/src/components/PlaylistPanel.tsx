@@ -317,36 +317,45 @@ export function PlaylistPanel({
       <div className="flex-1 min-h-0 overflow-y-auto bg-bg-base/20 p-2">
         {!activePlaylist ? (
           <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-            <div className="w-20 h-20 rounded-3xl bg-bg-elevated flex items-center justify-center mb-6 text-text-disabled shadow-inner">
-              <ListMusic size={40} />
-            </div>
-            <h3 className="text-text-primary font-semibold mb-2">Belum ada playlist aktif</h3>
-            <p className="text-text-muted text-xs max-w-[240px] mb-6">
-              Buat playlist baru atau buka playlist yang sudah ada untuk mulai menyusun urutan lagu.
-            </p>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowLoadDialog(true)}
-                className="btn btn-ghost border border-border-default"
-              >
-                <FolderOpen size={16} />
-                Buka Playlist
-              </button>
-              <button onClick={() => setShowNewDialog(true)} className="btn btn-primary">
-                <Plus size={16} />
-                Baru
-              </button>
+            <div className="w-full max-w-[520px] rounded-2xl border border-border-subtle bg-bg-surface/70 backdrop-blur-md shadow-[var(--shadow-elevation-3)] px-8 py-10">
+              <div className="mx-auto w-20 h-20 rounded-3xl border border-border-subtle bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.10),transparent_60%),linear-gradient(180deg,rgba(27,32,49,0.70),rgba(13,15,23,0.55))] flex items-center justify-center mb-6 text-text-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_12px_34px_rgba(0,0,0,0.28)]">
+                <ListMusic size={38} />
+              </div>
+              <h3 className="text-text-primary font-heading font-black uppercase tracking-[0.12em] text-[12px] mb-2">
+                Belum ada playlist aktif
+              </h3>
+              <p className="text-text-muted text-[12px] max-w-[360px] mx-auto mb-7 leading-relaxed">
+                Buat playlist baru atau buka playlist yang sudah ada untuk mulai menyusun urutan lagu.
+              </p>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setShowLoadDialog(true)}
+                  className="btn-premium btn-premium-ghost h-9 px-4 gap-2 text-[12px]"
+                >
+                  <FolderOpen size={16} />
+                  Buka Playlist
+                </button>
+                <button
+                  onClick={() => setShowNewDialog(true)}
+                  className="btn-premium btn-premium-primary h-9 px-4 gap-2 text-[12px]"
+                >
+                  <Plus size={16} />
+                  Baru
+                </button>
+              </div>
             </div>
           </div>
         ) : playlistItems.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-            <div className="w-16 h-16 rounded-full bg-bg-elevated flex items-center justify-center mb-4 text-text-disabled">
-              <Music size={28} />
+            <div className="w-full max-w-[520px] rounded-2xl border border-border-subtle bg-bg-surface/55 backdrop-blur-md shadow-[var(--shadow-elevation-2)] px-8 py-10">
+              <div className="mx-auto w-16 h-16 rounded-2xl border border-border-subtle bg-bg-elevated/60 flex items-center justify-center mb-4 text-text-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                <Music size={28} />
+              </div>
+              <h4 className="text-text-primary font-semibold text-[13px] mb-1">Playlist Kosong</h4>
+              <p className="text-text-muted text-[12px] leading-relaxed">
+                Klik tombol &apos;+&apos; pada lagu di library untuk menambahkan ke sini.
+              </p>
             </div>
-            <h4 className="text-text-primary font-medium text-sm mb-1">Playlist Kosong</h4>
-            <p className="text-text-muted text-[12px]">
-              Klik tombol &apos;+&apos; pada lagu di library untuk menambahkan ke sini.
-            </p>
           </div>
         ) : (
           <DndContext
@@ -378,8 +387,8 @@ export function PlaylistPanel({
 
       {/* Dialogs */}
       {(showNewDialog || showLoadDialog) && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-          <div className="w-full max-w-md bg-bg-surface border border-border-strong rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-6">
+          <div className="glass-panel-strong w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             {showNewDialog && (
               <div className="p-6">
                 <h3 className="text-h3 mb-4">Buat Playlist Baru</h3>
@@ -408,10 +417,16 @@ export function PlaylistPanel({
                   </div>
                 </div>
                 <div className="flex justify-end gap-3 mt-8">
-                  <button onClick={() => setShowNewDialog(false)} className="btn btn-ghost">
+                  <button
+                    onClick={() => setShowNewDialog(false)}
+                    className="btn-premium btn-premium-ghost"
+                  >
                     Batal
                   </button>
-                  <button onClick={handleCreatePlaylist} className="btn btn-primary px-6">
+                  <button
+                    onClick={handleCreatePlaylist}
+                    className="btn-premium btn-premium-primary px-6"
+                  >
                     Simpan Playlist
                   </button>
                 </div>

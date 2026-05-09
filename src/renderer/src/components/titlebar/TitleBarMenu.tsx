@@ -13,6 +13,7 @@ import {
 import { useAppStore } from '../../store/useAppStore'
 import { useProjectionStore } from '../../store/useProjectionStore'
 import { usePlaylistStore } from '../../store/usePlaylistStore'
+import { useModeStore } from '../../store/useModeStore'
 import { logger } from '../../utils/logger'
 
 interface MenuItem {
@@ -167,8 +168,14 @@ function MenuBarItem({
 export function TitleBarMenu(): React.JSX.Element {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const { setScreen, isFocusMode, toggleFocusMode } = useAppStore()
+  const { currentMode } = useModeStore()
   const projStore = useProjectionStore()
   const plStore = usePlaylistStore()
+
+  const showFocusLive = currentMode === 'PROJECTION'
+  const showPlaylistMenu = currentMode === 'PROJECTION'
+  const showProjectionMenu = currentMode === 'PROJECTION'
+  const showToolsMenu = currentMode === 'PROJECTION' || currentMode === 'MANAGEMENT'
 
   const menus: MenuDef[] = [
     {
@@ -223,114 +230,130 @@ export function TitleBarMenu(): React.JSX.Element {
           shortcut: 'Ctrl+P',
           action: () => document.dispatchEvent(new CustomEvent('sion:toggle-command-palette'))
         },
-        {
-          label: isFocusMode ? 'Exit Focus Live Mode' : 'Focus Live Mode',
-          shortcut: 'Ctrl+Shift+F',
-          action: () => toggleFocusMode()
-        },
-        { separator: true },
+        ...(!showFocusLive
+          ? []
+          : [
+              {
+                label: isFocusMode ? 'Exit Focus Live Mode' : 'Focus Live Mode',
+                shortcut: 'Ctrl+Shift+F',
+                action: () => toggleFocusMode()
+              },
+              { separator: true }
+            ]),
         { label: 'Settings', action: () => setScreen('settings') }
       ]
     },
-    {
-      id: 'playlist',
-      label: 'Playlist',
-      items: [
-        {
-          label: 'Next Song',
-          shortcut: 'Ctrl+→',
-          action: () => {
-            const ps = usePlaylistStore.getState()
-            if (ps.activeItemIndex < ps.playlistItems.length - 1) {
-              ps.setActiveItemIndex(ps.activeItemIndex + 1)
-              const item = ps.playlistItems[ps.activeItemIndex + 1]
-              const song = useAppStore.getState().songs.find((s) => s.id === item.song_id)
-              if (song) useAppStore.getState().setSelectedSong(song)
-            }
-          },
-          disabled: !plStore.activePlaylist
-        },
-        {
-          label: 'Previous Song',
-          shortcut: 'Ctrl+←',
-          action: () => {
-            const ps = usePlaylistStore.getState()
-            if (ps.activeItemIndex > 0) {
-              ps.setActiveItemIndex(ps.activeItemIndex - 1)
-              const item = ps.playlistItems[ps.activeItemIndex - 1]
-              const song = useAppStore.getState().songs.find((s) => s.id === item.song_id)
-              if (song) useAppStore.getState().setSelectedSong(song)
-            }
-          },
-          disabled: !plStore.activePlaylist
-        }
-      ]
-    },
-    {
-      id: 'projection',
-      label: 'Projection',
-      items: [
-        {
-          label: projStore.projectionState === 'LIVE' ? '● Projector ON' : 'Projector ON/OFF',
-          action: () => {
-            const appState = useAppStore.getState()
-            if (appState.isProjectionVisible) {
-              window.api.projection.hide()
-              appState.setProjectionVisible(false)
-            } else {
-              window.api.projection.show()
-              appState.setProjectionVisible(true)
-            }
+    ...(showPlaylistMenu
+      ? [
+          {
+            id: 'playlist',
+            label: 'Playlist',
+            items: [
+              {
+                label: 'Next Song',
+                shortcut: 'Ctrl+→',
+                action: () => {
+                  const ps = usePlaylistStore.getState()
+                  if (ps.activeItemIndex < ps.playlistItems.length - 1) {
+                    ps.setActiveItemIndex(ps.activeItemIndex + 1)
+                    const item = ps.playlistItems[ps.activeItemIndex + 1]
+                    const song = useAppStore.getState().songs.find((s) => s.id === item.song_id)
+                    if (song) useAppStore.getState().setSelectedSong(song)
+                  }
+                },
+                disabled: !plStore.activePlaylist
+              },
+              {
+                label: 'Previous Song',
+                shortcut: 'Ctrl+←',
+                action: () => {
+                  const ps = usePlaylistStore.getState()
+                  if (ps.activeItemIndex > 0) {
+                    ps.setActiveItemIndex(ps.activeItemIndex - 1)
+                    const item = ps.playlistItems[ps.activeItemIndex - 1]
+                    const song = useAppStore.getState().songs.find((s) => s.id === item.song_id)
+                    if (song) useAppStore.getState().setSelectedSong(song)
+                  }
+                },
+                disabled: !plStore.activePlaylist
+              }
+            ]
           }
-        },
-        { separator: true },
-        {
-          label: 'Black Screen',
-          shortcut: 'B',
-          action: () => projStore.toggleBlack()
-        },
-        {
-          label: 'Freeze Screen',
-          shortcut: 'F',
-          action: () => projStore.toggleFreeze()
-        },
-        {
-          label: 'Clear Screen',
-          shortcut: 'Esc',
-          action: () => projStore.clearScreen()
-        }
-      ]
-    },
-    {
-      id: 'tools',
-      label: 'Tools',
-      items: [
-        {
-          label: 'Song Manager',
-          shortcut: 'Ctrl+N',
-          action: () => {
-            useAppStore.getState().setEditingSong(null)
-            setScreen('song-editor')
+        ]
+      : []),
+    ...(showProjectionMenu
+      ? [
+          {
+            id: 'projection',
+            label: 'Projection',
+            items: [
+              {
+                label: projStore.projectionState === 'LIVE' ? '● Projector ON' : 'Projector ON/OFF',
+                action: () => {
+                  const appState = useAppStore.getState()
+                  if (appState.isProjectionVisible) {
+                    window.api.projection.hide()
+                    appState.setProjectionVisible(false)
+                  } else {
+                    window.api.projection.show()
+                    appState.setProjectionVisible(true)
+                  }
+                }
+              },
+              { separator: true },
+              {
+                label: 'Black Screen',
+                shortcut: 'B',
+                action: () => projStore.toggleBlack()
+              },
+              {
+                label: 'Freeze Screen',
+                shortcut: 'F',
+                action: () => projStore.toggleFreeze()
+              },
+              {
+                label: 'Clear Screen',
+                shortcut: 'Esc',
+                action: () => projStore.clearScreen()
+              }
+            ]
           }
-        },
-        { separator: true },
-        {
-          label: 'Reseed Database',
-          action: () => {
-            window.api.system
-              .reseed()
-              .then(() => {
-                useAppStore.getState().loadSongs()
-                useAppStore.getState().showToast('Database reseeded', 'success')
-              })
-              .catch((err) => {
-                logger.error('Reseed failed:', err)
-                useAppStore.getState().showToast('Reseed failed', 'error')
-              })
+        ]
+      : []),
+    ...(showToolsMenu
+      ? [
+          {
+            id: 'tools',
+            label: 'Tools',
+            items: [
+              {
+                label: 'Song Manager',
+                shortcut: 'Ctrl+N',
+                action: () => {
+                  useAppStore.getState().setEditingSong(null)
+                  setScreen('song-editor')
+                }
+              },
+              { separator: true },
+              {
+                label: 'Reseed Database',
+                action: () => {
+                  window.api.system
+                    .reseed()
+                    .then(() => {
+                      useAppStore.getState().loadSongs()
+                      useAppStore.getState().showToast('Database reseeded', 'success')
+                    })
+                    .catch((err) => {
+                      logger.error('Reseed failed:', err)
+                      useAppStore.getState().showToast('Reseed failed', 'error')
+                    })
+                }
+              }
+            ]
           }
-        }
-      ]
-    },
+        ]
+      : []),
     {
       id: 'help',
       label: 'Help',
@@ -361,11 +384,19 @@ export function TitleBarMenu(): React.JSX.Element {
         f: 'file',
         e: 'edit',
         v: 'view',
-        l: 'playlist',
-        p: 'projection',
-        t: 'tools',
         h: 'help'
       }
+
+      if (showPlaylistMenu) {
+        menuMap.l = 'playlist'
+      }
+      if (showProjectionMenu) {
+        menuMap.p = 'projection'
+      }
+      if (showToolsMenu) {
+        menuMap.t = 'tools'
+      }
+
       if (menuMap[key]) {
         e.preventDefault()
         setOpenMenuId((prev) => (prev === menuMap[key] ? null : menuMap[key]))
@@ -373,7 +404,7 @@ export function TitleBarMenu(): React.JSX.Element {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [showPlaylistMenu, showProjectionMenu, showToolsMenu])
 
   return (
     <div className="title-bar-menu no-drag">

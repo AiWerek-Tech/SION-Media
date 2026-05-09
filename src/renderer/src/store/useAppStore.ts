@@ -37,6 +37,8 @@ interface AppState {
   setStageDisplayVisible: (visible: boolean) => void
   isMaximized: boolean
   setMaximized: (maximized: boolean) => void
+  isLyricsFullscreen: boolean
+  setLyricsFullscreen: (isFullscreen: boolean) => void
   isFocusMode: boolean
   toggleFocusMode: () => void
 
@@ -121,6 +123,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   setStageDisplayVisible: (visible) => set({ isStageDisplayVisible: visible }),
   isMaximized: false,
   setMaximized: (maximized) => set({ isMaximized: maximized }),
+
+  isLyricsFullscreen: false,
+  setLyricsFullscreen: (isFullscreen) => set({ isLyricsFullscreen: isFullscreen }),
   isFocusMode: false,
   toggleFocusMode: () => set((state) => ({ isFocusMode: !state.isFocusMode })),
 

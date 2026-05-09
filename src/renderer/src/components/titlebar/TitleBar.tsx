@@ -3,8 +3,8 @@ import { TitleBarIdentity } from './TitleBarIdentity'
 import { TitleBarMenu } from './TitleBarMenu'
 import { TitleBarModeSwitcher } from './TitleBarModeSwitcher'
 import { TitleBarStatus } from './TitleBarStatus'
-import { TitleBarClock } from './TitleBarClock'
 import { TitleBarControls } from './TitleBarControls'
+import { useModeStore } from '../../store/useModeStore'
 
 /**
  * Professional Custom Title Bar — Application Command Center
@@ -16,15 +16,22 @@ import { TitleBarControls } from './TitleBarControls'
  *
  * - Entire bar is `-webkit-app-region: drag` (draggable)
  * - Interactive elements use `.no-drag` class to remain clickable
+ * - Onboarding lockdown: hides Menu, ModeSwitcher, and Status during first install
  */
 export function TitleBar(): React.JSX.Element {
+  const isFirstInstall = useModeStore((s) => s.isFirstInstall)
+
   return (
     <div className="title-bar">
       {/* Left: App Identity + Menu System */}
       <div className="title-bar-left">
         <TitleBarIdentity />
-        <TitleBarModeSwitcher />
-        <TitleBarMenu />
+        {!isFirstInstall && (
+          <>
+            <TitleBarModeSwitcher />
+            <TitleBarMenu />
+          </>
+        )}
       </div>
 
       {/* Center: Flexible drag region */}
@@ -32,8 +39,7 @@ export function TitleBar(): React.JSX.Element {
 
       {/* Right: Status + Clock + Window Controls */}
       <div className="title-bar-right">
-        <TitleBarStatus />
-        <TitleBarClock />
+        {!isFirstInstall && <TitleBarStatus />}
         <TitleBarControls />
       </div>
     </div>

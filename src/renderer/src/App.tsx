@@ -9,10 +9,10 @@ import { SettingsScreen } from './screens/SettingsScreen'
 import { ImportExportScreen } from './screens/ImportExportScreen'
 import { BibleScreen } from './screens/BibleScreen'
 import { ProjectionMode } from './screens/modes/ProjectionMode'
-import { LibraryMode } from './screens/modes/LibraryMode'
+import { LibraryMode } from './screens/modes/LibraryModeRedesigned'
 import { ManagementMode } from './screens/modes/ManagementMode'
 import { BroadcastMode } from './screens/modes/BroadcastMode'
-import { WelcomeModeSelector } from './screens/modes/WelcomeModeSelector'
+import { WelcomeScreen } from './screens/WelcomeScreen'
 import { useModeStore } from './store/useModeStore'
 import { Toast } from './components/Toast'
 import { CommandPalette } from './components/CommandPalette'
@@ -25,6 +25,7 @@ import type { RecoveryState, Playlist } from './types'
 function App(): React.JSX.Element {
   const { isLoading, setLoading, currentScreen, setScreen, loadSongs, setDisplayCount, showToast } =
     useAppStore()
+  const isLyricsFullscreen = useAppStore((s) => s.isLyricsFullscreen)
   const { loadPlaylists, playlistItems, activePlaylist } = usePlaylistStore()
   const { currentMode, isFirstInstall } = useModeStore()
   const [splashDone, setSplashDone] = useState(false)
@@ -139,6 +140,11 @@ function App(): React.JSX.Element {
   }, [loadPlaylists, loadSongs, setDisplayCount, setLoading, showToast])
 
   useEffect(() => {
+    if (isFirstInstall) {
+      // Onboarding handles its own splash in Phase 1 (IntroPhase)
+      setSplashDone(true)
+      return undefined
+    }
     if (!isLoading) {
       const timer = setTimeout(() => setSplashDone(true), 800)
       return (): void => {
@@ -146,7 +152,7 @@ function App(): React.JSX.Element {
       }
     }
     return undefined
-  }, [isLoading, setScreen])
+  }, [isLoading, setScreen, isFirstInstall])
 
   // Listen for shortcut show event from CommandPalette
   useEffect(() => {
@@ -293,7 +299,7 @@ function App(): React.JSX.Element {
 
   return (
     <div className="flex flex-col h-screen w-screen bg-bg-base overflow-hidden">
-      <TitleBar />
+      {!isLyricsFullscreen && <TitleBar />}
       <div className="flex-1 relative min-h-0">
         <Toast />
         <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} />
@@ -348,11 +354,11 @@ function App(): React.JSX.Element {
               key="welcome"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
+              exit={{ opacity: 0, y: -40 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
               className="absolute inset-0 z-50 bg-bg-base"
             >
-              <WelcomeModeSelector />
+              <WelcomeScreen />
             </motion.div>
           ) : currentMode === 'PROJECTION' ? (
             <motion.div

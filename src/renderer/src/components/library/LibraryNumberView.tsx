@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Search, Hash, LayoutGrid } from 'lucide-react'
+import { Search, Hash, LayoutGrid, Music } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { getHymnalColor } from '../../utils/hymnal-colors'
 import type { Song } from '../../types'
 
 interface NumberViewProps {
@@ -39,7 +40,7 @@ export function LibraryNumberView({
   const columns = useMemo(() => {
     const w = gridRef.current?.clientWidth ?? 900
     return Math.max(4, Math.floor((w + gapSize) / (cellSize + gapSize)))
-  }, [cellSize, gapSize])
+  }, [cellSize, gapSize, gridRef.current?.clientWidth])
 
   const rowCount = useMemo(
     () => Math.ceil(sortedSongs.length / columns),
@@ -137,23 +138,15 @@ export function LibraryNumberView({
 
   return (
     <div className="h-full flex flex-col relative">
-      {/* Toolbar */}
-      <div className="h-[48px] min-h-[48px] flex items-center justify-between px-4 border-b border-border-default/30 surface-2">
-        <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-lg bg-brand-primary/10 border border-brand-primary/20 flex items-center justify-center">
-            <Hash size={14} className="text-brand-primary" />
-          </div>
-          <span className="text-[12px] font-semibold text-text-primary">
-            {sortedSongs.length} lagu
-          </span>
-        </div>
+      {/* Toolbar - Borderless, right-aligned actions */}
+      <div className="flex items-center justify-end pt-4 px-6 lg:px-12 pb-2 bg-transparent">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setCompact((v) => !v)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] transition-all ${
               compact
                 ? 'bg-brand-primary/10 border-brand-primary/20 text-brand-primary'
-                : 'bg-surface-2/60 border-border-default/30 text-text-muted hover:text-text-secondary hover:bg-surface-3/60'
+                : 'btn-premium-ghost'
             }`}
             title="Compact mode"
             aria-label="Toggle compact mode"
@@ -167,7 +160,7 @@ export function LibraryNumberView({
               setShowJump((v) => !v)
               if (!showJump) setTimeout(() => jumpInputRef.current?.focus(), 50)
             }}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface-2/60 border border-border-default/30 text-[11px] text-text-muted hover:text-text-secondary hover:bg-surface-3/60 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg btn-premium-ghost text-[11px] transition-all"
             title="Tekan / untuk lompat ke nomor"
             aria-label="Jump to number"
           >
@@ -212,9 +205,10 @@ export function LibraryNumberView({
       </AnimatePresence>
 
       {/* Number Grid */}
-      <div ref={gridRef} className="flex-1 min-h-0 overflow-hidden">
-        <div ref={parentRef} className="h-full overflow-y-auto scrollbar-thin p-4">
+      <div className="flex-1 min-h-0 overflow-hidden px-6 lg:px-12 max-w-screen-2xl mx-auto w-full">
+        <div ref={parentRef} className="h-full overflow-y-auto scrollbar-thin pb-12">
           <div
+            ref={gridRef}
             style={{
               height: `${rowVirtualizer.getTotalSize()}px`,
               width: '100%',
@@ -270,9 +264,71 @@ export function LibraryNumberView({
                         >
                           <span className="font-mono">{num}</span>
 
-                          <div className="absolute inset-x-0 bottom-0 translate-y-full pt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-20">
-                            <div className="glass-panel-strong px-2 py-1.5 text-[10px] text-text-primary font-medium whitespace-nowrap truncate max-w-[140px] mx-auto">
-                              {song.title}
+                          {/* Rich Hover Preview Card */}
+                          <div className="absolute left-1/2 bottom-[100%] mb-2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-[60] scale-95 group-hover:scale-100 origin-bottom">
+                            <div className="w-[280px] rounded-xl border border-border-default/40 bg-bg-surface shadow-2xl overflow-hidden">
+                              {/* Thumbnail / Header */}
+                              <div
+                                className="h-16 flex items-center justify-center relative"
+                                style={{
+                                  backgroundColor: getHymnalColor(song.hymnal_code || 'LS')
+                                    .replace('hsl', 'hsla')
+                                    .replace(')', ', 0.15)')
+                                }}
+                              >
+                                <Music
+                                  size={28}
+                                  style={{
+                                    color: getHymnalColor(song.hymnal_code || 'LS')
+                                  }}
+                                />
+                                <div
+                                  className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono"
+                                  style={{
+                                    backgroundColor: getHymnalColor(song.hymnal_code || 'LS')
+                                      .replace('hsl', 'hsla')
+                                      .replace(')', ', 0.2)'),
+                                    color: getHymnalColor(song.hymnal_code || 'LS')
+                                  }}
+                                >
+                                  {song.hymnal_code || 'LS'} {num}
+                                </div>
+                              </div>
+                              {/* Info */}
+                              <div className="p-3">
+                                <div className="text-[13px] font-bold text-text-primary truncate">
+                                  {song.title}
+                                </div>
+                                {song.alternate_title && (
+                                  <div className="text-[11px] text-text-muted italic truncate mt-0.5">
+                                    {song.alternate_title}
+                                  </div>
+                                )}
+                                {/* Lyric preview */}
+                                {song.lyrics_raw && (
+                                  <div className="mt-2 text-[10px] text-text-muted line-clamp-2 leading-relaxed opacity-70">
+                                    {song.lyrics_raw
+                                      .replace(/\[.*?\]/g, '')
+                                      .split('\n')
+                                      .filter((l) => l.trim())
+                                      .slice(0, 3)
+                                      .join(' ')}
+                                  </div>
+                                )}
+                                {/* Metadata chips */}
+                                <div className="flex items-center gap-1.5 mt-2">
+                                  {song.key_note && (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-surface-2 text-text-muted">
+                                      {song.key_note}
+                                    </span>
+                                  )}
+                                  {song.tempo && (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-surface-2 text-text-muted">
+                                      {song.tempo}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
 

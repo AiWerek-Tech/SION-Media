@@ -334,17 +334,32 @@ export const migrations: Migration[] = [
     name: 'multi_hymnal_indexes',
     up: (db) => {
       // Browsing/sorting within hymnal
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_songs_hymnal_number ON songs(hymnal_id, number);`)
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_songs_hymnal_title ON songs(hymnal_id, title);`)
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_songs_hymnal_number ON songs(hymnal_id, number);
+        CREATE INDEX IF NOT EXISTS idx_songs_hymnal_title ON songs(hymnal_id, title);
+        CREATE INDEX IF NOT EXISTS idx_song_history_song_id ON song_history(song_id);
+      `)
 
       // Global sorting / filtering
       db.exec(`CREATE INDEX IF NOT EXISTS idx_songs_number ON songs(number);`)
       db.exec(`CREATE INDEX IF NOT EXISTS idx_songs_title ON songs(title);`)
       db.exec(`CREATE INDEX IF NOT EXISTS idx_songs_hymnal_id ON songs(hymnal_id);`)
     }
+  },
+  {
+    version: 7,
+    name: 'songs_time_signature',
+    up: (db) => {
+      const columns = db.prepare("PRAGMA table_info('songs')").all() as Array<{ name: string }>
+      const hasTimeSignature = columns.some((c) => c.name === 'time_signature')
+      if (!hasTimeSignature) {
+        db.exec("ALTER TABLE songs ADD COLUMN time_signature TEXT DEFAULT ''")
+      }
+    }
   }
 ]
 
+// ... (rest of the code remains the same)
 /**
  * Create the schema_migrations table if it doesn't exist
  */

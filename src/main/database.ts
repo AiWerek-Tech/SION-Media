@@ -496,6 +496,7 @@ export function addSong(song: {
   author?: string
   composer?: string
   key_note?: string
+  time_signature?: string
   tempo?: string
   tags?: string
   theme?: string
@@ -511,8 +512,8 @@ export function addSong(song: {
 
   const result = db
     .prepare(
-      `INSERT INTO songs (hymnal_id, number, title, alternate_title, lyrics_raw, category, language, author, composer, key_note, tempo, tags, theme, scripture_reference)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO songs (hymnal_id, number, title, alternate_title, lyrics_raw, category, language, author, composer, key_note, time_signature, tempo, tags, theme, scripture_reference)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       song.hymnal_id,
@@ -525,6 +526,7 @@ export function addSong(song: {
       song.author || '',
       song.composer || '',
       song.key_note || '',
+      song.time_signature || '',
       song.tempo || '',
       song.tags || '',
       song.theme || '',
@@ -546,6 +548,7 @@ export function updateSong(
     author?: string
     composer?: string
     key_note?: string
+    time_signature?: string
     tempo?: string
     tags?: string
     theme?: string
@@ -558,7 +561,7 @@ export function updateSong(
   db.prepare(
     `UPDATE songs SET
       hymnal_id = ?, number = ?, title = ?, alternate_title = ?, lyrics_raw = ?, category = ?,
-      language = ?, author = ?, composer = ?, key_note = ?, tempo = ?, tags = ?,
+      language = ?, author = ?, composer = ?, key_note = ?, time_signature = ?, tempo = ?, tags = ?,
       theme = ?, scripture_reference = ?, updated_at = datetime('now')
     WHERE id = ?`
   ).run(
@@ -572,6 +575,7 @@ export function updateSong(
     song.author ?? existing.author,
     song.composer ?? existing.composer,
     song.key_note ?? existing.key_note,
+    song.time_signature ?? existing.time_signature,
     song.tempo ?? existing.tempo,
     song.tags ?? existing.tags,
     song.theme ?? existing.theme,

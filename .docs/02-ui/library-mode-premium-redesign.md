@@ -75,6 +75,16 @@ Folder: `src/renderer/src/components/library/`
   - Uses existing `PlaylistItemCard` for consistent queue styling.
 - `SongContextMenu.tsx`
   - Contextual menu overlay used in Title view.
+- `LibraryLyricsViewer.tsx` (NEW)
+  - Full-screen lyrics viewer overlay.
+  - Stanza-based pagination (1 bait per page, Reff combined with each verse).
+  - Next/Previous song navigation buttons.
+  - Keyboard navigation: ArrowDown/PageDown (next), ArrowUp/PageUp (prev).
+  - Dot navigation on right side for quick stanza jump.
+  - Progress indicator: `1/3` (current stanza / total stanzas).
+  - Key & Time Signature badge (e.g., `Eb 3/4`).
+  - Immersive fullscreen mode (F11 or icon button).
+  - TitleBar auto-hides in fullscreen mode.
 
 ## Next steps
 

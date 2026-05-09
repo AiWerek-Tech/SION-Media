@@ -2,6 +2,7 @@ import React, { useMemo, useRef } from 'react'
 import { Check, Heart, ListMusic, MoreHorizontal, Music, Pin, SortAsc, Type } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getHymnalColor } from '../../utils/hymnal-colors'
 import type { Song } from '../../types'
 import { SongContextMenu } from './SongContextMenu'
 
@@ -189,19 +190,20 @@ export function LibraryTitleView({
                   }`}
                   onClick={() => onSelectSong(song)}
                 >
-                  {/* Thumbnail / Number Badge */}
+                  {/* Thumbnail / Number Badge with Hymnal Accent */}
                   <div
-                    className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 border ${
-                      isSelected
-                        ? 'bg-brand-primary/10 border-brand-primary/20 text-brand-primary'
-                        : 'bg-surface-2 border-border-default/30 text-text-muted'
-                    }`}
+                    className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 border font-mono text-[13px] font-bold transition-all"
+                    style={{
+                      backgroundColor: getHymnalColor(song.hymnal_code || 'LS')
+                        .replace('hsl', 'hsla')
+                        .replace(')', ', 0.12)'),
+                      borderColor: getHymnalColor(song.hymnal_code || 'LS')
+                        .replace('hsl', 'hsla')
+                        .replace(')', ', 0.25)'),
+                      color: getHymnalColor(song.hymnal_code || 'LS')
+                    }}
                   >
-                    {song.number ? (
-                      <span className="text-[13px] font-bold font-mono">{song.number}</span>
-                    ) : (
-                      <Music size={16} />
-                    )}
+                    {song.number || <Music size={16} />}
                   </div>
 
                   {/* Info */}

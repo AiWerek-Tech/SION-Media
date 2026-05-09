@@ -40,6 +40,7 @@ Dirombak total dengan relasi ke `hymnals`.
 - `theme` (TEXT)
 - `scripture_reference` (TEXT)
 - `key_note`, `tempo`, `is_favorite`, `created_at`, `updated_at`
+- `time_signature` (TEXT) — Birama lagu (e.g., `4/4`, `3/4`, `6/8`) — Added via Migration v7 (2026-05-09)
 
 ### 3. FTS5 Virtual Table `songs_fts`
 

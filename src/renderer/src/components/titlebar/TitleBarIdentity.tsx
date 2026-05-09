@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useAppStore } from '../../store/useAppStore'
 import { usePlaylistStore } from '../../store/usePlaylistStore'
+import { useModeStore } from '../../store/useModeStore'
 import { logger } from '../../utils/logger'
 
 export function TitleBarIdentity(): React.JSX.Element {
   const { workspaceName, setWorkspaceName } = useAppStore()
   const { activePlaylist } = usePlaylistStore()
+  const { currentMode } = useModeStore()
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -39,6 +41,14 @@ export function TitleBarIdentity(): React.JSX.Element {
   }
 
   const displayName = workspaceName || activePlaylist?.name || ''
+  const modeLabel =
+    currentMode === 'LIBRARY'
+      ? 'Library'
+      : currentMode === 'PROJECTION'
+        ? 'Presenter'
+        : currentMode === 'BROADCAST'
+          ? 'Broadcast'
+          : 'Management'
 
   return (
     <div className="title-bar-identity no-drag">
@@ -48,12 +58,12 @@ export function TitleBarIdentity(): React.JSX.Element {
         className="title-bar-logo"
       />
       <span className="title-bar-appname">
-        SION <span className="text-accent">Presenter</span>
+        SION <span className="text-accent">{modeLabel}</span>
       </span>
       <span className="title-bar-version">v2.1</span>
 
       {/* Workspace name - editable on double-click */}
-      {(displayName || isEditing) && (
+      {currentMode !== 'LIBRARY' && (displayName || isEditing) && (
         <>
           <div className="title-bar-separator" />
           {isEditing ? (

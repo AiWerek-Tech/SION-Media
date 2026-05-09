@@ -39,3 +39,50 @@ Perubahan V2 tambahan:
 - Refaktor `BibleScreen.tsx` untuk menghilangkan 6 linting/type errors, termasuk implementasi `useEffect` cleanup pattern untuk menghindari cascading renders.
 - Memperbaiki query FTS5 Alkitab di `src/main/database.ts` agar menggunakan JOIN yang benar.
 - Memvalidasi ulang `typecheck`, `lint`, dan `build` setelah seluruh perubahan arsitektur database dan IPC.
+
+## Implementation Update - 2026-05-09
+
+Perubahan Library Mode dan Song Metadata:
+
+### Library Mode — Full-screen Lyrics Viewer
+
+- **Stanza-based Pagination**: Lirik ditampilkan per bait (bukan per slide). Jika ada Reff/Chorus, setiap bait ditampilkan bersama Reff.
+- **Navigation Controls**:
+  - Tombol Next/Previous song untuk navigasi antar lagu
+  - Keyboard: ArrowDown/PageDown untuk bait berikutnya, ArrowUp/PageUp untuk bait sebelumnya
+  - Klik titik di kanan layar untuk lompat ke bait tertentu
+- **Progress Indicator**: Menampilkan `1/3` (bait ke-1 dari 3 bait total)
+- **Key & Time Signature Badge**: Menampilkan nada dasar + birama di pojok kanan atas (contoh: `Eb 3/4 1/3`)
+- **Immersive Fullscreen Mode**:
+  - Tombol fullscreen (icon) di kanan atas
+  - Shortcut F11 untuk toggle fullscreen
+  - Mode fullscreen menyembunyikan TitleBar untuk tampilan full-screen murni
+  - Escape keluar dari fullscreen dan kembali ke library
+
+### Song Metadata — Time Signature (Birama)
+
+- **Database Schema**:
+  - Migration v7 menambahkan kolom `time_signature` di tabel `songs`
+  - Field menyimpan birama lagu (contoh: `4/4`, `3/4`, `6/8`)
+- **Song Editor**:
+  - Input field baru "Birama" di sebelah "Nada Dasar"
+  - Placeholder: `4/4`
+  - Disimpan ke database saat add/update song
+- **Types**:
+  - `Song` interface di `src/shared/types.ts` dan `src/renderer/src/types.ts` memiliki field `time_signature: string`
+  - `AddSongRequest` dan `UpdateSongRequest` mendukung `time_signature`
+- **Import/Copy Operations**:
+  - `HymnalSettings.tsx` menyertakan `time_signature` saat import dan copy lagu
+
+### Files Changed
+
+- `src/main/migrations.ts` — Migration v7
+- `src/main/database.ts` — addSong/updateSong dengan time_signature
+- `src/shared/types.ts` — Song interface
+- `src/renderer/src/types.ts` — Song interface (renderer)
+- `src/renderer/src/screens/SongEditorScreen.tsx` — Input birama
+- `src/renderer/src/screens/settings/HymnalSettings.tsx` — Import/copy support
+- `src/renderer/src/components/library/LibraryLyricsViewer.tsx` — Full viewer redesign
+- `src/renderer/src/components/library/LibraryBrowserPanel.tsx` — Pass songs for navigation
+- `src/renderer/src/store/useAppStore.ts` — isLyricsFullscreen state
+- `src/renderer/src/App.tsx` — Hide TitleBar when fullscreen

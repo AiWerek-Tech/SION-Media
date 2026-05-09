@@ -27,6 +27,16 @@ export function SongCard({
 }: SongCardProps): React.JSX.Element {
   const { setScreen, setEditingSong, showToast } = useAppStore.getState()
 
+  const gradientIndex = ((song.id ?? 0) + (song.number ? parseInt(String(song.number).replace(/[^0-9]/g, ''), 10) || 0 : 0)) % 6
+  const gradients = [
+    'from-brand-primary/22 via-brand-secondary/10 to-transparent',
+    'from-brand-secondary/22 via-accent/10 to-transparent',
+    'from-status-warning/18 via-brand-primary/10 to-transparent',
+    'from-preview/18 via-brand-primary/10 to-transparent',
+    'from-live-red/16 via-brand-secondary/10 to-transparent',
+    'from-accent/20 via-brand-primary/8 to-transparent'
+  ]
+
   const handleEdit = (): void => {
     setEditingSong(song)
     setScreen('song-editor')
@@ -47,30 +57,35 @@ export function SongCard({
 
   return (
     <div
-      className={`group flex h-full items-center justify-between rounded-md border px-2.5 py-2 transition-all duration-200 ${
+      className={`group flex h-full items-center justify-between rounded-xl border px-3 py-2 transition-all duration-200 hover:scale-[1.02] ${
         isActive
-          ? 'bg-preview/12 border-preview/45 shadow-[0_0_14px_rgba(52,199,89,0.14)]'
+          ? 'bg-preview/12 border-preview/45 shadow-[var(--shadow-elevation-3),var(--shadow-glow-green)]'
           : rowIndex % 2 === 0
-            ? 'bg-bg-elevated/74 border-border-subtle hover:bg-bg-elevated-hover hover:border-border-strong'
-            : 'bg-bg-surface/72 border-border-subtle hover:bg-bg-elevated-hover hover:border-border-strong'
+            ? 'bg-bg-elevated/72 border-border-subtle shadow-[var(--shadow-elevation-1)] hover:bg-bg-elevated-hover hover:border-border-strong hover:shadow-[var(--shadow-elevation-2)]'
+            : 'bg-bg-surface/70 border-border-subtle shadow-[var(--shadow-elevation-1)] hover:bg-bg-elevated-hover hover:border-border-strong hover:shadow-[var(--shadow-elevation-2)]'
       }`}
     >
       {/* Left info: Song identity */}
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
-        <div
-          className="flex h-9 w-12 shrink-0 flex-col items-center justify-center rounded border font-mono text-[12px] font-black leading-none transition-colors"
-          style={
-            isActive
-              ? {
-                  borderColor: 'rgba(52,199,89,0.4)',
-                  backgroundColor: 'rgba(52,199,89,0.18)',
-                  color: 'var(--color-preview)'
-                }
-              : { borderColor: hymnalBorder, backgroundColor: hymnalBg, color: hymnalAccent }
-          }
-        >
-          <span className="text-[10px] uppercase tracking-[0.04em] opacity-80">{hymnalCode}</span>
-          <span>{song.number || '---'}</span>
+        <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded-xl border border-border-subtle bg-bg-base/40">
+          <div
+            className={`absolute inset-0 bg-gradient-to-br ${gradients[gradientIndex]} opacity-100`}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-bg-base/50 to-transparent" />
+          <div className="relative flex h-full w-full flex-col items-start justify-between p-2">
+            <div
+              className="rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em]"
+              style={{ backgroundColor: hymnalBg, color: hymnalAccent, border: `1px solid ${hymnalBorder}` }}
+            >
+              {hymnalCode}
+            </div>
+            <div className="text-[12px] font-black leading-none text-text-primary">
+              {song.number || '---'}
+            </div>
+          </div>
+          {isActive && (
+            <div className="absolute inset-0 rounded-xl ring-1 ring-preview/35 shadow-[var(--shadow-glow-green)]" />
+          )}
         </div>
 
         <div className="flex flex-col min-w-0">

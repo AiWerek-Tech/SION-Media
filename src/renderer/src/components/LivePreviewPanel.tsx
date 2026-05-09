@@ -45,7 +45,7 @@ function MonitorFrame({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-1.5">
-      <div className="flex h-6 shrink-0 items-center justify-between px-1">
+      <div className="flex h-7 shrink-0 items-center justify-between rounded-md border border-white/[0.06] bg-white/[0.03] px-2 backdrop-blur">
         <div className="flex min-w-0 items-center gap-2">
           <span
             className="h-2 w-2 rounded-full shadow-[0_0_12px_currentColor]"
@@ -73,16 +73,16 @@ function MonitorFrame({
       </div>
 
       <div
-        className="relative min-h-0 flex-1 overflow-hidden rounded-md border bg-black shadow-[0_22px_50px_rgba(0,0,0,0.42)]"
+        className="relative min-h-0 flex-1 overflow-hidden rounded-xl border bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.05),transparent_55%),linear-gradient(180deg,rgba(17,19,28,0.72),rgba(13,15,23,0.9))] shadow-[0_22px_50px_rgba(0,0,0,0.42)]"
         style={{
           borderColor: `color-mix(in srgb, ${monitorColor} 72%, transparent)`,
           boxShadow: isLive
-            ? `0 0 0 1px color-mix(in srgb, ${monitorColor} 30%, transparent), 0 0 30px color-mix(in srgb, ${monitorColor} 18%, transparent)`
+            ? `0 0 0 1px color-mix(in srgb, ${monitorColor} 30%, transparent), 0 0 46px color-mix(in srgb, ${monitorColor} 22%, transparent), 0 22px 50px rgba(0,0,0,0.42)`
             : undefined
         }}
       >
         <div className="absolute inset-0 flex items-center justify-center p-2">
-          <div className="relative aspect-video h-full max-h-full w-full max-w-full overflow-hidden rounded bg-black">
+          <div className="relative aspect-video h-full max-h-full w-full max-w-full overflow-hidden rounded-lg bg-black shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
             <div
               className="absolute inset-0 bg-center bg-no-repeat"
               style={{

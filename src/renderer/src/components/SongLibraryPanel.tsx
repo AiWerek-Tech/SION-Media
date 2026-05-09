@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react'
+import { motion } from 'framer-motion'
+import type { Variants } from 'framer-motion'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Search, Plus, Star, Clock, FolderOpen, Folder, X, Music } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
@@ -143,6 +145,21 @@ export function SongLibraryPanel(): React.JSX.Element {
     overscan: 18
   })
 
+  const easePremium: [number, number, number, number] = [0.22, 1, 0.36, 1]
+
+  const listContainerVariants: Variants = {
+    show: {
+      transition: {
+        staggerChildren: 0.018
+      }
+    }
+  }
+
+  const listItemVariants: Variants = {
+    hidden: { opacity: 0, y: 6 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.18, ease: easePremium } }
+  }
+
   return (
     <div className="flex-1 flex flex-row min-h-0 rounded-md border border-border-default bg-bg-surface/86 shadow-sm backdrop-blur overflow-hidden">
       {/* Hymnal Sidebar — extracted component */}
@@ -174,7 +191,10 @@ export function SongLibraryPanel(): React.JSX.Element {
                 )}
               </span>
             </div>
-            <button onClick={handleNewSong} className="btn btn-primary h-7 px-2 text-[12px]">
+            <button
+              onClick={handleNewSong}
+              className="btn-premium btn-premium-primary h-7 px-2 text-[12px] gap-1.5"
+            >
               <Plus size={13} strokeWidth={3} />
               Tambah Baru
             </button>
@@ -245,7 +265,10 @@ export function SongLibraryPanel(): React.JSX.Element {
 
         {/* Content: List */}
         <div className="flex-1 min-h-0 relative bg-bg-base/20" ref={parentRef}>
-          <div
+          <motion.div
+            initial="hidden"
+            animate="show"
+            variants={listContainerVariants}
             style={{
               height: `${rowVirtualizer.getTotalSize()}px`,
               width: '100%',
@@ -255,8 +278,9 @@ export function SongLibraryPanel(): React.JSX.Element {
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
               const song = filteredSongs[virtualRow.index]
               return (
-                <div
+                <motion.div
                   key={virtualRow.key}
+                  variants={listItemVariants}
                   style={{
                     position: 'absolute',
                     top: 0,
@@ -264,7 +288,7 @@ export function SongLibraryPanel(): React.JSX.Element {
                     width: '100%',
                     height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
-                    padding: '3px 8px'
+                    padding: '4px 8px'
                   }}
                 >
                   <SongCard
@@ -277,10 +301,10 @@ export function SongLibraryPanel(): React.JSX.Element {
                     onDelete={handleDelete}
                     onToggleFavorite={handleToggleFavorite}
                   />
-                </div>
+                </motion.div>
               )
             })}
-          </div>
+          </motion.div>
 
           {/* Empty State */}
           {filteredSongs.length === 0 && (

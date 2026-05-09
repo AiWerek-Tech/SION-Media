@@ -64,14 +64,14 @@ export default function PlaylistItemCard({
       )}
 
       <div
-        className={`flex cursor-pointer items-center gap-2 rounded-md border p-2 transition-all duration-200 ${
+        className={`flex cursor-pointer items-center gap-2 rounded-xl border px-2 py-2 transition-all duration-200 hover:scale-[1.02] ${
           isActive
-            ? 'border-preview/45 bg-preview/10 shadow-sm'
+            ? 'border-preview/45 bg-preview/10 shadow-[var(--shadow-elevation-3),var(--shadow-glow-green)]'
             : isProjected
-              ? 'border-live-red/30 bg-live-red/5'
+              ? 'border-live-red/30 bg-live-red/5 shadow-[var(--shadow-elevation-2),var(--shadow-glow-red)]'
               : index % 2 === 0
-                ? 'border-border-subtle bg-bg-elevated/78 hover:border-border-strong hover:bg-bg-elevated-hover'
-                : 'border-border-subtle bg-bg-surface/74 hover:border-border-strong hover:bg-bg-elevated-hover'
+                ? 'border-border-subtle bg-bg-elevated/78 shadow-[var(--shadow-elevation-1)] hover:border-border-strong hover:bg-bg-elevated-hover hover:shadow-[var(--shadow-elevation-2)]'
+                : 'border-border-subtle bg-bg-surface/74 shadow-[var(--shadow-elevation-1)] hover:border-border-strong hover:bg-bg-elevated-hover hover:shadow-[var(--shadow-elevation-2)]'
         } ${isDragging ? 'scale-[1.02] border-brand-primary shadow-2xl ring-2 ring-brand-primary/20' : ''}`}
         onClick={onClick}
       >
@@ -131,7 +131,7 @@ export default function PlaylistItemCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-1 opacity-20 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+        <div className="flex items-center gap-1 opacity-20 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100">
           <button
             onClick={(e) => {
               e.stopPropagation()

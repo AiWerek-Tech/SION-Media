@@ -1,6 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  FastForward,
+  Rewind,
+  Maximize2,
+  Minimize2
+} from 'lucide-react'
 import type { Song } from '../../types'
+import { useAppStore } from '../../store/useAppStore'
 
 type LyricsBlock = {
   label: string
@@ -107,19 +116,68 @@ function buildStanzaPages(lyricsRaw: string): string[] {
 
 export function LibraryLyricsViewer({
   song,
-  onClose
+  onClose,
+  songs,
+  onSelectSong
 }: {
   song: Song
   onClose: () => void
+  songs: Song[]
+  onSelectSong: (song: Song) => void
 }): React.JSX.Element {
   const pages = useMemo(() => buildStanzaPages(song.lyrics_raw || ''), [song.lyrics_raw])
   const [index, setIndex] = useState(0)
+  const { isLyricsFullscreen, setLyricsFullscreen } = useAppStore()
+
+  const songIndex = useMemo(() => songs.findIndex((s) => s.id === song.id), [songs, song.id])
+  const prevSong = songIndex > 0 ? songs[songIndex - 1] : null
+  const nextSong = songIndex >= 0 && songIndex < songs.length - 1 ? songs[songIndex + 1] : null
+
+  const toggleFullscreen = async (): Promise<void> => {
+    const isFs = Boolean(document.fullscreenElement)
+    try {
+      if (!isFs) {
+        await document.documentElement.requestFullscreen()
+        setLyricsFullscreen(true)
+      } else {
+        await document.exitFullscreen()
+        setLyricsFullscreen(false)
+      }
+    } catch {
+      setLyricsFullscreen(!isLyricsFullscreen)
+    }
+  }
+
+  useEffect(() => {
+    const onFsChange = (): void => {
+      setLyricsFullscreen(Boolean(document.fullscreenElement))
+    }
+    document.addEventListener('fullscreenchange', onFsChange)
+    return () => document.removeEventListener('fullscreenchange', onFsChange)
+  }, [setLyricsFullscreen])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent): void => {
       if (e.code === 'Escape') {
         e.preventDefault()
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {})
+          setLyricsFullscreen(false)
+        }
         onClose()
+        return
+      }
+
+      if (e.code === 'F11') {
+        e.preventDefault()
+        const isFs = Boolean(document.fullscreenElement)
+        if (!isFs) {
+          document.documentElement.requestFullscreen().catch(() => {})
+          setLyricsFullscreen(true)
+        } else {
+          document.exitFullscreen().catch(() => {})
+          setLyricsFullscreen(false)
+        }
         return
       }
 
@@ -143,10 +201,11 @@ export function LibraryLyricsViewer({
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose, pages.length])
+  }, [onClose, pages.length, setLyricsFullscreen])
 
   const total = Math.max(1, pages.length)
   const currentText = pages[index] || song.lyrics_raw || ''
+  const badgeText = [song.key_note, song.time_signature].filter(Boolean).join(' ')
 
   return (
     <div className="absolute inset-0 z-[80] overflow-hidden bg-bg-base">
@@ -167,6 +226,26 @@ export function LibraryLyricsViewer({
             Kembali
           </button>
 
+          <button
+            onClick={() => prevSong && onSelectSong(prevSong)}
+            disabled={!prevSong}
+            className="no-drag inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.10] bg-white/[0.05] text-white/80 backdrop-blur hover:bg-white/[0.08] hover:text-white transition-all disabled:opacity-40"
+            aria-label="Lagu sebelumnya"
+            title="Lagu sebelumnya"
+          >
+            <Rewind size={16} />
+          </button>
+
+          <button
+            onClick={() => nextSong && onSelectSong(nextSong)}
+            disabled={!nextSong}
+            className="no-drag inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.10] bg-white/[0.05] text-white/80 backdrop-blur hover:bg-white/[0.08] hover:text-white transition-all disabled:opacity-40"
+            aria-label="Lagu berikutnya"
+            title="Lagu berikutnya"
+          >
+            <FastForward size={16} />
+          </button>
+
           <div className="min-w-0">
             <div className="truncate text-[12px] font-semibold text-white/75">
               {song.number ? `${song.number} · ` : ''}
@@ -180,8 +259,19 @@ export function LibraryLyricsViewer({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.06] px-3 py-1.5 text-[12px] font-black text-white/85 backdrop-blur">
-          {index + 1}/{total}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => void toggleFullscreen()}
+            className="no-drag inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.10] bg-white/[0.05] text-white/80 backdrop-blur hover:bg-white/[0.08] hover:text-white transition-all"
+            aria-label="Fullscreen"
+            title="Fullscreen (F11)"
+          >
+            {isLyricsFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
+
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.06] px-3 py-1.5 text-[12px] font-black text-white/85 backdrop-blur">
+            {index + 1}/{total}
+          </div>
         </div>
       </div>
 
@@ -248,7 +338,7 @@ export function LibraryLyricsViewer({
       </div>
 
       <div className="absolute right-6 top-[92px] z-10 rounded-2xl bg-white/8 border border-white/[0.10] px-4 py-2 text-[34px] font-black text-status-error backdrop-blur">
-        D {index + 1}/{total}
+        {badgeText ? `${badgeText} ${index + 1}/${total}` : `${index + 1}/${total}`}
       </div>
     </div>
   )

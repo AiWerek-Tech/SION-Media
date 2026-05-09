@@ -34,6 +34,7 @@ export interface Song {
   author: string
   composer: string
   key_note: string
+  time_signature: string
   tempo: string
   tags: string
   theme: string
@@ -204,6 +205,7 @@ export interface AddSongRequest {
   author?: string
   composer?: string
   key_note?: string
+  time_signature?: string
   tempo?: string
   tags?: string
   theme?: string

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react'
-import { ArrowLeft, Save, Wand2, SplitSquareHorizontal } from 'lucide-react'
+import { ArrowLeft, Save, Wand2, SplitSquareHorizontal, AlertTriangle } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { useProjectionStore } from '../store/useProjectionStore'
 import { generateSlides, autoFormatLyrics } from '../engine/slideEngine'
@@ -7,7 +7,7 @@ import type { SlideData } from '../types'
 import { logger } from '../utils/logger'
 
 export function SongEditorScreen(): React.JSX.Element {
-  const { editingSong, hymnals, setScreen, loadSongs, showToast } = useAppStore()
+  const { editingSong, hymnals, songs, setScreen, loadSongs, showToast } = useAppStore()
   const isEditing = !!editingSong
 
   const [hymnalId, setHymnalId] = useState<number>(editingSong?.hymnal_id || hymnals[0]?.id || 1)
@@ -17,10 +17,12 @@ export function SongEditorScreen(): React.JSX.Element {
   const [lyricsRaw, setLyricsRaw] = useState(editingSong?.lyrics_raw || '')
   const [category, setCategory] = useState(editingSong?.category || '')
   const [keyNote, setKeyNote] = useState(editingSong?.key_note || '')
+  const [timeSignature, setTimeSignature] = useState(editingSong?.time_signature || '')
   const [tempo, setTempo] = useState(editingSong?.tempo || '')
   const [isSaving, setIsSaving] = useState(false)
   const [activeSlideIdx, setActiveSlideIdx] = useState(0)
   const [theme, setTheme] = useState<Record<string, string>>({})
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null)
 
   useEffect(() => {
     window.api.settings
@@ -33,8 +35,39 @@ export function SongEditorScreen(): React.JSX.Element {
     return generateSlides(editingSong?.id || 0, lyricsRaw)
   }, [lyricsRaw, editingSong])
 
+  // Check for duplicate song number or title in the same hymnal
+  const checkDuplicate = useCallback((): string | null => {
+    const hymnalSongs = songs.filter((s) => s.hymnal_id === hymnalId)
+    const duplicateByNumber = hymnalSongs.find(
+      (s) => s.number.toLowerCase() === songNumber.trim().toLowerCase() && s.id !== editingSong?.id
+    )
+    const duplicateByTitle = hymnalSongs.find(
+      (s) => s.title.toLowerCase() === title.trim().toLowerCase() && s.id !== editingSong?.id
+    )
+
+    if (duplicateByNumber && duplicateByTitle) {
+      return `Nomor "${songNumber}" dan judul "${title}" sudah ada di buku ini`
+    }
+    if (duplicateByNumber) {
+      return `Nomor "${songNumber}" sudah digunakan oleh "${duplicateByNumber.title}"`
+    }
+    if (duplicateByTitle) {
+      return `Judul "${title}" sudah digunakan oleh nomor ${duplicateByTitle.number}`
+    }
+    return null
+  }, [songs, hymnalId, songNumber, title, editingSong])
+
   const handleSave = useCallback(async (): Promise<void> => {
     if (!songNumber.trim() || !title.trim()) return
+
+    // Check for duplicates
+    const duplicate = checkDuplicate()
+    if (duplicate) {
+      showToast(duplicate, 'error')
+      setDuplicateWarning(duplicate)
+      return
+    }
+
     setIsSaving(true)
     try {
       const songData = {
@@ -48,6 +81,7 @@ export function SongEditorScreen(): React.JSX.Element {
         author: editingSong?.author || '',
         composer: editingSong?.composer || '',
         key_note: keyNote,
+        time_signature: timeSignature,
         tempo,
         tags: editingSong?.tags || ''
       }
@@ -77,12 +111,14 @@ export function SongEditorScreen(): React.JSX.Element {
     lyricsRaw,
     category,
     keyNote,
+    timeSignature,
     tempo,
     isEditing,
     editingSong,
     loadSongs,
     setScreen,
-    showToast
+    showToast,
+    checkDuplicate
   ])
 
   // Listen for Ctrl+S
@@ -199,6 +235,12 @@ export function SongEditorScreen(): React.JSX.Element {
               <span className="text-[10px] font-bold uppercase tracking-wider">
                 {lineWarnings} Baris Terlalu Panjang
               </span>
+            </div>
+          )}
+          {duplicateWarning && (
+            <div className="ml-2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-status-error/10 border border-status-error/20 text-status-error">
+              <AlertTriangle size={12} />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Duplikat!</span>
             </div>
           )}
         </div>
@@ -319,13 +361,25 @@ export function SongEditorScreen(): React.JSX.Element {
                 </div>
                 <div className="col-span-3">
                   <label className="text-[11px] text-text-secondary font-semibold mb-1.5 block">
+                    Birama
+                  </label>
+                  <input
+                    type="text"
+                    value={timeSignature}
+                    onChange={(e) => setTimeSignature(e.target.value)}
+                    placeholder="4/4"
+                    className="w-full bg-bg-base border border-border-default rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none transition-all"
+                  />
+                </div>
+                <div className="col-span-3">
+                  <label className="text-[11px] text-text-secondary font-semibold mb-1.5 block">
                     Tempo
                   </label>
                   <input
                     type="text"
                     value={tempo}
                     onChange={(e) => setTempo(e.target.value)}
-                    placeholder="Moderate / 4/4"
+                    placeholder="Moderate"
                     className="w-full bg-bg-base border border-border-default rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none transition-all"
                   />
                 </div>
