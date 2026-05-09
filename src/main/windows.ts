@@ -9,6 +9,8 @@ import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { getLatestProjectionTheme, mergeProjectionTheme } from './theme-manager'
 
+type EffectiveTheme = 'dark' | 'light'
+
 // Window references
 let mainWindow: BrowserWindow | null = null
 let projectionWindow: BrowserWindow | null = null
@@ -86,6 +88,32 @@ export function updateTheme(theme: unknown): void {
   }
   if (stageDisplayWindow && !stageDisplayWindow.isDestroyed()) {
     stageDisplayWindow.webContents.send('projection:theme-update', theme)
+  }
+}
+
+export function broadcastAppTheme(payload: { mode: string; effective: EffectiveTheme }): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('app:theme-updated', payload)
+  }
+  if (projectionWindow && !projectionWindow.isDestroyed()) {
+    projectionWindow.webContents.send('app:theme-updated', payload)
+  }
+  if (stageDisplayWindow && !stageDisplayWindow.isDestroyed()) {
+    stageDisplayWindow.webContents.send('app:theme-updated', payload)
+  }
+}
+
+export function updateTitleBarOverlayForTheme(theme: EffectiveTheme): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (process.platform !== 'win32') return
+  const overlay =
+    theme === 'light'
+      ? { color: '#f8fafc', symbolColor: '#0f172a', height: 40 }
+      : { color: '#0b0f17', symbolColor: '#cbd5e1', height: 40 }
+  try {
+    mainWindow.setTitleBarOverlay(overlay)
+  } catch {
+    // ignore
   }
 }
 

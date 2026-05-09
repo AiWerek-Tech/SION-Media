@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Search, Hash, LayoutGrid, Music } from 'lucide-react'
+import { Search, LayoutGrid, Music } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { getHymnalColor } from '../../utils/hymnal-colors'
@@ -11,6 +11,13 @@ interface NumberViewProps {
   onSelectSong: (song: Song) => void
 }
 
+function normalizeDisplayNumber(input: string | null | undefined): string {
+  const raw = String(input ?? '').trim()
+  if (raw === '') return '—'
+  const trimmed = raw.replace(/^0+/, '')
+  return trimmed === '' ? '0' : trimmed
+}
+
 export function LibraryNumberView({
   songs,
   selectedSongId,
@@ -20,6 +27,8 @@ export function LibraryNumberView({
   const [showJump, setShowJump] = useState(false)
   const [compact, setCompact] = useState(false)
   const [focusedIndex, setFocusedIndex] = useState<number>(-1)
+  const [focusOrigin, setFocusOrigin] = useState<'keyboard' | 'pointer'>('pointer')
+  const [gridWidth, setGridWidth] = useState(0)
   const jumpInputRef = useRef<HTMLInputElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const parentRef = useRef<HTMLDivElement>(null)
@@ -37,10 +46,23 @@ export function LibraryNumberView({
   const cellSize = compact ? 54 : 68
   const gapSize = compact ? 8 : 10
 
+  useEffect(() => {
+    const el = gridRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      setGridWidth(el.clientWidth)
+    })
+    ro.observe(el)
+    setGridWidth(el.clientWidth)
+    return () => {
+      ro.disconnect()
+    }
+  }, [])
+
   const columns = useMemo(() => {
-    const w = gridRef.current?.clientWidth ?? 900
+    const w = gridWidth || 900
     return Math.max(4, Math.floor((w + gapSize) / (cellSize + gapSize)))
-  }, [cellSize, gapSize, gridRef.current?.clientWidth])
+  }, [cellSize, gapSize, gridWidth])
 
   const rowCount = useMemo(
     () => Math.ceil(sortedSongs.length / columns),
@@ -79,14 +101,17 @@ export function LibraryNumberView({
 
       if (e.key === 'ArrowRight') {
         e.preventDefault()
+        setFocusOrigin('keyboard')
         setFocusedIndex((i) => Math.min(i + 1, sortedSongs.length - 1))
       }
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
+        setFocusOrigin('keyboard')
         setFocusedIndex((i) => Math.max(i - 1, 0))
       }
       if (e.key === 'ArrowDown') {
         e.preventDefault()
+        setFocusOrigin('keyboard')
         setFocusedIndex((i) => {
           if (i < 0) return 0
           return Math.min(i + columns, sortedSongs.length - 1)
@@ -94,6 +119,7 @@ export function LibraryNumberView({
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault()
+        setFocusOrigin('keyboard')
         setFocusedIndex((i) => {
           if (i < 0) return 0
           return Math.max(i - columns, 0)
@@ -132,9 +158,10 @@ export function LibraryNumberView({
   // Keep focused item visible
   useEffect(() => {
     if (focusedIndex < 0) return
+    if (focusOrigin !== 'keyboard') return
     const rowIndex = Math.floor(focusedIndex / columns)
     rowVirtualizer.scrollToIndex(rowIndex, { align: 'center' })
-  }, [focusedIndex, columns, rowVirtualizer])
+  }, [focusedIndex, columns, focusOrigin, rowVirtualizer])
 
   return (
     <div className="h-full flex flex-col relative">
@@ -244,17 +271,21 @@ export function LibraryNumberView({
                       const index = startIndex + colIdx
                       const isActive = selectedSongId === song.id
                       const isFocused = focusedIndex === index
-                      const num = song.number || '—'
+                      const num = normalizeDisplayNumber(song.number)
 
                       return (
                         <button
                           key={song.id}
                           data-song-number={song.id}
                           onClick={() => {
+                            setFocusOrigin('pointer')
                             setFocusedIndex(index)
                             onSelectSong(song)
                           }}
-                          onFocus={() => setFocusedIndex(index)}
+                          onFocus={() => {
+                            setFocusOrigin('pointer')
+                            setFocusedIndex(index)
+                          }}
                           className={`number-cell group focus-ring ${isActive ? 'number-cell-active' : ''} ${
                             isFocused ? 'ring-2 ring-brand-primary/25' : ''
                           }`}

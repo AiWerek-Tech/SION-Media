@@ -4,6 +4,7 @@
  */
 
 export { DisplaySettings } from './DisplaySettings'
+export { AppThemeSettings } from './AppThemeSettings'
 export { ThemeSettings } from './ThemeSettings'
 export { BackgroundSettings } from './BackgroundSettings'
 export { ShortcutsSettings } from './ShortcutsSettings'

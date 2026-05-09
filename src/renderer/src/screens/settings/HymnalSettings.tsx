@@ -726,7 +726,7 @@ export function HymnalSettings({
       </div>
 
       {showImportWizard && importPackage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 modal-overlay animate-fade-in">
           <div className="w-full max-w-5xl bg-bg-surface border border-border-strong rounded-2xl shadow-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-border-default flex items-center justify-between bg-bg-elevated/50">
               <div className="flex flex-col">
@@ -1034,7 +1034,7 @@ export function HymnalSettings({
 
       {/* Hymnal Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 modal-overlay animate-fade-in">
           <div className="w-full max-w-md bg-bg-surface border border-border-strong rounded-2xl shadow-2xl overflow-hidden animate-zoom-in">
             <div className="px-6 py-4 border-b border-border-default flex items-center justify-between bg-bg-elevated/50">
               <h3 className="font-bold text-text-primary">

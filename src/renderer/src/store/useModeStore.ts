@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 export type AppMode = 'LIBRARY' | 'PROJECTION' | 'BROADCAST' | 'MANAGEMENT'
-export type AppTheme = 'dark' | 'light'
+export type AppTheme = 'dark' | 'light' | 'system'
 
 interface ModeState {
   currentMode: AppMode

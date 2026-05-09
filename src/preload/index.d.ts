@@ -8,6 +8,11 @@ interface WindowAPI {
   onMaximizedChanged: (callback: (isMaximized: boolean) => void) => () => void
 }
 
+interface AppThemeAPI {
+  setMode: (payload: { mode: string; effective: 'dark' | 'light' }) => void
+  onUpdated: (callback: (payload: { mode: string; effective: string }) => void) => () => void
+}
+
 interface ProjectionAPI {
   slideUpdate: (slideData: unknown) => void
   stateChange: (state: string) => void
@@ -128,6 +133,7 @@ interface SlidesAPI {
 
 interface API {
   window: WindowAPI
+  appTheme: AppThemeAPI
   projection: ProjectionAPI
   stage: StageAPI
   display: DisplayAPI

@@ -318,14 +318,15 @@ export function PlaylistPanel({
         {!activePlaylist ? (
           <div className="h-full flex flex-col items-center justify-center p-8 text-center">
             <div className="w-full max-w-[520px] rounded-2xl border border-border-subtle bg-bg-surface/70 backdrop-blur-md shadow-[var(--shadow-elevation-3)] px-8 py-10">
-              <div className="mx-auto w-20 h-20 rounded-3xl border border-border-subtle bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.10),transparent_60%),linear-gradient(180deg,rgba(27,32,49,0.70),rgba(13,15,23,0.55))] flex items-center justify-center mb-6 text-text-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_12px_34px_rgba(0,0,0,0.28)]">
+              <div className="mx-auto w-20 h-20 rounded-3xl border border-border-subtle bg-bg-elevated flex items-center justify-center mb-6 text-text-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_12px_34px_rgba(0,0,0,0.28)]">
                 <ListMusic size={38} />
               </div>
               <h3 className="text-text-primary font-heading font-black uppercase tracking-[0.12em] text-[12px] mb-2">
                 Belum ada playlist aktif
               </h3>
               <p className="text-text-muted text-[12px] max-w-[360px] mx-auto mb-7 leading-relaxed">
-                Buat playlist baru atau buka playlist yang sudah ada untuk mulai menyusun urutan lagu.
+                Buat playlist baru atau buka playlist yang sudah ada untuk mulai menyusun urutan
+                lagu.
               </p>
               <div className="flex items-center justify-center gap-3">
                 <button
@@ -387,7 +388,7 @@ export function PlaylistPanel({
 
       {/* Dialogs */}
       {(showNewDialog || showLoadDialog) && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-6">
+        <div className="fixed inset-0 modal-overlay z-[100] flex items-center justify-center p-6">
           <div className="glass-panel-strong w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             {showNewDialog && (
               <div className="p-6">

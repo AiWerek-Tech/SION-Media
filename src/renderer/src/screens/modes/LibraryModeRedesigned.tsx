@@ -5,12 +5,19 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Search, Command, Moon, Sun, Wand2, Grid3X3, ListMusic, Type } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import { useModeStore } from '../../store/useModeStore'
 import { HymnalTopBar } from '../../components/library/HymnalTopBar'
 import { LibraryBrowserPanel, LibraryTab } from '../../components/library/LibraryBrowserPanel'
+import { LibraryLyricsViewer } from '../../components/library/LibraryLyricsViewer'
 import { LibrarySearchPalette } from '../../components/library/LibrarySearchPalette'
+import {
+  applyEffectiveTheme,
+  buildThemeSyncPayload,
+  resolveEffectiveTheme
+} from '../../utils/app-theme'
 import type { Song } from '../../types'
 
 const TABS: Array<{ id: LibraryTab; label: string; icon: React.ElementType }> = [
@@ -20,7 +27,10 @@ const TABS: Array<{ id: LibraryTab; label: string; icon: React.ElementType }> = 
 ]
 
 export function LibraryMode(): React.JSX.Element {
-  const { loadHymnals, loadSongs, setSelectedSong, selectedHymnalId, songs } = useAppStore()
+  const { loadHymnals, loadSongs, setSelectedSong, setLyricsFullscreen, selectedHymnalId, songs } =
+    useAppStore()
+  const selectedSong = useAppStore((s) => s.selectedSong)
+  const isLyricsFullscreen = useAppStore((s) => s.isLyricsFullscreen)
   const [showSearch, setShowSearch] = useState(false)
   const [activeTab, setActiveTab] = useState<LibraryTab>('number')
   const { theme, setTheme } = useModeStore()
@@ -31,10 +41,17 @@ export function LibraryMode(): React.JSX.Element {
     if (selectedHymnalId) loadSongs(selectedHymnalId)
   }, [loadHymnals, loadSongs, selectedHymnalId])
 
-  // Theme persistence is handled by useModeStore, we just apply it to the document
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme
-  }, [theme])
+  const handleToggleTheme = useCallback(async () => {
+    const next = theme === 'light' ? 'dark' : 'light'
+    setTheme(next)
+    applyEffectiveTheme(resolveEffectiveTheme(next))
+    window.api.appTheme?.setMode(buildThemeSyncPayload(next))
+    try {
+      await window.api.settings.update('app_theme_mode', next)
+    } catch {
+      // ignore
+    }
+  }, [theme, setTheme])
 
   // Keyboard shortcut for search (Ctrl+K) and custom event from sidebar
   useEffect(() => {
@@ -59,9 +76,15 @@ export function LibraryMode(): React.JSX.Element {
   const handleSelectSong = useCallback(
     (song: Song) => {
       setSelectedSong(song)
+      setLyricsFullscreen(true)
     },
-    [setSelectedSong]
+    [setLyricsFullscreen, setSelectedSong]
   )
+
+  const handleCloseLyrics = useCallback(() => {
+    setLyricsFullscreen(false)
+    setSelectedSong(null)
+  }, [setLyricsFullscreen, setSelectedSong])
 
   // Listen for sidebar song selection events
   useEffect(() => {
@@ -76,7 +99,6 @@ export function LibraryMode(): React.JSX.Element {
     <div className="h-full w-full overflow-hidden bg-bg-base text-text-primary flex flex-col">
       {/* Unified Top Command Bar - Full Width */}
       <div className="h-[56px] min-h-[56px] flex items-center justify-between px-4 border-b border-border-subtle bg-bg-surface/70 backdrop-blur-md shadow-sm z-30 relative">
-        
         {/* Left: Hymnal Selector */}
         <div className="flex items-center gap-3">
           <HymnalTopBar />
@@ -127,11 +149,11 @@ export function LibraryMode(): React.JSX.Element {
           </button>
 
           <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            onClick={() => void handleToggleTheme()}
             className="btn-premium btn-premium-ghost btn-premium-icon"
             title="Toggle theme"
           >
-            {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
+            {resolveEffectiveTheme(theme) === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
           </button>
 
           <button
@@ -147,6 +169,21 @@ export function LibraryMode(): React.JSX.Element {
       {/* Main Content Area */}
       <div className="flex-1 min-h-0 flex flex-col relative">
         <LibraryBrowserPanel activeTab={activeTab} />
+
+        <AnimatePresence>
+          {isLyricsFullscreen && selectedSong && (
+            <motion.div
+              key={selectedSong.id}
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, y: 24 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute inset-0 z-[80]"
+            >
+              <LibraryLyricsViewer song={selectedSong} onClose={handleCloseLyrics} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Search Palette */}

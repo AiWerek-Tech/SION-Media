@@ -53,7 +53,9 @@ export function ProjectionMode(): React.JSX.Element {
           : 'grid grid-rows-[minmax(0,1fr)_70px_minmax(0,1fr)]'
       }`}
     >
-      <section className={`relative min-h-0 border-b border-border-subtle bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.10),transparent_36%),linear-gradient(180deg,rgba(21,24,38,0.72),rgba(13,15,23,0.96))] ${isFocusMode ? 'ring-2 ring-brand-primary/10 shadow-[0_0_60px_rgba(59,130,246,0.08)]' : ''}`}>
+      <section
+        className={`relative min-h-0 border-b border-border-subtle preview-section-bg ${isFocusMode ? 'ring-2 ring-brand-primary/10 shadow-[0_0_60px_rgba(59,130,246,0.08)]' : ''}`}
+      >
         <div className="absolute left-3 top-2 z-20 flex items-center gap-2">
           {hasSingleMonitor && (
             <div className="inline-flex h-7 items-center gap-1.5 rounded-md border border-status-error/40 bg-status-error/15 px-2 text-[12px] font-black uppercase tracking-[0.04em] text-status-error shadow-[0_0_18px_rgba(239,68,68,0.16)]">
@@ -75,7 +77,7 @@ export function ProjectionMode(): React.JSX.Element {
         <LivePreviewPanel />
       </section>
 
-      <section className="min-h-0 border-y border-white/[0.06] bg-bg-surface/82 shadow-[0_-1px_0_rgba(255,255,255,0.03),0_12px_34px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+      <section className="min-h-0 border-y border-border-subtle bg-bg-surface/82 shadow-[0_-1px_0_rgba(255,255,255,0.03),0_12px_34px_rgba(0,0,0,0.32)] backdrop-blur-xl">
         <ControlBar />
       </section>
 

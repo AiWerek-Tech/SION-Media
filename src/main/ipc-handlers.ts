@@ -76,7 +76,9 @@ import {
   isProjectionVisible,
   updateSlideData,
   updateProjectionState,
-  updateTheme
+  updateTheme,
+  broadcastAppTheme,
+  updateTitleBarOverlayForTheme
 } from './windows'
 import { getAllDisplays } from './display-monitor'
 
@@ -99,6 +101,15 @@ export function setupIPC(): void {
     const mem = await process.getProcessMemoryInfo?.()
     return mem ? { private: mem.private, shared: mem.shared } : null
   })
+
+  // App theme sync
+  ipcMain.on(
+    'app:theme-mode-set',
+    (_event, payload: { mode: string; effective: 'dark' | 'light' }) => {
+      updateTitleBarOverlayForTheme(payload.effective)
+      broadcastAppTheme(payload)
+    }
+  )
 
   // Mode change handler
   ipcMain.handle('system:set-mode', async (_event, mode: string) => {

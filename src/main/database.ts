@@ -7,6 +7,13 @@ import { runMigrations } from './migrations'
 
 let db: Database.Database
 
+function normalizeSongNumber(input: string): string {
+  const raw = String(input ?? '').trim()
+  if (raw === '') return raw
+  const trimmed = raw.replace(/^0+/, '')
+  return trimmed === '' ? '0' : trimmed
+}
+
 export function initDatabase(): void {
   const dbPath = join(app.getPath('userData'), 'sion.db')
 
@@ -69,7 +76,13 @@ function seedDatabase(): void {
 
   const transaction = db.transaction((songs) => {
     for (const song of songs) {
-      insert.run(lsId, song.song_number, song.title, song.title_en || '', song.language)
+      insert.run(
+        lsId,
+        normalizeSongNumber(song.song_number),
+        song.title,
+        song.title_en || '',
+        song.language
+      )
     }
   })
 
@@ -123,7 +136,13 @@ export function reseedDatabase(): void {
       `)
 
       for (const song of initialSongs) {
-        insert.run(lsId, song.song_number, song.title, song.title_en || '', song.language)
+        insert.run(
+          lsId,
+          normalizeSongNumber(song.song_number),
+          song.title,
+          song.title_en || '',
+          song.language
+        )
       }
     })()
 
@@ -502,10 +521,15 @@ export function addSong(song: {
   theme?: string
   scripture_reference?: string
 }): unknown {
+  const normalizedSong = {
+    ...song,
+    number: normalizeSongNumber(song.number)
+  }
+
   // Check for duplicates within the same hymnal
   const duplicate = db
     .prepare('SELECT id FROM songs WHERE hymnal_id = ? AND (number = ? OR title = ?)')
-    .get(song.hymnal_id, song.number, song.title)
+    .get(normalizedSong.hymnal_id, normalizedSong.number, normalizedSong.title)
   if (duplicate) {
     throw new Error('Nomor lagu atau judul sudah ada dalam hymnal ini.')
   }
@@ -516,23 +540,23 @@ export function addSong(song: {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
-      song.hymnal_id,
-      song.number,
-      song.title,
-      song.alternate_title || '',
-      song.lyrics_raw,
-      song.category || '',
-      song.language || 'Indonesia',
-      song.author || '',
-      song.composer || '',
-      song.key_note || '',
-      song.time_signature || '',
-      song.tempo || '',
-      song.tags || '',
-      song.theme || '',
-      song.scripture_reference || ''
+      normalizedSong.hymnal_id,
+      normalizedSong.number,
+      normalizedSong.title,
+      normalizedSong.alternate_title || '',
+      normalizedSong.lyrics_raw,
+      normalizedSong.category || '',
+      normalizedSong.language || 'Indonesia',
+      normalizedSong.author || '',
+      normalizedSong.composer || '',
+      normalizedSong.key_note || '',
+      normalizedSong.time_signature || '',
+      normalizedSong.tempo || '',
+      normalizedSong.tags || '',
+      normalizedSong.theme || '',
+      normalizedSong.scripture_reference || ''
     )
-  return { id: result.lastInsertRowid, ...song }
+  return { id: result.lastInsertRowid, ...normalizedSong }
 }
 
 export function updateSong(
@@ -558,6 +582,9 @@ export function updateSong(
   const existing = db.prepare('SELECT * FROM songs WHERE id = ?').get(id) as Record<string, unknown>
   if (!existing) return null
 
+  const normalizedNumber =
+    song.number !== undefined ? normalizeSongNumber(song.number) : (existing.number as string)
+
   db.prepare(
     `UPDATE songs SET
       hymnal_id = ?, number = ?, title = ?, alternate_title = ?, lyrics_raw = ?, category = ?,
@@ -566,7 +593,7 @@ export function updateSong(
     WHERE id = ?`
   ).run(
     song.hymnal_id ?? existing.hymnal_id,
-    song.number ?? existing.number,
+    normalizedNumber,
     song.title ?? existing.title,
     song.alternate_title ?? existing.alternate_title,
     song.lyrics_raw ?? existing.lyrics_raw,

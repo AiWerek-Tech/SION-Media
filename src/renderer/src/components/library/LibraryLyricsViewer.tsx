@@ -1,15 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import {
-  ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
-  FastForward,
-  Rewind,
-  Maximize2,
-  Minimize2
-} from 'lucide-react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowLeft, Pause, Play, Minus, Plus, Link2 } from 'lucide-react'
 import type { Song } from '../../types'
 import { useAppStore } from '../../store/useAppStore'
+
+function normalizeDisplayNumber(input: string | null | undefined): string {
+  const raw = String(input ?? '').trim()
+  if (raw === '') return '—'
+  const trimmed = raw.replace(/^0+/, '')
+  return trimmed === '' ? '0' : trimmed
+}
 
 type LyricsBlock = {
   label: string
@@ -116,229 +115,284 @@ function buildStanzaPages(lyricsRaw: string): string[] {
 
 export function LibraryLyricsViewer({
   song,
-  onClose,
-  songs,
-  onSelectSong
+  onClose
 }: {
   song: Song
   onClose: () => void
-  songs: Song[]
-  onSelectSong: (song: Song) => void
 }): React.JSX.Element {
   const pages = useMemo(() => buildStanzaPages(song.lyrics_raw || ''), [song.lyrics_raw])
   const [index, setIndex] = useState(0)
-  const { isLyricsFullscreen, setLyricsFullscreen } = useAppStore()
+  const [fontSize, setFontSize] = useState(() => {
+    const saved = localStorage.getItem('sion:lyric-font-size')
+    return saved ? parseInt(saved, 10) : 32
+  })
+  const [autoScroll, setAutoScroll] = useState(false)
+  const [scrollSpeed] = useState(1)
+  const [linkedSongs, setLinkedSongs] = useState<Song[]>([])
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const scrollInterval = useRef<ReturnType<typeof setInterval>>(undefined)
 
-  const songIndex = useMemo(() => songs.findIndex((s) => s.id === song.id), [songs, song.id])
-  const prevSong = songIndex > 0 ? songs[songIndex - 1] : null
-  const nextSong = songIndex >= 0 && songIndex < songs.length - 1 ? songs[songIndex + 1] : null
-
-  const toggleFullscreen = async (): Promise<void> => {
-    const isFs = Boolean(document.fullscreenElement)
-    try {
-      if (!isFs) {
-        await document.documentElement.requestFullscreen()
-        setLyricsFullscreen(true)
-      } else {
-        await document.exitFullscreen()
-        setLyricsFullscreen(false)
-      }
-    } catch {
-      setLyricsFullscreen(!isLyricsFullscreen)
-    }
-  }
+  const setLyricsFullscreen = useAppStore((s) => s.setLyricsFullscreen)
 
   useEffect(() => {
-    const onFsChange = (): void => {
-      setLyricsFullscreen(Boolean(document.fullscreenElement))
+    localStorage.setItem('sion:lyric-font-size', String(fontSize))
+  }, [fontSize])
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0
+  }, [index])
+
+  useEffect(() => {
+    if (autoScroll && scrollRef.current) {
+      scrollInterval.current = setInterval(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop += scrollSpeed * 0.5
+        }
+      }, 16)
+    } else {
+      if (scrollInterval.current) clearInterval(scrollInterval.current)
     }
-    document.addEventListener('fullscreenchange', onFsChange)
-    return () => document.removeEventListener('fullscreenchange', onFsChange)
-  }, [setLyricsFullscreen])
+    return () => {
+      if (scrollInterval.current) clearInterval(scrollInterval.current)
+    }
+  }, [autoScroll, scrollSpeed])
+
+  useEffect(() => {
+    async function loadLinkedSongs(): Promise<void> {
+      try {
+        const relations = (await window.api.songs.getRelations(song.id)) as Array<{
+          id: number
+          number: string
+          title: string
+          hymnal_code: string
+        }>
+        const linked = relations.map(
+          (r) =>
+            ({
+              id: r.id,
+              number: r.number,
+              title: r.title,
+              hymnal_code: r.hymnal_code
+            }) as Song
+        )
+        setLinkedSongs(linked)
+      } catch {
+        setLinkedSongs([])
+      }
+    }
+    loadLinkedSongs()
+  }, [song.id])
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [])
+
+  const close = useCallback(() => {
+    setLyricsFullscreen(false)
+    onClose()
+  }, [onClose, setLyricsFullscreen])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent): void => {
       if (e.code === 'Escape') {
         e.preventDefault()
-        if (document.fullscreenElement) {
-          document.exitFullscreen().catch(() => {})
-          setLyricsFullscreen(false)
-        }
-        onClose()
+        close()
         return
       }
 
-      if (e.code === 'F11') {
+      if (e.code === 'Space') {
         e.preventDefault()
-        const isFs = Boolean(document.fullscreenElement)
-        if (!isFs) {
-          document.documentElement.requestFullscreen().catch(() => {})
-          setLyricsFullscreen(true)
-        } else {
-          document.exitFullscreen().catch(() => {})
-          setLyricsFullscreen(false)
-        }
+        setAutoScroll((v) => !v)
         return
       }
 
-      if (
-        e.code === 'ArrowDown' ||
-        e.code === 'PageDown' ||
-        e.code === 'ArrowRight' ||
-        e.code === 'Space'
-      ) {
+      if (e.code === 'ArrowDown' || e.code === 'PageDown') {
         e.preventDefault()
         setIndex((i) => Math.min(i + 1, Math.max(0, pages.length - 1)))
         return
       }
 
-      if (e.code === 'ArrowUp' || e.code === 'PageUp' || e.code === 'ArrowLeft') {
+      if (e.code === 'ArrowUp' || e.code === 'PageUp') {
         e.preventDefault()
         setIndex((i) => Math.max(0, i - 1))
+        return
+      }
+
+      if (e.code === 'Equal' || e.code === 'NumpadAdd') {
+        e.preventDefault()
+        setFontSize((s) => Math.min(s + 2, 48))
+        return
+      }
+
+      if (e.code === 'Minus' || e.code === 'NumpadSubtract') {
+        e.preventDefault()
+        setFontSize((s) => Math.max(s - 2, 14))
         return
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose, pages.length, setLyricsFullscreen])
+  }, [close, pages.length])
 
   const total = Math.max(1, pages.length)
   const currentText = pages[index] || song.lyrics_raw || ''
   const badgeText = [song.key_note, song.time_signature].filter(Boolean).join(' ')
 
+  const titleId = song.title
+  const titleEn = (song as unknown as { title_en?: string }).title_en
+
   return (
-    <div className="absolute inset-0 z-[80] overflow-hidden bg-bg-base">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.22),transparent_44%),radial-gradient(circle_at_70%_70%,rgba(168,85,247,0.18),transparent_46%),linear-gradient(180deg,rgba(8,10,16,0.74),rgba(7,9,14,0.96))]" />
+    <div className="absolute inset-0 overflow-hidden bg-bg-base">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_28%_18%,rgba(59,130,246,0.18),transparent_42%),radial-gradient(circle_at_76%_72%,rgba(168,85,247,0.14),transparent_46%),linear-gradient(180deg,rgba(8,10,16,0.78),rgba(7,9,14,0.98))]" />
+      <div className="absolute inset-0 opacity-[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent,rgba(0,0,0,0.45))]" />
 
-      <div className="absolute inset-0 opacity-[0.12] bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.55))]" />
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.06),transparent_40%)]" />
 
-      {/* Top bar */}
-      <div className="absolute left-0 right-0 top-0 z-10 flex h-14 items-center justify-between px-4">
-        <div className="flex items-center gap-3 min-w-0">
+      {/* Header */}
+      <div className="absolute left-0 right-0 top-0 z-10 flex items-start justify-between px-5 pt-5">
+        <div className="flex items-start gap-4 min-w-0">
           <button
-            onClick={onClose}
-            className="no-drag inline-flex h-10 items-center gap-2 rounded-xl border border-white/[0.10] bg-white/[0.05] px-3 text-[12px] font-bold text-white/80 backdrop-blur hover:bg-white/[0.08] hover:text-white transition-all"
+            onClick={close}
+            className="no-drag inline-flex h-11 items-center gap-2 rounded-2xl border border-white/[0.10] bg-white/[0.06] px-4 text-[12px] font-black text-white/85 backdrop-blur-md shadow-[0_10px_26px_rgba(0,0,0,0.35)] hover:bg-white/[0.08] hover:text-white transition-all"
             aria-label="Kembali"
             title="Kembali (Esc)"
           >
             <ArrowLeft size={16} />
-            Kembali
-          </button>
-
-          <button
-            onClick={() => prevSong && onSelectSong(prevSong)}
-            disabled={!prevSong}
-            className="no-drag inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.10] bg-white/[0.05] text-white/80 backdrop-blur hover:bg-white/[0.08] hover:text-white transition-all disabled:opacity-40"
-            aria-label="Lagu sebelumnya"
-            title="Lagu sebelumnya"
-          >
-            <Rewind size={16} />
-          </button>
-
-          <button
-            onClick={() => nextSong && onSelectSong(nextSong)}
-            disabled={!nextSong}
-            className="no-drag inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.10] bg-white/[0.05] text-white/80 backdrop-blur hover:bg-white/[0.08] hover:text-white transition-all disabled:opacity-40"
-            aria-label="Lagu berikutnya"
-            title="Lagu berikutnya"
-          >
-            <FastForward size={16} />
+            Back
           </button>
 
           <div className="min-w-0">
-            <div className="truncate text-[12px] font-semibold text-white/75">
-              {song.number ? `${song.number} · ` : ''}
-              {song.title}
+            <div className="flex items-center gap-2 text-[12px] font-semibold text-white/70">
+              <span className="font-mono tracking-[0.12em] uppercase">
+                {normalizeDisplayNumber(song.number)}
+              </span>
+              {badgeText ? (
+                <span className="rounded-full border border-white/[0.10] bg-white/[0.06] px-2.5 py-1 text-[11px] font-black text-white/75 backdrop-blur">
+                  {badgeText}
+                </span>
+              ) : null}
             </div>
-            <div className="truncate text-[10px] font-medium uppercase tracking-[0.14em] text-white/40">
-              {song.author || song.composer || song.key_note
-                ? [song.author, song.composer, song.key_note].filter(Boolean).join(' · ')
-                : ''}
+
+            <div className="mt-1 truncate text-[18px] font-black tracking-[-0.02em] text-white/92">
+              {titleId}
             </div>
+
+            {titleEn ? (
+              <div className="truncate text-[12px] font-semibold text-white/55">{titleEn}</div>
+            ) : null}
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          <div className="no-drag flex items-center gap-1.5 rounded-2xl border border-white/[0.10] bg-white/[0.06] px-2 py-2 backdrop-blur-md shadow-[0_10px_26px_rgba(0,0,0,0.28)]">
+            <button
+              onClick={() => setFontSize((s) => Math.max(14, s - 2))}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-white/80 hover:bg-white/[0.10] hover:text-white transition-all"
+              aria-label="Perkecil font"
+              title="Font -"
+            >
+              <Minus size={16} />
+            </button>
+
+            <input
+              className="w-[140px] accent-white/80"
+              type="range"
+              min={14}
+              max={48}
+              step={1}
+              value={fontSize}
+              onChange={(e) => setFontSize(parseInt(e.target.value, 10))}
+              aria-label="Ukuran font"
+            />
+
+            <button
+              onClick={() => setFontSize((s) => Math.min(48, s + 2))}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-white/80 hover:bg-white/[0.10] hover:text-white transition-all"
+              aria-label="Perbesar font"
+              title="Font +"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+
           <button
-            onClick={() => void toggleFullscreen()}
-            className="no-drag inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.10] bg-white/[0.05] text-white/80 backdrop-blur hover:bg-white/[0.08] hover:text-white transition-all"
-            aria-label="Fullscreen"
-            title="Fullscreen (F11)"
+            onClick={() => setAutoScroll((v) => !v)}
+            className="no-drag inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/[0.10] bg-white/[0.06] text-white/85 backdrop-blur-md shadow-[0_10px_26px_rgba(0,0,0,0.28)] hover:bg-white/[0.08] transition-all"
+            aria-label={autoScroll ? 'Pause auto-scroll' : 'Play auto-scroll'}
+            title="Play/Pause (Space)"
           >
-            {isLyricsFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            {autoScroll ? <Pause size={18} /> : <Play size={18} />}
           </button>
 
-          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.06] px-3 py-1.5 text-[12px] font-black text-white/85 backdrop-blur">
+          <div className="rounded-2xl border border-white/[0.10] bg-white/[0.06] px-3 py-2 text-[12px] font-black text-white/85 backdrop-blur-md shadow-[0_10px_26px_rgba(0,0,0,0.18)]">
             {index + 1}/{total}
           </div>
         </div>
       </div>
 
-      {/* Page markers */}
-      <div className="absolute right-5 top-1/2 z-10 -translate-y-1/2">
-        <div className="flex flex-col items-center gap-2">
+      {/* Right navigation */}
+      <div className="absolute right-6 top-1/2 z-10 -translate-y-1/2">
+        <div className="no-drag flex flex-col items-center gap-2">
           {Array.from({ length: total }).map((_, i) => (
             <button
               key={i}
               onClick={() => setIndex(i)}
-              className={`h-3 w-3 rounded-full transition-all ${
+              className={`h-2.5 w-2.5 rounded-full transition-all ${
                 i === index
-                  ? 'bg-white shadow-[0_0_0_6px_rgba(255,255,255,0.10)]'
+                  ? 'bg-white shadow-[0_0_0_8px_rgba(255,255,255,0.09)]'
                   : 'bg-white/25 hover:bg-white/45'
               }`}
-              aria-label={`Halaman ${i + 1}`}
+              aria-label={`Bait ${i + 1}`}
+              title={`Bait ${i + 1}`}
             />
           ))}
         </div>
       </div>
 
-      {/* Main lyrics */}
+      {/* Center lyrics */}
       <div className="absolute inset-0 flex items-center justify-center px-[7%] py-[10%]">
-        <div className="max-w-[1200px] w-full">
-          <div className="text-white font-black leading-[1.08] tracking-[-0.02em] drop-shadow-[0_10px_26px_rgba(0,0,0,0.72)] whitespace-pre-line text-left text-[clamp(28px,4.2vw,58px)]">
-            {currentText}
+        <div className="max-w-[1280px] w-full">
+          {currentText.trim() ? (
+            <div
+              ref={scrollRef}
+              className="max-h-[70vh] overflow-hidden"
+              style={{
+                WebkitMaskImage:
+                  'linear-gradient(180deg, transparent, #000 10%, #000 88%, transparent)'
+              }}
+            >
+              <div
+                className="text-white/95 font-black tracking-[-0.02em] drop-shadow-[0_10px_28px_rgba(0,0,0,0.70)] whitespace-pre-line"
+                style={{ fontSize: `${fontSize}px`, lineHeight: 1.14 }}
+              >
+                {currentText}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-[28px] border border-white/[0.10] bg-white/[0.06] backdrop-blur-md p-10 shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
+              <div className="text-[18px] font-black text-white/90">Lirik belum tersedia</div>
+              <div className="mt-2 text-[12px] font-semibold text-white/55">
+                Data lagu ini belum memiliki lirik. Silakan lengkapi di Song Editor atau lakukan
+                sync.
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Footer: linked songs */}
+      <div className="absolute bottom-5 left-0 right-0 z-10 flex items-center justify-center px-6">
+        {linkedSongs.length > 0 ? (
+          <div className="no-drag flex items-center gap-2 rounded-2xl border border-white/[0.10] bg-white/[0.06] px-4 py-3 text-[12px] font-semibold text-white/70 backdrop-blur-md shadow-[0_18px_48px_rgba(0,0,0,0.35)]">
+            <Link2 size={16} className="text-white/70" />
+            <span>Versi lain tersedia:</span>
+            <span className="font-black text-white/85">{linkedSongs.length}</span>
           </div>
-        </div>
-      </div>
-
-      {/* Bottom controls */}
-      <div className="absolute bottom-5 left-0 right-0 z-10 flex items-center justify-center gap-3">
-        <button
-          onClick={() => setIndex((i) => Math.max(0, i - 1))}
-          className="no-drag inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.10] bg-white/[0.05] text-white/85 backdrop-blur hover:bg-white/[0.08] transition-all disabled:opacity-40"
-          disabled={index <= 0}
-          aria-label="Sebelumnya"
-          title="Sebelumnya (← / PageUp)"
-        >
-          <ChevronLeft size={20} />
-        </button>
-
-        <div className="h-1.5 w-[min(520px,62vw)] overflow-hidden rounded-full bg-white/15">
-          <div
-            className="h-full rounded-full bg-white/70"
-            style={{ width: `${((index + 1) / total) * 100}%` }}
-          />
-        </div>
-
-        <button
-          onClick={() => setIndex((i) => Math.min(i + 1, total - 1))}
-          className="no-drag inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.10] bg-white/[0.05] text-white/85 backdrop-blur hover:bg-white/[0.08] transition-all disabled:opacity-40"
-          disabled={index >= total - 1}
-          aria-label="Berikutnya"
-          title="Berikutnya (→ / PageDown)"
-        >
-          <ChevronRight size={20} />
-        </button>
-      </div>
-
-      {/* Corner count like sample */}
-      <div className="absolute left-6 top-[92px] z-10 text-[42px] font-black text-white/80">
-        {index + 1}/{total}
-      </div>
-
-      <div className="absolute right-6 top-[92px] z-10 rounded-2xl bg-white/8 border border-white/[0.10] px-4 py-2 text-[34px] font-black text-status-error backdrop-blur">
-        {badgeText ? `${badgeText} ${index + 1}/${total}` : `${index + 1}/${total}`}
+        ) : null}
       </div>
     </div>
   )

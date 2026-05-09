@@ -356,6 +356,34 @@ export const migrations: Migration[] = [
         db.exec("ALTER TABLE songs ADD COLUMN time_signature TEXT DEFAULT ''")
       }
     }
+  },
+  {
+    version: 8,
+    name: 'default_app_theme_mode_setting',
+    up: (db) => {
+      const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
+      insertSetting.run('app_theme_mode', 'system')
+    }
+  },
+  {
+    version: 9,
+    name: 'normalize_song_numbers_remove_leading_zeros',
+    up: (db) => {
+      db.exec(`
+        UPDATE songs
+        SET number = CASE
+          WHEN LTRIM(number, '0') = '' THEN '0'
+          ELSE LTRIM(number, '0')
+        END
+        WHERE number LIKE '0%';
+      `)
+
+      try {
+        db.exec(`INSERT INTO songs_fts(songs_fts) VALUES('rebuild');`)
+      } catch {
+        // ignore (FTS5 might not be available in some environments)
+      }
+    }
   }
 ]
 

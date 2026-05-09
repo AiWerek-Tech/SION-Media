@@ -142,8 +142,10 @@ function App(): React.JSX.Element {
   useEffect(() => {
     if (isFirstInstall) {
       // Onboarding handles its own splash in Phase 1 (IntroPhase)
-      setSplashDone(true)
-      return undefined
+      const timer = setTimeout(() => setSplashDone(true), 0)
+      return (): void => {
+        clearTimeout(timer)
+      }
     }
     if (!isLoading) {
       const timer = setTimeout(() => setSplashDone(true), 800)

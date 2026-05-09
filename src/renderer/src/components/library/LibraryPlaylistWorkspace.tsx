@@ -267,7 +267,7 @@ export function LibraryPlaylistWorkspace(): React.JSX.Element {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-[120] flex items-center justify-center bg-black/55 backdrop-blur-sm"
+            className="absolute inset-0 z-[120] flex items-center justify-center modal-overlay"
             onClick={() => setCreateOpen(false)}
           >
             <motion.div

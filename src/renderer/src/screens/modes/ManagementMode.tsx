@@ -1079,7 +1079,7 @@ export function ManagementMode(): React.JSX.Element {
 
       {/* New Hymnal Dialog */}
       {showNewHymnalDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay">
           <div className="glass-panel-strong rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-h3">Buat Buku Lagu Baru</h2>

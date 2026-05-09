@@ -15,10 +15,7 @@ import {
   Globe,
   Crown,
   ChevronDown,
-  Volume2,
-  Grid3X3,
-  List,
-  Search
+  Volume2
 } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import { getHymnalColor, getHymnalBgColor, getHymnalBorderColor } from '../../utils/hymnal-colors'

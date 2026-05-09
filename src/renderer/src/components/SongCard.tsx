@@ -4,6 +4,13 @@ import { useAppStore } from '../store/useAppStore'
 import { getHymnalColor, getHymnalBgColor, getHymnalBorderColor } from '../utils/hymnal-colors'
 import type { Song } from '../types'
 
+function normalizeDisplayNumber(input: string | null | undefined): string {
+  const raw = String(input ?? '').trim()
+  if (raw === '') return '---'
+  const trimmed = raw.replace(/^0+/, '')
+  return trimmed === '' ? '0' : trimmed
+}
+
 interface SongCardProps {
   song: Song
   rowIndex: number
@@ -27,7 +34,10 @@ export function SongCard({
 }: SongCardProps): React.JSX.Element {
   const { setScreen, setEditingSong, showToast } = useAppStore.getState()
 
-  const gradientIndex = ((song.id ?? 0) + (song.number ? parseInt(String(song.number).replace(/[^0-9]/g, ''), 10) || 0 : 0)) % 6
+  const gradientIndex =
+    ((song.id ?? 0) +
+      (song.number ? parseInt(String(song.number).replace(/[^0-9]/g, ''), 10) || 0 : 0)) %
+    6
   const gradients = [
     'from-brand-primary/22 via-brand-secondary/10 to-transparent',
     'from-brand-secondary/22 via-accent/10 to-transparent',
@@ -75,12 +85,16 @@ export function SongCard({
           <div className="relative flex h-full w-full flex-col items-start justify-between p-2">
             <div
               className="rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em]"
-              style={{ backgroundColor: hymnalBg, color: hymnalAccent, border: `1px solid ${hymnalBorder}` }}
+              style={{
+                backgroundColor: hymnalBg,
+                color: hymnalAccent,
+                border: `1px solid ${hymnalBorder}`
+              }}
             >
               {hymnalCode}
             </div>
             <div className="text-[12px] font-black leading-none text-text-primary">
-              {song.number || '---'}
+              {normalizeDisplayNumber(song.number)}
             </div>
           </div>
           {isActive && (

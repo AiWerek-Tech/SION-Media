@@ -16,6 +16,18 @@ const api = {
     }
   },
 
+  // App theme sync
+  appTheme: {
+    setMode: (payload: { mode: string; effective: 'dark' | 'light' }): void =>
+      ipcRenderer.send('app:theme-mode-set', payload),
+    onUpdated: (callback: (payload: { mode: string; effective: string }) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, payload: { mode: string; effective: string }): void =>
+        callback(payload)
+      ipcRenderer.on('app:theme-updated', listener)
+      return () => ipcRenderer.removeListener('app:theme-updated', listener)
+    }
+  },
+
   // Projection
   projection: {
     slideUpdate: (slideData: unknown): void =>

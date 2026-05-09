@@ -19,7 +19,7 @@ export function LibraryMode(): React.JSX.Element {
       <div className="flex-1 min-h-0 flex">
         {/* Library Browser: Sidebar + Main Content in one component */}
         <div className="flex-1 min-w-0 flex flex-col">
-          <LibraryBrowserPanel />
+          <LibraryBrowserPanel activeTab="number" />
         </div>
       </div>
     </div>

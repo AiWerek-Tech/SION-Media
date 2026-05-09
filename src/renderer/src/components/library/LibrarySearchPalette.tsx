@@ -4,9 +4,9 @@
  * Includes a number pad for quick number-based navigation.
  */
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, X, Hash, Music, Type, FileText, Tag, Clock } from 'lucide-react'
+import { Search, X, Music, Clock, Delete } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import { getHymnalColor } from '../../utils/hymnal-colors'
 import type { Song } from '../../types'
@@ -16,9 +16,6 @@ interface SearchPaletteProps {
   onClose: () => void
   onSelectSong: (song: Song) => void
 }
-
-const SEARCH_MODES = ['all', 'number', 'title', 'lyrics', 'tags'] as const
-type SearchMode = typeof SEARCH_MODES[number]
 
 // Number pad digits
 const NUMBER_PAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫']
@@ -175,7 +172,7 @@ export function LibrarySearchPalette({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+          className="fixed inset-0 z-[2000] flex items-center justify-center p-4 modal-overlay"
           onClick={onClose}
         >
           <motion.div
@@ -183,11 +180,11 @@ export function LibrarySearchPalette({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.94 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-[760px] glass-panel-strong rounded-2xl overflow-hidden shadow-[0_32px_64px_rgba(0,0,0,0.6)] flex flex-col"
+            className="w-full max-w-[760px] bg-bg-surface/95 backdrop-blur-2xl border border-border-default rounded-2xl overflow-hidden shadow-[0_32px_64px_rgba(0,0,0,0.6)] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Premium Search Input */}
-            <div className="relative flex items-center px-6 py-5 border-b border-white/5 bg-white/[0.02]">
+            <div className="relative flex items-center px-6 py-5 border-b border-border-subtle bg-bg-elevated/50">
               <Search size={24} className="text-brand-primary shrink-0 mr-4" />
               <input
                 ref={inputRef}
@@ -213,8 +210,6 @@ export function LibrarySearchPalette({
               </kbd>
               {/* Bottom Glow */}
               <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-brand-primary/50 to-transparent opacity-50" />
-            </div>
-
             </div>
 
             {/* Main Content */}
@@ -347,7 +342,7 @@ export function LibrarySearchPalette({
               </div>
 
               {/* Premium Stream Deck Number Pad */}
-              <div className="w-[180px] border-l border-white/5 bg-black/20 p-4 flex flex-col">
+              <div className="w-[180px] border-l border-border-subtle bg-bg-base/40 p-4 flex flex-col">
                 <div className="text-[10px] font-bold uppercase tracking-widest text-text-muted/60 mb-4 text-center">
                   Number Pad
                 </div>
@@ -365,11 +360,11 @@ export function LibrarySearchPalette({
                       }`}
                       style={{ aspectRatio: '1/1' }}
                     >
-                      {digit === '⌫' ? <X size={20} /> : digit}
+                      {digit === '⌫' ? <Delete size={20} /> : digit}
                     </button>
                   ))}
                 </div>
-                <div className="mt-4 pt-4 border-t border-white/5 text-[10px] font-medium text-text-muted/60 text-center">
+                <div className="mt-4 pt-4 border-t border-border-subtle text-[10px] font-medium text-text-muted/60 text-center">
                   {filteredResults.length} HASIL
                 </div>
               </div>
@@ -377,7 +372,7 @@ export function LibrarySearchPalette({
 
             {/* Footer */}
             {filteredResults.length > 0 && (
-              <div className="flex items-center justify-between px-6 py-3 border-t border-white/5 bg-black/40 text-[10px] text-text-muted">
+              <div className="flex items-center justify-between px-6 py-3 border-t border-border-subtle bg-bg-base/40 text-[10px] text-text-muted">
                 <span className="font-medium">{filteredResults.length} lagu ditemukan</span>
                 <div className="flex items-center gap-4 font-medium">
                   <span className="flex items-center gap-1.5">

@@ -120,3 +120,7 @@
     - Transformed the flat number pad into a beautiful hardware-style keypad.
     - Each key features explicit `aspect-ratio: 1/1` and custom multi-layered `box-shadow` (inset highlights and drop shadows) to mirror the grid layout's tactile feel.
     - The `C` (Clear) button is now an illuminated red hardware key.
+  - **Layout & Layout Hierarchy Fix**:
+    - Fixed an issue where the Command Palette was pushed too high (`pt-[10vh]`) and clipped by the global Title Bar.
+    - Elevated `z-index` to `z-[2000]` to guarantee it sits above all UI elements (including Title Bar), and perfectly centered it horizontally and vertically.
+    - Simplified the search interface by removing the redundant "Search Mode" tabs (Semua, Nomor, Judul) to achieve a true, distraction-free Spotlight-like search experience.

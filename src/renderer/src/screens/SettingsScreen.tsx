@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react'
 import {
   ArrowLeft,
   Monitor,
+  SunMoon,
   Palette,
   Keyboard,
   Database,
@@ -21,6 +22,7 @@ import type { Hymnal } from '../types'
 import type { DisplayInfo } from '../../../shared/types'
 import {
   DisplaySettings,
+  AppThemeSettings,
   ThemeSettings,
   BackgroundSettings,
   ShortcutsSettings,
@@ -32,6 +34,7 @@ import {
 type SettingsSection =
   | 'display'
   | 'hymnals'
+  | 'appearance'
   | 'theme'
   | 'background'
   | 'shortcuts'
@@ -41,6 +44,7 @@ type SettingsSection =
 const SECTIONS: { key: SettingsSection; label: string; icon: React.JSX.Element }[] = [
   { key: 'display', label: 'Display', icon: <Monitor size={15} /> },
   { key: 'hymnals', label: 'Buku Lagu', icon: <BookOpen size={15} /> },
+  { key: 'appearance', label: 'Tampilan', icon: <SunMoon size={15} /> },
   { key: 'theme', label: 'Tema & Font', icon: <Palette size={15} /> },
   { key: 'background', label: 'Background', icon: <Image size={15} /> },
   { key: 'shortcuts', label: 'Keyboard', icon: <Keyboard size={15} /> },
@@ -204,6 +208,9 @@ export function SettingsScreen(): React.JSX.Element {
                 onUpdate={handleUpdateHymnal}
                 onDelete={handleDeleteHymnal}
               />
+            )}
+            {activeSection === 'appearance' && (
+              <AppThemeSettings settings={settings} updateSetting={updateSetting} />
             )}
             {activeSection === 'theme' && (
               <ThemeSettings settings={settings} updateSetting={updateSetting} />

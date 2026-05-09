@@ -6,6 +6,7 @@ import {
   Settings,
   Moon,
   Sun,
+  MonitorSmartphone,
   ArrowRight,
   Check
 } from 'lucide-react'
@@ -72,7 +73,12 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
     return () => window.clearInterval(t)
   }, [isLoading])
 
-  const statusMessages = ['Memuat database lagu...', 'Menghubungkan monitor...', 'Menyiapkan workspace...', 'Menyinkronkan konfigurasi...']
+  const statusMessages = [
+    'Memuat database lagu...',
+    'Menghubungkan monitor...',
+    'Menyiapkan workspace...',
+    'Menyinkronkan konfigurasi...'
+  ]
 
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden px-6">
@@ -99,9 +105,7 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
           />
         </div>
 
-        <h1 className="text-[32px] font-black tracking-tight text-text-primary">
-          SION Media
-        </h1>
+        <h1 className="text-[32px] font-black tracking-tight text-text-primary">SION Media</h1>
         <p className="mt-3 text-sm font-medium tracking-wide text-text-secondary">
           Elevating Worship Experience
         </p>
@@ -164,7 +168,30 @@ function ThemePhase({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          {/* System */}
+          <button
+            onClick={() => onChange('system')}
+            className={`group relative flex flex-col items-center rounded-2xl border p-10 transition-all duration-300 ${
+              value === 'system'
+                ? 'border-brand-primary/30 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.07),transparent_60%),linear-gradient(180deg,rgba(27,32,49,0.62),rgba(13,15,23,0.46))] shadow-[0_0_28px_rgba(59,130,246,0.10)]'
+                : 'border-border-subtle bg-bg-surface/30 hover:border-border-default hover:bg-bg-surface/50'
+            }`}
+          >
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.03]">
+              <MonitorSmartphone size={28} className="text-accent" />
+            </div>
+            <h3 className="mb-2 text-base font-bold text-text-primary">System</h3>
+            <p className="text-center text-xs leading-relaxed text-text-muted">
+              Ikuti pengaturan tema dari OS.
+            </p>
+            {value === 'system' && (
+              <div className="absolute right-4 top-4 flex h-6 w-6 items-center justify-center rounded-full bg-brand-primary text-white">
+                <Check size={14} />
+              </div>
+            )}
+          </button>
+
           {/* Celestial Dark */}
           <button
             onClick={() => onChange('dark')}
@@ -217,7 +244,10 @@ function ThemePhase({
             <button onClick={onBack} className="btn-premium h-11 px-8 text-[13px]">
               Kembali
             </button>
-            <button onClick={onNext} className="btn-premium btn-premium-primary h-11 px-10 text-[13px]">
+            <button
+              onClick={onNext}
+              className="btn-premium btn-premium-primary h-11 px-10 text-[13px]"
+            >
               Lanjutkan
               <ArrowRight size={16} />
             </button>
@@ -258,7 +288,9 @@ function ModePhase({
       key: 'PROJECTION',
       title: 'Projection Mode',
       desc: 'Standar ibadah live dengan kontrol dual-monitor.',
-      icon: <img src={logoSrc} alt="" className="h-7 w-7 object-contain opacity-80" draggable={false} />,
+      icon: (
+        <img src={logoSrc} alt="" className="h-7 w-7 object-contain opacity-80" draggable={false} />
+      ),
       glow: 'rgba(59,130,246,0.18)'
     },
     {
@@ -348,7 +380,10 @@ function ModePhase({
             <button onClick={onBack} className="btn-premium h-11 px-8 text-[13px]">
               Kembali
             </button>
-            <button onClick={onConfirm} className="btn-premium btn-premium-primary h-11 px-10 text-[13px]">
+            <button
+              onClick={onConfirm}
+              className="btn-premium btn-premium-primary h-11 px-10 text-[13px]"
+            >
               Mulai SION Media
               <ArrowRight size={16} />
             </button>
@@ -417,14 +452,9 @@ function MagneticButton({
 /* ── Main Welcome Screen ── */
 export function WelcomeScreen(): React.JSX.Element {
   const [phase, setPhase] = useState<1 | 2 | 3>(1)
-  const [selectedTheme, setSelectedTheme] = useState<AppTheme>('dark')
+  const [selectedTheme, setSelectedTheme] = useState<AppTheme>('system')
   const [selectedMode, setSelectedMode] = useState<AppMode>('LIBRARY')
   const finishOnboarding = useModeStore((s) => s.finishOnboarding)
-
-  useEffect(() => {
-    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches
-    setSelectedTheme(prefersDark ? 'dark' : 'light')
-  }, [])
 
   const handleFinish = (): void => {
     finishOnboarding({ theme: selectedTheme, mode: selectedMode })
