@@ -53,12 +53,16 @@ export function LibraryMode(): React.JSX.Element {
     }
   }, [theme, setTheme])
 
-  // Keyboard shortcut for search (Ctrl+K) and custom event from sidebar
+  // Keyboard shortcut for search (Ctrl+K), focus mode (Ctrl+Shift+F), and custom event from sidebar
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault()
         setShowSearch(true)
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F') {
+        e.preventDefault()
+        useAppStore.getState().toggleFocusMode()
       }
     }
     const handleOpenSearch = (): void => {
@@ -77,8 +81,9 @@ export function LibraryMode(): React.JSX.Element {
     (song: Song) => {
       setSelectedSong(song)
       setLyricsFullscreen(true)
+      setShowSearch(false)
     },
-    [setLyricsFullscreen, setSelectedSong]
+    [setLyricsFullscreen, setSelectedSong, setShowSearch]
   )
 
   const handleCloseLyrics = useCallback(() => {

@@ -1,10 +1,17 @@
 import React, { useMemo, useRef } from 'react'
-import { Check, Heart, ListMusic, MoreHorizontal, Music, Pin, SortAsc, Type } from 'lucide-react'
+import { Check, Heart, ListMusic, MoreHorizontal, Pin, SortAsc, Type } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getHymnalColor } from '../../utils/hymnal-colors'
 import type { Song } from '../../types'
 import { SongContextMenu } from './SongContextMenu'
+
+function normalizeDisplayNumber(input: string | null | undefined): string {
+  const raw = String(input ?? '').trim()
+  if (raw === '') return '—'
+  const trimmed = raw.replace(/^0+/, '')
+  return trimmed === '' ? '0' : trimmed
+}
 
 interface TitleViewProps {
   songs: Song[]
@@ -186,7 +193,9 @@ export function LibraryTitleView({
                   className={`h-full w-full rounded-xl border transition-all duration-200 flex items-center gap-3 px-3 group cursor-pointer ${
                     isSelected
                       ? 'bg-brand-primary/[0.06] border-brand-primary/20 shadow-sm'
-                      : 'bg-surface-1/[0.3] border-transparent hover:bg-surface-2/40 hover:border-border-default/30 hover:shadow-sm'
+                      : vr.index % 2 === 0
+                        ? 'bg-bg-elevated/50 border-transparent hover:bg-surface-2/40 hover:border-border-default/30 hover:shadow-sm'
+                        : 'bg-bg-surface/40 border-transparent hover:bg-surface-2/40 hover:border-border-default/30 hover:shadow-sm'
                   }`}
                   onClick={() => onSelectSong(song)}
                 >
@@ -203,7 +212,7 @@ export function LibraryTitleView({
                       color: getHymnalColor(song.hymnal_code || 'LS')
                     }}
                   >
-                    {song.number || <Music size={16} />}
+                    {normalizeDisplayNumber(song.number)}
                   </div>
 
                   {/* Info */}

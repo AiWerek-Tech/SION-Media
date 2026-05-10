@@ -20,6 +20,13 @@ import {
 import { useAppStore } from '../../store/useAppStore'
 import { getHymnalColor, getHymnalBgColor, getHymnalBorderColor } from '../../utils/hymnal-colors'
 
+function normalizeDisplayNumber(input: string | null | undefined): string {
+  const raw = String(input ?? '').trim()
+  if (raw === '') return '—'
+  const trimmed = raw.replace(/^0+/, '')
+  return trimmed === '' ? '0' : trimmed
+}
+
 // Icon mapping per hymnal code for visual distinction
 const HYMNAL_ICONS: Record<string, React.ElementType> = {
   LS: Guitar,
@@ -262,7 +269,7 @@ export function HymnalTopBar(): React.JSX.Element {
                                 color: c
                               }}
                             >
-                              {song.number || '—'}
+                              {normalizeDisplayNumber(song.number)}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="text-[12px] font-medium text-text-primary truncate">

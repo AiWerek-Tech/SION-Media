@@ -12,6 +12,13 @@ import { generateSlides } from '../engine/slideEngine'
 import { getHymnalColor } from '../utils/hymnal-colors'
 import type { Song } from '../types'
 
+function normalizeDisplayNumber(input: string | null | undefined): string {
+  const raw = String(input ?? '').trim()
+  if (raw === '') return '—'
+  const trimmed = raw.replace(/^0+/, '')
+  return trimmed === '' ? '0' : trimmed
+}
+
 interface CommandPaletteProps {
   isOpen: boolean
   onClose: () => void
@@ -55,13 +62,14 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps): React.
   // Focus input and reset state on open
   useEffect(() => {
     if (isOpen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setQuery('')
-
-      setResults([])
-
-      setSelectedIndex(0)
+      const timer = setTimeout(() => {
+        setQuery('')
+        setResults([])
+        setSelectedIndex(0)
+      }, 0)
+      return () => clearTimeout(timer)
     }
+    return undefined
   }, [isOpen])
 
   // Focus input after open
@@ -256,7 +264,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps): React.
                                 <span className="text-[9px] uppercase opacity-60">
                                   {song.hymnal_code || 'LS'}
                                 </span>
-                                <span>{song.number || '—'}</span>
+                                <span>{normalizeDisplayNumber(song.number)}</span>
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="text-[12px] font-semibold text-text-primary truncate">

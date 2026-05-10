@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
 /**
  * Verification script for song number normalization (Migration v9)
  * Run: node scripts/verify-db-normalization.mjs
@@ -40,6 +41,7 @@ try {
   const db = new SQL.Database(fileBuffer)
 
   // Helper to run queries
+  /** @type {(sql: string, params?: unknown[]) => Record<string, unknown>[]} */
   const query = (sql, params = []) => {
     const stmt = db.prepare(sql)
     stmt.bind(params)
@@ -51,6 +53,7 @@ try {
     return results
   }
 
+  /** @type {(sql: string, params?: unknown[]) => Record<string, unknown> | null} */
   const queryOne = (sql, params = []) => {
     const results = query(sql, params)
     return results[0] || null
@@ -58,12 +61,14 @@ try {
 
   // 1. Check migration version
   const tables = query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-  console.log('Tables in database:', tables.map(t => t.name).join(', '))
+  console.log('Tables in database:', tables.map((t) => t.name).join(', '))
   console.log('---')
 
-  const migrationsTableExists = tables.some(t => t.name === 'schema_migrations')
+  const migrationsTableExists = tables.some((t) => t.name === 'schema_migrations')
   if (migrationsTableExists) {
-    const migration = queryOne('SELECT version, name FROM schema_migrations ORDER BY version DESC LIMIT 1')
+    const migration = queryOne(
+      'SELECT version, name FROM schema_migrations ORDER BY version DESC LIMIT 1'
+    )
     console.log('Latest migration:', migration)
   } else {
     console.log('⚠️  No schema_migrations table found - database is from older version')
@@ -77,7 +82,7 @@ try {
     WHERE number LIKE '0%' 
     LIMIT 10
   `)
-  
+
   if (leadingZeros.length > 0) {
     console.log('⚠️  Found songs with leading zeros:')
     for (const s of leadingZeros) {
@@ -96,7 +101,7 @@ try {
     ORDER BY CAST(number AS INTEGER) ASC 
     LIMIT 20
   `)
-  
+
   console.log('Sample song numbers (first 20 by numeric order):')
   for (const s of samples) {
     console.log(`  ${String(s.number).padStart(4)} | ${s.title}`)

@@ -185,6 +185,9 @@ export function LibraryLyricsViewer({
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
+    // Focus trap: focus back button on mount
+    const backBtn = document.querySelector('[data-lyrics-back]') as HTMLElement | null
+    backBtn?.focus()
     return () => {
       document.body.style.overflow = ''
     }
@@ -243,7 +246,7 @@ export function LibraryLyricsViewer({
   const badgeText = [song.key_note, song.time_signature].filter(Boolean).join(' ')
 
   const titleId = song.title
-  const titleEn = (song as unknown as { title_en?: string }).title_en
+  const titleEn = song.title_en
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-bg-base">
@@ -256,6 +259,7 @@ export function LibraryLyricsViewer({
       <div className="absolute left-0 right-0 top-0 z-10 flex items-start justify-between px-5 pt-5">
         <div className="flex items-start gap-4 min-w-0">
           <button
+            data-lyrics-back
             onClick={close}
             className="no-drag inline-flex h-11 items-center gap-2 rounded-2xl border border-white/[0.10] bg-white/[0.06] px-4 text-[12px] font-black text-white/85 backdrop-blur-md shadow-[0_10px_26px_rgba(0,0,0,0.35)] hover:bg-white/[0.08] hover:text-white transition-all"
             aria-label="Kembali"

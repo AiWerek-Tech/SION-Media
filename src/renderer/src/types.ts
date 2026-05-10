@@ -17,6 +17,7 @@ export interface Song {
   number: string
   title: string
   alternate_title: string
+  title_en?: string
   lyrics_raw: string
   category: string
   language: string

@@ -11,6 +11,13 @@ import { useAppStore } from '../../store/useAppStore'
 import { getHymnalColor } from '../../utils/hymnal-colors'
 import type { Song } from '../../types'
 
+function normalizeDisplayNumber(input: string | null | undefined): string {
+  const raw = String(input ?? '').trim()
+  if (raw === '') return '—'
+  const trimmed = raw.replace(/^0+/, '')
+  return trimmed === '' ? '0' : trimmed
+}
+
 interface SearchPaletteProps {
   isOpen: boolean
   onClose: () => void
@@ -60,12 +67,15 @@ export function LibrarySearchPalette({
   // Reset state and focus input when palette opens
   useEffect(() => {
     if (isOpen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setQuery('')
-      setResults([])
-      setSelectedIndex(0)
-      setTimeout(() => inputRef.current?.focus(), 100)
+      const timer = setTimeout(() => {
+        setQuery('')
+        setResults([])
+        setSelectedIndex(0)
+        inputRef.current?.focus()
+      }, 0)
+      return () => clearTimeout(timer)
     }
+    return undefined
   }, [isOpen])
 
   // Debounced search
@@ -302,7 +312,7 @@ export function LibrarySearchPalette({
                               className="text-[13px] font-bold"
                               style={{ color: isSelected ? accentColor : undefined }}
                             >
-                              {song.number || '—'}
+                              {normalizeDisplayNumber(song.number)}
                             </span>
                           </div>
 
