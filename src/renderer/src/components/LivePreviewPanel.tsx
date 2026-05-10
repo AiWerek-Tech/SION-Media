@@ -45,7 +45,8 @@ function MonitorFrame({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-1.5">
-      <div className="flex h-7 shrink-0 items-center justify-between rounded-md border border-white/[0.06] bg-white/[0.03] px-2 backdrop-blur">
+      {/* Title Bar */}
+      <div className="monitor-title-bar">
         <div className="flex min-w-0 items-center gap-2">
           <span
             className="h-2 w-2 rounded-full shadow-[0_0_12px_currentColor]"
@@ -54,32 +55,31 @@ function MonitorFrame({
           <span className="truncate font-heading text-[12px] font-black uppercase tracking-[0.16em] text-text-primary">
             {isProgram ? 'PROGRAM / LIVE' : 'PREVIEW / CUE'}
           </span>
-          <span className="rounded border border-white/[0.06] bg-white/[0.04] px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-[0.04em] text-text-muted">
+          <span className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-[0.04em] text-text-muted">
             {stateLabel}
           </span>
         </div>
-        {emptyLyrics && (
-          <span className="inline-flex items-center gap-1 rounded border border-status-warning/30 bg-status-warning/15 px-1.5 py-0.5 text-[12px] font-black text-status-warning">
-            <AlertTriangle size={11} />
-            LIRIK KOSONG
-          </span>
-        )}
-        {isProgram && isLive && (
-          <span className="inline-flex items-center gap-1 rounded border border-live-red/45 bg-live-red/18 px-1.5 py-0.5 text-[12px] font-black text-live-red">
-            <Radio size={10} className="animate-pulse" />
-            ON AIR
-          </span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {emptyLyrics && (
+            <span className="inline-flex items-center gap-1 rounded bg-status-warning/15 px-1.5 py-0.5 text-[12px] font-black text-status-warning">
+              <AlertTriangle size={11} />
+              LIRIK KOSONG
+            </span>
+          )}
+          {isProgram && isLive && (
+            <span className="inline-flex items-center gap-1 rounded bg-live-red/18 px-1.5 py-0.5 text-[12px] font-black text-live-red shadow-[0_0_12px_rgba(255,59,48,0.18)]">
+              <Radio size={10} className="animate-pulse" />
+              ON AIR
+            </span>
+          )}
+        </div>
       </div>
 
+      {/* Monitor Body */}
       <div
-        className="relative min-h-0 flex-1 overflow-hidden rounded-xl border bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.05),transparent_55%),linear-gradient(180deg,rgba(17,19,28,0.72),rgba(13,15,23,0.9))] shadow-[0_22px_50px_rgba(0,0,0,0.42)]"
-        style={{
-          borderColor: `color-mix(in srgb, ${monitorColor} 72%, transparent)`,
-          boxShadow: isLive
-            ? `0 0 0 1px color-mix(in srgb, ${monitorColor} 30%, transparent), 0 0 46px color-mix(in srgb, ${monitorColor} 22%, transparent), 0 22px 50px rgba(0,0,0,0.42)`
-            : undefined
-        }}
+        className={`monitor-frame flex-1 min-h-0 ${
+          isProgram ? 'monitor-frame--program' : 'monitor-frame--preview'
+        } ${isLive ? 'monitor-frame--live' : ''}`}
       >
         <div className="absolute inset-0 flex items-center justify-center p-2">
           <div className="relative aspect-video h-full max-h-full w-full max-w-full overflow-hidden rounded-lg bg-black shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
@@ -121,7 +121,7 @@ function MonitorFrame({
             </AnimatePresence>
 
             {!showLyrics && !isBlack && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 text-white/28">
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 text-white/12">
                 <ScreenShare size={isProgram ? 42 : 34} />
                 <span className="font-heading text-[12px] font-black uppercase tracking-[0.24em]">
                   SION MEDIA
@@ -129,7 +129,7 @@ function MonitorFrame({
               </div>
             )}
 
-            <div className="absolute bottom-1.5 right-1.5 rounded bg-black/58 px-1.5 py-0.5 font-mono text-[12px] font-bold text-white/70 backdrop-blur">
+            <div className="absolute bottom-1.5 right-1.5 rounded-full bg-black/58 px-2 py-0.5 font-mono text-[11px] font-bold text-white/70 backdrop-blur">
               16:9 1920x1080
             </div>
           </div>
@@ -184,7 +184,7 @@ export function LivePreviewPanel(): React.JSX.Element {
   }, [programSlide, programSlideIndex, programSlides.length, projectionState])
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[minmax(280px,40%)_minmax(420px,60%)] gap-2 p-2 pt-9">
+    <div className="grid h-full min-h-0 grid-cols-[minmax(280px,40%)_minmax(420px,60%)] gap-2.5 p-2.5 pt-8">
       <MonitorFrame mode="preview" slide={previewSlide} stateLabel={previewState} theme={theme} />
       <MonitorFrame
         mode="program"
@@ -196,7 +196,7 @@ export function LivePreviewPanel(): React.JSX.Element {
         theme={theme}
       />
       {displayCount <= 1 && (
-        <div className="pointer-events-none absolute bottom-2 left-2 rounded-md border border-status-error/35 bg-status-error/14 px-2 py-1 text-[12px] font-bold text-status-error backdrop-blur">
+        <div className="pointer-events-none absolute bottom-2 left-2 rounded-full bg-status-error/10 px-2.5 py-1 text-[11px] font-semibold text-status-error/85 shadow-[0_10px_28px_rgba(0,0,0,0.38)] backdrop-blur">
           Simulasi preview aktif karena proyektor eksternal tidak terdeteksi.
         </div>
       )}

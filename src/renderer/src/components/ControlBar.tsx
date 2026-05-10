@@ -52,21 +52,21 @@ export function ControlBar(): React.JSX.Element {
     previewSlide?.slideIndex === programSlide?.slideIndex
 
   return (
-    <div className="grid h-full grid-cols-[minmax(240px,1fr)_auto_minmax(300px,1fr)] items-center gap-4 px-3">
+    <div className="grid h-full grid-cols-[minmax(260px,1fr)_auto_minmax(320px,1fr)] items-center gap-3 px-3">
       <div className="flex min-w-0 items-center gap-2">
-        <div className="rounded-md border border-preview/25 bg-preview/10 px-2 py-1">
+        <div className="info-pill info-pill--preview min-w-0">
           <div className="flex items-center gap-1.5 text-[12px] font-black uppercase tracking-[0.08em] text-preview">
             <CircleDot size={11} />
             Cue
           </div>
-          <div className="mt-0.5 max-w-[260px] truncate text-[12px] font-bold text-text-primary">
+          <div className="max-w-[280px] truncate text-[12px] font-bold text-text-primary">
             {hasCue ? `Slide ${currentSlideIndex + 1}/${slides.length}` : 'Tidak ada cue'}
           </div>
         </div>
 
-        <div className="flex items-center rounded-md border border-border-default bg-bg-elevated/70 p-1">
+        <div className="state-btn-group">
           <button
-            className="console-icon-btn"
+            className="state-btn"
             onClick={cuePrevSlide}
             disabled={currentSlideIndex <= 0 || !hasCue}
             title="Cue slide sebelumnya"
@@ -74,7 +74,7 @@ export function ControlBar(): React.JSX.Element {
             <ChevronLeft size={16} />
           </button>
           <button
-            className="console-icon-btn"
+            className="state-btn"
             onClick={cueNextSlide}
             disabled={currentSlideIndex >= slides.length - 1 || !hasCue}
             title="Cue slide berikutnya"
@@ -84,7 +84,7 @@ export function ControlBar(): React.JSX.Element {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="mixer-center-well">
         <button
           className="console-live-nav"
           onClick={prevSlide}
@@ -115,25 +115,23 @@ export function ControlBar(): React.JSX.Element {
       </div>
 
       <div className="flex min-w-0 items-center justify-end gap-2">
-        <div className="hidden min-w-0 rounded-md border border-program/25 bg-program/10 px-2 py-1 xl:block">
+        <div className="info-pill info-pill--program min-w-0 flex">
           <div className="flex items-center gap-1.5 text-[12px] font-black uppercase tracking-[0.08em] text-program">
             <FastForward size={11} />
             Program
           </div>
-          <div className="mt-0.5 max-w-[220px] truncate text-[12px] font-bold text-text-primary">
+          <div className="max-w-[220px] truncate text-[12px] font-bold text-text-primary">
             {hasProgram ? `Live ${programSlideIndex + 1}/${programSlides.length}` : projectionState}
           </div>
         </div>
 
-        <div className="flex items-center rounded-md border border-border-default bg-bg-elevated/70 p-1">
+        <div className="segmented-control">
           {FADE_SPEEDS.map((speed) => (
             <button
               key={speed.value}
               onClick={() => setFadeSpeed(speed.value)}
-              className={`h-7 min-w-8 rounded px-2 text-[12px] font-black transition ${
-                fadeSpeed === speed.value
-                  ? 'bg-brand-primary text-white'
-                  : 'text-text-muted hover:bg-bg-active hover:text-text-primary'
+              className={`segmented-control__item ${
+                fadeSpeed === speed.value ? 'segmented-control__item--active' : ''
               }`}
               title={`${speed.label}s transition`}
             >
@@ -142,22 +140,22 @@ export function ControlBar(): React.JSX.Element {
           ))}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="state-btn-group">
           <button
-            className={`console-state-btn ${projectionState === 'BLACK' ? 'danger-active' : ''}`}
+            className={`state-btn ${projectionState === 'BLACK' ? 'state-btn--danger-active' : ''}`}
             onClick={toggleBlack}
             title="Black Out (B)"
           >
             <Square size={17} fill={projectionState === 'BLACK' ? 'currentColor' : 'none'} />
           </button>
           <button
-            className={`console-state-btn ${projectionState === 'FREEZE' ? 'warn-active' : ''}`}
+            className={`state-btn ${projectionState === 'FREEZE' ? 'state-btn--warn-active' : ''}`}
             onClick={toggleFreeze}
             title="Freeze Screen (F)"
           >
             {projectionState === 'FREEZE' ? <Pause size={17} /> : <Snowflake size={17} />}
           </button>
-          <button className="console-state-btn" onClick={clearScreen} title="Clear Output (Esc)">
+          <button className="state-btn" onClick={clearScreen} title="Clear Output (Esc)">
             <XCircle size={17} />
           </button>
         </div>

@@ -176,8 +176,15 @@ function App(): React.JSX.Element {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
       const target = e.target as HTMLElement
+      const tag = target?.tagName
+      const role = target?.getAttribute?.('role')
       const isTyping =
-        target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        target?.isContentEditable ||
+        role === 'textbox' ||
+        role === 'searchbox'
 
       if (isTyping) {
         if (e.ctrlKey && e.code === 'KeyS' && currentScreen === 'song-editor') {
