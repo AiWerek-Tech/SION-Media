@@ -35,6 +35,7 @@
   --color-live: #34c759;
   --color-program: #ff3b30;
   --color-preview: #34c759;
+  --color-next-blue: #38bdf8;
   --color-warning: #f59e0b;
 
   /* Text Colors */
@@ -122,6 +123,13 @@
   --ease-in-out-smooth: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-in-out-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
   --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Duration Tokens */
+  --duration-instant: 50ms;
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 400ms;
 
   --font-heading: 'Poppins', system-ui, sans-serif;
   --font-ui: 'Inter', system-ui, sans-serif;
@@ -232,18 +240,26 @@ body {
 
 /* === MODERN SCROLLBAR === */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border-strong);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-full);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted);
+  background: rgba(255, 255, 255, 0.15);
+}
+/* Hide scrollbar for edge areas where not needed */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* === UTILITY CLASSES === */
@@ -264,11 +280,36 @@ body {
   backdrop-filter: blur(10px);
 }
 
+/* === INTERACTION UTILITIES === */
+
+/* Standard hover transition for clickable surfaces */
+.interaction-surface {
+  transition:
+    background-color var(--duration-normal) var(--ease-premium),
+    box-shadow var(--duration-normal) var(--ease-premium),
+    border-color var(--duration-normal) var(--ease-premium),
+    transform var(--duration-normal) var(--ease-premium);
+}
+
+/* Fast interaction for buttons/icons */
+.interaction-fast {
+  transition:
+    background-color var(--duration-fast) var(--ease-premium),
+    color var(--duration-fast) var(--ease-premium),
+    opacity var(--duration-fast) var(--ease-premium);
+}
+
+/* Fade for opacity-only changes */
+.interaction-fade {
+  transition: opacity var(--duration-normal) var(--ease-in-out-smooth);
+}
+
+/* Card */
 .card {
   background-color: var(--color-bg-elevated);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-sm);
-  transition: all 0.2s var(--ease-premium);
+  transition: all var(--duration-normal) var(--ease-premium);
 }
 
 .btn {
@@ -278,10 +319,19 @@ body {
   padding: var(--spacing-2) var(--spacing-4);
   border-radius: var(--radius-sm);
   font-weight: 500;
-  transition: all 0.2s;
+  transition:
+    background-color var(--duration-fast) var(--ease-premium),
+    color var(--duration-fast) var(--ease-premium),
+    box-shadow var(--duration-fast) var(--ease-premium),
+    transform var(--duration-fast) var(--ease-premium),
+    border-color var(--duration-fast) var(--ease-premium);
   cursor: pointer;
   gap: var(--spacing-2);
   border: 1px solid transparent;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .btn-primary {
@@ -290,7 +340,11 @@ body {
 }
 .btn-primary:hover:not(:disabled) {
   background-color: var(--color-brand-primary-hover);
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.25);
+}
+
+.btn-primary:active:not(:disabled) {
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.15);
 }
 
 .btn-ghost {
@@ -307,12 +361,72 @@ body {
   cursor: not-allowed;
 }
 
+/* === FOCUS RING (desktop-class) === */
 button:focus-visible,
+a:focus-visible,
 input:focus-visible,
 select:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid var(--color-brand-primary);
-  outline-offset: 2px;
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--color-bg-base),
+    0 0 0 4px rgba(59, 130, 246, 0.45);
+  border-radius: var(--radius-sm);
+}
+
+/* Subtle focus for ring-based surfaces */
+.surface-focus:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--color-bg-base),
+    0 0 0 4px rgba(59, 130, 246, 0.35);
+}
+
+/* === KEYBOARD NAVIGATION === */
+
+/* Focusable item in a list/grid */
+.keyboard-item:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--color-bg-base),
+    0 0 0 4px rgba(59, 130, 246, 0.4);
+  border-radius: var(--radius-md);
+}
+
+/* Active keyboard item (selected but not focused) */
+.keyboard-active {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+/* === SCROLL BEHAVIOR === */
+
+/* Smooth scrolling for scrollable containers */
+.scroll-smooth {
+  scroll-behavior: smooth;
+}
+
+/* Scroll shadow indicator at top */
+.scroll-shadow-top {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    inset 0 8px 16px -8px rgba(0, 0, 0, 0.25);
+}
+
+/* Scroll shadow indicator at bottom */
+.scroll-shadow-bottom {
+  box-shadow:
+    inset 0 -1px 0 rgba(255, 255, 255, 0.03),
+    inset 0 -8px 16px -8px rgba(0, 0, 0, 0.25);
+}
+
+/* Both top and bottom scroll shadows */
+.scroll-shadow-both {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.03),
+    inset 0 8px 16px -8px rgba(0, 0, 0, 0.25),
+    inset 0 -8px 16px -8px rgba(0, 0, 0, 0.25);
 }
 
 /* Typography Extensions */
@@ -1772,6 +1886,7 @@ textarea:focus-visible {
   background: rgba(255,255,255,0.07);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
   margin: 8px 0;
+  transition: width 0.2s ease, background 0.2s ease;
 }
 
 .monitor-resize-handle:hover {
@@ -1780,7 +1895,20 @@ textarea:focus-visible {
 }
 
 .monitor-resize-handle:hover::before {
-  background: rgba(255,255,255,0.12);
+  width: 3px;
+  background: rgba(59,130,246,0.45);
+}
+
+/* Active/dragging state — provided by react-resizable-panels */
+.monitor-resize-handle[data-resize-handle-active] {
+  background: rgba(59,130,246,0.06);
+  box-shadow: 0 0 0 1px rgba(59,130,246,0.15), 0 0 24px rgba(59,130,246,0.08);
+}
+
+.monitor-resize-handle[data-resize-handle-active]::before {
+  width: 4px;
+  background: var(--color-brand-primary);
+  box-shadow: 0 0 10px rgba(59,130,246,0.35);
 }
 
 :root[data-theme='light'] .monitor-resize-handle::before {
@@ -1794,16 +1922,661 @@ textarea:focus-visible {
 }
 
 :root[data-theme='light'] .monitor-resize-handle:hover::before {
-  background: rgba(0,0,0,0.14);
+  background: rgba(37,99,235,0.40);
+}
+
+:root[data-theme='light'] .monitor-resize-handle[data-resize-handle-active] {
+  background: rgba(37,99,235,0.05);
+}
+
+:root[data-theme='light'] .monitor-resize-handle[data-resize-handle-active]::before {
+  background: var(--color-brand-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESIZE HANDLE SYSTEM
+   Design-system-first resize handles for react-resizable-panels
+   ═══════════════════════════════════════════════════════════════ */
+
+/* === BASE RESIZE HANDLE === */
+
+/* Vertical resize handle (between horizontal panels) */
+.resize-handle--vertical {
+  width: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Horizontal resize handle (between vertical panels) */
+.resize-handle--horizontal {
+  height: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: row-resize;
+  background: transparent;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* === IDLE STATE (invisible separator) === */
+
+.resize-handle--vertical::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.03);
+  transition: width var(--duration-normal) var(--ease-premium),
+              background var(--duration-normal) var(--ease-premium);
+}
+
+.resize-handle--horizontal::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.03);
+  transition: height var(--duration-normal) var(--ease-premium),
+              background var(--duration-normal) var(--ease-premium);
+}
+
+/* === GRIP ICON === */
+
+.resize-handle__grip {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-premium);
+  z-index: 1;
+}
+
+.resize-handle--vertical .resize-handle__grip {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.resize-handle--horizontal .resize-handle__grip {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.resize-handle__icon {
+  color: var(--color-text-disabled);
+  transition: color var(--duration-fast) var(--ease-premium);
+}
+
+/* === HOVER STATE (subtle glow) === */
+
+.resize-handle--vertical:hover {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.resize-handle--vertical:hover::before {
+  width: 2px;
+  background: rgba(59, 130, 246, 0.25);
+}
+
+.resize-handle--horizontal:hover {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.resize-handle--horizontal:hover::before {
+  height: 2px;
+  background: rgba(59, 130, 246, 0.25);
+}
+
+.resize-handle:hover .resize-handle__grip {
+  opacity: 0.5;
+}
+
+.resize-handle:hover .resize-handle__icon {
+  color: var(--color-text-muted);
+}
+
+/* === ACTIVE/DRAG STATE (clear indication) === */
+
+.resize-handle--vertical[data-resize-handle-active] {
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.resize-handle--vertical[data-resize-handle-active]::before {
+  width: 3px;
+  background: var(--color-brand-primary);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+}
+
+.resize-handle--horizontal[data-resize-handle-active] {
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.resize-handle--horizontal[data-resize-handle-active]::before {
+  height: 3px;
+  background: var(--color-brand-primary);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+}
+
+.resize-handle[data-resize-handle-active] .resize-handle__grip {
+  opacity: 1;
+}
+
+.resize-handle[data-resize-handle-active] .resize-handle__icon {
+  color: var(--color-brand-primary);
+}
+
+/* === COMPACT MODE (minimal footprint) === */
+
+.resize-handle--compact {
+  width: 4px;
+  height: 4px;
+}
+
+.resize-handle--compact .resize-handle__grip {
+  display: none;
+}
+
+/* === FOCUS STATE (keyboard accessible) === */
+
+.resize-handle:focus-visible {
+  outline: none;
+}
+
+.resize-handle--vertical:focus-visible::before {
+  width: 3px;
+  background: rgba(59, 130, 246, 0.5);
+}
+
+.resize-handle--horizontal:focus-visible::before {
+  height: 3px;
+  background: rgba(59, 130, 246, 0.5);
+}
+
+/* === LIGHT THEME === */
+
+:root[data-theme='light'] .resize-handle--vertical::before,
+:root[data-theme='light'] .resize-handle--horizontal::before {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+:root[data-theme='light'] .resize-handle--vertical:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+:root[data-theme='light'] .resize-handle--vertical:hover::before {
+  background: rgba(37, 99, 235, 0.35);
+}
+
+:root[data-theme='light'] .resize-handle--horizontal:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+:root[data-theme='light'] .resize-handle--horizontal:hover::before {
+  background: rgba(37, 99, 235, 0.35);
+}
+
+:root[data-theme='light'] .resize-handle[data-resize-handle-active]::before {
+  background: var(--color-brand-primary);
+}
+
+/* ── Transition Column (vMix-style vertical controls) ── */
+.transition-column {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 0 10px;
+  width: 90px;
+  background: rgba(255,255,255,0.015);
+  border-left: 1px solid rgba(255,255,255,0.03);
+  border-right: 1px solid rgba(255,255,255,0.03);
+  z-index: 10;
+}
+
+.transition-column__section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.transition-column__label {
+  font-family: var(--font-heading);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.transition-column__nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.04);
+  color: var(--color-text-secondary);
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: all 0.15s ease;
+}
+
+.transition-column__nav-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.1);
+  color: var(--color-text-primary);
+}
+
+.transition-column__nav-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.transition-column__nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.transition-column__counter {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 28px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INTERACTION POLISH LAYER
+   ═══════════════════════════════════════════════════════════════ */
+
+/* === LOADING STATES === */
+
+/* Skeleton loading animation */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Skeleton variants */
+.skeleton-text {
+  border-radius: var(--radius-xs);
+}
+
+.skeleton-card {
+  border-radius: var(--radius-md);
+}
+
+.skeleton-avatar {
+  border-radius: var(--radius-full);
+}
+
+/* Loading spinner */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--color-brand-primary);
+  border-radius: 50%;
+  animation: spinner-rotate 0.6s linear infinite;
+}
+
+@keyframes spinner-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* === HOVER AFFORDANCE === */
+
+/* Subtle lift on hover */
+.hover-lift {
+  transition: transform var(--duration-normal) var(--ease-premium);
+}
+
+.hover-lift:hover {
+  transform: translateY(-1px);
+}
+
+/* Glow on hover */
+.hover-glow {
+  transition: box-shadow var(--duration-normal) var(--ease-premium);
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+}
+
+/* Cursor hint for draggable */
+.grab-hint {
+  cursor: grab;
+}
+
+.grab-hint:active {
+  cursor: grabbing;
+}
+
+/* === PERCEIVED PERFORMANCE === */
+
+/* Instant visual feedback on click */
+.click-feedback {
+  transition: transform var(--duration-instant) linear;
+}
+
+.click-feedback:active {
+  transform: scale(0.98);
+}
+
+/* Optimistic fade-in for new items */
+.fade-in-up {
+  animation: fade-in-up var(--duration-normal) var(--ease-premium);
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fade out for removed items */
+.fade-out {
+  animation: fade-out var(--duration-fast) var(--ease-premium) forwards;
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+/* === INTERACTION DENSITY TUNING === */
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Quieter hover for dense lists */
+.quiet-hover {
+  transition: background-color var(--duration-slow) var(--ease-premium);
+}
+
+/* Instant hover for toolbar buttons */
+.instant-hover {
+  transition: background-color var(--duration-instant) linear;
+}
+
+.management-list-panel {
+  container-type: inline-size;
+}
+
+@container (max-width: 560px) {
+  .management-row-header,
+  .management-row {
+    grid-template-columns: 32px 56px 1fr 120px 72px;
+  }
+
+  .management-row .secondary-meta {
+    display: none;
+  }
+
+  .management-row .row-actions {
+    opacity: 1;
+  }
+}
+
+.management-list-panel {
+  min-width: 0;
+}
+
+/* Inspector panel as container for height-based queries */
+.management-inspector-panel {
+  min-width: 0;
+  container-type: size;
+  container-name: inspector;
+}
+
+/* Prevent layout jitter during resize by keeping scrollbars stable */
+.management-list-panel,
+.management-inspector-body {
+  scrollbar-gutter: stable;
+}
+
+/* === NESTED SCROLL HARMONY === */
+
+/* Inspector body is the primary scroll container */
+.management-inspector-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Lyrics preview scroll wrapper - secondary scroll region */
+.management-lyrics-scroll-wrapper {
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Lyrics content scroll with max-height clamp */
+.management-lyrics-content {
+  max-height: 340px;
+  min-height: 80px;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+}
+
+/* Adaptive max-height based on inspector panel size */
+@container (max-height: 600px) {
+  .management-lyrics-content {
+    max-height: 200px;
+  }
+}
+
+@container (max-height: 450px) {
+  .management-lyrics-content {
+    max-height: 120px;
+  }
+}
+
+/* === SCROLL SHADOWS & EDGE AWARENESS === */
+
+/* Top scroll shadow for lyrics preview */
+.management-lyrics-scroll-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.08), transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-premium);
+  z-index: 1;
+}
+
+/* Bottom scroll shadow for lyrics preview */
+.management-lyrics-scroll-wrapper::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.08), transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-premium);
+  z-index: 1;
+}
+
+/* Show shadows when content is scrollable - via JS class toggle */
+.management-lyrics-scroll-wrapper.has-scroll::before,
+.management-lyrics-scroll-wrapper.has-scroll::after {
+  opacity: 1;
+}
+
+/* === OVERFLOW RESILIENCE === */
+
+/* Long metadata values - truncate gracefully */
+.management-inspector-panel .truncate {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Long titles - line-clamp for safety */
+.management-inspector-title {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+}
+
+/* Lyrics preview typography under compression */
+@container (max-width: 400px) {
+  .management-lyrics-content {
+    font-size: 10.5px;
+    line-height: 1.5;
+  padding: 0 4px;
+  }
+}
+
+/* === STICKY ZONES === */
+
+/* Inspector header stays fixed at top */
+.management-inspector-panel > .flex-1 > .shrink-0 {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(12px);
+}
+
+/* === RESIZE STRESS STABILITY === */
+
+/* Prevent content flashing during resize */
+.management-inspector-panel,
+.management-list-panel {
+  will-change: auto;
+  contain: layout style;
+}
+
+/* Smooth resize without layout thrashing */
+.management-inspector-body,
+.management-lyrics-content {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+@container (max-width: 520px) {
+  .management-inspector-panel .management-inspector-title {
+    font-size: 16px;
+    line-height: 1.25;
+  }
+
+  .management-inspector-panel .management-inspector-subtitle {
+    display: none;
+  }
+
+  .management-inspector-panel .management-inspector-actions {
+    gap: 6px;
+  }
+
+  .management-inspector-panel .management-inspector-spacer {
+    display: none;
+  }
+
+  .management-inspector-panel .management-inspector-body {
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  .management-inspector-panel .management-inspector-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .management-inspector-panel .management-inspector-empty > div {
+    gap: 12px;
+    opacity: 0.6;
+  }
+
+  .management-inspector-panel .management-inspector-empty > div > div:first-child {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+  }
+
+  .management-inspector-panel .management-inspector-empty > div > div:first-child svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.take-button--column {
+  width: 74px;
+  min-width: 0;
+  height: 64px;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: 12px;
+  font-size: 13px;
+  padding: 0;
+}
+
+.take-button--column svg {
+  width: 20px;
+  height: 20px;
 }
 
 /* ── Projection Mode Layout (Focus Mode Transition) ── */
 .projection-layout {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 70px auto;
+  /* Reduced mixer bar height since TAKE is moved up */
+  grid-template-rows: 1fr 44px 1fr;
   transition: grid-template-rows 0.35s var(--ease-premium);
 }
 
 .projection-layout--focus {
-  grid-template-rows: minmax(0, 1fr) 70px 0fr;
+  grid-template-rows: 1fr 44px 0fr;
 }
+

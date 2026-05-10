@@ -1,4 +1,4 @@
-import type { SlideData } from '../types'
+import type { SlideData, Song, PlaylistItem } from '../types'
 
 interface ParsedSection {
   label: string
@@ -159,7 +159,8 @@ function splitIntoSlides(lines: string[], maxLines: number, maxChars: number): s
 export function generateSlides(
   songId: number,
   lyricsRaw: string,
-  config?: { maxLines?: number; maxChars?: number }
+  config?: { maxLines?: number; maxChars?: number },
+  meta?: { keyNote?: string; timeSignature?: string; tempo?: string }
 ): SlideData[] {
   if (!lyricsRaw.trim()) return []
 
@@ -167,7 +168,10 @@ export function generateSlides(
   const maxChars = config?.maxChars || 40
 
   // Check Cache
-  const cacheKey = `${songId}_${maxLines}_${maxChars}`
+  const metaHash = meta
+    ? generateHash(`${meta.keyNote || ''}_${meta.timeSignature || ''}_${meta.tempo || ''}`)
+    : '0'
+  const cacheKey = `${songId}_${maxLines}_${maxChars}_${metaHash}`
   const hash = generateHash(lyricsRaw)
   const cached = slideCache.get(cacheKey)
 
@@ -188,7 +192,10 @@ export function generateSlides(
         songId,
         slideIndex,
         text: chunk.join('\n'),
-        sectionLabel: section.label
+        sectionLabel: section.label,
+        keyNote: meta?.keyNote,
+        timeSignature: meta?.timeSignature,
+        tempo: meta?.tempo
       })
       slideIndex++
     }
@@ -198,6 +205,34 @@ export function generateSlides(
   slideCache.set(cacheKey, { hash, slides: allSlides })
 
   return allSlides
+}
+
+/**
+ * Helper: generate slides with metadata automatically extracted from Song object
+ */
+export function generateSlidesForSong(
+  song: Song,
+  config?: { maxLines?: number; maxChars?: number }
+): SlideData[] {
+  return generateSlides(song.id, song.lyrics_raw || '', config, {
+    keyNote: song.key_note || undefined,
+    timeSignature: song.time_signature || undefined,
+    tempo: song.tempo || undefined
+  })
+}
+
+/**
+ * Helper: generate slides with metadata from PlaylistItem
+ */
+export function generateSlidesForPlaylistItem(
+  item: PlaylistItem,
+  config?: { maxLines?: number; maxChars?: number }
+): SlideData[] {
+  return generateSlides(item.song_id, item.lyrics_raw || '', config, {
+    keyNote: item.key_note || undefined,
+    timeSignature: item.time_signature || undefined,
+    tempo: item.tempo || undefined
+  })
 }
 
 /**

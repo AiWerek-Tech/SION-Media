@@ -208,6 +208,25 @@ const api = {
       groupId: number,
       items: Array<{ slide_id: number; sort_order: number }>
     ): Promise<void> => ipcRenderer.invoke('db:reorder-group-slides', groupId, items)
+  },
+
+  // IPC Health
+  health: {
+    sendHeartbeat: (endpointId: string): void => ipcRenderer.send('health:heartbeat', endpointId),
+    getStatus: (): Promise<unknown[]> => ipcRenderer.invoke('health:get-status'),
+    onStatusUpdate: (callback: (status: unknown[]) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, status: unknown[]): void => callback(status)
+      ipcRenderer.on('health:status-update', listener)
+      return () => ipcRenderer.removeListener('health:status-update', listener)
+    },
+    onHeartbeatAck: (
+      callback: (data: { id: string; timestamp: number }) => void
+    ): (() => void) => {
+      const listener = (_e: IpcRendererEvent, data: { id: string; timestamp: number }): void =>
+        callback(data)
+      ipcRenderer.on('health:heartbeat-ack', listener)
+      return () => ipcRenderer.removeListener('health:heartbeat-ack', listener)
+    }
   }
 }
 

@@ -11,10 +11,11 @@ import {
 } from 'lucide-react'
 import { usePlaylistStore } from '../store/usePlaylistStore'
 import { useAppStore } from '../store/useAppStore'
-import { generateSlides } from '../engine/slideEngine'
+import { generateSlidesForPlaylistItem } from '../engine/slideEngine'
 import { logger } from '../utils/logger'
 import type { PlaylistItem } from '../types'
 import PlaylistItemCard from '../components/PlaylistItemCard'
+import { EmptyState } from '../components/design-system/EmptyState'
 import {
   DndContext,
   closestCenter,
@@ -71,11 +72,7 @@ export function PlaylistPanel({
 
   // Total slide count across all playlist items
   const totalSlideCount = useMemo(
-    () =>
-      playlistItems.reduce(
-        (sum, item) => sum + generateSlides(item.song_id, item.lyrics_raw || '').length,
-        0
-      ),
+    () => playlistItems.reduce((sum, item) => sum + generateSlidesForPlaylistItem(item).length, 0),
     [playlistItems]
   )
 
@@ -201,20 +198,20 @@ export function PlaylistPanel({
   }
 
   return (
-    <div className="panel-glass flex-1 flex flex-col min-h-0 overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden rounded-2xl bg-white/[0.02] ring-1 ring-white/10">
       {/* Header: Title & Actions */}
-      <div className="bg-bg-surface/50 px-3 py-2.5 backdrop-blur-sm shadow-[0_1px_0_rgba(255,255,255,0.03)]">
+      <div className="px-4 py-3 border-b border-white/5 relative z-10">
         <div className="mb-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-secondary/10 text-brand-secondary">
-              <ListMusic size={15} />
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-secondary/10 text-brand-secondary">
+              <ListMusic size={16} />
             </div>
             <div>
-              <h2 className="font-heading text-[13px] font-black uppercase tracking-[0.08em] text-text-primary leading-tight">
+              <h2 className="text-[14px] font-semibold text-text-primary tracking-tight">
                 {activePlaylist?.name || 'Pilih Playlist'}
               </h2>
               {activePlaylist && (
-                <p className="text-[12px] text-text-muted font-medium uppercase tracking-[0.04em]">
+                <p className="text-[11px] text-text-muted font-medium">
                   {new Date(activePlaylist.service_date).toLocaleDateString('id-ID', {
                     weekday: 'long',
                     year: 'numeric',
@@ -229,14 +226,14 @@ export function PlaylistPanel({
           <div className="flex items-center gap-1">
             <button
               onClick={() => setShowLoadDialog(true)}
-              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+              className="rounded-lg p-1.5 text-text-secondary transition-all hover:bg-white/[0.05] hover:text-text-primary"
               title="Buka Playlist"
             >
               <FolderOpen size={18} />
             </button>
             <button
               onClick={() => setShowNewDialog(true)}
-              className="rounded-md bg-brand-primary/10 p-1.5 text-brand-primary transition-colors hover:bg-brand-primary/20"
+              className="rounded-lg bg-brand-primary/10 p-1.5 text-brand-primary transition-all hover:bg-brand-primary/15"
               title="Playlist Baru"
             >
               <Plus size={18} />
@@ -246,9 +243,9 @@ export function PlaylistPanel({
 
         {/* Quick Actions Bar */}
         {activePlaylist && (
-          <div className="flex items-center justify-between rounded-lg bg-bg-base/40 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-            <span className="text-[11px] text-text-muted font-medium ml-2">
-              {playlistItems.length} Item · {totalSlideCount} Slides
+          <div className="flex items-center justify-between rounded-xl bg-white/[0.02] ring-1 ring-white/5 p-1.5">
+            <span className="text-[11px] text-text-muted font-medium ml-2.5">
+              {playlistItems.length} item · {totalSlideCount} slide
             </span>
             <div className="flex items-center gap-1">
               {/* Section Divider Dropdown */}
@@ -262,9 +259,9 @@ export function PlaylistPanel({
                   <ChevronDown size={10} />
                 </button>
                 {showSectionMenu && (
-                  <div className="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-lg border border-border-strong bg-bg-surface/98 shadow-2xl backdrop-blur-sm py-1 animate-fade-in">
-                    <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-text-disabled">
-                      Pemisah Bagian Ibadah
+                  <div className="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-xl ring-1 ring-white/10 bg-bg-surface/98 shadow-[0_16px_48px_rgba(0,0,0,0.3)] backdrop-blur-sm py-1 animate-fade-in">
+                    <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-text-disabled">
+                      Pemisah Bagian
                     </div>
                     {SECTION_PRESETS.map((label) => (
                       <button
@@ -273,12 +270,12 @@ export function PlaylistPanel({
                           handleAddSectionDivider(label)
                           setShowSectionMenu(false)
                         }}
-                        className="w-full px-3 py-2 text-left text-[12px] font-semibold text-text-secondary hover:bg-bg-elevated hover:text-text-primary transition-colors"
+                        className="w-full px-3 py-2 text-left text-[12px] font-medium text-text-secondary hover:bg-white/[0.05] hover:text-text-primary transition-colors rounded-lg mx-1 w-[calc(100%-8px)]"
                       >
                         {label}
                       </button>
                     ))}
-                    <div className="h-px bg-border-subtle mx-2 my-1" />
+                    <div className="h-px bg-white/5 mx-2 my-1" />
                     <button
                       onClick={() => {
                         const custom = prompt('Masukkan nama bagian:')
@@ -287,7 +284,7 @@ export function PlaylistPanel({
                         }
                         setShowSectionMenu(false)
                       }}
-                      className="w-full px-3 py-2 text-left text-[12px] font-medium text-text-muted hover:bg-bg-elevated hover:text-text-primary transition-colors italic"
+                      className="w-full px-3 py-2 text-left text-[12px] font-medium text-text-muted hover:bg-white/[0.05] hover:text-text-primary transition-colors italic rounded-lg mx-1 w-[calc(100%-8px)]"
                     >
                       Custom...
                     </button>
@@ -314,49 +311,40 @@ export function PlaylistPanel({
       </div>
 
       {/* Content: List with DND */}
-      <div className="flex-1 min-h-0 overflow-y-auto bg-bg-base/20 p-2">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3">
         {!activePlaylist ? (
-          <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-            <div className="w-full max-w-[520px] rounded-2xl border border-border-subtle bg-bg-surface/70 backdrop-blur-md shadow-[var(--shadow-elevation-3)] px-8 py-10">
-              <div className="mx-auto w-20 h-20 rounded-3xl border border-border-subtle bg-bg-elevated flex items-center justify-center mb-6 text-text-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_12px_34px_rgba(0,0,0,0.28)]">
-                <ListMusic size={38} />
-              </div>
-              <h3 className="text-text-primary font-heading font-black uppercase tracking-[0.12em] text-[12px] mb-2">
-                Belum ada playlist aktif
-              </h3>
-              <p className="text-text-muted text-[12px] max-w-[360px] mx-auto mb-7 leading-relaxed">
-                Buat playlist baru atau buka playlist yang sudah ada untuk mulai menyusun urutan
-                lagu.
-              </p>
-              <div className="flex items-center justify-center gap-3">
-                <button
-                  onClick={() => setShowLoadDialog(true)}
-                  className="btn-premium btn-premium-ghost h-9 px-4 gap-2 text-[12px]"
-                >
-                  <FolderOpen size={16} />
-                  Buka Playlist
-                </button>
-                <button
-                  onClick={() => setShowNewDialog(true)}
-                  className="btn-premium btn-premium-primary h-9 px-4 gap-2 text-[12px]"
-                >
-                  <Plus size={16} />
-                  Baru
-                </button>
-              </div>
-            </div>
+          <div className="h-full flex items-center justify-center">
+            <EmptyState
+              icon={ListMusic}
+              title="Belum ada playlist aktif"
+              description="Buat playlist baru atau buka playlist yang sudah ada untuk mulai menyusun urutan lagu."
+              action={
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowLoadDialog(true)}
+                    className="px-4 py-2 rounded-xl bg-white/[0.03] text-[12px] font-semibold text-text-secondary ring-1 ring-white/10 hover:bg-white/[0.05] hover:text-text-primary transition-colors flex items-center gap-2"
+                  >
+                    <FolderOpen size={16} />
+                    Buka Playlist
+                  </button>
+                  <button
+                    onClick={() => setShowNewDialog(true)}
+                    className="px-4 py-2 rounded-xl bg-brand-primary/15 text-[12px] font-semibold text-brand-primary ring-1 ring-brand-primary/20 hover:bg-brand-primary/20 transition-colors flex items-center gap-2"
+                  >
+                    <Plus size={16} />
+                    Baru
+                  </button>
+                </div>
+              }
+            />
           </div>
         ) : playlistItems.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-            <div className="w-full max-w-[520px] rounded-2xl border border-border-subtle bg-bg-surface/55 backdrop-blur-md shadow-[var(--shadow-elevation-2)] px-8 py-10">
-              <div className="mx-auto w-16 h-16 rounded-2xl border border-border-subtle bg-bg-elevated/60 flex items-center justify-center mb-4 text-text-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-                <Music size={28} />
-              </div>
-              <h4 className="text-text-primary font-semibold text-[13px] mb-1">Playlist Kosong</h4>
-              <p className="text-text-muted text-[12px] leading-relaxed">
-                Klik tombol &apos;+&apos; pada lagu di library untuk menambahkan ke sini.
-              </p>
-            </div>
+          <div className="h-full flex items-center justify-center">
+            <EmptyState
+              icon={Music}
+              title="Playlist Kosong"
+              description="Klik tombol '+' pada lagu di library untuk menambahkan ke sini."
+            />
           </div>
         ) : (
           <DndContext
@@ -368,7 +356,7 @@ export function PlaylistPanel({
               items={playlistItems.map((i) => i.id.toString())}
               strategy={verticalListSortingStrategy}
             >
-              <div className="space-y-1.5 pb-4">
+              <div className="space-y-2 pb-4">
                 {playlistItems.map((item, index) => (
                   <PlaylistItemCard
                     key={item.id}

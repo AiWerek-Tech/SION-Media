@@ -131,6 +131,13 @@ interface SlidesAPI {
   ) => Promise<void>
 }
 
+interface HealthAPI {
+  getStatus: () => Promise<unknown[]>
+  onStatusUpdate: (callback: (status: unknown[]) => void) => () => void
+  sendHeartbeat: (endpointId: string) => void
+  onHeartbeatAck: (callback: (data: { id: string; timestamp: number }) => void) => () => void
+}
+
 interface API {
   window: WindowAPI
   appTheme: AppThemeAPI
@@ -145,6 +152,7 @@ interface API {
   file: FileAPI
   bible: BibleAPI
   slides: SlidesAPI
+  health: HealthAPI
 }
 
 declare global {

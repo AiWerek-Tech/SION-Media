@@ -37,6 +37,17 @@ _Terakhir diperbarui: 2026-05-10_
 
 ## Current Implementation Snapshot (2026-05-10)
 
+### Workspace Adaptive Layout v10.2
+Refined ManagementMode adaptive layout for **suite-class desktop experience**:
+- **Resizable Panels**: Persisted split layouts for ProjectionMode, Dashboard, ManagementMode via Zustand + localStorage
+- **Adaptive Density**: Container-query based responsiveness for width and height compression
+- **Nested Scroll Harmony**: `overscroll-behavior: contain` prevents scroll chaining between inspector body and lyrics preview
+- **Adaptive Max-Height**: Height-based container queries for lyrics preview (340px → 200px → 120px)
+- **Scroll Shadows**: JS-detected `has-scroll` class toggles gradient shadows for edge awareness
+- **Sticky Inspector Zones**: Header stays fixed with backdrop blur during scroll
+- **Overflow Resilience**: Truncation, line-clamp, and typography compression under pressure
+- **Resize Stress Stability**: `scrollbar-gutter: stable`, `contain: layout style`, `translateZ(0)` for smooth resize
+
 ### TitleBar Modernization v9
 TitleBar kini memiliki estetika premium dengan sistem Glassmorphism 2.0:
 - **Global Dropdown Style**: Blur 16px, border radius 12px, dan shadow-xl yang konsisten di semua menu (File, Edit, Mode Switcher).
@@ -80,10 +91,12 @@ Dokumen yang perlu dirujuk untuk perubahan ini:
 - `log-impl-library-immersive-player-v6.md`
 - `log-impl-library-perfection-v8.md`
 - `log-impl-titlebar-modernization-v9.md`
+- `log-impl-workspace-adaptive-v10.2.md`
 - `plan-library-immersive-player-v6.md`
 - `plan-library-perfection-v8.md`
 - `plan-titlebar-modernization-v9.md`
 - `plan-song-number-normalization.md`
+- `01-architecture/arch-workspace-panels.md`
 
 ---
 

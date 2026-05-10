@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { AlertTriangle, GripVertical, Radio, Tag, X } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { generateSlides } from '../engine/slideEngine'
+import { generateSlidesForPlaylistItem } from '../engine/slideEngine'
 import { usePlaylistStore } from '../store/usePlaylistStore'
 import type { PlaylistItem } from '../types'
 
@@ -30,7 +30,7 @@ export default function PlaylistItemCard({
   const [isEditingLabel, setIsEditingLabel] = useState(false)
   const [tempLabel, setTempLabel] = useState(item.section_label || '')
   const updateItemLabel = usePlaylistStore((s) => s.updateItemLabel)
-  const slideCount = generateSlides(item.song_id, item.lyrics_raw || '').length
+  const slideCount = generateSlidesForPlaylistItem(item).length
   const hasEmptyLyrics = !item.lyrics_raw?.trim()
   const meta = [item.key_note ? `Nada ${item.key_note}` : '', item.tempo || ''].filter(Boolean)
 
@@ -54,29 +54,29 @@ export default function PlaylistItemCard({
       className={`group relative flex flex-col gap-1 ${isDragging ? 'z-50' : ''}`}
     >
       {item.section_label && !isDragging && (
-        <div className="mt-1.5 mb-1 flex items-center gap-2 px-2">
-          <div className="h-px flex-1 bg-border-subtle" />
-          <span className="whitespace-nowrap text-[12px] font-bold uppercase tracking-[0.08em] text-brand-secondary">
+        <div className="my-2 flex items-center gap-3 px-3">
+          <div className="h-px flex-1 bg-white/5" />
+          <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-widest text-brand-secondary/80">
             {item.section_label}
           </span>
-          <div className="h-px flex-1 bg-border-subtle" />
+          <div className="h-px flex-1 bg-white/5" />
         </div>
       )}
 
       <div
-        className={`flex cursor-pointer items-center gap-2 rounded-xl border px-2 py-2 transition-all duration-200 hover:scale-[1.02] ${
-          isActive
-            ? 'border-preview/45 bg-preview/10 shadow-[var(--shadow-elevation-3),var(--shadow-glow-green)]'
-            : isProjected
-              ? 'border-live-red/30 bg-live-red/5 shadow-[var(--shadow-elevation-2),var(--shadow-glow-red)]'
-              : index % 2 === 0
-                ? 'border-border-subtle bg-bg-elevated/78 shadow-[var(--shadow-elevation-1)] hover:border-border-strong hover:bg-bg-elevated-hover hover:shadow-[var(--shadow-elevation-2)]'
-                : 'border-border-subtle bg-bg-surface/74 shadow-[var(--shadow-elevation-1)] hover:border-border-strong hover:bg-bg-elevated-hover hover:shadow-[var(--shadow-elevation-2)]'
-        } ${isDragging ? 'scale-[1.02] border-brand-primary shadow-2xl ring-2 ring-brand-primary/20' : ''}`}
+        className={`flex cursor-pointer items-center gap-2.5 rounded-2xl px-3 py-2.5 transition-[background-color,box-shadow,transform] duration-[var(--duration-normal)] ease-[var(--ease-premium)] ${
+          isDragging
+            ? 'bg-white/[0.08] ring-2 ring-brand-primary/30 shadow-[0_16px_48px_rgba(0,0,0,0.35)] scale-[1.02]'
+            : isActive
+              ? 'bg-white/[0.06] ring-1 ring-brand-primary/25 shadow-[0_4px_20px_rgba(0,0,0,0.2)]'
+              : isProjected
+                ? 'bg-white/[0.04] ring-1 ring-brand-primary/15 shadow-[0_2px_12px_rgba(0,0,0,0.15)]'
+                : 'bg-white/[0.02] ring-1 ring-white/5 hover:bg-white/[0.04] hover:ring-white/10'
+        }`}
         onClick={onClick}
       >
         <div
-          className="cursor-grab p-1 text-text-disabled transition-colors hover:text-text-muted active:cursor-grabbing"
+          className="cursor-grab p-1 text-text-disabled/50 transition-colors hover:text-text-muted active:cursor-grabbing"
           {...attributes}
           {...listeners}
         >
@@ -85,45 +85,49 @@ export default function PlaylistItemCard({
 
         <div className="relative shrink-0">
           <div
-            className={`flex h-7 w-7 items-center justify-center rounded text-[12px] font-black transition-colors ${
-              isActive ? 'bg-preview/20 text-preview' : 'bg-bg-surface text-text-muted'
+            className={`flex h-7 w-7 items-center justify-center rounded-lg text-[11px] font-bold tabular-nums transition-colors ${
+              isActive
+                ? 'bg-brand-primary/15 text-brand-primary'
+                : isProjected
+                  ? 'bg-brand-primary/10 text-brand-primary/70'
+                  : 'bg-white/[0.04] text-text-muted'
             }`}
           >
             {index + 1}
           </div>
           {isProjected && (
-            <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-bg-surface bg-live-red animate-pulse" />
+            <div className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-brand-primary animate-pulse" />
           )}
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="truncate text-[12px] font-semibold text-text-primary">
+            <span className="truncate text-[13px] font-semibold text-text-primary">
               {item.title}
             </span>
             {isProjected && (
-              <span className="flex items-center gap-1 rounded border border-live-red/20 bg-live-red/10 px-1.5 py-0.5 text-[12px] font-black uppercase tracking-[0.06em] text-live-red">
-                <Radio size={10} className="animate-pulse" />
+              <span className="flex items-center gap-1 rounded-md bg-brand-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand-primary ring-1 ring-brand-primary/15">
+                <Radio size={8} className="animate-pulse" />
                 Live
               </span>
             )}
             {hasEmptyLyrics && (
-              <span className="flex items-center gap-1 rounded border border-status-warning/25 bg-status-warning/12 px-1.5 py-0.5 text-[12px] font-black uppercase text-status-warning">
-                <AlertTriangle size={10} />
-                Lirik Kosong
+              <span className="flex items-center gap-1 rounded-md bg-status-warning/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-status-warning ring-1 ring-status-warning/15">
+                <AlertTriangle size={8} />
+                Kosong
               </span>
             )}
           </div>
-          <div className="mt-0.5 flex items-center gap-1.5">
-            <span className="text-[12px] font-bold text-text-muted">
+          <div className="mt-0.5 flex items-center gap-2">
+            <span className="text-[11px] font-medium text-text-muted">
               {item.hymnal_code || 'LS'} {item.number}
             </span>
-            <span className="text-[12px] text-text-disabled">/</span>
-            <span className="text-[12px] text-text-disabled">{slideCount} Slides</span>
+            <span className="text-[10px] text-text-disabled">·</span>
+            <span className="text-[11px] text-text-disabled">{slideCount} slide</span>
             {meta.map((itemMeta) => (
               <span
                 key={itemMeta}
-                className="rounded border border-border-subtle bg-bg-base/35 px-1 py-0.5 text-[12px] font-bold text-text-disabled"
+                className="text-[10px] font-medium text-text-disabled bg-white/[0.03] px-1.5 py-0.5 rounded-md"
               >
                 {itemMeta}
               </span>
@@ -131,13 +135,13 @@ export default function PlaylistItemCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-1 opacity-20 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100">
+        <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           <button
             onClick={(e) => {
               e.stopPropagation()
               setIsEditingLabel(true)
             }}
-            className="rounded-md p-1.5 text-text-disabled transition-colors hover:bg-brand-secondary/10 hover:text-brand-secondary"
+            className="rounded-lg p-1.5 text-text-disabled transition-all hover:bg-white/[0.06] hover:text-text-secondary"
             title="Set Label"
             aria-label={`Set label for ${item.title}`}
           >
@@ -145,7 +149,7 @@ export default function PlaylistItemCard({
           </button>
           <button
             onClick={onRemove}
-            className="rounded-md p-1.5 text-text-disabled transition-colors hover:bg-status-error/10 hover:text-status-error"
+            className="rounded-lg p-1.5 text-text-disabled transition-all hover:bg-status-error/10 hover:text-status-error"
             title="Remove"
             aria-label={`Remove ${item.title} from playlist`}
           >
@@ -157,7 +161,7 @@ export default function PlaylistItemCard({
       {isEditingLabel && (
         <form
           onSubmit={handleLabelSubmit}
-          className="absolute inset-0 z-10 flex items-center gap-2 rounded-md bg-bg-surface/95 px-3 backdrop-blur-sm animate-fade-in"
+          className="absolute inset-0 z-10 flex items-center gap-2 rounded-2xl bg-bg-surface/95 px-3 backdrop-blur-sm animate-fade-in ring-1 ring-white/10"
         >
           <input
             autoFocus
@@ -165,11 +169,11 @@ export default function PlaylistItemCard({
             value={tempLabel}
             onChange={(e) => setTempLabel(e.target.value)}
             placeholder="Label (Contoh: Chorus, Ending...)"
-            className="flex-1 rounded border border-border-default bg-bg-base px-3 py-1.5 text-xs outline-none focus:border-brand-secondary"
+            className="flex-1 rounded-lg border border-white/10 bg-bg-base px-3 py-1.5 text-xs outline-none focus:border-brand-primary transition-colors"
           />
           <button
             type="submit"
-            className="rounded bg-brand-secondary px-3 py-1.5 text-xs font-bold text-white"
+            className="rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-primary-hover transition-colors"
             aria-label="Save playlist label"
           >
             OK
@@ -177,7 +181,7 @@ export default function PlaylistItemCard({
           <button
             type="button"
             onClick={() => setIsEditingLabel(false)}
-            className="p-1.5 text-text-muted hover:text-text-primary"
+            className="p-1.5 text-text-muted hover:text-text-primary transition-colors"
             aria-label="Cancel playlist label editing"
           >
             <X size={16} />

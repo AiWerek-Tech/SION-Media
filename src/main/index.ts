@@ -15,6 +15,7 @@ import { rmSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase, markCleanExit } from './database'
 import { setupIPC } from './ipc-handlers'
+import { setupIPCHealth } from './ipc-health'
 import { createMainWindow, createProjectionWindow } from './windows'
 import { setupDisplayMonitor } from './display-monitor'
 
@@ -54,6 +55,7 @@ app.whenReady().then(() => {
 
   // Setup IPC handlers
   setupIPC()
+  setupIPCHealth()
 
   // Setup display change monitoring
   setupDisplayMonitor()

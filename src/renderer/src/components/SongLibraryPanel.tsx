@@ -6,7 +6,7 @@ import { Search, Plus, Star, Clock, FolderOpen, Folder, X, Music } from 'lucide-
 import { useAppStore } from '../store/useAppStore'
 import { usePlaylistStore } from '../store/usePlaylistStore'
 import { useProjectionStore } from '../store/useProjectionStore'
-import { generateSlides } from '../engine/slideEngine'
+import { generateSlidesForSong } from '../engine/slideEngine'
 import { logger } from '../utils/logger'
 import type { Song, FilterTab } from '../types'
 import { SongCard } from './SongCard'
@@ -27,12 +27,10 @@ export function SongLibraryPanel(): React.JSX.Element {
     selectedHymnalId,
     searchQuery,
     activeFilter,
-    selectedSong,
     setActiveFilter,
-    setScreen,
-    setEditingSong,
     loadSongs,
     searchSongs,
+    selectedSong,
     loadMoreSongs,
     hasMoreResults,
     isLoadingMore
@@ -89,7 +87,7 @@ export function SongLibraryPanel(): React.JSX.Element {
 
   const handleSongClick = (song: Song): void => {
     useAppStore.getState().setSelectedSong(song)
-    const slides = generateSlides(song.id, song.lyrics_raw)
+    const slides = generateSlidesForSong(song)
     setSlides(slides)
   }
 
@@ -100,26 +98,6 @@ export function SongLibraryPanel(): React.JSX.Element {
   const handleAddToPlaylist = (song: Song): void => {
     addSongToPlaylist(song)
   }
-  const handleEdit = (song: Song): void => {
-    setEditingSong(song)
-    setScreen('song-editor')
-  }
-
-  const handleDelete = async (song: Song): Promise<void> => {
-    if (confirm(`Hapus lagu "${song.title}"?`)) {
-      try {
-        await window.api.songs.delete(song.id)
-        await loadSongs()
-        if (useAppStore.getState().selectedSong?.id === song.id) {
-          useAppStore.getState().setSelectedSong(null)
-        }
-      } catch (err) {
-        logger.error('Failed to delete song:', err)
-        useAppStore.getState().showToast('Gagal menghapus lagu', 'error')
-      }
-    }
-  }
-
   const handleToggleFavorite = async (song: Song): Promise<void> => {
     try {
       await window.api.songs.toggleFavorite(song.id)
@@ -130,18 +108,13 @@ export function SongLibraryPanel(): React.JSX.Element {
     }
   }
 
-  const handleNewSong = (): void => {
-    setEditingSong(null)
-    setScreen('song-editor')
-  }
-
   // Virtualization
   const parentRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
     count: filteredSongs.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 58,
+    estimateSize: () => 72,
     overscan: 18
   })
 
@@ -161,62 +134,52 @@ export function SongLibraryPanel(): React.JSX.Element {
   }
 
   return (
-    <div className="flex-1 flex flex-row min-h-0 rounded-xl bg-bg-surface/70 shadow-[0_2px_12px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur overflow-hidden">
+    <div className="flex-1 flex flex-row min-h-0 rounded-xl bg-bg-surface/95 shadow-[0_2px_12px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden border border-border-subtle">
       {/* Hymnal Sidebar — extracted component */}
       <HymnalSidebar />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header: Search & Add */}
-        <div className="bg-bg-surface/50 p-2.5 backdrop-blur-sm shadow-[0_1px_0_rgba(255,255,255,0.03)]">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="rounded-md bg-brand-primary/10 p-1.5 text-brand-primary">
-                <Music size={15} />
+      <div className="flex-1 flex flex-col min-w-0 bg-bg-base/10">
+        {/* Header: Search & Info */}
+        <div className="p-3 bg-bg-surface/40 border-b border-border-subtle relative z-10 flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="rounded-md bg-brand-primary/10 p-1.5 text-brand-primary shrink-0">
+                <Music size={14} />
               </div>
-              <h2 className="font-heading text-[13px] font-bold text-text-primary">
+              <h2 className="font-heading text-[13px] font-bold text-text-primary truncate min-w-0 flex-1 tracking-wide">
                 {selectedHymnalId
                   ? hymnals.find((h) => h.id === selectedHymnalId)?.name
                   : 'Library Lagu'}
               </h2>
-              <span className="rounded-full bg-bg-elevated border border-border-subtle px-2 py-0.5 text-[10px] font-bold text-text-muted">
+              <span className="rounded-full bg-bg-elevated border border-border-default px-2.5 py-0.5 text-[10px] font-bold text-text-muted shrink-0">
                 {filteredSongs.length} lagu
                 {localQuery && songs.length >= 120 && (
-                  <span
-                    className="ml-1 text-status-warning"
-                    title="Hasil mungkin terpotong (maks 120). Perkecil pencarian."
-                  >
+                  <span className="ml-1 text-status-warning" title="Hasil terpotong">
                     ⚠
                   </span>
                 )}
               </span>
             </div>
-            <button
-              onClick={handleNewSong}
-              className="btn-premium btn-premium-primary h-7 px-2 text-[12px] gap-1.5"
-            >
-              <Plus size={13} strokeWidth={3} />
-              Tambah Baru
-            </button>
           </div>
 
           {/* Search Bar */}
           <div className="relative group">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-brand-primary transition-colors">
-              <Search size={16} />
+              <Search size={15} />
             </div>
             <input
               id="song-search-input"
               type="text"
               value={localQuery}
               onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Cari judul, lirik, atau nomor lagu... (Ctrl+K)"
-              className="w-full rounded-md border border-border-default bg-bg-base pl-9 pr-9 py-2 text-[12px] text-text-primary placeholder:text-text-disabled transition-all focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary/20"
+              placeholder="Cari judul, lirik, atau nomor... (Ctrl+K)"
+              className="w-full rounded-lg border border-border-strong bg-bg-elevated/50 pl-9 pr-9 py-2.5 text-[12px] font-medium text-text-primary placeholder:text-text-disabled transition-all focus:border-brand-primary focus:bg-bg-base focus:outline-none focus:ring-2 focus:ring-brand-primary/20 shadow-sm"
             />
             {localQuery && (
               <button
                 onClick={clearSearch}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
               >
                 <X size={14} />
               </button>
@@ -225,20 +188,20 @@ export function SongLibraryPanel(): React.JSX.Element {
         </div>
 
         {/* Tabs */}
-        <div className="flex flex-col shadow-[0_1px_0_rgba(255,255,255,0.03)]">
-          <div className="flex items-center gap-1 overflow-x-auto bg-bg-base/25 px-2.5 py-1.5 no-scrollbar">
+        <div className="flex flex-col border-b border-border-subtle bg-bg-surface/20">
+          <div className="flex items-center gap-1.5 overflow-x-auto px-3 py-2 no-scrollbar">
             {FILTER_TABS.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveFilter(tab.key)}
-                className={`flex items-center gap-1.5 whitespace-nowrap rounded px-2 py-1 text-[12px] font-semibold transition-all ${
+                className={`flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[11px] font-bold tracking-wide transition-all ${
                   activeFilter === tab.key
-                    ? 'bg-bg-elevated text-brand-primary shadow-sm border border-border-strong'
-                    : 'text-text-muted hover:text-text-primary hover:bg-bg-elevated/50'
+                    ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-sm'
+                    : 'text-text-muted hover:text-text-primary hover:bg-bg-elevated border border-transparent'
                 }`}
               >
                 {React.cloneElement(tab.icon as React.ReactElement<{ size?: number }>, {
-                  size: 14
+                  size: 12
                 })}
                 {tab.label}
               </button>
@@ -246,13 +209,13 @@ export function SongLibraryPanel(): React.JSX.Element {
           </div>
 
           {activeFilter === 'category' && (
-            <div className="bg-bg-base/50 px-2 py-1.5">
+            <div className="bg-bg-base/40 px-3 py-2 border-t border-border-subtle">
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-[12px] text-text-primary outline-none focus:border-brand-primary"
+                className="w-full rounded-md border border-border-strong bg-bg-elevated px-2.5 py-1.5 text-[12px] font-medium text-text-primary outline-none focus:border-brand-primary transition-colors"
               >
-                <option value="">-- Pilih Kategori --</option>
+                <option value="">-- Semua Kategori --</option>
                 {categories.map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
@@ -297,8 +260,6 @@ export function SongLibraryPanel(): React.JSX.Element {
                     isActive={selectedSong?.id === song.id}
                     onProjectNow={handleCueSong}
                     onAddToPlaylist={handleAddToPlaylist}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
                     onToggleFavorite={handleToggleFavorite}
                   />
                 </motion.div>

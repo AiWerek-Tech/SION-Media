@@ -1,9 +1,28 @@
-import React, { useState, useRef } from 'react'
-import { ArrowLeft, Upload, CheckCircle2, AlertCircle, Download } from 'lucide-react'
+import React, { useState, useRef, useMemo } from 'react'
+import {
+  ArrowLeft,
+  Upload,
+  CheckCircle2,
+  AlertCircle,
+  Download,
+  Merge,
+  SkipForward,
+  RefreshCw,
+  Eye,
+  EyeOff
+} from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { useCacheStore } from '../store/useCacheStore'
 import type { Song } from '../types'
 import { logger } from '../utils/logger'
+import {
+  validateKeyNote,
+  validateTempo,
+  formatKeyNote,
+  formatTempo
+} from '../utils/metadataValidation'
+
+type ConflictResolution = 'pending' | 'skip' | 'overwrite' | 'merge'
 
 export function ImportExportScreen(): React.JSX.Element {
   const { setScreen, songs, hymnals, loadSongs, showToast } = useAppStore()
@@ -14,10 +33,13 @@ export function ImportExportScreen(): React.JSX.Element {
     clearCache
   } = useCacheStore()
   const [step, setStep] = useState<1 | 2>(1)
-  const [duplicates, setDuplicates] = useState<number[]>([]) // Indices of duplicates
+  const [conflictResolutions, setConflictResolutions] = useState<
+    Record<number, ConflictResolution>
+  >({})
   const [importing, setImporting] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [targetHymnalId, setTargetHymnalId] = useState<number>(hymnals[0]?.id || 1)
+  const [showMergePreview, setShowMergePreview] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const processFile = async (file: File): Promise<void> => {
@@ -75,15 +97,58 @@ export function ImportExportScreen(): React.JSX.Element {
     items: Partial<Song>[],
     playlistMeta: { name: string; service_date: string } | null = null
   ): void => {
-    const dupes: number[] = []
+    const resolutions: Record<number, ConflictResolution> = {}
     items.forEach((item, index) => {
       const isDupe = songs.some((s) => s.title === item.title || s.number === item.number)
-      if (isDupe) dupes.push(index)
+      if (isDupe) resolutions[index] = 'pending'
     })
 
     setParsedItems(items, playlistMeta)
-    setDuplicates(dupes)
+    setConflictResolutions(resolutions)
     setStep(2)
+  }
+
+  // Get duplicate info for a specific index
+  const getDuplicateSong = (index: number): Song | undefined => {
+    const item = importedData[index]
+    if (!item) return undefined
+    return songs.find((s) => s.title === item.title || s.number === item.number)
+  }
+
+  // Check if all conflicts are resolved
+  const allConflictsResolved = useMemo(() => {
+    const conflictIndices = Object.keys(conflictResolutions).map(Number)
+    return conflictIndices.every((idx) => conflictResolutions[idx] !== 'pending')
+  }, [conflictResolutions])
+
+  // Set resolution for a specific conflict
+  const setResolution = (index: number, resolution: ConflictResolution): void => {
+    setConflictResolutions((prev) => ({ ...prev, [index]: resolution }))
+  }
+
+  // Set all pending conflicts to a specific resolution
+  const setAllResolutions = (resolution: ConflictResolution): void => {
+    setConflictResolutions((prev) => {
+      const updated = { ...prev }
+      Object.keys(updated).forEach((key) => {
+        const idx = Number(key)
+        if (updated[idx] === 'pending') {
+          updated[idx] = resolution
+        }
+      })
+      return updated
+    })
+  }
+
+  // Generate merged lyrics preview
+  const getMergedLyricsPreview = (index: number): string => {
+    const item = importedData[index]
+    const existing = getDuplicateSong(index)
+    if (!item || !existing) return ''
+
+    // Append new lyrics to existing with separator
+    const separator = '\n\n--- [IMPORTED CONTENT] ---\n\n'
+    return existing.lyrics_raw + separator + (item.lyrics_raw || '')
   }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -123,9 +188,17 @@ export function ImportExportScreen(): React.JSX.Element {
     showToast('Berhasil mengekspor lagu', 'success')
   }
 
-  const handleImport = async (skipDuplicates: boolean): Promise<void> => {
+  const handleImport = async (): Promise<void> => {
+    if (!allConflictsResolved && Object.keys(conflictResolutions).length > 0) {
+      showToast('Harap selesaikan semua konflik duplikat terlebih dahulu', 'error')
+      return
+    }
+
     setImporting(true)
     let successCount = 0
+    let skipCount = 0
+    let mergeCount = 0
+    let overwriteCount = 0
 
     try {
       let newPlaylistId: number | null = null
@@ -138,23 +211,96 @@ export function ImportExportScreen(): React.JSX.Element {
       }
 
       for (let i = 0; i < importedData.length; i++) {
-        if (skipDuplicates && duplicates.includes(i)) {
+        const item = importedData[i]
+        const resolution = conflictResolutions[i]
+        const existingSong = resolution ? getDuplicateSong(i) : undefined
+
+        // Handle conflicts based on resolution
+        if (resolution === 'skip') {
+          // Add to playlist if exists, but don't modify song
+          if (newPlaylistId && existingSong) {
+            await window.api.playlists.addItem({
+              playlist_id: newPlaylistId,
+              song_id: existingSong.id,
+              sort_order: i
+            })
+          }
+          skipCount++
+          continue
+        }
+
+        if (resolution === 'overwrite' && existingSong) {
+          // Overwrite existing song
+          const overwriteKeyNote = item.key_note
+            ? formatKeyNote(item.key_note)
+            : existingSong.key_note
+          const overwriteTempo = item.tempo ? formatTempo(item.tempo) : existingSong.tempo
+          await window.api.songs.update(existingSong.id, {
+            hymnal_id: targetHymnalId,
+            number: item.number || existingSong.number,
+            title: item.title || existingSong.title,
+            lyrics_raw: item.lyrics_raw || existingSong.lyrics_raw,
+            category: item.category || existingSong.category,
+            language: item.language || existingSong.language,
+            author: item.author || existingSong.author,
+            composer: item.composer || existingSong.composer,
+            key_note: overwriteKeyNote,
+            tempo: overwriteTempo,
+            tags: item.tags || existingSong.tags
+          })
+          overwriteCount++
+          successCount++
+
           if (newPlaylistId) {
-            const existingSong = songs.find(
-              (s) => s.title === importedData[i].title || s.number === importedData[i].number
-            )
-            if (existingSong) {
-              await window.api.playlists.addItem({
-                playlist_id: newPlaylistId,
-                song_id: existingSong.id,
-                sort_order: i
-              })
-            }
+            await window.api.playlists.addItem({
+              playlist_id: newPlaylistId,
+              song_id: existingSong.id,
+              sort_order: i
+            })
           }
           continue
         }
 
-        const item = importedData[i]
+        if (resolution === 'merge' && existingSong) {
+          // Merge: append lyrics and update metadata
+          const mergedLyrics = getMergedLyricsPreview(i)
+          const mergeKeyNote = item.key_note ? formatKeyNote(item.key_note) : existingSong.key_note
+          const mergeTempo = item.tempo ? formatTempo(item.tempo) : existingSong.tempo
+          await window.api.songs.update(existingSong.id, {
+            lyrics_raw: mergedLyrics,
+            // Keep existing metadata but add new if available
+            category: item.category || existingSong.category,
+            language: item.language || existingSong.language,
+            author: item.author || existingSong.author,
+            composer: item.composer || existingSong.composer,
+            key_note: mergeKeyNote,
+            tempo: mergeTempo,
+            tags: item.tags ? `${existingSong.tags || ''}, ${item.tags}` : existingSong.tags
+          })
+          mergeCount++
+          successCount++
+
+          if (newPlaylistId) {
+            await window.api.playlists.addItem({
+              playlist_id: newPlaylistId,
+              song_id: existingSong.id,
+              sort_order: i
+            })
+          }
+          continue
+        }
+
+        // No conflict - add new song
+        // Validate and format metadata
+        const importKeyNote = formatKeyNote(item.key_note || '')
+        const importTempo = formatTempo(item.tempo || '')
+        if (item.key_note && !validateKeyNote(importKeyNote).valid) {
+          logger.warn(`Skipping invalid key_note during import: ${item.key_note}`)
+        }
+        if (item.tempo && !validateTempo(importTempo).valid) {
+          logger.warn(`Skipping invalid tempo during import: ${item.tempo}`)
+        }
+
         const newSongId = await window.api.songs.add({
           hymnal_id: targetHymnalId,
           number: item.number || '000',
@@ -164,8 +310,8 @@ export function ImportExportScreen(): React.JSX.Element {
           language: item.language || 'Indonesia',
           author: item.author || '',
           composer: item.composer || '',
-          key_note: item.key_note || '',
-          tempo: item.tempo || '',
+          key_note: importKeyNote,
+          tempo: importTempo,
           tags: item.tags || ''
         })
 
@@ -180,12 +326,17 @@ export function ImportExportScreen(): React.JSX.Element {
         successCount++
       }
 
+      // Build summary message
+      let summary = `Berhasil mengimpor ${successCount} lagu`
+      if (skipCount > 0) summary += `, ${skipCount} dilewati`
+      if (overwriteCount > 0) summary += `, ${overwriteCount} ditimpa`
+      if (mergeCount > 0) summary += `, ${mergeCount} digabung`
+
       if (importedPlaylistMeta) {
-        showToast(`Berhasil mengimpor ${successCount} lagu beserta metadata playlist`, 'success')
-      } else {
-        showToast(`Berhasil mengimpor ${successCount} lagu`, 'success')
+        summary += ' beserta metadata playlist'
       }
 
+      showToast(summary, 'success')
       await loadSongs()
       clearCache()
       setScreen('dashboard')
@@ -265,11 +416,27 @@ export function ImportExportScreen(): React.JSX.Element {
                 </span>
               </div>
             )}
-            <div className="flex justify-between items-center mb-6">
-              <p className="text-sm text-text-muted">
-                Ditemukan {importedData.length} lagu. {duplicates.length} lagu memiliki judul/nomor
-                duplikat.
-              </p>
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm text-text-muted">
+                  Ditemukan{' '}
+                  <span className="font-bold text-text-primary">{importedData.length}</span> lagu.
+                  {Object.keys(conflictResolutions).length > 0 && (
+                    <>
+                      {' '}
+                      <span className="font-bold text-status-warning">
+                        {Object.keys(conflictResolutions).length}
+                      </span>{' '}
+                      konflik duplikat terdeteksi.
+                    </>
+                  )}
+                </p>
+                {Object.keys(conflictResolutions).length > 0 && !allConflictsResolved && (
+                  <p className="text-xs text-status-warning">
+                    ⚠ Selesaikan semua konflik sebelum melanjutkan import.
+                  </p>
+                )}
+              </div>
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-text-muted whitespace-nowrap">
@@ -293,28 +460,57 @@ export function ImportExportScreen(): React.JSX.Element {
               </div>
             </div>
 
+            {/* Bulk Resolution Buttons */}
+            {Object.keys(conflictResolutions).length > 0 && (
+              <div className="flex items-center gap-2 mb-4 p-3 bg-bg-elevated/50 rounded-lg border border-border-subtle">
+                <span className="text-xs text-text-muted">Atur semua konflik:</span>
+                <button
+                  onClick={() => setAllResolutions('skip')}
+                  className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-bg-surface border border-border-subtle hover:bg-warning/10 hover:border-warning/30 hover:text-warning transition-colors"
+                >
+                  <SkipForward size={12} /> Skip Semua
+                </button>
+                <button
+                  onClick={() => setAllResolutions('overwrite')}
+                  className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-bg-surface border border-border-subtle hover:bg-live/10 hover:border-live/30 hover:text-live transition-colors"
+                >
+                  <RefreshCw size={12} /> Timpa Semua
+                </button>
+                <button
+                  onClick={() => setAllResolutions('merge')}
+                  className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-bg-surface border border-border-subtle hover:bg-accent/10 hover:border-accent/30 hover:text-accent transition-colors"
+                >
+                  <Merge size={12} /> Gabung Semua
+                </button>
+              </div>
+            )}
+
             <div className="flex-1 overflow-y-auto border border-border rounded-lg bg-surface/30 mb-6">
               <table className="w-full text-left text-sm">
                 <thead className="bg-elevated sticky top-0">
                   <tr>
-                    <th className="p-3 font-semibold text-text-muted">Status</th>
-                    <th className="p-3 font-semibold text-text-muted">No</th>
+                    <th className="p-3 font-semibold text-text-muted w-32">Status</th>
+                    <th className="p-3 font-semibold text-text-muted w-20">No</th>
                     <th className="p-3 font-semibold text-text-muted">Judul</th>
-                    <th className="p-3 font-semibold text-text-muted">Kategori</th>
+                    <th className="p-3 font-semibold text-text-muted w-28">Kategori</th>
+                    <th className="p-3 font-semibold text-text-muted w-40">Resolusi</th>
                   </tr>
                 </thead>
                 <tbody>
                   {importedData.map((item, index) => {
-                    const isDupe = duplicates.includes(index)
+                    const isConflict = conflictResolutions[index] !== undefined
+                    const resolution = conflictResolutions[index]
+                    const existingSong = isConflict ? getDuplicateSong(index) : undefined
+
                     return (
                       <tr
                         key={index}
-                        className={`border-t border-border ${isDupe ? 'bg-warning/10' : ''}`}
+                        className={`border-t border-border ${isConflict ? 'bg-warning/5' : ''}`}
                       >
                         <td className="p-3">
-                          {isDupe ? (
+                          {isConflict ? (
                             <span className="flex items-center gap-1.5 text-warning text-xs font-medium">
-                              <AlertCircle size={14} /> Duplikat
+                              <AlertCircle size={14} /> Konflik
                             </span>
                           ) : (
                             <span className="flex items-center gap-1.5 text-live text-xs font-medium">
@@ -323,29 +519,101 @@ export function ImportExportScreen(): React.JSX.Element {
                           )}
                         </td>
                         <td className="p-3">{item.number}</td>
-                        <td className="p-3 font-medium">{item.title}</td>
+                        <td className="p-3 font-medium">
+                          <div className="flex flex-col">
+                            <span>{item.title}</span>
+                            {isConflict && existingSong && (
+                              <span className="text-[10px] text-text-muted mt-0.5">
+                                Existing: {existingSong.number} - {existingSong.title}
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="p-3 text-text-muted">{item.category}</td>
+                        <td className="p-3">
+                          {isConflict ? (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => setResolution(index, 'skip')}
+                                  className={`flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors ${
+                                    resolution === 'skip'
+                                      ? 'bg-warning/20 text-warning border border-warning/40'
+                                      : 'bg-bg-surface border border-border-subtle hover:bg-warning/10 hover:text-warning'
+                                  }`}
+                                >
+                                  <SkipForward size={10} /> Skip
+                                </button>
+                                <button
+                                  onClick={() => setResolution(index, 'overwrite')}
+                                  className={`flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors ${
+                                    resolution === 'overwrite'
+                                      ? 'bg-live/20 text-live border border-live/40'
+                                      : 'bg-bg-surface border border-border-subtle hover:bg-live/10 hover:text-live'
+                                  }`}
+                                >
+                                  <RefreshCw size={10} /> Timpa
+                                </button>
+                                <button
+                                  onClick={() => setResolution(index, 'merge')}
+                                  className={`flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors ${
+                                    resolution === 'merge'
+                                      ? 'bg-accent/20 text-accent border border-accent/40'
+                                      : 'bg-bg-surface border border-border-subtle hover:bg-accent/10 hover:text-accent'
+                                  }`}
+                                >
+                                  <Merge size={10} /> Gabung
+                                </button>
+                              </div>
+                              {resolution === 'merge' && (
+                                <button
+                                  onClick={() =>
+                                    setShowMergePreview(showMergePreview === index ? null : index)
+                                  }
+                                  className="flex items-center gap-1 text-[10px] text-text-muted hover:text-accent transition-colors"
+                                >
+                                  {showMergePreview === index ? (
+                                    <EyeOff size={10} />
+                                  ) : (
+                                    <Eye size={10} />
+                                  )}
+                                  {showMergePreview === index ? 'Sembunyikan' : 'Preview'} Gabungan
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-text-muted">—</span>
+                          )}
+                        </td>
                       </tr>
                     )
                   })}
                 </tbody>
               </table>
+
+              {/* Merge Preview Panel */}
+              {showMergePreview !== null && importedData[showMergePreview] && (
+                <div className="border-t border-border p-4 bg-bg-elevated/50">
+                  <h4 className="text-xs font-bold text-accent mb-2">Preview Lirik Gabungan:</h4>
+                  <pre className="text-[10px] text-text-muted whitespace-pre-wrap font-mono bg-bg-surface p-3 rounded border border-border-subtle max-h-40 overflow-y-auto">
+                    {getMergedLyricsPreview(showMergePreview)}
+                  </pre>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-4 justify-end shrink-0">
               <button
-                onClick={() => handleImport(true)}
-                disabled={importing || duplicates.length === importedData.length}
-                className="btn-ghost py-2 px-6"
+                onClick={handleImport}
+                disabled={
+                  importing ||
+                  (!allConflictsResolved && Object.keys(conflictResolutions).length > 0)
+                }
+                className="btn-primary py-2 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {importing ? 'Mengimpor...' : 'Skip Duplikat'}
-              </button>
-              <button
-                onClick={() => handleImport(false)}
-                disabled={importing}
-                className="btn-primary py-2 px-6"
-              >
-                {importing ? 'Mengimpor...' : 'Impor Semua (Timpa)'}
+                {importing
+                  ? 'Mengimpor...'
+                  : `Impor ${importedData.length - Object.keys(conflictResolutions).filter((i) => conflictResolutions[Number(i)] === 'skip').length} Lagu`}
               </button>
             </div>
           </div>

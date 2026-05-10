@@ -7,6 +7,9 @@ interface SlideData {
   slideIndex: number
   text: string
   sectionLabel: string
+  keyNote?: string
+  timeSignature?: string
+  tempo?: string
 }
 
 type ProjectionState = 'LIVE' | 'BLACK' | 'FREEZE' | 'CLEAR' | 'LOGO'
@@ -42,10 +45,16 @@ export function ProjectionApp(): React.JSX.Element {
       setTheme((currentTheme) => ({ ...currentTheme, ...(data as Record<string, string>) }))
     })
 
+    // Start heartbeat
+    const heartbeatInterval = setInterval(() => {
+      window.api.health?.sendHeartbeat('PROJECTION_WINDOW')
+    }, 1000)
+
     return () => {
       unsubscribeSlide()
       unsubscribeState()
       unsubscribeTheme()
+      clearInterval(heartbeatInterval)
     }
   }, [])
 
@@ -194,23 +203,125 @@ export function ProjectionApp(): React.JSX.Element {
               willChange: 'transform, opacity, filter'
             }}
           >
-            <p
+            <div
               style={{
-                color: textColor,
-                fontSize: fontSize,
-                fontWeight: 600,
-                lineHeight: 1.4,
-                textAlign: textAlign,
-                whiteSpace: 'pre-line',
-                textShadow: textShadow,
-                maxWidth: '100%',
-                margin: 0,
-                letterSpacing: '0.02em',
-                fontFeatureSettings: '"pnum" on, "lnum" on'
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '4vh',
+                maxWidth: '100%'
               }}
             >
-              {currentSlide.text}
-            </p>
+              <p
+                style={{
+                  color: textColor,
+                  fontSize: fontSize,
+                  fontWeight: 600,
+                  lineHeight: 1.4,
+                  textAlign: textAlign,
+                  whiteSpace: 'pre-line',
+                  textShadow: textShadow,
+                  maxWidth: '100%',
+                  margin: 0,
+                  letterSpacing: '0.02em',
+                  fontFeatureSettings: '"pnum" on, "lnum" on'
+                }}
+              >
+                {currentSlide.text}
+              </p>
+
+              {/* Musical Metadata Overlay */}
+              {(currentSlide.keyNote || currentSlide.timeSignature || currentSlide.tempo) && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1.5vw',
+                    padding: '0.8vh 2vw',
+                    borderRadius: '999px',
+                    backgroundColor: 'rgba(0,0,0,0.45)',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(255,255,255,0.08)'
+                  }}
+                >
+                  {currentSlide.keyNote && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4vw',
+                        color: 'rgba(255,255,255,0.65)'
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 'clamp(10px, 0.9vw, 14px)',
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.08em',
+                          opacity: 0.5
+                        }}
+                      >
+                        Nada
+                      </span>
+                      <span style={{ fontSize: 'clamp(12px, 1.1vw, 18px)', fontWeight: 700 }}>
+                        {currentSlide.keyNote}
+                      </span>
+                    </div>
+                  )}
+                  {currentSlide.timeSignature && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4vw',
+                        color: 'rgba(255,255,255,0.65)'
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 'clamp(10px, 0.9vw, 14px)',
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.08em',
+                          opacity: 0.5
+                        }}
+                      >
+                        Birama
+                      </span>
+                      <span style={{ fontSize: 'clamp(12px, 1.1vw, 18px)', fontWeight: 700 }}>
+                        {currentSlide.timeSignature}
+                      </span>
+                    </div>
+                  )}
+                  {currentSlide.tempo && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4vw',
+                        color: 'rgba(255,255,255,0.65)'
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 'clamp(10px, 0.9vw, 14px)',
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.08em',
+                          opacity: 0.5
+                        }}
+                      >
+                        Tempo
+                      </span>
+                      <span style={{ fontSize: 'clamp(12px, 1.1vw, 18px)', fontWeight: 700 }}>
+                        {currentSlide.tempo} BPM
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

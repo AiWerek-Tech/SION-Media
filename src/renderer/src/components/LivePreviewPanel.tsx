@@ -1,11 +1,23 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { logger } from '../utils/logger'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertTriangle, Radio, ScreenShare } from 'lucide-react'
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import {
+  AlertTriangle,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  ChevronRight,
+  Lock,
+  Radio,
+  ScreenShare,
+  SkipBack,
+  SkipForward,
+  Zap
+} from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { useProjectionStore } from '../store/useProjectionStore'
 import type { SlideData } from '../types'
+import { executeRuntimeCommand } from '../utils/runtimeCommandBus'
 
 const PREVIEW_TRANSITION = {
   duration: 0.4,
@@ -21,6 +33,9 @@ interface MonitorFrameProps {
   isClear?: boolean
   isProjectorLost?: boolean
   theme: Record<string, string>
+  // Runtime Protection
+  programLockState?: 'UNLOCKED' | 'LIVE_LOCK' | 'LIVE_DIRTY'
+  hasPendingLiveChanges?: boolean
 }
 
 function MonitorFrame({
@@ -31,7 +46,8 @@ function MonitorFrame({
   isBlack = false,
   isClear = false,
   isProjectorLost = false,
-  theme
+  theme,
+  programLockState = 'UNLOCKED'
 }: MonitorFrameProps): React.JSX.Element {
   const isProgram = mode === 'program'
   const emptyLyrics = slide !== null && slide.text.trim().length === 0
@@ -63,6 +79,20 @@ function MonitorFrame({
           </span>
         </div>
         <div className="flex items-center gap-1.5">
+          {/* Runtime Protection: LIVE_LOCK indicator */}
+          {isProgram && programLockState === 'LIVE_LOCK' && (
+            <span className="inline-flex items-center gap-1 rounded bg-status-success/16 px-1.5 py-0.5 text-[12px] font-black text-status-success">
+              <Lock size={11} />
+              LIVE-LOCK
+            </span>
+          )}
+          {/* Runtime Protection: LIVE_DIRTY warning */}
+          {isProgram && programLockState === 'LIVE_DIRTY' && (
+            <span className="inline-flex items-center gap-1 rounded bg-status-warning/20 px-1.5 py-0.5 text-[12px] font-black text-status-warning animate-pulse">
+              <AlertCircle size={11} />
+              LIVE-DIRTY
+            </span>
+          )}
           {isProgram && isProjectorLost && (
             <span className="inline-flex items-center gap-1 rounded bg-status-error/16 px-1.5 py-0.5 text-[12px] font-black text-status-error">
               <AlertTriangle size={11} />
@@ -75,7 +105,7 @@ function MonitorFrame({
               LIRIK KOSONG
             </span>
           )}
-          {isProgram && isLive && (
+          {isProgram && isLive && programLockState !== 'LIVE_DIRTY' && (
             <span className="inline-flex items-center gap-1 rounded bg-live-red/18 px-1.5 py-0.5 text-[12px] font-black text-live-red shadow-[0_0_12px_rgba(255,59,48,0.18)]">
               <Radio size={10} className="animate-pulse" />
               ON AIR
@@ -148,6 +178,95 @@ function MonitorFrame({
   )
 }
 
+/* ── Transition Column (vMix-style vertical controls between monitors) ── */
+function TransitionColumn(): React.JSX.Element {
+  const {
+    slides,
+    currentSlideIndex,
+    programSlide,
+    programSlides,
+    programSlideIndex,
+    projectionState
+  } = useProjectionStore()
+
+  const hasCue = slides.length > 0
+  const hasProgram = programSlides.length > 0 && programSlide !== null
+  const previewSlide = slides[currentSlideIndex]
+  const isLive = projectionState === 'LIVE' || projectionState === 'FREEZE'
+  const isCueSameAsProgram =
+    hasCue &&
+    hasProgram &&
+    previewSlide?.songId === programSlide?.songId &&
+    previewSlide?.slideIndex === programSlide?.slideIndex
+
+  return (
+    <div className="transition-column">
+      {/* CUE Navigation */}
+      <div className="transition-column__section">
+        <span className="transition-column__label text-preview">CUE</span>
+        <div className="flex items-center gap-1">
+          <button
+            className="transition-column__nav-btn"
+            onClick={() => executeRuntimeCommand('NAV_CUE_PREV', undefined, 'UI_BUTTON')}
+            disabled={currentSlideIndex <= 0 || !hasCue}
+            title="Cue sebelumnya"
+          >
+            <ChevronUp size={14} />
+          </button>
+          <span className="transition-column__counter">
+            {hasCue ? `${currentSlideIndex + 1}/${slides.length}` : '—'}
+          </span>
+          <button
+            className="transition-column__nav-btn"
+            onClick={() => executeRuntimeCommand('NAV_CUE_NEXT', undefined, 'UI_BUTTON')}
+            disabled={currentSlideIndex >= slides.length - 1 || !hasCue}
+            title="Cue berikutnya"
+          >
+            <ChevronDown size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* TAKE Button — center focal point */}
+      <button
+        className={`take-button take-button--column ${isLive ? 'is-live' : ''}`}
+        onClick={() => executeRuntimeCommand('PROJ_TAKE_CUE', undefined, 'UI_BUTTON')}
+        disabled={!hasCue || (isCueSameAsProgram && isLive)}
+        title="TAKE cue ke Program (Space)"
+      >
+        <Zap size={18} fill="currentColor" />
+        <span>TAKE</span>
+      </button>
+
+      {/* LIVE Navigation */}
+      <div className="transition-column__section">
+        <span className="transition-column__label text-program">LIVE</span>
+        <div className="flex items-center gap-1">
+          <button
+            className="transition-column__nav-btn"
+            onClick={() => executeRuntimeCommand('NAV_PREV_SLIDE', undefined, 'UI_BUTTON')}
+            disabled={!hasProgram || programSlideIndex <= 0}
+            title="Live slide sebelumnya"
+          >
+            <SkipBack size={12} />
+          </button>
+          <span className="transition-column__counter">
+            {hasProgram ? `${programSlideIndex + 1}/${programSlides.length}` : '—'}
+          </span>
+          <button
+            className="transition-column__nav-btn"
+            onClick={() => executeRuntimeCommand('NAV_NEXT_SLIDE', undefined, 'UI_BUTTON')}
+            disabled={!hasProgram || programSlideIndex >= programSlides.length - 1}
+            title="Live slide berikutnya"
+          >
+            <SkipForward size={12} />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function LivePreviewPanel(): React.JSX.Element {
   const {
     slides,
@@ -155,7 +274,17 @@ export function LivePreviewPanel(): React.JSX.Element {
     programSlide,
     programSlideIndex,
     programSlides,
-    projectionState
+    projectionState,
+    // Runtime Protection
+    programLockState,
+    hasPendingLiveChanges,
+    // NEXT State
+    nextSlideData,
+    nextSlideIndex,
+    hasNextSlide,
+    nextSong,
+    hasNextSong,
+    nextReadyState
   } = useProjectionStore()
   const { displayCount } = useAppStore()
   const [theme, setTheme] = useState<Record<string, string>>({})
@@ -192,43 +321,115 @@ export function LivePreviewPanel(): React.JSX.Element {
     return `${projectionState} ${programSlideIndex + 1}/${programSlides.length}`
   }, [programSlide, programSlideIndex, programSlides.length, projectionState])
 
+  // NEXT State computed values
+  const nextSlideLabel = useMemo(() => {
+    if (!hasNextSlide || nextSlideIndex === null) return null
+    return `Slide ${nextSlideIndex + 1}/${programSlides.length}`
+  }, [hasNextSlide, nextSlideIndex, programSlides.length])
+
+  const nextSongLabel = useMemo(() => {
+    if (!hasNextSong || !nextSong) return null
+    return `${nextSong.number} - ${nextSong.title}`
+  }, [hasNextSong, nextSong])
+
   const isProjectorLost = displayCount <= 1
 
   return (
-    <div className="relative h-full min-h-0 p-2.5 pt-8">
-      <PanelGroup
-        direction="horizontal"
-        className="flex h-full min-h-0 gap-2.5"
-        autoSaveId="sion:projection:monitorSplit"
-      >
-        <Panel minSize={28} maxSize={65} defaultSize={40}>
-          <MonitorFrame
-            mode="preview"
-            slide={previewSlide}
-            stateLabel={previewState}
-            theme={theme}
-          />
-        </Panel>
+    <div className="relative h-full min-h-0 px-6 pt-8 pb-2">
+      {/* 3-column layout: Preview | Transition Controls | Program */}
+      <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-0">
+        {/* Preview Monitor */}
+        <div className="min-h-0 min-w-0 pr-2 flex justify-end">
+          <div className="w-full max-w-[1200px]">
+            <MonitorFrame
+              mode="preview"
+              slide={previewSlide}
+              stateLabel={previewState}
+              theme={theme}
+            />
+          </div>
+        </div>
 
-        <PanelResizeHandle className="monitor-resize-handle" />
+        {/* Transition Column (vMix-style) */}
+        <TransitionColumn />
 
-        <Panel minSize={35} maxSize={72} defaultSize={60}>
-          <MonitorFrame
-            mode="program"
-            slide={programSlide}
-            stateLabel={programState}
-            isLive={isLive}
-            isBlack={isBlack}
-            isClear={isClear}
-            isProjectorLost={isProjectorLost}
-            theme={theme}
-          />
-        </Panel>
-      </PanelGroup>
+        {/* Program Monitor */}
+        <div className="min-h-0 min-w-0 pl-2 flex flex-col justify-start">
+          <div className="w-full max-w-[1200px]">
+            <MonitorFrame
+              mode="program"
+              slide={programSlide}
+              stateLabel={programState}
+              isLive={isLive}
+              isBlack={isBlack}
+              isClear={isClear}
+              isProjectorLost={isProjectorLost}
+              theme={theme}
+              programLockState={programLockState}
+              hasPendingLiveChanges={hasPendingLiveChanges}
+            />
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════ */}
+          {/* NEXT STRIP - Shows upcoming content */}
+          {/* ══════════════════════════════════════════════════════════ */}
+          {nextReadyState !== 'EMPTY' && (
+            <div className="mt-2 flex items-center gap-2 rounded-lg bg-next-blue/8 px-3 py-2 text-[11px] font-semibold text-next-blue border border-next-blue/15">
+              <span className="font-black uppercase tracking-[0.1em] text-next-blue/70">NEXT</span>
+
+              {/* Next Slide */}
+              {hasNextSlide && nextSlideLabel && nextSlideData && (
+                <div className="flex items-center gap-1.5 border-l border-next-blue/20 pl-2">
+                  <ChevronRight size={10} />
+                  <span className="font-bold">{nextSlideLabel}</span>
+                  <span className="text-next-blue/60 truncate max-w-[120px]">
+                    {nextSlideData.sectionLabel}
+                  </span>
+                </div>
+              )}
+
+              {/* Separator if both exist */}
+              {hasNextSlide && hasNextSong && <span className="text-next-blue/30">|</span>}
+
+              {/* Next Song */}
+              {hasNextSong && nextSongLabel && (
+                <div className="flex items-center gap-1.5 border-l border-next-blue/20 pl-2">
+                  <span className="font-bold">Song:</span>
+                  <span className="truncate max-w-[150px]">{nextSongLabel}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
       {isProjectorLost && (
-        <div className="pointer-events-none absolute bottom-2 left-2 rounded-full bg-status-error/10 px-2.5 py-1 text-[11px] font-semibold text-status-error/85 shadow-[0_10px_28px_rgba(0,0,0,0.38)] backdrop-blur">
+        <div className="pointer-events-none absolute bottom-4 left-8 rounded-full bg-status-error/10 px-2.5 py-1 text-[11px] font-semibold text-status-error/85 shadow-[0_10px_28px_rgba(0,0,0,0.38)] backdrop-blur">
           Simulasi preview aktif karena proyektor eksternal tidak terdeteksi.
+        </div>
+      )}
+
+      {/* Runtime Protection: Dirty State Warning Bar */}
+      {programLockState === 'LIVE_DIRTY' && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded-lg bg-status-warning/12 px-4 py-2.5 text-[13px] font-semibold text-status-warning shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-sm border border-status-warning/20">
+          <AlertCircle size={16} className="animate-pulse" />
+          <span>Pending changes detected. Apply to live output?</span>
+          <div className="flex items-center gap-2 ml-2">
+            <button
+              onClick={() =>
+                executeRuntimeCommand('PROTECTION_UPDATE_LIVE', undefined, 'UI_BUTTON')
+              }
+              className="rounded bg-status-success/20 px-3 py-1 text-[12px] font-bold text-status-success hover:bg-status-success/30 transition-colors"
+            >
+              Update Live
+            </button>
+            <button
+              onClick={() => executeRuntimeCommand('PROTECTION_DISCARD', undefined, 'UI_BUTTON')}
+              className="rounded bg-white/10 px-3 py-1 text-[12px] font-bold text-text-muted hover:bg-white/20 transition-colors"
+            >
+              Discard
+            </button>
+          </div>
         </div>
       )}
     </div>

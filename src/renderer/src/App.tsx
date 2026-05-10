@@ -17,9 +17,19 @@ import { useModeStore } from './store/useModeStore'
 import { Toast } from './components/Toast'
 import { CommandPalette } from './components/CommandPalette'
 import { KeyboardCheatSheet } from './components/KeyboardCheatSheet'
+import { QuickJumpOverlay } from './components/QuickJumpOverlay'
+import { RuntimeInspector } from './components/RuntimeInspector'
 import { TitleBar } from './components/titlebar/TitleBar'
 import { logger } from './utils/logger'
-import { generateSlides } from './engine/slideEngine'
+import {
+  executeRuntimeCommand,
+  registerCommandMetadata,
+  onRuntimeCommandRejected
+} from './utils/runtimeCommandBus'
+import { registerCommandHandlers, registerCommandValidators } from './utils/runtimeCommandHandlers'
+import { subscribeToRuntimeEvents } from './utils/runtimeCommandBus'
+import { initHealthMonitor } from './store/useHealthStore'
+import { generateSlidesForSong } from './engine/slideEngine'
 import type { RecoveryState, Playlist } from './types'
 
 function App(): React.JSX.Element {
@@ -31,13 +41,50 @@ function App(): React.JSX.Element {
   const [splashDone, setSplashDone] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
+  const [showQuickJump, setShowQuickJump] = useState(false)
+  const [showRuntimeInspector, setShowRuntimeInspector] = useState(false)
 
   useEffect(() => {
     let isMounted = true
     let unsubscribeDisplay: (() => void) | undefined
+    let unsubscribeRuntimeEvents: (() => void) | undefined
+    let unsubscribeRejections: (() => void) | undefined
+    let unsubscribeHealth: (() => void) | undefined
 
     async function init(): Promise<void> {
       try {
+        // Register command bus infrastructure
+        registerCommandHandlers()
+        registerCommandValidators()
+        registerCommandMetadata()
+
+        // Start IPC health monitoring
+        unsubscribeHealth = initHealthMonitor()
+
+        unsubscribeRuntimeEvents = subscribeToRuntimeEvents((evt) => {
+          const ts = new Date(evt.timestamp).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          })
+          const duration = typeof evt.durationMs === 'number' ? `${evt.durationMs}ms` : ''
+          const error = evt.error ? ` | ${evt.error}` : ''
+          logger.info(
+            `[Runtime] ${ts} [${evt.command.source}] ${evt.command.type} -> ${evt.status} ${duration}${error}`
+          )
+        })
+
+        unsubscribeRejections = onRuntimeCommandRejected((evt) => {
+          // Skip logging rejections if they were already logged by UI buttons (prevents double toasts)
+          if (evt.command.source !== 'KEYBOARD' && evt.command.source !== 'QUICK_JUMP') return
+
+          if (evt.status === 'BLOCKED') {
+            useAppStore.getState().showToast(`Perintah ditolak: ${evt.error}`, 'info')
+          } else if (evt.status === 'ERROR') {
+            useAppStore.getState().showToast(`Gagal: ${evt.error}`, 'error')
+          }
+        })
+
         await loadSongs()
         await loadPlaylists()
         if (!isMounted) return
@@ -71,7 +118,7 @@ function App(): React.JSX.Element {
             const song = songs.find((s) => s.id === recoveryState.songId)
             if (song) {
               useAppStore.getState().setSelectedSong(song)
-              useProjectionStore.getState().setSlides(generateSlides(song.id, song.lyrics_raw))
+              useProjectionStore.getState().setSlides(generateSlidesForSong(song))
 
               // Restore slide index
               if (recoveryState.slideIndex !== undefined) {
@@ -133,6 +180,9 @@ function App(): React.JSX.Element {
     return () => {
       isMounted = false
       unsubscribeDisplay?.()
+      unsubscribeRuntimeEvents?.()
+      unsubscribeRejections?.()
+      unsubscribeHealth?.()
       unsubApp()
       unsubPl()
       unsubProj()
@@ -213,6 +263,13 @@ function App(): React.JSX.Element {
         return
       }
 
+      // Ctrl+Shift+I: Toggle Runtime Inspector
+      if (e.ctrlKey && e.shiftKey && e.code === 'KeyI') {
+        e.preventDefault()
+        setShowRuntimeInspector((v) => !v)
+        return
+      }
+
       // ? for shortcuts (only when not typing)
       if (e.key === '?' && !e.ctrlKey && !e.altKey) {
         e.preventDefault()
@@ -232,26 +289,45 @@ function App(): React.JSX.Element {
       switch (e.code) {
         case 'Space':
           e.preventDefault()
-          store.takeCue()
+          executeRuntimeCommand('PROJ_TAKE_CUE', undefined, 'KEYBOARD')
           break
         case 'ArrowRight':
         case 'PageDown':
           e.preventDefault()
-          store.nextSlide()
+          if (e.shiftKey) {
+            // Shift + Arrow: Preview navigation
+            executeRuntimeCommand('NAV_CUE_NEXT', undefined, 'KEYBOARD')
+          } else {
+            // Normal: Live navigation
+            executeRuntimeCommand('NAV_NEXT_SLIDE', undefined, 'KEYBOARD')
+          }
           break
         case 'ArrowLeft':
         case 'PageUp':
           e.preventDefault()
-          store.prevSlide()
+          if (e.shiftKey) {
+            // Shift + Arrow: Preview navigation
+            executeRuntimeCommand('NAV_CUE_PREV', undefined, 'KEYBOARD')
+          } else {
+            // Normal: Live navigation
+            executeRuntimeCommand('NAV_PREV_SLIDE', undefined, 'KEYBOARD')
+          }
           break
         case 'KeyB':
           e.preventDefault()
-          store.toggleBlack()
+          executeRuntimeCommand('PROJ_BLACK', undefined, 'KEYBOARD')
           break
         case 'KeyC':
         case 'Escape':
-          e.preventDefault()
-          store.clearScreen()
+          // Ctrl+Escape: discard changes (if LIVE_DIRTY)
+          if (e.ctrlKey && store.programLockState === 'LIVE_DIRTY') {
+            e.preventDefault()
+            executeRuntimeCommand('PROTECTION_DISCARD', undefined, 'KEYBOARD')
+          } else if (!e.ctrlKey) {
+            // Regular Escape: clear screen
+            e.preventDefault()
+            executeRuntimeCommand('PROJ_CLEAR', undefined, 'KEYBOARD')
+          }
           break
         case 'KeyF':
           if (e.ctrlKey) {
@@ -259,7 +335,7 @@ function App(): React.JSX.Element {
             document.getElementById('song-search-input')?.focus()
           } else {
             e.preventDefault()
-            store.toggleFreeze()
+            executeRuntimeCommand('PROJ_FREEZE', undefined, 'KEYBOARD')
           }
           break
         case 'KeyN':
@@ -288,9 +364,45 @@ function App(): React.JSX.Element {
               const song = useAppStore.getState().songs.find((s) => s.id === item.song_id)
               if (song) {
                 useAppStore.getState().setSelectedSong(song)
-                useProjectionStore.getState().setSlides(generateSlides(song.id, song.lyrics_raw))
+                useProjectionStore.getState().setSlides(generateSlidesForSong(song))
               }
             }
+          }
+          break
+
+        // ══════════════════════════════════════════════════════════
+        // RUNTIME PROTECTION SHORTCUTS
+        // ══════════════════════════════════════════════════════════
+        case 'Enter':
+          if (e.ctrlKey && store.programLockState === 'LIVE_DIRTY') {
+            e.preventDefault()
+            executeRuntimeCommand('PROTECTION_UPDATE_LIVE', undefined, 'KEYBOARD')
+          }
+          break
+
+        // ══════════════════════════════════════════════════════════
+        // QUICK JUMP SHORTCUTS
+        // ══════════════════════════════════════════════════════════
+        case 'KeyG':
+          if (e.ctrlKey) {
+            // Ctrl+G: Open quick jump overlay
+            e.preventDefault()
+            setShowQuickJump(true)
+          } else if (!e.altKey && !e.shiftKey) {
+            // G + number: Go to slide (preview)
+            // This is handled via a state machine approach
+            // For now, we'll use G + Numpad for direct access
+            e.preventDefault()
+            // Set waiting for number state
+            window.dispatchEvent(new CustomEvent('sion:quickjump-waiting', { detail: 'slide' }))
+          }
+          break
+
+        case 'KeyS':
+          if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
+            // S: Jump to section (preview)
+            e.preventDefault()
+            window.dispatchEvent(new CustomEvent('sion:quickjump-waiting', { detail: 'section' }))
           }
           break
       }
@@ -313,6 +425,11 @@ function App(): React.JSX.Element {
         <Toast />
         <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} />
         <KeyboardCheatSheet isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+        <QuickJumpOverlay
+          isOpen={showQuickJump}
+          onClose={() => setShowQuickJump(false)}
+          mode="preview"
+        />
         <AnimatePresence mode="wait">
           {currentScreen === 'song-editor' ? (
             <motion.div
@@ -416,6 +533,7 @@ function App(): React.JSX.Element {
           ) : null}
         </AnimatePresence>
       </div>
+      <RuntimeInspector isOpen={showRuntimeInspector} onClose={() => setShowRuntimeInspector(false)} />
     </div>
   )
 }

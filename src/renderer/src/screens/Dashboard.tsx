@@ -4,10 +4,11 @@ import { SongLibraryPanel } from '../components/SongLibraryPanel'
 import { LivePreviewPanel } from '../components/LivePreviewPanel'
 import { PlaylistPanel } from '../components/PlaylistPanel'
 import { ControlBar } from '../components/ControlBar'
+import { TwoPanelLayout } from '../components/design-system'
 import { usePlaylistStore } from '../store/usePlaylistStore'
 import { useAppStore } from '../store/useAppStore'
 import { useProjectionStore } from '../store/useProjectionStore'
-import { generateSlides } from '../engine/slideEngine'
+import { generateSlidesForSong } from '../engine/slideEngine'
 import type { PlaylistItem } from '../types'
 
 export function Dashboard(): React.JSX.Element {
@@ -30,7 +31,7 @@ export function Dashboard(): React.JSX.Element {
     const song = songs.find((s) => s.id === item.song_id)
     if (song) {
       setSelectedSong(song)
-      setSlides(generateSlides(song.id, song.lyrics_raw))
+      setSlides(generateSlidesForSong(song))
     }
   }
 
@@ -80,16 +81,20 @@ export function Dashboard(): React.JSX.Element {
       </section>
 
       {!isFocusMode && (
-        <section className="grid min-h-0 grid-cols-[minmax(360px,45%)_minmax(420px,55%)] bg-bg-base">
-          <div className="min-w-0 border-r border-border-default p-2">
-            <SongLibraryPanel />
-          </div>
-          <div className="min-w-0 p-2">
-            <PlaylistPanel
-              projectedSongId={projectedSongId}
-              onItemClick={handlePlaylistItemClick}
-            />
-          </div>
+        <section className="min-h-0 bg-bg-base">
+          <TwoPanelLayout
+            layoutKey="dashboardBottom"
+            className="h-full min-h-0"
+            leftClassName="min-w-0 border-r border-border-default p-2"
+            rightClassName="min-w-0 p-2"
+            left={<SongLibraryPanel />}
+            right={
+              <PlaylistPanel
+                projectedSongId={projectedSongId}
+                onItemClick={handlePlaylistItemClick}
+              />
+            }
+          />
         </section>
       )}
     </div>

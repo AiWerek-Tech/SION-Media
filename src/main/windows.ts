@@ -265,6 +265,9 @@ export function createStageDisplayWindow(): void {
  * Show the projection window
  */
 export function showProjectionWindow(): void {
+  if (!projectionWindow || projectionWindow.isDestroyed()) {
+    createProjectionWindow()
+  }
   if (projectionWindow && !projectionWindow.isDestroyed()) {
     projectionWindow.show()
     projectionWindow.setFullScreen(true)

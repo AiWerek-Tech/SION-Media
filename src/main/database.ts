@@ -7,6 +7,14 @@ import { runMigrations } from './migrations'
 
 let db: Database.Database
 
+function checkpointWal(mode: 'PASSIVE' | 'FULL' | 'RESTART' | 'TRUNCATE' = 'PASSIVE'): void {
+  try {
+    db.pragma(`wal_checkpoint(${mode})`)
+  } catch {
+    // ignore
+  }
+}
+
 function normalizeSongNumber(input: string): string {
   const raw = String(input ?? '').trim()
   if (raw === '') return raw
@@ -149,6 +157,8 @@ export function reseedDatabase(): void {
     // 6. Re-run migrations to recreate FTS table and triggers
     runMigrations(db)
 
+    checkpointWal('TRUNCATE')
+
     console.log('Reseed complete.')
   } catch (err) {
     console.error('Reseed error:', err)
@@ -185,6 +195,7 @@ export function addHymnal(hymnal: {
       hymnal.publisher || '',
       hymnal.is_official ?? 0
     )
+  checkpointWal()
   return { id: result.lastInsertRowid, ...hymnal }
 }
 
@@ -217,11 +228,13 @@ export function updateHymnal(
     hymnal.is_official ?? existing.is_official,
     id
   )
+  checkpointWal()
   return db.prepare('SELECT * FROM hymnals WHERE id = ?').get(id)
 }
 
 export function deleteHymnal(id: number): boolean {
   const result = db.prepare('DELETE FROM hymnals WHERE id = ?').run(id)
+  if (result.changes > 0) checkpointWal()
   return result.changes > 0
 }
 
@@ -556,6 +569,7 @@ export function addSong(song: {
       normalizedSong.theme || '',
       normalizedSong.scripture_reference || ''
     )
+  checkpointWal()
   return { id: result.lastInsertRowid, ...normalizedSong }
 }
 
@@ -609,11 +623,13 @@ export function updateSong(
     song.scripture_reference ?? existing.scripture_reference,
     id
   )
+  checkpointWal()
   return db.prepare('SELECT * FROM songs WHERE id = ?').get(id)
 }
 
 export function deleteSong(id: number): boolean {
   const result = db.prepare('DELETE FROM songs WHERE id = ?').run(id)
+  if (result.changes > 0) checkpointWal()
   return result.changes > 0
 }
 
@@ -641,11 +657,13 @@ export function addSongRelation(relation: {
       'INSERT INTO song_relations (source_song_id, target_song_id, relation_type) VALUES (?, ?, ?)'
     )
     .run(relation.source_song_id, relation.target_song_id, relation.relation_type || 'translation')
+  checkpointWal()
   return { id: result.lastInsertRowid, ...relation }
 }
 
 export function deleteSongRelation(id: number): boolean {
   const result = db.prepare('DELETE FROM song_relations WHERE id = ?').run(id)
+  if (result.changes > 0) checkpointWal()
   return result.changes > 0
 }
 
@@ -653,6 +671,7 @@ export function toggleFavorite(id: number): unknown {
   db.prepare(
     'UPDATE songs SET is_favorite = CASE WHEN is_favorite = 1 THEN 0 ELSE 1 END WHERE id = ?'
   ).run(id)
+  checkpointWal()
   return db.prepare('SELECT * FROM songs WHERE id = ?').get(id)
 }
 
@@ -670,6 +689,7 @@ export function addPlaylist(playlist: {
   const result = db
     .prepare('INSERT INTO playlists (name, service_date, description) VALUES (?, ?, ?)')
     .run(playlist.name, playlist.service_date || '', playlist.description || '')
+  checkpointWal()
   return { id: result.lastInsertRowid, ...playlist }
 }
 
@@ -691,19 +711,21 @@ export function updatePlaylist(
     playlist.description ?? existing.description,
     id
   )
+  checkpointWal()
   return db.prepare('SELECT * FROM playlists WHERE id = ?').get(id)
 }
 
 export function deletePlaylist(id: number): boolean {
   db.prepare('DELETE FROM playlist_items WHERE playlist_id = ?').run(id)
   const result = db.prepare('DELETE FROM playlists WHERE id = ?').run(id)
+  if (result.changes > 0) checkpointWal()
   return result.changes > 0
 }
 
 export function getPlaylistItems(playlistId: number): unknown[] {
   return db
     .prepare(
-      `SELECT pi.*, s.number, s.title, s.alternate_title, s.lyrics_raw, s.category, s.key_note, s.tempo,
+      `SELECT pi.*, s.number, s.title, s.alternate_title, s.lyrics_raw, s.category, s.key_note, s.time_signature, s.tempo,
               h.code as hymnal_code, h.name as hymnal_name
        FROM playlist_items pi
        JOIN songs s ON pi.song_id = s.id
@@ -725,6 +747,7 @@ export function updatePlaylistItem(id: number, data: { section_label?: string })
     data.section_label ?? existing.section_label,
     id
   )
+  checkpointWal()
 }
 
 export function addPlaylistItem(item: {
@@ -742,11 +765,13 @@ export function addPlaylistItem(item: {
       'INSERT INTO playlist_items (playlist_id, song_id, sort_order, section_label) VALUES (?, ?, ?, ?)'
     )
     .run(item.playlist_id, item.song_id, nextOrder, item.section_label || '')
+  checkpointWal()
   return { id: result.lastInsertRowid, ...item, sort_order: nextOrder }
 }
 
 export function deletePlaylistItem(id: number): boolean {
   const result = db.prepare('DELETE FROM playlist_items WHERE id = ?').run(id)
+  if (result.changes > 0) checkpointWal()
   return result.changes > 0
 }
 
@@ -758,6 +783,7 @@ export function reorderPlaylistItems(items: { id: number; sort_order: number }[]
     }
   })
   transaction()
+  checkpointWal()
 }
 
 // ========== Settings ==========
@@ -774,12 +800,14 @@ export function getSettings(): Record<string, string> {
 
 export function updateSetting(key: string, value: string): void {
   db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value)
+  checkpointWal()
 }
 
 // ========== History ==========
 
 export function logSongHistory(songId: number): void {
   db.prepare('INSERT INTO song_history (song_id) VALUES (?)').run(songId)
+  checkpointWal()
 }
 
 export function getRecentSongs(limit: number = 20): unknown[] {
@@ -800,6 +828,7 @@ export function saveAppState(key: string, value: string): void {
   db.prepare(
     `INSERT OR REPLACE INTO app_state (key, value, updated_at) VALUES (?, ?, datetime('now'))`
   ).run(key, value)
+  checkpointWal()
 }
 
 export function getAppState(key: string): string | null {
@@ -821,6 +850,7 @@ export function getAllAppState(): Record<string, string> {
 
 export function clearAppState(): void {
   db.exec('DELETE FROM app_state')
+  checkpointWal()
 }
 
 export function saveSessionState(state: {
@@ -929,7 +959,7 @@ export function addBibleTranslation(translation: {
   source?: string
   is_default?: number
 }): Database.RunResult {
-  return db
+  const result = db
     .prepare(
       'INSERT INTO bible_translations (code, name, language, source, is_default) VALUES (?, ?, ?, ?, ?)'
     )
@@ -940,10 +970,14 @@ export function addBibleTranslation(translation: {
       translation.source || '',
       translation.is_default || 0
     )
+  checkpointWal()
+  return result
 }
 
 export function deleteBibleTranslation(id: number): Database.RunResult {
-  return db.prepare('DELETE FROM bible_translations WHERE id = ?').run(id)
+  const result = db.prepare('DELETE FROM bible_translations WHERE id = ?').run(id)
+  if (result.changes > 0) checkpointWal()
+  return result
 }
 
 export function getBibleBooks(translationId: number): unknown[] {
@@ -960,7 +994,7 @@ export function addBibleBook(book: {
   testament: string
   chapter_count: number
 }): Database.RunResult {
-  return db
+  const result = db
     .prepare(
       'INSERT INTO bible_books (translation_id, book_number, short_name, long_name, testament, chapter_count) VALUES (?, ?, ?, ?, ?, ?)'
     )
@@ -972,6 +1006,8 @@ export function addBibleBook(book: {
       book.testament,
       book.chapter_count
     )
+  checkpointWal()
+  return result
 }
 
 export function getBibleVerses(translationId: number, bookId: number, chapter: number): unknown[] {
@@ -1003,11 +1039,13 @@ export function addBibleVerse(verse: {
   verse: number
   text: string
 }): Database.RunResult {
-  return db
+  const result = db
     .prepare(
       'INSERT OR REPLACE INTO bible_verses (translation_id, book_id, chapter, verse, text) VALUES (?, ?, ?, ?, ?)'
     )
     .run(verse.translation_id, verse.book_id, verse.chapter, verse.verse, verse.text)
+  checkpointWal()
+  return result
 }
 
 export function addBibleVersesBatch(
@@ -1028,6 +1066,7 @@ export function addBibleVersesBatch(
     }
   })
   transaction()
+  checkpointWal('TRUNCATE')
 }
 
 export function searchBibleVerses(query: string, translationId?: number): unknown[] {
@@ -1079,7 +1118,7 @@ export function addCustomSlide(slide: {
   is_active?: number
   sort_order?: number
 }): Database.RunResult {
-  return db
+  const result = db
     .prepare(
       `INSERT INTO custom_slides (title, content, slide_type, background_color, background_image, text_color, font_size, display_duration, is_active, sort_order)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -1096,6 +1135,8 @@ export function addCustomSlide(slide: {
       slide.is_active ?? 1,
       slide.sort_order || 0
     )
+  checkpointWal()
+  return result
 }
 
 export function updateCustomSlide(
@@ -1106,13 +1147,17 @@ export function updateCustomSlide(
     .map((key) => `${key} = ?`)
     .join(', ')
   const values = [...Object.values(updates), id]
-  return db
+  const result = db
     .prepare(`UPDATE custom_slides SET ${fields}, updated_at = datetime('now') WHERE id = ?`)
     .run(...values)
+  if (result.changes > 0) checkpointWal()
+  return result
 }
 
 export function deleteCustomSlide(id: number): Database.RunResult {
-  return db.prepare('DELETE FROM custom_slides WHERE id = ?').run(id)
+  const result = db.prepare('DELETE FROM custom_slides WHERE id = ?').run(id)
+  if (result.changes > 0) checkpointWal()
+  return result
 }
 
 // ========== Slide Groups Operations ==========
@@ -1127,11 +1172,13 @@ export function addSlideGroup(group: {
   loop_interval?: number
   is_active?: number
 }): Database.RunResult {
-  return db
+  const result = db
     .prepare(
       'INSERT INTO slide_groups (name, description, loop_interval, is_active) VALUES (?, ?, ?, ?)'
     )
     .run(group.name, group.description || '', group.loop_interval || 10, group.is_active ?? 1)
+  checkpointWal()
+  return result
 }
 
 export function updateSlideGroup(id: number, updates: Record<string, unknown>): Database.RunResult {
@@ -1139,11 +1186,15 @@ export function updateSlideGroup(id: number, updates: Record<string, unknown>): 
     .map((key) => `${key} = ?`)
     .join(', ')
   const values = [...Object.values(updates), id]
-  return db.prepare(`UPDATE slide_groups SET ${fields} WHERE id = ?`).run(...values)
+  const result = db.prepare(`UPDATE slide_groups SET ${fields} WHERE id = ?`).run(...values)
+  if (result.changes > 0) checkpointWal()
+  return result
 }
 
 export function deleteSlideGroup(id: number): Database.RunResult {
-  return db.prepare('DELETE FROM slide_groups WHERE id = ?').run(id)
+  const result = db.prepare('DELETE FROM slide_groups WHERE id = ?').run(id)
+  if (result.changes > 0) checkpointWal()
+  return result
 }
 
 export function getGroupSlides(groupId: number): unknown[] {
@@ -1163,17 +1214,21 @@ export function addSlideToGroup(
   slideId: number,
   sortOrder?: number
 ): Database.RunResult {
-  return db
+  const result = db
     .prepare(
       'INSERT OR IGNORE INTO slide_group_items (group_id, slide_id, sort_order) VALUES (?, ?, ?)'
     )
     .run(groupId, slideId, sortOrder || 0)
+  if (result.changes > 0) checkpointWal()
+  return result
 }
 
 export function removeSlideFromGroup(groupId: number, slideId: number): Database.RunResult {
-  return db
+  const result = db
     .prepare('DELETE FROM slide_group_items WHERE group_id = ? AND slide_id = ?')
     .run(groupId, slideId)
+  if (result.changes > 0) checkpointWal()
+  return result
 }
 
 export function reorderGroupSlides(
@@ -1189,4 +1244,5 @@ export function reorderGroupSlides(
     }
   })
   transaction()
+  checkpointWal()
 }

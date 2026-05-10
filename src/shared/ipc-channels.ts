@@ -53,6 +53,17 @@ export const IPC_STAGE = {
 } as const
 
 // ============================================================================
+// Confidence Monitor Controls
+// ============================================================================
+
+export const IPC_CONFIDENCE = {
+  UPDATE: 'confidence:update',
+  TIMER_START: 'confidence:timer-start',
+  TIMER_STOP: 'confidence:timer-stop',
+  TIMER_RESET: 'confidence:timer-reset'
+} as const
+
+// ============================================================================
 // Display Info
 // ============================================================================
 

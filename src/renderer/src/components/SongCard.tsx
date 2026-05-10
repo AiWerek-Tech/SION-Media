@@ -1,5 +1,5 @@
 import React from 'react'
-import { AlertTriangle, Edit, Eye, Plus, Star, Trash2 } from 'lucide-react'
+import { AlertTriangle, Eye, Plus, Star } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { getHymnalColor, getHymnalBgColor, getHymnalBorderColor } from '../utils/hymnal-colors'
 import type { Song } from '../types'
@@ -17,8 +17,6 @@ interface SongCardProps {
   isActive: boolean
   onProjectNow: (song: Song) => void
   onAddToPlaylist: (song: Song) => void
-  onEdit: (song: Song) => void
-  onDelete: (song: Song) => void
   onToggleFavorite: (song: Song) => void
 }
 
@@ -28,11 +26,9 @@ export function SongCard({
   isActive,
   onProjectNow,
   onAddToPlaylist,
-  onEdit,
-  onDelete,
   onToggleFavorite
 }: SongCardProps): React.JSX.Element {
-  const { setScreen, setEditingSong, showToast } = useAppStore.getState()
+  const { showToast } = useAppStore.getState()
 
   const gradientIndex =
     ((song.id ?? 0) +
@@ -46,12 +42,6 @@ export function SongCard({
     'from-live-red/16 via-brand-secondary/10 to-transparent',
     'from-accent/20 via-brand-primary/8 to-transparent'
   ]
-
-  const handleEdit = (): void => {
-    setEditingSong(song)
-    setScreen('song-editor')
-    onEdit(song)
-  }
 
   const handleProjectNow = (): void => {
     onProjectNow(song)
@@ -102,19 +92,19 @@ export function SongCard({
           )}
         </div>
 
-        <div className="flex flex-col min-w-0">
+        <div className="flex flex-col min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
-            <div className="truncate text-[12px] font-bold text-text-primary transition-colors group-hover:text-preview">
+            <div className="flex-1 min-w-0 truncate text-[12px] font-bold text-text-primary transition-colors group-hover:text-preview">
               {song.title}
             </div>
             {hasEmptyLyrics && (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-status-warning/30 bg-status-warning/12 px-1.5 py-0.5 text-[12px] font-black uppercase text-status-warning">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-status-warning/30 bg-status-warning/12 px-1.5 py-0.5 text-[10px] font-black uppercase text-status-warning">
                 <AlertTriangle size={10} />
                 Lirik Kosong
               </span>
             )}
           </div>
-          <div className="mt-0.5 flex items-center gap-1.5">
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 min-w-0">
             {song.alternate_title && (
               <span className="max-w-[140px] truncate text-[12px] italic text-text-muted">
                 {song.alternate_title}
@@ -157,14 +147,6 @@ export function SongCard({
         {/* Overflow Menu Style for less frequent actions */}
         <div className="flex items-center border-l border-border-strong ml-1 pl-1 gap-1">
           <button
-            onClick={handleEdit}
-            className="p-1.5 rounded-md text-text-muted hover:bg-bg-active hover:text-text-primary transition-colors"
-            title="Edit"
-            aria-label={`Edit ${song.title}`}
-          >
-            <Edit size={16} />
-          </button>
-          <button
             onClick={() => onToggleFavorite(song)}
             className={`p-1.5 rounded-md transition-colors ${
               song.is_favorite
@@ -175,14 +157,6 @@ export function SongCard({
             aria-label={`${song.is_favorite ? 'Remove' : 'Add'} ${song.title} favorite`}
           >
             <Star size={16} fill={song.is_favorite ? 'currentColor' : 'none'} />
-          </button>
-          <button
-            onClick={() => onDelete(song)}
-            className="p-1.5 rounded-md text-text-muted hover:bg-status-error/20 hover:text-status-error transition-colors"
-            title="Delete"
-            aria-label={`Delete ${song.title}`}
-          >
-            <Trash2 size={16} />
           </button>
         </div>
       </div>

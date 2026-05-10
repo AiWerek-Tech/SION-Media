@@ -1,14 +1,14 @@
 import React, { useEffect } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, Maximize2 } from 'lucide-react'
 import { SongLibraryPanel } from '../../components/SongLibraryPanel'
 import { LivePreviewPanel } from '../../components/LivePreviewPanel'
 import { PlaylistPanel } from '../../components/PlaylistPanel'
 import { ControlBar } from '../../components/ControlBar'
+import { TwoPanelLayout } from '../../components/design-system'
 import { usePlaylistStore } from '../../store/usePlaylistStore'
 import { useAppStore } from '../../store/useAppStore'
 import { useProjectionStore } from '../../store/useProjectionStore'
-import { generateSlides } from '../../engine/slideEngine'
+import { generateSlidesForSong } from '../../engine/slideEngine'
 import type { PlaylistItem } from '../../types'
 
 export function ProjectionMode(): React.JSX.Element {
@@ -31,7 +31,7 @@ export function ProjectionMode(): React.JSX.Element {
     const song = songs.find((s) => s.id === item.song_id)
     if (song) {
       setSelectedSong(song)
-      setSlides(generateSlides(song.id, song.lyrics_raw))
+      setSlides(generateSlidesForSong(song))
     }
   }
 
@@ -84,31 +84,22 @@ export function ProjectionMode(): React.JSX.Element {
         <ControlBar />
       </section>
 
-      {/* Management Section */}
-      <AnimatePresence initial={false}>
-        {!isFocusMode && (
-          <motion.section
-            key="projection-management"
-            initial={{ opacity: 0, y: 8, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: 'auto' }}
-            exit={{ opacity: 0, y: 8, height: 0 }}
-            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="min-h-0 overflow-hidden"
-          >
-            <div className="grid min-h-0 grid-cols-[minmax(360px,45%)_minmax(420px,55%)] gap-px bg-white/[0.06]">
-              <div className="min-w-0 bg-bg-surface/60 backdrop-blur-sm p-2 shadow-[inset_1px_1px_0_rgba(255,255,255,0.02)]">
-                <SongLibraryPanel />
-              </div>
-              <div className="min-w-0 bg-bg-surface/60 backdrop-blur-sm p-2 shadow-[inset_1px_1px_0_rgba(255,255,255,0.02)]">
-                <PlaylistPanel
-                  projectedSongId={projectedSongId}
-                  onItemClick={handlePlaylistItemClick}
-                />
-              </div>
-            </div>
-          </motion.section>
-        )}
-      </AnimatePresence>
+      {/* Management Section — collapsed by CSS grid when focus mode active */}
+      <section className="min-h-0 overflow-hidden pb-2 px-6">
+        <TwoPanelLayout
+          layoutKey="projectionBottom"
+          className="h-full min-h-0"
+          leftClassName="min-w-0"
+          rightClassName="min-w-0"
+          left={<SongLibraryPanel />}
+          right={
+            <PlaylistPanel
+              projectedSongId={projectedSongId}
+              onItemClick={handlePlaylistItemClick}
+            />
+          }
+        />
+      </section>
     </div>
   )
 }

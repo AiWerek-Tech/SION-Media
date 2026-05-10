@@ -11,10 +11,11 @@ import {
   autoUpdate
 } from '@floating-ui/react'
 import { useAppStore } from '../../store/useAppStore'
-import { useProjectionStore } from '../../store/useProjectionStore'
-import { usePlaylistStore } from '../../store/usePlaylistStore'
 import { useModeStore } from '../../store/useModeStore'
+import { usePlaylistStore } from '../../store/usePlaylistStore'
+import { useProjectionStore } from '../../store/useProjectionStore'
 import { logger } from '../../utils/logger'
+import { executeRuntimeCommand } from '../../utils/runtimeCommandBus'
 
 interface MenuItem {
   label?: string
@@ -304,17 +305,17 @@ export function TitleBarMenu(): React.JSX.Element {
               {
                 label: 'Black Screen',
                 shortcut: 'B',
-                action: () => projStore.toggleBlack()
+                action: () => executeRuntimeCommand('PROJ_BLACK', undefined, 'UI_BUTTON')
               },
               {
                 label: 'Freeze Screen',
                 shortcut: 'F',
-                action: () => projStore.toggleFreeze()
+                action: () => executeRuntimeCommand('PROJ_FREEZE', undefined, 'UI_BUTTON')
               },
               {
                 label: 'Clear Screen',
                 shortcut: 'Esc',
-                action: () => projStore.clearScreen()
+                action: () => executeRuntimeCommand('PROJ_CLEAR', undefined, 'UI_BUTTON')
               }
             ]
           }
