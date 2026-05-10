@@ -39,20 +39,24 @@ export function TitleBarModeSwitcher(): React.JSX.Element {
       <div className="title-bar-separator" />
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 px-2.5 py-1 rounded-md hover:bg-bg-elevated transition-colors mx-1"
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-md hover:bg-white/[0.06] transition-all duration-200 mx-1 active:scale-95"
       >
-        <span className={`${config.colorClass} flex items-center`}>{config.icon}</span>
-        <span className="text-[11px] font-semibold text-text-primary uppercase tracking-wider">
+        <span
+          className={`${config.colorClass} flex items-center transition-transform duration-300 ${isOpen ? 'scale-110' : ''}`}
+        >
+          {config.icon}
+        </span>
+        <span className="text-[11px] font-bold text-text-primary uppercase tracking-[0.05em]">
           {config.label}
         </span>
         <ChevronDown
           size={12}
-          className={`text-text-muted transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          className={`text-text-muted transition-all duration-300 ${isOpen ? 'rotate-180 text-brand-primary' : ''}`}
         />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-48 bg-bg-surface border border-border-strong rounded-lg shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+        <div className="title-bar-dropdown absolute top-full left-0 mt-1.5 w-52 animate-in fade-in zoom-in-[0.98] duration-150 origin-top-left">
           {(Object.keys(MODE_CONFIG) as AppMode[]).map((mode) => {
             const item = MODE_CONFIG[mode]
             const isActive = currentMode === mode
@@ -63,19 +67,19 @@ export function TitleBarModeSwitcher(): React.JSX.Element {
                   setMode(mode)
                   setIsOpen(false)
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-bg-elevated transition-colors ${
-                  isActive ? 'bg-bg-active' : ''
+                className={`title-bar-dropdown-item mb-0.5 last:mb-0 ${
+                  isActive ? 'bg-brand-primary/15 text-brand-primary' : ''
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <span className={`${item.colorClass}`}>{item.icon}</span>
-                  <span
-                    className={`text-[12px] ${isActive ? 'text-text-primary font-bold' : 'text-text-secondary font-medium'}`}
-                  >
-                    {item.label}
+                <div className="flex items-center gap-2.5">
+                  <span className={isActive ? 'text-brand-primary' : item.colorClass}>
+                    {item.icon}
                   </span>
+                  <span className={isActive ? 'font-bold' : ''}>{item.label}</span>
                 </div>
-                {isActive && <div className="w-1.5 h-1.5 rounded-full bg-brand-primary" />}
+                {isActive && (
+                  <div className="w-1.5 h-1.5 rounded-full bg-brand-primary shadow-glow-sm" />
+                )}
               </button>
             )
           })}

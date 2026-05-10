@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { logger } from '../utils/logger'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, Radio, ScreenShare } from 'lucide-react'
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { useAppStore } from '../store/useAppStore'
 import { useProjectionStore } from '../store/useProjectionStore'
 import type { SlideData } from '../types'
@@ -18,6 +19,7 @@ interface MonitorFrameProps {
   isLive?: boolean
   isBlack?: boolean
   isClear?: boolean
+  isProjectorLost?: boolean
   theme: Record<string, string>
 }
 
@@ -28,6 +30,7 @@ function MonitorFrame({
   isLive = false,
   isBlack = false,
   isClear = false,
+  isProjectorLost = false,
   theme
 }: MonitorFrameProps): React.JSX.Element {
   const isProgram = mode === 'program'
@@ -60,6 +63,12 @@ function MonitorFrame({
           </span>
         </div>
         <div className="flex items-center gap-1.5">
+          {isProgram && isProjectorLost && (
+            <span className="inline-flex items-center gap-1 rounded bg-status-error/16 px-1.5 py-0.5 text-[12px] font-black text-status-error">
+              <AlertTriangle size={11} />
+              PROJECTOR LOST
+            </span>
+          )}
           {emptyLyrics && (
             <span className="inline-flex items-center gap-1 rounded bg-status-warning/15 px-1.5 py-0.5 text-[12px] font-black text-status-warning">
               <AlertTriangle size={11} />
@@ -183,19 +192,41 @@ export function LivePreviewPanel(): React.JSX.Element {
     return `${projectionState} ${programSlideIndex + 1}/${programSlides.length}`
   }, [programSlide, programSlideIndex, programSlides.length, projectionState])
 
+  const isProjectorLost = displayCount <= 1
+
   return (
-    <div className="grid h-full min-h-0 grid-cols-[minmax(280px,40%)_minmax(420px,60%)] gap-2.5 p-2.5 pt-8">
-      <MonitorFrame mode="preview" slide={previewSlide} stateLabel={previewState} theme={theme} />
-      <MonitorFrame
-        mode="program"
-        slide={programSlide}
-        stateLabel={programState}
-        isLive={isLive}
-        isBlack={isBlack}
-        isClear={isClear}
-        theme={theme}
-      />
-      {displayCount <= 1 && (
+    <div className="relative h-full min-h-0 p-2.5 pt-8">
+      <PanelGroup
+        direction="horizontal"
+        className="flex h-full min-h-0 gap-2.5"
+        autoSaveId="sion:projection:monitorSplit"
+      >
+        <Panel minSize={28} maxSize={65} defaultSize={40}>
+          <MonitorFrame
+            mode="preview"
+            slide={previewSlide}
+            stateLabel={previewState}
+            theme={theme}
+          />
+        </Panel>
+
+        <PanelResizeHandle className="monitor-resize-handle" />
+
+        <Panel minSize={35} maxSize={72} defaultSize={60}>
+          <MonitorFrame
+            mode="program"
+            slide={programSlide}
+            stateLabel={programState}
+            isLive={isLive}
+            isBlack={isBlack}
+            isClear={isClear}
+            isProjectorLost={isProjectorLost}
+            theme={theme}
+          />
+        </Panel>
+      </PanelGroup>
+
+      {isProjectorLost && (
         <div className="pointer-events-none absolute bottom-2 left-2 rounded-full bg-status-error/10 px-2.5 py-1 text-[11px] font-semibold text-status-error/85 shadow-[0_10px_28px_rgba(0,0,0,0.38)] backdrop-blur">
           Simulasi preview aktif karena proyektor eksternal tidak terdeteksi.
         </div>

@@ -1754,13 +1754,56 @@ textarea:focus-visible {
   opacity: 1;
 }
 
+/* ── Resizable Monitor Handle ── */
+.monitor-resize-handle {
+  width: 14px;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  cursor: col-resize;
+  border-radius: 12px;
+  transition: background-color 0.18s ease, box-shadow 0.25s var(--ease-out-expo);
+}
+
+.monitor-resize-handle::before {
+  content: '';
+  width: 2px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.07);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
+  margin: 8px 0;
+}
+
+.monitor-resize-handle:hover {
+  background: rgba(255,255,255,0.03);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 10px 30px rgba(0,0,0,0.25);
+}
+
+.monitor-resize-handle:hover::before {
+  background: rgba(255,255,255,0.12);
+}
+
+:root[data-theme='light'] .monitor-resize-handle::before {
+  background: rgba(0,0,0,0.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.65);
+}
+
+:root[data-theme='light'] .monitor-resize-handle:hover {
+  background: rgba(0,0,0,0.03);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.05), 0 10px 26px rgba(0,0,0,0.10);
+}
+
+:root[data-theme='light'] .monitor-resize-handle:hover::before {
+  background: rgba(0,0,0,0.14);
+}
+
 /* ── Projection Mode Layout (Focus Mode Transition) ── */
 .projection-layout {
   display: grid;
-  grid-template-rows: 1fr 70px 1fr;
+  grid-template-rows: minmax(0, 1fr) 70px auto;
   transition: grid-template-rows 0.35s var(--ease-premium);
 }
 
 .projection-layout--focus {
-  grid-template-rows: 1fr 70px 0fr;
+  grid-template-rows: minmax(0, 1fr) 70px 0fr;
 }

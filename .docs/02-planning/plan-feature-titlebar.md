@@ -52,6 +52,7 @@ Yang sudah terimplementasi:
 - responsive collapse untuk width kecil
 - dukungan `Focus Live Mode` dari menu View dan shortcut `Ctrl+Shift+F`
 - badge monitor kini merah saat proyektor eksternal tidak terdeteksi dan menampilkan `PROJECTOR LOST`
+- **Modernization V9**: Dropdown menggunakan Glassmorphism 2.0 (blur 16px, shadow-xl) dan sistem class global `.title-bar-dropdown` untuk konsistensi di seluruh menu.
 
 ## Alignment Dengan Workflow Broadcast Console
 

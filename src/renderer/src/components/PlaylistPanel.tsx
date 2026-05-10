@@ -203,7 +203,7 @@ export function PlaylistPanel({
   return (
     <div className="panel-glass flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Header: Title & Actions */}
-      <div className="border-b border-border-subtle bg-bg-surface/58 px-3 py-2 backdrop-blur-sm">
+      <div className="bg-bg-surface/50 px-3 py-2.5 backdrop-blur-sm shadow-[0_1px_0_rgba(255,255,255,0.03)]">
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-secondary/10 text-brand-secondary">
@@ -246,7 +246,7 @@ export function PlaylistPanel({
 
         {/* Quick Actions Bar */}
         {activePlaylist && (
-          <div className="flex items-center justify-between rounded-md border border-border-subtle bg-bg-base/50 p-1.5">
+          <div className="flex items-center justify-between rounded-lg bg-bg-base/40 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
             <span className="text-[11px] text-text-muted font-medium ml-2">
               {playlistItems.length} Item · {totalSlideCount} Slides
             </span>

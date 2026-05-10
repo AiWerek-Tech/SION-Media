@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, Maximize2 } from 'lucide-react'
 import { SongLibraryPanel } from '../../components/SongLibraryPanel'
 import { LivePreviewPanel } from '../../components/LivePreviewPanel'
@@ -84,21 +85,30 @@ export function ProjectionMode(): React.JSX.Element {
       </section>
 
       {/* Management Section */}
-      <section
-        className={`grid min-h-0 grid-cols-[minmax(360px,45%)_minmax(420px,55%)] gap-px bg-white/[0.06] focus-panel ${
-          isFocusMode ? 'focus-panel--collapsed' : 'focus-panel--expanded'
-        }`}
-      >
-        <div className="min-w-0 bg-bg-surface/60 backdrop-blur-sm p-2 shadow-[inset_1px_1px_0_rgba(255,255,255,0.02)]">
-          <SongLibraryPanel />
-        </div>
-        <div className="min-w-0 bg-bg-surface/60 backdrop-blur-sm p-2 shadow-[inset_1px_1px_0_rgba(255,255,255,0.02)]">
-          <PlaylistPanel
-            projectedSongId={projectedSongId}
-            onItemClick={handlePlaylistItemClick}
-          />
-        </div>
-      </section>
+      <AnimatePresence initial={false}>
+        {!isFocusMode && (
+          <motion.section
+            key="projection-management"
+            initial={{ opacity: 0, y: 8, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: 8, height: 0 }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            className="min-h-0 overflow-hidden"
+          >
+            <div className="grid min-h-0 grid-cols-[minmax(360px,45%)_minmax(420px,55%)] gap-px bg-white/[0.06]">
+              <div className="min-w-0 bg-bg-surface/60 backdrop-blur-sm p-2 shadow-[inset_1px_1px_0_rgba(255,255,255,0.02)]">
+                <SongLibraryPanel />
+              </div>
+              <div className="min-w-0 bg-bg-surface/60 backdrop-blur-sm p-2 shadow-[inset_1px_1px_0_rgba(255,255,255,0.02)]">
+                <PlaylistPanel
+                  projectedSongId={projectedSongId}
+                  onItemClick={handlePlaylistItemClick}
+                />
+              </div>
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

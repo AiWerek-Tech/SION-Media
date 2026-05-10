@@ -37,6 +37,19 @@ _Terakhir diperbarui: 2026-05-10_
 
 ## Current Implementation Snapshot (2026-05-10)
 
+### TitleBar Modernization v9
+TitleBar kini memiliki estetika premium dengan sistem Glassmorphism 2.0:
+- **Global Dropdown Style**: Blur 16px, border radius 12px, dan shadow-xl yang konsisten di semua menu (File, Edit, Mode Switcher).
+- **Mode Switcher Enhancements**: Mikro-animasi pada pemicu, indikator aktif berupa pendaran (glow), dan skema warna yang lebih berani.
+- **Performance**: Pembersihan z-index redundan dan optimalisasi transisi CSS.
+
+### Library Perfection v8
+Audit 360 derajat dan refaktorisasi pada Library Mode untuk standar produksi:
+- **Action Affordance**: Tombol aksi (Favorite, Playlist, dll) kini memiliki opacity 20% saat idle dan 100% saat hover, menghilangkan re-render tiba-tiba.
+- **Zebra Striping**: List view di `LibraryTitleView` kini memiliki baris selang-seling untuk meningkatkan scanability.
+- **Grid Consistency**: Standarisasi toolbar height (56px) dan padding berbasis 4px grid.
+- **Type Safety**: Pembersihan unused variables dan peningkatan keamanan data `Song`.
+
 ### Library Immersive Player v6
 Library Mode kini menggunakan **full-width immersive lyrics overlay** menggantikan split-pane layout sebelumnya:
 - Klik lagu -> langsung masuk ke viewer full-screen overlay dengan animasi smooth.
@@ -65,8 +78,11 @@ Nomor lagu dinormalisasi agar **tidak menampilkan leading zeros**:
 
 Dokumen yang perlu dirujuk untuk perubahan ini:
 - `log-impl-library-immersive-player-v6.md`
-- `log-impl-song-number-normalization.md`
+- `log-impl-library-perfection-v8.md`
+- `log-impl-titlebar-modernization-v9.md`
 - `plan-library-immersive-player-v6.md`
+- `plan-library-perfection-v8.md`
+- `plan-titlebar-modernization-v9.md`
 - `plan-song-number-normalization.md`
 
 ---

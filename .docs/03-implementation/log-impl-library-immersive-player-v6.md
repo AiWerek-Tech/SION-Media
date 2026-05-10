@@ -1,36 +1,95 @@
-# Log Implementasi: Library Immersive Player V6 (Player-First)
+---
+title: Log — Implementasi Library Immersive Player v6
+phase: 2-log
+status: implemented
+---
 
-## Status: Selesai ✅
+# Ringkasan
+Implementasi v6 mengubah alur **Library Mode (Player-First)** dari pola *split-pane* (list + sidebar 400px) menjadi **Full-Width Immersive Lyrics Player overlay** yang menutupi seluruh area kerja.
 
-## Ringkasan Perubahan
-Modul antarmuka untuk menampilkan lirik di **Library Mode** telah direstrukturisasi secara radikal dari model *split-pane* menjadi model **Full-Width Immersive Viewer** untuk menyelaraskan dengan filosofi UX baru SION Media ("Player-First", mirip dengan `play.lagusion.org`).
+Perubahan ini membuat pengalaman pemilihan lagu menjadi:
+- Klik lagu -> langsung masuk ke viewer full-screen overlay.
+- Kembali (Back/Escape) -> kembali ke list/grid tanpa pembagian layar.
 
-## Detail Eksekusi
-1. **Pembersihan Modul Lama**:
-   - Menghapus komponen `LyricStudioLite.tsx` secara fisik dari *codebase* karena sudah di-*deprecate* dan tidak digunakan kembali.
-   - Panel `LibraryBrowserPanel.tsx` telah disederhanakan; sepenuhnya tidak ada lagi elemen UI pembagian layar yang *overlapping* atau mempersempit *grid/list* lagu.
+# Perubahan Arsitektur
+## Dari: Split-pane
+- `LibraryBrowserPanel` menggunakan layout `flex`:
+  - kiri: list/grid
+  - kanan: `LyricStudioLite` (sidebar)
 
-2. **Implementasi Overlay Penuh**:
-   - Di `LibraryModeRedesigned.tsx`, saya menggunakan `isLyricsFullscreen` untuk mengontrol perenderan `LibraryLyricsViewer.tsx` dengan memanfaatkan `AnimatePresence` (`framer-motion`).
-   - Mode keluar masuk diperhalus dengan nilai *transition* presisi: `duration: 0.4, ease: [0.22, 1, 0.36, 1]` yang menerapkan kurva animasi kelas atas.
+## Ke: Full-width overlay (Immersive)
+- `LibraryBrowserPanel` hanya bertanggung jawab untuk master list (playlist/nomor/judul).
+- Overlay player dipasang di level `LibraryModeRedesigned` menggunakan `AnimatePresence`.
+- `LibraryLyricsViewer` direfaktor menjadi komponen overlay immersive (100vw/100vh) dan menjadi *single source* untuk interaksi lyrics di Library Mode.
 
-3. **Komponen `LibraryLyricsViewer.tsx`**:
-   - Latar Belakang (*Background*) sekarang berlapis: Layer gradasi radial berwarna aksen biru/ungu, masking hitam 45%, dan filter *glassmorphism* di atasnya.
-   - Header metadata sekarang sangat lengkap: Nomor Lagu, Kunci, Birama, Judul ID & EN.
-   - Tombol-tombol berdesain `border border-white/[0.10] bg-white/[0.06] backdrop-blur-md` (Glassmorphism 2.0).
-   - Teks lirik utama menggunakan *typography scaling* yang dapat diatur via rentang slider, dan mengimplementasikan Auto-Scroll yang mulus dengan kombinasi *gradient mask* (agar lirik yang menghilang di atas terlihat "memudar" ke dalam kegelapan secara artistik).
-   - Indikator bait sampingan (Vertical Dot Navigation) berfungsi memetakan secara akurat posisi stanza/halaman yang dilihat (*linked* dengan *Arrow Keys*).
-   - Relasi *Hymnal* ditampilkan dengan sempurna di bilah *Footer*.
+# Perubahan Utama per File
+## `src/renderer/src/components/library/LibraryBrowserPanel.tsx`
+- Menghapus integrasi `LyricStudioLite` dari layout.
+- Saat user memilih lagu, sekarang memanggil:
+  - `setSelectedSong(song)`
+  - `setLyricsFullscreen(true)`
 
-4. **Konflik Title Bar Diselesaikan**:
-   - Di berkas utama `App.tsx`, komponen menu `<TitleBar />` kini secara dinamis disembunyikan menggunakan kondisi `{!isLyricsFullscreen && <TitleBar />}`.
-   - Karena Windows Native Control (`titleBarOverlay`) dikelola oleh DWM sistem operasi dan API Electron, menyembunyikan komponen React `TitleBar` hanya akan menonaktifkan *custom menu* (Search, Workspace, Status FPS), memberikan kesan layar yang bersih sepenuhnya untuk *Immersive Viewer* dengan tidak mengorbankan fungsionalitas meminimalisir atau menutup *Window* dari OS.
+## `src/renderer/src/screens/modes/LibraryModeRedesigned.tsx`
+- Menambahkan rendering overlay global:
+  - `AnimatePresence` + `motion.div`
+  - kondisi: `isLyricsFullscreen && selectedSong`
+- Menambahkan handler close:
+  - `setLyricsFullscreen(false)`
+  - `setSelectedSong(null)`
 
-## Verifikasi Kriteria Penerimaan
-- [x] Klik lagu otomatis membuka *Full-Width Player*.
-- [x] Tidak ada pembagian layer (*split-pane*) di dalam LibraryBrowserPanel.
-- [x] Animasi masuk dan keluar bebas masalah *flicker*.
-- [x] *Typography*, metadata, dan *empty state* tersusun elegan.
-- [x] Navigasi *Keyboard* (`Esc`, `Arrow keys`, `Space`) stabil dan akurat.
+## `src/renderer/src/components/library/LibraryLyricsViewer.tsx`
+Refaktor total menjadi **Immersive Overlay Player**:
+- **Layout hierarchy**
+  - Header: tombol Back + metadata + kontrol (slider font + play/pause)
+  - Center: 1 stanza per screen (stanza-based pages)
+  - Right navigation: vertical dot navigation
+  - Footer: indikator linked songs
+- **Keyboard**
+  - `Escape`: close overlay
+  - `ArrowDown/PageDown`: stanza berikutnya
+  - `ArrowUp/PageUp`: stanza sebelumnya
+  - `Space`: play/pause auto-scroll
+- **Typography**
+  - slider 14-48, persist ke `localStorage` (`sion:lyric-font-size`)
+- **Empty state**
+  - tampilkan panel artistik bila lirik kosong
+- **Performance**
+  - state `index/fontSize/autoScroll` lokal di overlay (tidak mengubah store), sehingga list di background tidak ikut rerender.
 
-Kode telah siap sedia dan bebas dari galat kompilasi atau peringatan `eslint`.
+# Title Bar / Immersive Mode
+- Aplikasi sudah memiliki mekanisme menyembunyikan `TitleBar` berdasarkan `isLyricsFullscreen` di `App.tsx`.
+- Dengan overlay v6 memanfaatkan `isLyricsFullscreen`, Title Bar otomatis hilang saat player aktif, memenuhi kebutuhan “area pandang bersih” tanpa perubahan IPC tambahan.
+
+# Catatan QA / Acceptance
+- Klik lagu dari tab manapun di Library Mode sekarang membuka overlay.
+- Tidak ada lagi split pane untuk lyrics.
+- Animasi enter/exit memakai easing dan durasi yang diminta (0.4s).
+- Escape / Arrow / Page key bekerja stabil saat overlay aktif.
+
+# Bug Fixes (Post-Implementation)
+## Scroll Jump pada LibraryNumberView
+- **Issue**: Klik nomor lagu di grid menyebabkan scroll melompat ke kartu yang salah.
+- **Cause**: `useEffect` yang melakukan `rowVirtualizer.scrollToIndex()` dipicu oleh perubahan `focusedIndex` baik dari keyboard maupun pointer click.
+- **Fix**: Menambahkan state `focusOrigin` ('keyboard' | 'pointer') untuk membedakan sumber fokus. Auto-scroll hanya dijalankan jika `focusOrigin === 'keyboard'`.
+- **File**: `src/renderer/src/components/library/LibraryNumberView.tsx`
+
+## Lint Error: react-hooks/set-state-in-effect
+- **Issue**: `setSplashDone(true)` dan `setIndex(0)/setAutoScroll(false)` dipanggil sinkron di dalam `useEffect`.
+- **Fix**:
+  - `App.tsx`: Defer `setSplashDone(true)` dengan `setTimeout(..., 0)`.
+  - `LibraryLyricsViewer.tsx`: Hapus `useEffect([song.id])` yang melakukan reset state, karena komponen sudah di-key dengan `selectedSong.id` sehingga remount otomatis saat ganti lagu.
+- **Files**: `src/renderer/src/App.tsx`, `src/renderer/src/components/library/LibraryLyricsViewer.tsx`
+
+## Hook Dependency Warning
+- **Issue**: `useMemo` columns mengandalkan `gridRef.current?.clientWidth` yang tidak stabil.
+- **Fix**: Menggunakan `ResizeObserver` + state `gridWidth` untuk mendapatkan lebar grid secara reaktif.
+- **File**: `src/renderer/src/components/library/LibraryNumberView.tsx`
+
+# Verifikasi
+- `npm run typecheck`: lulus.
+- `npm run lint`: lulus (0 errors, 0 warnings).
+- `npm run build`: lulus.
+
+# Deferred / Next Iteration (opsional)
+- Menambahkan tombol/indikator untuk memilih linked songs langsung dari footer.
+- Auto-fit typography berbasis viewport (selain slider manual) untuk skenario proyeksi jarak jauh.

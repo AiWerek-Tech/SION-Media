@@ -1,34 +1,165 @@
-# Plan: Library Immersive Player V6 (Player-First)
+---
+title: Plan — Library Immersive Player v6 (Player-First)
+phase: 0-plan
+status: draft
+---
 
-## Objective
-Mengadopsi pola interaksi "Player-First" di **Library Mode** dengan menghapus komponen lirik bergaya split-pane (`LyricStudioLite`) dan menggantinya dengan **Full-Width Immersive Viewer** (`LibraryLyricsViewer`) yang akan muncul sebagai overlay menutupi seluruh *viewport* ketika sebuah lagu dipilih, mengimitasi pengalaman pada `play.lagusion.org`.
+# Goal
+Mengubah pola interaksi **Library Mode** dari *split-pane lyric viewer* (kanan 400px via `LyricStudioLite` di `LibraryBrowserPanel`) menjadi **Full-Width Immersive Viewer overlay** (100vw/100vh) yang muncul ketika lagu dipilih dari tab **Playlist / Nomor / Judul**, serupa `play.lagusion.org`.
 
-## Arsitektur & State Management
-1. **Global State (`useAppStore`)**:
-   - Memanfaatkan *state* `isLyricsFullscreen` (boolean) untuk memicu kemunculan overlay.
-   - Menggunakan `selectedSong` (Song | null) sebagai sumber kebenaran (source of truth) data lirik yang akan dirender.
+# Current Baseline (as-is)
+- `LibraryModeRedesigned.tsx`
+  - Merender `LibraryBrowserPanel` sebagai area konten utama.
+  - `handleSelectSong(song)` hanya memanggil `useAppStore.setSelectedSong(song)`.
+- `LibraryBrowserPanel.tsx`
+  - Layout `flex` dua kolom:
+    - Kiri: list/grid songs sesuai tab.
+    - Kanan: panel detail `w-[400px]` yang merender `LyricStudioLite` saat `selectedSong` ada.
+- `useAppStore.ts`
+  - Memiliki `selectedSong: Song | null`.
+  - Memiliki `isLyricsFullscreen` (dipakai untuk DOM Fullscreen API) tetapi belum ada state untuk overlay immersive.
 
-2. **Penggantian Komponen (Refactoring)**:
-   - **`LibraryBrowserPanel.tsx`**: Menghapus `LyricStudioLite` dan membersihkan layout *flex-row* agar Daftar Lagu (Number/Title/Playlist) mengambil lebar penuh (flex-1).
-   - **`LibraryModeRedesigned.tsx`**: Mengubah *conditional rendering* untuk memuat `LibraryLyricsViewer` menggunakan `AnimatePresence` (dari *framer-motion*) ketika `isLyricsFullscreen && selectedSong` bernilai *true*. Render komponen ini dengan urutan *z-index* tinggi (`z-[80]`).
-   - **`App.tsx`**: Melakukan modifikasi untuk menyembunyikan komponen `<TitleBar />` secara otomatis jika `isLyricsFullscreen` aktif (`{!isLyricsFullscreen && <TitleBar />}`). Hal ini tidak akan mengganggu Windows Native Controls karena *controls* tersebut didambar langsung oleh *DWM (Desktop Window Manager)* Windows via `titleBarOverlay`.
+# Target Architecture (to-be)
+## 1) State Orchestration
+Tambahkan state baru di `useAppStore`:
+- `isLyricsFullscreen: boolean` (tetap ada; sekarang dipakai untuk overlay immersive *UI fullscreen*).
+- `setLyricsFullscreen(isFullscreen: boolean)` (tetap ada).
 
-3. **Desain Komponen `LibraryLyricsViewer.tsx`**:
-   - **Background**: Menggunakan kombinasi *Subtle abstract gradient* dengan lapisan *glassmorphism* dan *masking* hitam.
-   - **Header**: Terletak di bagian atas (`absolute top-0`) untuk menampilkan Metadata Lagu (Nomor, Judul, Kunci/Key, Birama/Time Signature).
-   - **Controls**: Implementasi "Glassmorphism 2.0" untuk tombol navigasi font (Perkecil/Perbesar), Auto-Scroll (Play/Pause), dan tombol *Back/Esc*.
-   - **Right Navigation**: Dot Navigation vertikal (`absolute right-6`) untuk mewakili setiap bait/halaman lirik.
-   - **Center Content**: Area utama yang memuat teks lirik besar (proporsional 14px-48px) dengan efek *drop-shadow* presisi tinggi agar teks terbaca walau latar belakang sedikit kompleks. Terdapat transisi *masking* (`WebkitMaskImage`) di ujung atas dan bawah konten untuk memberikan efek *smooth fade-out* ketika auto-scroll berjalan.
-   - **Footer**: Indikator ketersediaan versi buku lain (Hymnal Relations).
+Tambahan/Perubahan:
+- `isLyricsFullscreen` akan berarti: **overlay immersive lyrics player sedang terbuka**.
+- `selectedSong` tetap menjadi sumber kebenaran lagu yang sedang dilihat.
 
-## Mekanisme Interaksi
-- **Masuk**: Ketika user meng-klik sebuah lagu, panggil `setLyricsFullscreen(true)` dan `setSelectedSong(song)`. Transisi Framer Motion: *Scale-up + Fade-in* (`scale: 0.98 -> 1`, `opacity: 0 -> 1`).
-- **Keluar**: Tombol *Back* di UI atau tekan tombol `Esc` memanggil `setLyricsFullscreen(false)`. Transisi Framer Motion: *Slide-down + Fade-out* (`y: 24`, `opacity: 1 -> 0`).
-- **Paginasi**:
-  - Paginasi diproses melalui modul internal `buildStanzaPages` yang memilah lirik menggunakan label stanza (bait) dan Reff/Chorus.
-  - Shortcut keyboard: `ArrowDown`/`PageDown` (Bait selanjutnya) dan `ArrowUp`/`PageUp` (Bait sebelumnya).
-- **Auto-scroll**: Shortcut keyboard `Space` digunakan untuk *Play/Pause*. Jika aktif, `scrollTop` elemen kontainer ditambahkan secara perlahan menggunakan `setInterval` (~16ms loop).
+### State transitions
+- **Select song** (dari list/grid/playlist/search palette)
+  - `setSelectedSong(song)`
+  - `setLyricsFullscreen(true)`
+  - Opsional: bersihkan pencarian jika diperlukan untuk menghindari “kembali” dalam state filter yang membingungkan:
+    - `setSearchQuery('')`
+    - `setActiveFilter('all')` (hanya jika memang dipakai di Library Mode redesigned)
+- **Close immersive player**
+  - `setLyricsFullscreen(false)`
+  - Opsional: `setSelectedSong(null)` (recommended agar library kembali “clean” dan tidak memicu render detail apapun)
 
-## Penanganan Edge Cases
-- **Lirik Kosong**: Modifikasi `currentText` pada viewer. Jika kosong, jangan biarkan layar menjadi hitam. Tampilkan UI "Empty State" *glassmorphism* dengan pesan artistik: "Lirik belum tersedia".
-- **Pembersihan Modul Lama**: Berkas `LyricStudioLite.tsx` (modul split-pane sebelumnya) harus **dihapus sepenuhnya** dari basis kode untuk mengurangi ukuran *bundle* dan menjaga kerapian *codebase*.
+### Invariants
+- `isLyricsFullscreen === true` mengimplikasikan overlay player terlihat.
+- Overlay player hanya merender jika `selectedSong != null`.
+- Jika `selectedSong == null`, paksa `isLyricsFullscreen` menjadi `false` (defensive) atau overlay tidak merender.
+
+## 2) Component Overlay Structure
+### Global overlay host (Library Mode scope)
+Di `LibraryModeRedesigned.tsx`, tambahkan overlay layer di atas `LibraryBrowserPanel`:
+- `LibraryBrowserPanel` tetap menjadi background.
+- `LibraryLyricsViewer` (refactor) menjadi komponen **fullscreen overlay**.
+
+Struktur render (skema):
+- `<div className="... relative">`
+  - `<LibraryBrowserPanel ... />`
+  - `<AnimatePresence>`
+    - `{isLyricsFullscreen && selectedSong && (
+        <LibraryLyricsViewer song={selectedSong} onClose={...} />
+      )}`
+  - `</AnimatePresence>`
+
+Catatan performance:
+- Overlay dipasang di level `LibraryModeRedesigned` sehingga `LibraryBrowserPanel` tidak perlu lagi mengandung `LyricStudioLite`.
+- Gunakan selector zustand yang minimal agar perubahan `index/fontSize/autoScroll` di overlay tidak memaksa list rerender.
+
+## 3) Refactor Plan per File
+### A) `LibraryBrowserPanel.tsx`
+- Hapus panel kanan (400px) dan import `LyricStudioLite`.
+- Tetap expose `onSelectSong` via store seperti sekarang, tetapi *on select* juga harus membuka overlay (melalui store):
+  - `setSelectedSong(song)`
+  - `setLyricsFullscreen(true)`
+
+### B) `LibraryModeRedesigned.tsx`
+- Subscribe `selectedSong`, `isLyricsFullscreen`.
+- Saat menerima event `sion:select-song` atau dari `LibrarySearchPalette`:
+  - set selected
+  - set overlay open
+- Render overlay `LibraryLyricsViewer` full screen (AnimatePresence) di atas konten.
+
+### C) `LibraryLyricsViewer.tsx` (Total refactor)
+Ubah menjadi komponen **Immersive Fullscreen Player**:
+
+#### Layout hierarchy
+- **Background layer**
+  - gradient abstrak + blur / noise halus.
+  - optionally: jika ada art/cover di masa depan, fallback ke gradient.
+- **Header (top)**
+  - tombol Back (kiri atas)
+  - metadata: nomor lagu, title ID, subtitle EN, key/nada dasar, time signature.
+  - controls kecil: font-size slider, play/pause auto-scroll.
+- **Center**
+  - stanza page (satu bait per layar)
+  - tipografi besar + line-height nyaman.
+- **Right navigation**
+  - vertical dot navigation sesuai jumlah pages.
+- **Footer**
+  - hymnal relations (linked songs indicator)
+
+#### Animation spec (Framer Motion)
+- Mount (enter): `scale-up + fade-in`
+  - `initial: { opacity: 0, scale: 0.98 }`
+  - `animate: { opacity: 1, scale: 1 }`
+- Unmount (exit): `slide-down + fade-out`
+  - `exit: { opacity: 0, y: 24 }`
+- Transition:
+  - duration `0.4`
+  - ease `[0.22, 1, 0.36, 1]`
+
+#### Keyboard behaviors
+- `Escape`: close overlay.
+- `ArrowDown` / `PageDown`: next stanza.
+- `ArrowUp` / `PageUp`: prev stanza.
+- `Space`: toggle auto-scroll Play/Pause.
+
+#### Pagination logic (stanza-based)
+- Gunakan `buildStanzaPages()` yang sudah ada (dipakai versi lama) sebagai basis.
+- One page == one stanza (atau stanza + chorus jika parser mendukung; jika tidak, keep stanza-only terlebih dahulu).
+- Dot navigation memetakan `index` (0..pages-1).
+
+#### Responsive typography
+- Simpan `fontSize` (14..48) di localStorage.
+- Optional auto-scaling:
+  - `clamp(18px, 2.4vw, 44px)` sebagai baseline, lalu dikalikan faktor slider.
+
+#### Auto-scroll
+- Reuse interval pattern dari `LyricStudioLite`, tetapi diarahkan ke container `ref` di center stanza.
+- Ketika index berubah, scroll container di-reset ke atas.
+
+#### Empty lyrics state
+- Jika `song.lyrics_raw` kosong:
+  - tampilkan empty state yang artistik (headline + subtext + CTA “Edit/Sync lyrics” jika ada action).
+
+## 4) Title Bar / Immersive Mode
+Kebutuhan: “mengunci/menyembunyikan Menu Title Bar kecuali window controls”.
+
+Plan implementasi (bertahap):
+- **Phase v6**: buat overlay menutup seluruh viewport renderer (`fixed inset-0`) sehingga secara visual *clean*.
+- Jika aplikasi punya IPC untuk toggle menu/titlebar, tambahkan hook di overlay open/close:
+  - on open: `window.api?.window?.setImmersiveMode?.(true)`
+  - on close: `...false`
+
+Catatan: langkah IPC ini hanya dilakukan jika API sudah tersedia. Jika belum ada, overlay tetap memenuhi kriteria UX di area content.
+
+# Risks / Edge Cases
+- `selectedSong` bisa berubah ketika overlay sudah terbuka (mis. user klik lagu lain cepat):
+  - overlay harus update content tanpa flicker (gunakan `key={selectedSong.id}` untuk stanza index reset + animate crossfade ringan jika perlu).
+- Dot navigation panjang (pages banyak):
+  - perlu scrollable dot rail atau minified dots.
+- Prevent background scroll & focus trap:
+  - set `document.body.style.overflow='hidden'` saat overlay open (cleanup on close).
+
+# Implementation Checklist (Phase 1)
+- Update store semantics untuk `isLyricsFullscreen` sebagai overlay state.
+- `LibraryBrowserPanel`: hapus split-pane, onSelectSong buka overlay.
+- `LibraryModeRedesigned`: render `LibraryLyricsViewer` via AnimatePresence.
+- Refactor `LibraryLyricsViewer` jadi overlay immersive player.
+- Pastikan keyboard nav stabil & tidak konflik dengan search palette.
+
+# Acceptance Mapping
+- (1) Klik lagu dari mana saja membuka overlay: achieved via store open on selection.
+- (2) Tidak ada split: achieved by removing right panel in `LibraryBrowserPanel`.
+- (3) Transisi halus: achieved via AnimatePresence spec.
+- (4) Metadata presisi: render header metadata fields.
+- (5) Keyboard stable: single keydown handler in overlay (active only when open).

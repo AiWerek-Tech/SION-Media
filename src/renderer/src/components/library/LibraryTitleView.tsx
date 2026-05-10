@@ -1,7 +1,7 @@
 import React, { useMemo, useRef } from 'react'
 import { Check, Heart, ListMusic, MoreHorizontal, Pin, SortAsc, Type } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { getHymnalColor } from '../../utils/hymnal-colors'
 import type { Song } from '../../types'
 import { SongContextMenu } from './SongContextMenu'
@@ -31,7 +31,7 @@ export function LibraryTitleView({
   onToggleFavorite
 }: TitleViewProps): React.JSX.Element {
   const [sortMode, setSortMode] = React.useState<SortMode>('number')
-  const [hoveredId, setHoveredId] = React.useState<number | null>(null)
+
   const [menuOpen, setMenuOpen] = React.useState(false)
   const [menuPos, setMenuPos] = React.useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const [menuSong, setMenuSong] = React.useState<Song | null>(null)
@@ -169,7 +169,6 @@ export function LibraryTitleView({
           {virtualItems.map((vr) => {
             const song = sortedSongs[vr.index]
             const isSelected = selectedSongId === song.id
-            const isHovered = hoveredId === song.id
             const isFavorite = song.is_favorite === 1
             const isRecent = !!song.last_used || !!song.last_played
 
@@ -188,8 +187,6 @@ export function LibraryTitleView({
               >
                 <motion.div
                   layout
-                  onMouseEnter={() => setHoveredId(song.id)}
-                  onMouseLeave={() => setHoveredId(null)}
                   className={`h-full w-full rounded-xl border transition-all duration-200 flex items-center gap-3 px-3 group cursor-pointer ${
                     isSelected
                       ? 'bg-brand-primary/[0.06] border-brand-primary/20 shadow-sm'
@@ -256,48 +253,40 @@ export function LibraryTitleView({
                     </div>
                   </div>
 
-                  {/* Hover Actions */}
-                  <AnimatePresence>
-                    {isHovered && (
-                      <motion.div
-                        initial={{ opacity: 0, x: 8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 8 }}
-                        transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                        className="flex items-center gap-1"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          onClick={() => onAddToPlaylist(song)}
-                          className="h-8 w-8 rounded-lg bg-surface-2 border border-border-default/30 flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-3 hover:border-border-default/50 transition-all"
-                          title="Tambah ke playlist"
-                          aria-label={`Tambah ${song.title} ke playlist`}
-                        >
-                          <ListMusic size={14} />
-                        </button>
-                        <button
-                          onClick={() => onToggleFavorite(song.id)}
-                          className={`h-8 w-8 rounded-lg border flex items-center justify-center transition-all ${
-                            isFavorite
-                              ? 'bg-amber-400/10 border-amber-400/20 text-amber-400'
-                              : 'bg-surface-2 border-border-default/30 text-text-muted hover:text-amber-400 hover:bg-amber-400/5'
-                          }`}
-                          title="Favorit"
-                          aria-label={`Toggle favorit ${song.title}`}
-                        >
-                          <Heart size={14} className={isFavorite ? 'fill-amber-400' : ''} />
-                        </button>
-                        <button
-                          onClick={(e) => openMenu(e, song)}
-                          className="h-8 w-8 rounded-lg bg-surface-2 border border-border-default/30 flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-3 hover:border-border-default/50 transition-all"
-                          title="Lainnya"
-                          aria-label={`Menu aksi untuk ${song.title}`}
-                        >
-                          <MoreHorizontal size={14} />
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {/* Actions */}
+                  <div
+                    className="flex items-center gap-1 opacity-20 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-300"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => onAddToPlaylist(song)}
+                      className="h-8 w-8 rounded-lg bg-surface-2 border border-border-default/30 flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-3 hover:border-border-default/50 transition-all"
+                      title="Tambah ke playlist"
+                      aria-label={`Tambah ${song.title} ke playlist`}
+                    >
+                      <ListMusic size={14} />
+                    </button>
+                    <button
+                      onClick={() => onToggleFavorite(song.id)}
+                      className={`h-8 w-8 rounded-lg border flex items-center justify-center transition-all ${
+                        isFavorite
+                          ? 'bg-amber-400/10 border-amber-400/20 text-amber-400 opacity-100' // Ensure it stands out when favorite
+                          : 'bg-surface-2 border-border-default/30 text-text-muted hover:text-amber-400 hover:bg-amber-400/5'
+                      }`}
+                      title="Favorit"
+                      aria-label={`Toggle favorit ${song.title}`}
+                    >
+                      <Heart size={14} className={isFavorite ? 'fill-amber-400' : ''} />
+                    </button>
+                    <button
+                      onClick={(e) => openMenu(e, song)}
+                      className="h-8 w-8 rounded-lg bg-surface-2 border border-border-default/30 flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-3 hover:border-border-default/50 transition-all"
+                      title="Lainnya"
+                      aria-label={`Menu aksi untuk ${song.title}`}
+                    >
+                      <MoreHorizontal size={14} />
+                    </button>
+                  </div>
 
                   {/* Selected indicator */}
                   {isSelected && (

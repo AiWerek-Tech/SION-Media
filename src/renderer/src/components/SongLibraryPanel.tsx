@@ -161,14 +161,14 @@ export function SongLibraryPanel(): React.JSX.Element {
   }
 
   return (
-    <div className="flex-1 flex flex-row min-h-0 rounded-md border border-border-default bg-bg-surface/86 shadow-sm backdrop-blur overflow-hidden">
+    <div className="flex-1 flex flex-row min-h-0 rounded-xl bg-bg-surface/70 shadow-[0_2px_12px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur overflow-hidden">
       {/* Hymnal Sidebar — extracted component */}
       <HymnalSidebar />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header: Search & Add */}
-        <div className="border-b border-border-subtle bg-bg-surface/70 p-2 backdrop-blur-sm">
+        <div className="bg-bg-surface/50 p-2.5 backdrop-blur-sm shadow-[0_1px_0_rgba(255,255,255,0.03)]">
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="rounded-md bg-brand-primary/10 p-1.5 text-brand-primary">
@@ -225,8 +225,8 @@ export function SongLibraryPanel(): React.JSX.Element {
         </div>
 
         {/* Tabs */}
-        <div className="flex flex-col border-b border-border-subtle">
-          <div className="flex items-center gap-1 overflow-x-auto bg-bg-base/35 px-2 py-1.5 no-scrollbar">
+        <div className="flex flex-col shadow-[0_1px_0_rgba(255,255,255,0.03)]">
+          <div className="flex items-center gap-1 overflow-x-auto bg-bg-base/25 px-2.5 py-1.5 no-scrollbar">
             {FILTER_TABS.map((tab) => (
               <button
                 key={tab.key}
