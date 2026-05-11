@@ -651,12 +651,15 @@ export function HymnalSettings({
             />
             <button
               onClick={() => importInputRef.current?.click()}
-              className="btn btn-secondary h-9 px-4"
+              className="btn-premium btn-premium-ghost h-9 px-4"
             >
               <Upload size={16} />
               Import Paket
             </button>
-            <button onClick={() => openModal()} className="btn btn-primary h-9 px-4">
+            <button
+              onClick={() => openModal()}
+              className="btn-premium btn-premium-primary h-9 px-4"
+            >
               <Plus size={16} />
               Buku Baru
             </button>
@@ -815,21 +818,21 @@ export function HymnalSettings({
                 <button
                   onClick={applyToAll}
                   disabled={importing || conflicts.length === 0}
-                  className="btn btn-secondary h-9 px-4"
+                  className="btn-premium btn-premium-ghost h-9 px-4"
                 >
                   Apply
                 </button>
                 <button
                   onClick={exportConflictReport}
                   disabled={importing || conflicts.length === 0}
-                  className="btn btn-secondary h-9 px-4"
+                  className="btn-premium btn-premium-ghost h-9 px-4"
                 >
                   Export Report
                 </button>
                 <button
                   onClick={() => setShowAllItems((v) => !v)}
                   disabled={importing}
-                  className="btn btn-secondary h-9 px-4"
+                  className="btn-premium btn-premium-ghost h-9 px-4"
                 >
                   {showAllItems ? 'Show Conflicts Only' : 'Show All (Limited)'}
                 </button>
@@ -1014,14 +1017,14 @@ export function HymnalSettings({
                       setImportTargetHymnalId(null)
                     }}
                     disabled={importing}
-                    className="btn btn-secondary h-9 px-4"
+                    className="btn-premium btn-premium-ghost h-9 px-4"
                   >
                     Batal
                   </button>
                   <button
                     onClick={() => void executeImport()}
                     disabled={importing}
-                    className="btn btn-primary h-9 px-4"
+                    className="btn-premium btn-premium-primary h-9 px-4"
                   >
                     {importing ? 'Mengimpor...' : 'Jalankan Import'}
                   </button>

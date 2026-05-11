@@ -8,8 +8,6 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
-  Clock,
-  Activity,
   Ban,
   Monitor,
   Tv,
@@ -23,10 +21,100 @@ import {
   clearRuntimeEvents
 } from '../utils/runtimeCommandBus'
 import { useHealthStore } from '../store/useHealthStore'
+import { getInputAdapterHealth } from '../utils/runtimeInputAdapter'
+import { VirtualAdapterSimulator } from './VirtualAdapterPanel'
 
 interface RuntimeInspectorProps {
   isOpen: boolean
   onClose: () => void
+}
+
+function TabButton({
+  tab,
+  activeTab,
+  onClick,
+  hidden
+}: {
+  tab: InspectorTab
+  activeTab: InspectorTab
+  onClick: () => void
+  hidden?: boolean
+}): React.JSX.Element {
+  if (hidden) return <></>
+
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+        activeTab === tab
+          ? 'bg-white/10 text-white shadow-sm'
+          : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+      }`}
+    >
+      {tab}
+    </button>
+  )
+}
+
+function InputsTab(): React.JSX.Element {
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const adapterHealth = useMemo(() => {
+    void tick
+    return getInputAdapterHealth()
+  }, [tick])
+
+  return (
+    <div className="flex-1 overflow-auto p-4">
+      <div className="text-label mb-3">Input Adapters</div>
+
+      {adapterHealth.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state__title">No adapters registered</div>
+          <div className="empty-state__description">Connect input devices to begin</div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {adapterHealth.map((h) => (
+            <div key={h.adapterId} className="card-modern p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-data font-mono">{h.adapterId}</span>
+                <span
+                  className={`status-badge ${h.connected ? 'status-badge--ok' : 'status-badge--broken'}`}
+                  style={{ padding: '2px 8px', fontSize: '10px' }}
+                >
+                  <span className="status-badge__dot"></span>
+                  {h.connected ? 'LIVE' : 'OFF'}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="command-stat">
+                  <span className="command-stat__value">{h.commandsEmitted}</span>
+                  <span className="command-stat__label">Emitted</span>
+                </div>
+                <div className="command-stat">
+                  <span className="command-stat__value text-amber-400">{h.commandsDropped}</span>
+                  <span className="command-stat__label">Dropped</span>
+                </div>
+                <div className="command-stat">
+                  <span className="command-stat__value">{h.reconnectCount}</span>
+                  <span className="command-stat__label">Reconnects</span>
+                </div>
+              </div>
+              {h.lastError && (
+                <div className="mt-2 text-xs text-rose-400 font-mono">{h.lastError}</div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 interface EventMetrics {
@@ -52,46 +140,50 @@ interface HealthStatus {
   confidenceConnected: boolean
 }
 
-// Status badge component
+type InspectorTab = 'EVENTS' | 'HEALTH' | 'INPUTS' | 'SIMULATOR'
+
+// Status badge component - using design system
 function StatusBadge({ status }: { status: RuntimeEvent['status'] }): React.JSX.Element {
   const config = {
-    SUCCESS: { icon: CheckCircle2, color: 'text-live', bg: 'bg-live/10', label: 'SUCCESS' },
-    BLOCKED: { icon: Ban, color: 'text-warning', bg: 'bg-warning/10', label: 'BLOCKED' },
-    ERROR: { icon: AlertCircle, color: 'text-danger', bg: 'bg-danger/10', label: 'ERROR' }
+    SUCCESS: { icon: CheckCircle2, variant: 'status-badge--ok', label: 'SUCCESS' },
+    BLOCKED: { icon: Ban, variant: 'status-badge--warning', label: 'BLOCKED' },
+    ERROR: { icon: AlertCircle, variant: 'status-badge--broken', label: 'ERROR' }
   }
-  const { icon: Icon, color, bg, label } = config[status]
+  const { icon: Icon, variant, label } = config[status]
 
   return (
-    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono ${bg} ${color}`}>
+    <span className={`status-badge ${variant}`} style={{ padding: '2px 6px', fontSize: '10px' }}>
       <Icon size={10} />
       {label}
     </span>
   )
 }
 
-// Source badge component
+// Source badge component - semantic colors
 function SourceBadge({ source }: { source: CommandSource }): React.JSX.Element {
   const colors: Record<CommandSource, string> = {
-    KEYBOARD: 'text-purple-400 bg-purple-500/10',
-    UI_BUTTON: 'text-blue-400 bg-blue-500/10',
-    QUICK_JUMP: 'text-cyan-400 bg-cyan-500/10',
-    COMMAND_PALETTE: 'text-indigo-400 bg-indigo-500/10',
-    MIDI: 'text-orange-400 bg-orange-500/10',
-    STREAM_DECK: 'text-amber-400 bg-amber-500/10',
-    REMOTE_APP: 'text-teal-400 bg-teal-500/10',
-    WEBSOCKET: 'text-green-400 bg-green-500/10',
-    AUTOMATION: 'text-rose-400 bg-rose-500/10',
-    MACRO: 'text-pink-400 bg-pink-500/10'
+    KEYBOARD: 'text-purple-400 bg-purple-500/15',
+    UI_BUTTON: 'text-blue-400 bg-blue-500/15',
+    QUICK_JUMP: 'text-cyan-400 bg-cyan-500/15',
+    COMMAND_PALETTE: 'text-indigo-400 bg-indigo-500/15',
+    MIDI: 'text-orange-400 bg-orange-500/15',
+    STREAM_DECK: 'text-amber-400 bg-amber-500/15',
+    REMOTE_APP: 'text-teal-400 bg-teal-500/15',
+    WEBSOCKET: 'text-emerald-400 bg-emerald-500/15',
+    AUTOMATION: 'text-rose-400 bg-rose-500/15',
+    MACRO: 'text-pink-400 bg-pink-500/15'
   }
 
   return (
-    <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${colors[source] || 'text-gray-400 bg-gray-500/10'}`}>
+    <span
+      className={`px-2 py-0.5 rounded-md text-[10px] font-mono ${colors[source] || 'text-zinc-400 bg-zinc-500/15'}`}
+    >
       {source}
     </span>
   )
 }
 
-// Event row component
+// Event row component - activity-item style
 function EventRow({
   event,
   isSelected,
@@ -108,21 +200,23 @@ function EventRow({
     second: '2-digit'
   })
 
+  const variantClass =
+    event.status === 'SUCCESS'
+      ? 'activity-item--success'
+      : event.status === 'ERROR'
+        ? 'activity-item--error'
+        : 'activity-item--warning'
+
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-white/5 transition-colors ${
-        isSelected ? 'bg-white/10' : ''
-      }`}
+      className={`activity-item ${variantClass} w-full ${isSelected ? 'bg-white/10' : ''}`}
     >
-      <span className="text-[10px] font-mono text-gray-500 w-16 shrink-0">{time}</span>
+      <span className="activity-item__timestamp">{time}</span>
       <SourceBadge source={event.command.source} />
-      <span className="text-xs font-mono text-gray-300 truncate flex-1">{event.command.type}</span>
-      <StatusBadge status={event.status} />
+      <span className="activity-item__message truncate flex-1">{event.command.type}</span>
       {event.durationMs !== undefined && (
-        <span className="text-[10px] font-mono text-gray-500 w-14 text-right">
-          {event.durationMs.toFixed(1)}ms
-        </span>
+        <span className="activity-item__detail">{event.durationMs.toFixed(1)}ms</span>
       )}
     </button>
   )
@@ -130,50 +224,58 @@ function EventRow({
 
 // Event details drawer
 function EventDetails({ event }: { event: RuntimeEvent | null }): React.JSX.Element {
-  if (!event) return <div className="p-4 text-xs text-gray-500">Select an event to view details</div>
+  if (!event)
+    return (
+      <div className="empty-state h-full">
+        <div className="empty-state__title">No event selected</div>
+        <div className="empty-state__description">Click an event to inspect</div>
+      </div>
+    )
 
   return (
     <div className="p-4 space-y-3 text-xs font-mono">
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <span className="text-gray-500">ID:</span>
-          <span className="text-gray-300 ml-2 truncate block">{event.id}</span>
+          <span className="text-zinc-500">ID:</span>
+          <span className="text-zinc-300 ml-2 truncate block">{event.id.slice(0, 16)}...</span>
         </div>
         <div>
-          <span className="text-gray-500">Status:</span>
+          <span className="text-zinc-500">Status:</span>
           <StatusBadge status={event.status} />
         </div>
         <div>
-          <span className="text-gray-500">Duration:</span>
-          <span className="text-gray-300 ml-2">{event.durationMs?.toFixed(2) ?? '-'}ms</span>
+          <span className="text-zinc-500">Duration:</span>
+          <span className="text-amber-400 ml-2">{event.durationMs?.toFixed(2) ?? '-'}ms</span>
         </div>
         <div>
-          <span className="text-gray-500">Timestamp:</span>
-          <span className="text-gray-300 ml-2">{new Date(event.timestamp).toISOString()}</span>
+          <span className="text-zinc-500">Time:</span>
+          <span className="text-zinc-300 ml-2">
+            {new Date(event.timestamp).toLocaleTimeString()}
+          </span>
         </div>
       </div>
 
       <div>
-        <span className="text-gray-500 block mb-1">Command:</span>
-        <div className="bg-black/30 rounded p-2 space-y-1">
+        <span className="text-label block mb-2">Command</span>
+        <div className="card-modern p-3 space-y-1">
           <div>
-            <span className="text-purple-400">type:</span>{' '}
-            <span className="text-gray-300">{event.command.type}</span>
+            <span className="text-cyan-400">type:</span>{' '}
+            <span className="text-zinc-300">{event.command.type}</span>
           </div>
           <div>
-            <span className="text-purple-400">source:</span>{' '}
-            <span className="text-gray-300">{event.command.source}</span>
+            <span className="text-cyan-400">source:</span>{' '}
+            <span className="text-zinc-300">{event.command.source}</span>
           </div>
           {event.command.correlationId && (
             <div>
-              <span className="text-purple-400">correlationId:</span>{' '}
-              <span className="text-gray-300">{event.command.correlationId}</span>
+              <span className="text-cyan-400">correlationId:</span>{' '}
+              <span className="text-zinc-300">{event.command.correlationId}</span>
             </div>
           )}
           {event.command.payload && Object.keys(event.command.payload).length > 0 && (
             <div>
-              <span className="text-purple-400">payload:</span>
-              <pre className="text-gray-400 mt-1 text-[10px] overflow-auto">
+              <span className="text-cyan-400">payload:</span>
+              <pre className="text-zinc-400 mt-1 text-[10px] overflow-auto">
                 {JSON.stringify(event.command.payload, null, 2)}
               </pre>
             </div>
@@ -183,15 +285,15 @@ function EventDetails({ event }: { event: RuntimeEvent | null }): React.JSX.Elem
 
       {event.error && (
         <div>
-          <span className="text-danger block mb-1">Error:</span>
-          <div className="bg-danger/10 rounded p-2 text-danger">{event.error}</div>
+          <span className="text-rose-400 block mb-1">Error:</span>
+          <div className="card-modern p-2 text-rose-400 text-[11px]">{event.error}</div>
         </div>
       )}
 
       {event.result !== undefined && (
         <div>
-          <span className="text-gray-500 block mb-1">Result:</span>
-          <pre className="bg-black/30 rounded p-2 text-gray-400 text-[10px] overflow-auto">
+          <span className="text-zinc-500 block mb-1">Result:</span>
+          <pre className="card-modern p-2 text-zinc-400 text-[10px] overflow-auto">
             {JSON.stringify(event.result, null, 2)}
           </pre>
         </div>
@@ -200,100 +302,92 @@ function EventDetails({ event }: { event: RuntimeEvent | null }): React.JSX.Elem
   )
 }
 
-// Health strip - Runtime health indicators
+// Health strip - Runtime health indicators with command-stat style
 function HealthStrip({ health }: { health: HealthStatus }): React.JSX.Element {
   return (
-    <div className="flex items-center gap-3 px-4 py-1.5 bg-black/30 border-b border-border/30">
+    <div className="command-header" style={{ padding: '8px 16px' }}>
       {/* Runtime Health */}
-      <div className="flex items-center gap-1.5">
-        <Heart size={10} className={health.runtimeHealthy ? 'text-live' : 'text-danger'} />
-        <span className="text-[10px] font-mono text-gray-400">Runtime</span>
-        <span className={`text-[10px] font-mono ${health.runtimeHealthy ? 'text-live' : 'text-danger'}`}>
-          {health.runtimeHealthy ? 'Healthy' : 'Degraded'}
+      <div className="command-stat">
+        <Heart size={12} className={health.runtimeHealthy ? 'text-emerald-400' : 'text-rose-400'} />
+        <span className="command-stat__value" style={{ fontSize: '11px' }}>
+          {health.runtimeHealthy ? 'HEALTHY' : 'DEGRADED'}
         </span>
       </div>
-
-      <div className="w-px h-3 bg-border/50" />
 
       {/* Latency */}
-      <div className="flex items-center gap-1.5">
-        <Zap size={10} className="text-accent" />
-        <span className="text-[10px] font-mono text-gray-400">Latency:</span>
-        <span className={`text-[10px] font-mono ${health.latency < 5 ? 'text-live' : health.latency < 20 ? 'text-warning' : 'text-danger'}`}>
-          {health.latency.toFixed(2)}ms
+      <div className="command-stat">
+        <Zap size={12} className="text-amber-400" />
+        <span className="command-stat__value" style={{ fontSize: '11px' }}>
+          {health.latency.toFixed(1)}ms
         </span>
+        <span className="command-stat__label">latency</span>
       </div>
-
-      <div className="w-px h-3 bg-border/50" />
 
       {/* Blocked Ratio */}
-      <div className="flex items-center gap-1.5">
-        <Ban size={10} className={health.blockedRatio < 0.05 ? 'text-gray-400' : 'text-warning'} />
-        <span className="text-[10px] font-mono text-gray-400">Blocked:</span>
-        <span className={`text-[10px] font-mono ${health.blockedRatio < 0.05 ? 'text-gray-300' : health.blockedRatio < 0.15 ? 'text-warning' : 'text-danger'}`}>
+      <div className="command-stat">
+        <Ban
+          size={12}
+          className={health.blockedRatio < 0.05 ? 'text-zinc-400' : 'text-amber-400'}
+        />
+        <span className="command-stat__value" style={{ fontSize: '11px' }}>
           {(health.blockedRatio * 100).toFixed(1)}%
         </span>
+        <span className="command-stat__label">blocked</span>
       </div>
 
-      <div className="w-px h-3 bg-border/50" />
-
-      {/* Projection Connection */}
-      <div className="flex items-center gap-1.5">
-        <Monitor size={10} className={health.projectionConnected ? 'text-live' : 'text-gray-500'} />
-        <span className="text-[10px] font-mono text-gray-400">Projection:</span>
-        <span className={`text-[10px] font-mono ${health.projectionConnected ? 'text-live' : 'text-gray-500'}`}>
-          {health.projectionConnected ? 'Connected' : 'None'}
+      {/* Projection */}
+      <div className="command-stat">
+        <Monitor
+          size={12}
+          className={health.projectionConnected ? 'text-emerald-400' : 'text-zinc-500'}
+        />
+        <span className="command-stat__value" style={{ fontSize: '11px' }}>
+          {health.projectionConnected ? 'LIVE' : 'OFF'}
         </span>
+        <span className="command-stat__label">projection</span>
       </div>
-
-      <div className="w-px h-3 bg-border/50" />
 
       {/* Confidence Monitor */}
-      <div className="flex items-center gap-1.5">
-        <Tv size={10} className={health.confidenceConnected ? 'text-live' : 'text-gray-500'} />
-        <span className="text-[10px] font-mono text-gray-400">Confidence:</span>
-        <span className={`text-[10px] font-mono ${health.confidenceConnected ? 'text-live' : 'text-gray-500'}`}>
-          {health.confidenceConnected ? 'Connected' : 'None'}
+      <div className="command-stat">
+        <Tv size={12} className={health.confidenceConnected ? 'text-cyan-400' : 'text-zinc-500'} />
+        <span className="command-stat__value" style={{ fontSize: '11px' }}>
+          {health.confidenceConnected ? 'LIVE' : 'OFF'}
         </span>
+        <span className="command-stat__label">stage</span>
       </div>
     </div>
   )
 }
 
-// Metrics header
+// Metrics header - command-stat grid
 function MetricsHeader({ metrics }: { metrics: EventMetrics }): React.JSX.Element {
   return (
-    <div className="flex items-center gap-4 px-4 py-2 border-b border-border/50 bg-black/20">
-      <div className="flex items-center gap-1.5">
-        <Activity size={12} className="text-gray-400" />
-        <span className="text-[10px] text-gray-500">Total:</span>
-        <span className="text-xs font-mono text-gray-300">{metrics.total}</span>
+    <div className="grid grid-cols-6 gap-2 px-4 py-3 border-b border-white/5">
+      <div className="command-stat">
+        <span className="command-stat__value">{metrics.total}</span>
+        <span className="command-stat__label">Total</span>
       </div>
-      <div className="flex items-center gap-1.5">
-        <Zap size={12} className="text-accent" />
-        <span className="text-[10px] text-gray-500">Rate:</span>
-        <span className="text-xs font-mono text-accent">{metrics.commandsPerSec.toFixed(1)}/s</span>
+      <div className="command-stat">
+        <span className="command-stat__value text-amber-400">
+          {metrics.commandsPerSec.toFixed(1)}
+        </span>
+        <span className="command-stat__label">Rate/s</span>
       </div>
-      <div className="flex items-center gap-1.5">
-        <CheckCircle2 size={12} className="text-live" />
-        <span className="text-[10px] text-gray-500">Success:</span>
-        <span className="text-xs font-mono text-live">{metrics.success}</span>
+      <div className="command-stat">
+        <span className="command-stat__value text-emerald-400">{metrics.success}</span>
+        <span className="command-stat__label">Success</span>
       </div>
-      <div className="flex items-center gap-1.5">
-        <Ban size={12} className="text-warning" />
-        <span className="text-[10px] text-gray-500">Blocked:</span>
-        <span className="text-xs font-mono text-warning">{metrics.blocked}</span>
-        <span className="text-[10px] font-mono text-gray-500">({(metrics.blockedRatio * 100).toFixed(1)}%)</span>
+      <div className="command-stat">
+        <span className="command-stat__value text-amber-400">{metrics.blocked}</span>
+        <span className="command-stat__label">Blocked</span>
       </div>
-      <div className="flex items-center gap-1.5">
-        <AlertCircle size={12} className="text-danger" />
-        <span className="text-[10px] text-gray-500">Errors:</span>
-        <span className="text-xs font-mono text-danger">{metrics.error}</span>
+      <div className="command-stat">
+        <span className="command-stat__value text-rose-400">{metrics.error}</span>
+        <span className="command-stat__label">Errors</span>
       </div>
-      <div className="flex items-center gap-1.5">
-        <Clock size={12} className="text-gray-400" />
-        <span className="text-[10px] text-gray-500">Avg:</span>
-        <span className="text-xs font-mono text-gray-300">{metrics.avgDuration.toFixed(1)}ms</span>
+      <div className="command-stat">
+        <span className="command-stat__value">{metrics.avgDuration.toFixed(1)}ms</span>
+        <span className="command-stat__label">Avg</span>
       </div>
     </div>
   )
@@ -320,47 +414,53 @@ function FilterBar({
   ]
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2 border-b border-border/50">
-      <Filter size={12} className="text-gray-400" />
+    <div className="flex items-center gap-3 px-4 py-2 border-b border-white/5">
+      <Filter size={14} className="text-zinc-500" />
 
       {/* Status filters */}
       <div className="flex items-center gap-1">
         <button
           onClick={() => onFilterChange({ ...filters, success: undefined })}
-          className={`px-2 py-1 rounded text-[10px] font-mono transition-colors ${
-            filters.success === undefined ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'
+          className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+            filters.success === undefined
+              ? 'bg-white/10 text-white shadow-sm'
+              : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
           }`}
         >
-          ALL
+          All
         </button>
         <button
           onClick={() => onFilterChange({ ...filters, success: true })}
-          className={`px-2 py-1 rounded text-[10px] font-mono transition-colors ${
-            filters.success === true ? 'bg-live/20 text-live' : 'text-gray-500 hover:text-gray-300'
+          className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+            filters.success === true
+              ? 'bg-emerald-500/15 text-emerald-400 shadow-sm'
+              : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
           }`}
         >
-          SUCCESS
+          Success
         </button>
         <button
           onClick={() => onFilterChange({ ...filters, success: false })}
-          className={`px-2 py-1 rounded text-[10px] font-mono transition-colors ${
-            filters.success === false ? 'bg-warning/20 text-warning' : 'text-gray-500 hover:text-gray-300'
+          className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+            filters.success === false
+              ? 'bg-amber-500/15 text-amber-400 shadow-sm'
+              : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
           }`}
         >
-          BLOCKED
+          Blocked
         </button>
       </div>
 
-      <div className="w-px h-4 bg-border/50" />
+      <div className="w-px h-4 bg-white/10" />
 
       {/* Source filter dropdown */}
       <div className="relative">
         <button
           onClick={() => setShowSourceDropdown(!showSourceDropdown)}
-          className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono text-gray-500 hover:text-gray-300 transition-colors"
+          className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-all"
         >
-          SOURCE
-          {showSourceDropdown ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+          Source
+          {showSourceDropdown ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
         </button>
         <AnimatePresence>
           {showSourceDropdown && (
@@ -368,14 +468,14 @@ function FilterBar({
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
-              className="absolute top-full left-0 mt-1 bg-surface-elevated border border-border rounded shadow-lg z-50 min-w-[140px]"
+              className="absolute top-full left-0 mt-1 card-modern p-1 z-50 min-w-[160px]"
             >
               <button
                 onClick={() => {
                   onFilterChange({ ...filters, sources: undefined })
                   setShowSourceDropdown(false)
                 }}
-                className="w-full px-3 py-1.5 text-left text-[10px] font-mono text-gray-300 hover:bg-white/5"
+                className="w-full px-3 py-1.5 text-left text-xs text-zinc-300 hover:bg-white/5 rounded-lg transition-colors"
               >
                 All Sources
               </button>
@@ -386,7 +486,7 @@ function FilterBar({
                     onFilterChange({ ...filters, sources: [source] })
                     setShowSourceDropdown(false)
                   }}
-                  className="w-full px-3 py-1.5 text-left text-[10px] font-mono text-gray-300 hover:bg-white/5"
+                  className="w-full px-3 py-1.5 text-left text-xs text-zinc-300 hover:bg-white/5 rounded-lg transition-colors"
                 >
                   {source}
                 </button>
@@ -399,9 +499,9 @@ function FilterBar({
       {/* Clear button */}
       <button
         onClick={() => clearRuntimeEvents()}
-        className="ml-auto px-2 py-1 rounded text-[10px] font-mono text-gray-500 hover:text-danger transition-colors"
+        className="ml-auto btn-premium btn-premium-ghost text-xs"
       >
-        CLEAR LOG
+        Clear
       </button>
     </div>
   )
@@ -412,6 +512,8 @@ export function RuntimeInspector({ isOpen, onClose }: RuntimeInspectorProps): Re
   const [selectedEvent, setSelectedEvent] = useState<RuntimeEvent | null>(null)
   const [filters, setFilters] = useState<RuntimeEventFilter>({})
   const [autoScroll, setAutoScroll] = useState(true)
+  const [activeTab, setActiveTab] = useState<InspectorTab>('EVENTS')
+  const [nowMs, setNowMs] = useState<number>(() => Date.now())
   const listRef = useRef<HTMLDivElement>(null)
 
   // Subscribe to runtime events
@@ -419,14 +521,23 @@ export function RuntimeInspector({ isOpen, onClose }: RuntimeInspectorProps): Re
     if (!isOpen) return
 
     // Load initial events
-    setEvents(getRecentRuntimeEvents(200))
+    setTimeout(() => {
+      setEvents(getRecentRuntimeEvents(200))
+    }, 0)
+
+    const clock = setInterval(() => {
+      setNowMs(Date.now())
+    }, 1000)
 
     // Subscribe to new events
     const unsubscribe = subscribeToRuntimeEvents((event) => {
       setEvents((prev) => [...prev.slice(-199), event])
     })
 
-    return unsubscribe
+    return () => {
+      clearInterval(clock)
+      unsubscribe()
+    }
   }, [isOpen])
 
   // Auto-scroll to bottom
@@ -442,12 +553,12 @@ export function RuntimeInspector({ isOpen, onClose }: RuntimeInspectorProps): Re
     const success = events.filter((e) => e.status === 'SUCCESS').length
     const blocked = events.filter((e) => e.status === 'BLOCKED').length
     const error = events.filter((e) => e.status === 'ERROR').length
-    const avgDuration = total > 0 ? events.reduce((sum, e) => sum + (e.durationMs ?? 0), 0) / total : 0
+    const avgDuration =
+      total > 0 ? events.reduce((sum, e) => sum + (e.durationMs ?? 0), 0) / total : 0
 
     // Calculate commands per second (last 60 seconds window)
-    const now = Date.now()
     const windowMs = 60000
-    const recentEvents = events.filter((e) => now - e.timestamp < windowMs)
+    const recentEvents = events.filter((e) => nowMs - e.timestamp < windowMs)
     const commandsPerSec = recentEvents.length / 60
 
     // Calculate ratios
@@ -476,13 +587,14 @@ export function RuntimeInspector({ isOpen, onClose }: RuntimeInspectorProps): Re
       lastError,
       lastErrorTime
     }
-  }, [events])
+  }, [events, nowMs])
 
   const endpoints = useHealthStore((s) => s.endpoints)
 
   // Calculate health status
   const health = useMemo<HealthStatus>(() => {
-    const runtimeHealthy = metrics.blockedRatio < 0.2 && metrics.errorRatio < 0.1 && metrics.avgDuration < 50
+    const runtimeHealthy =
+      metrics.blockedRatio < 0.2 && metrics.errorRatio < 0.1 && metrics.avgDuration < 50
     const projEndpoint = endpoints.get('PROJECTION_WINDOW')
     const stageEndpoint = endpoints.get('STAGE_DISPLAY')
     const projectionConnected = projEndpoint?.connected ?? false
@@ -519,66 +631,109 @@ export function RuntimeInspector({ isOpen, onClose }: RuntimeInspectorProps): Re
   return (
     <motion.div
       initial={{ height: 0, opacity: 0 }}
-      animate={{ height: 280, opacity: 1 }}
+      animate={{ height: 320, opacity: 1 }}
       exit={{ height: 0, opacity: 0 }}
-      className="border-t border-border bg-surface-elevated flex flex-col overflow-hidden"
+      className="card-modern flex flex-col overflow-hidden"
+      style={{ borderRadius: 0, borderLeft: 0, borderRight: 0, borderBottom: 0 }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 bg-black/20">
-        <div className="flex items-center gap-2">
-          <Terminal size={14} className="text-accent" />
-          <span className="text-xs font-medium">Runtime Inspector</span>
-          <span className="text-[10px] text-gray-500 font-mono">({events.length} events)</span>
+      <div className="command-header" style={{ padding: '8px 16px' }}>
+        <div className="command-header__left">
+          <Terminal size={14} className="text-cyan-400" />
+          <span className="text-sm font-semibold">Runtime Inspector</span>
+          <span
+            className="status-badge status-badge--unknown"
+            style={{ padding: '2px 8px', fontSize: '10px' }}
+          >
+            <span className="status-badge__dot"></span>
+            {events.length} events
+          </span>
         </div>
-        <button
-          onClick={onClose}
-          className="p-1 rounded hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
-        >
-          <X size={14} />
-        </button>
+        <div className="command-header__right">
+          <button onClick={onClose} className="btn-premium btn-premium-ghost btn-premium-icon">
+            <X size={14} />
+          </button>
+        </div>
       </div>
 
-      {/* Health Strip */}
-      <HealthStrip health={health} />
+      {/* Tabs */}
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-white/5">
+        <TabButton tab="EVENTS" activeTab={activeTab} onClick={() => setActiveTab('EVENTS')} />
+        <TabButton tab="HEALTH" activeTab={activeTab} onClick={() => setActiveTab('HEALTH')} />
+        <TabButton tab="INPUTS" activeTab={activeTab} onClick={() => setActiveTab('INPUTS')} />
+        <TabButton
+          tab="SIMULATOR"
+          activeTab={activeTab}
+          onClick={() => setActiveTab('SIMULATOR')}
+          hidden={!import.meta.env.DEV}
+        />
+      </div>
 
-      {/* Metrics */}
-      <MetricsHeader metrics={metrics} />
+      {/* Tab content */}
+      {activeTab === 'EVENTS' && (
+        <>
+          <FilterBar filters={filters} onFilterChange={setFilters} />
 
-      {/* Filters */}
-      <FilterBar filters={filters} onFilterChange={setFilters} />
-
-      {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Event list */}
-        <div
-          ref={listRef}
-          onScroll={handleScroll}
-          className="flex-1 overflow-y-auto overflow-x-hidden"
-        >
-          {displayEvents.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-xs text-gray-500">
-              No events match current filters
+          <div className="flex-1 flex overflow-hidden">
+            {/* Event list */}
+            <div
+              ref={listRef}
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto overflow-x-hidden"
+            >
+              {displayEvents.length === 0 ? (
+                <div className="empty-state h-full">
+                  <div className="empty-state__title">No events</div>
+                  <div className="empty-state__description">Trigger commands to see activity</div>
+                </div>
+              ) : (
+                displayEvents.map((event) => (
+                  <EventRow
+                    key={event.id}
+                    event={event}
+                    isSelected={selectedEvent?.id === event.id}
+                    onClick={() => setSelectedEvent(selectedEvent?.id === event.id ? null : event)}
+                  />
+                ))
+              )}
             </div>
-          ) : (
-            displayEvents.map((event) => (
-              <EventRow
-                key={event.id}
-                event={event}
-                isSelected={selectedEvent?.id === event.id}
-                onClick={() => setSelectedEvent(selectedEvent?.id === event.id ? null : event)}
-              />
-            ))
-          )}
-        </div>
 
-        {/* Event details drawer */}
-        <div className="w-72 border-l border-border/50 overflow-y-auto bg-black/10">
-          <div className="px-4 py-2 border-b border-border/50 text-[10px] font-medium text-gray-400 uppercase tracking-wider">
-            Event Details
+            {/* Event details drawer */}
+            <div className="w-72 border-l border-white/5 overflow-y-auto bg-black/20">
+              <div className="px-4 py-2 border-b border-white/5 text-label">Event Details</div>
+              <EventDetails event={selectedEvent} />
+            </div>
           </div>
-          <EventDetails event={selectedEvent} />
+        </>
+      )}
+
+      {activeTab === 'HEALTH' && (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <HealthStrip health={health} />
+          <MetricsHeader metrics={metrics} />
+
+          <div className="flex-1 overflow-auto p-4">
+            <div className="card-modern p-4">
+              <div className="text-label mb-2">Diagnostics Ready</div>
+              <div className="text-xs text-zinc-400 space-y-1">
+                <div>• Adapter heartbeat monitoring</div>
+                <div>• IPC round-trip time measurement</div>
+                <div>• Memory pressure tracking</div>
+                <div>• Event loop lag detection</div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {activeTab === 'INPUTS' && <InputsTab />}
+
+      {activeTab === 'SIMULATOR' && import.meta.env.DEV && (
+        <div className="flex-1 overflow-hidden p-4">
+          <div className="text-label mb-3">Virtual Input Simulator</div>
+          <VirtualAdapterSimulator />
+        </div>
+      )}
     </motion.div>
   )
 }

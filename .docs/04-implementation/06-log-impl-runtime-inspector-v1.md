@@ -4,6 +4,9 @@
 **Status:** ✅ Complete
 **Phase:** 3 — Observability UI
 
+> **Update:** Runtime Inspector has evolved into a tabbed Operations Console. See:
+> - `.docs/log-impl-runtime-inspector-v2-tabs-simulator.md`
+
 ---
 
 ## Overview

@@ -369,7 +369,7 @@ export function ImportExportScreen(): React.JSX.Element {
           <div className="flex gap-8 h-full items-center justify-center">
             {/* Import Card */}
             <div
-              className={`flex-1 glass-panel p-10 flex flex-col items-center justify-center text-center border-2 border-dashed transition-all cursor-pointer rounded-xl h-80 ${
+              className={`flex-1 card-modern card-modern--interactive p-10 flex flex-col items-center justify-center text-center border-2 border-dashed transition-all h-80 ${
                 isDragging
                   ? 'border-accent bg-accent/10 scale-105 shadow-xl'
                   : 'border-border hover:border-accent/50 hover:bg-accent/5'
@@ -395,7 +395,7 @@ export function ImportExportScreen(): React.JSX.Element {
 
             {/* Export Card */}
             <div
-              className="flex-1 glass-panel p-10 flex flex-col items-center justify-center text-center border border-border hover:border-live/50 hover:bg-live/5 transition-colors cursor-pointer rounded-xl h-80"
+              className="flex-1 card-modern card-modern--interactive p-10 flex flex-col items-center justify-center text-center border border-border hover:border-live/50 hover:bg-live/5 transition-colors h-80"
               onClick={handleExport}
             >
               <Download size={48} className="text-live mb-6" />
@@ -445,7 +445,7 @@ export function ImportExportScreen(): React.JSX.Element {
                   <select
                     value={targetHymnalId}
                     onChange={(e) => setTargetHymnalId(Number(e.target.value))}
-                    className="bg-bg-elevated border border-border-default rounded px-2 py-1 text-xs outline-none focus:border-brand-primary"
+                    className="input-premium"
                   >
                     {hymnals.map((h) => (
                       <option key={h.id} value={h.id}>
@@ -454,7 +454,10 @@ export function ImportExportScreen(): React.JSX.Element {
                     ))}
                   </select>
                 </div>
-                <button onClick={() => setStep(1)} className="btn-ghost text-xs py-1 px-3">
+                <button
+                  onClick={() => setStep(1)}
+                  className="btn-premium btn-premium-ghost text-xs py-1 px-3"
+                >
                   Batal
                 </button>
               </div>
@@ -609,7 +612,7 @@ export function ImportExportScreen(): React.JSX.Element {
                   importing ||
                   (!allConflictsResolved && Object.keys(conflictResolutions).length > 0)
                 }
-                className="btn-primary py-2 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-premium btn-premium-primary py-2 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {importing
                   ? 'Mengimpor...'

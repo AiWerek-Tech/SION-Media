@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   Settings,
   UploadCloud,
@@ -56,6 +57,54 @@ export function ManagementMode(): React.JSX.Element {
     publisher: ''
   })
 
+  const [showJsonImportWizard, setShowJsonImportWizard] = useState(false)
+  const [jsonImportStep, setJsonImportStep] = useState<1 | 2 | 3>(1)
+  const [jsonImportFileName, setJsonImportFileName] = useState<string | null>(null)
+  const [jsonImportItems, setJsonImportItems] = useState<
+    Array<{
+      hymnal_id?: number
+      number?: string
+      title?: string
+      alternate_title?: string
+      lyrics_raw?: string
+      author?: string
+      composer?: string
+      key_note?: string
+      time_signature?: string
+      tempo?: string | number
+      category?: string
+      tags?: string
+    }>
+  >([])
+  const [jsonImportIsDragging, setJsonImportIsDragging] = useState(false)
+  const [jsonImportDefaultHymnalId, setJsonImportDefaultHymnalId] = useState<number | null>(
+    selectedHymnalId ?? hymnals[0]?.id ?? null
+  )
+  const [jsonImportHymnalRemap, setJsonImportHymnalRemap] = useState<Record<number, number>>({})
+  const [jsonImportConflictPolicy, setJsonImportConflictPolicy] = useState<
+    'skip' | 'overwrite' | 'append'
+  >('skip')
+  const [jsonImportDryRun, setJsonImportDryRun] = useState(false)
+  const [jsonImportReport, setJsonImportReport] = useState<null | {
+    total: number
+    validated: number
+    conflicts: number
+    inserted: number
+    skipped: number
+    updated_overwrite: number
+    updated_append: number
+    failed: number
+    unknownHymnalIds: number[]
+    errors: Array<{ index: number; message: string }>
+    dryRun?: boolean
+  }>(null)
+  const [jsonImportPerItemPolicy, setJsonImportPerItemPolicy] = useState<
+    Record<string, 'skip' | 'overwrite' | 'append'>
+  >({})
+  const [jsonImportBusy, setJsonImportBusy] = useState(false)
+  const [jsonImportProgressPct, setJsonImportProgressPct] = useState(0)
+  const [jsonImportProgressLabel, setJsonImportProgressLabel] = useState<string>('')
+
   const searchRef = useRef<HTMLInputElement | null>(null)
   const listViewportRef = useRef<HTMLDivElement | null>(null)
   const lyricsScrollRef = useRef<HTMLDivElement | null>(null)
@@ -111,6 +160,7 @@ export function ManagementMode(): React.JSX.Element {
         setListScrollTop(top)
         return
       }
+
       if (bottom > viewBottom) {
         const nextTop = Math.max(0, bottom - el.clientHeight)
         el.scrollTop = nextTop
@@ -119,6 +169,303 @@ export function ManagementMode(): React.JSX.Element {
     },
     [rowHeight]
   )
+
+  const resetJsonImportState = useCallback((): void => {
+    setJsonImportStep(1)
+    setJsonImportFileName(null)
+    setJsonImportItems([])
+    setJsonImportIsDragging(false)
+    setJsonImportDefaultHymnalId(selectedHymnalId ?? hymnals[0]?.id ?? null)
+    setJsonImportHymnalRemap({})
+    setJsonImportConflictPolicy('skip')
+    setJsonImportDryRun(false)
+    setJsonImportPerItemPolicy({})
+    setJsonImportReport(null)
+    setJsonImportBusy(false)
+    setJsonImportProgressPct(0)
+    setJsonImportProgressLabel('')
+  }, [hymnals, selectedHymnalId])
+
+  const normalizeImportNumber = useCallback((input: string): string => {
+    const raw = String(input ?? '').trim()
+    if (!raw) return raw
+    if (/^[0-9]+$/.test(raw)) {
+      const trimmed = raw.replace(/^0+/, '')
+      return trimmed === '' ? '0' : trimmed
+    }
+    return raw
+  }, [])
+
+  const parseJsonImportFile = useCallback(
+    async (file: File): Promise<void> => {
+      const MAX_BYTES = 10 * 1024 * 1024
+      if (file.size > MAX_BYTES) {
+        showToast('File terlalu besar. Maksimum 10MB.', 'error')
+        return
+      }
+      if (!file.name.toLowerCase().endsWith('.json')) {
+        showToast('Hanya mendukung file .json', 'error')
+        return
+      }
+
+      setJsonImportProgressLabel('Membaca file...')
+      setJsonImportProgressPct(10)
+
+      const text = await file.text()
+      let json: unknown
+      try {
+        json = JSON.parse(text)
+      } catch {
+        showToast('JSON tidak valid', 'error')
+        return
+      }
+
+      const extractItems = (input: unknown): Array<Record<string, unknown>> | null => {
+        if (Array.isArray(input)) return input as Array<Record<string, unknown>>
+        if (input && typeof input === 'object') {
+          const o = input as Record<string, unknown>
+          if (Array.isArray(o.songs)) return o.songs as Array<Record<string, unknown>>
+          if (Array.isArray(o.items)) return o.items as Array<Record<string, unknown>>
+        }
+        return null
+      }
+
+      const items = extractItems(json)
+      if (!items) {
+        showToast(
+          'Format JSON tidak dikenal. Gunakan array atau wrapper {schema_version, songs:[...]}.',
+          'error'
+        )
+        return
+      }
+      if (items.length === 0) {
+        showToast('JSON kosong', 'error')
+        return
+      }
+
+      setJsonImportProgressLabel('Menganalisis konten...')
+      setJsonImportProgressPct(35)
+
+      const normalizedItems = items.map((it) => ({
+        hymnal_id:
+          typeof it.hymnal_id === 'number'
+            ? it.hymnal_id
+            : typeof it.hymnal_id === 'string'
+              ? Number(it.hymnal_id)
+              : undefined,
+        number: it.number !== undefined ? String(it.number) : undefined,
+        title: it.title !== undefined ? String(it.title) : undefined,
+        alternate_title: it.alternate_title !== undefined ? String(it.alternate_title) : undefined,
+        lyrics_raw: it.lyrics_raw !== undefined ? String(it.lyrics_raw) : undefined,
+        author: it.author !== undefined ? String(it.author) : undefined,
+        composer: it.composer !== undefined ? String(it.composer) : undefined,
+        key_note: it.key_note !== undefined ? String(it.key_note) : undefined,
+        time_signature: it.time_signature !== undefined ? String(it.time_signature) : undefined,
+        tempo:
+          typeof it.tempo === 'number'
+            ? it.tempo
+            : it.tempo !== undefined
+              ? String(it.tempo)
+              : undefined,
+        category: it.category !== undefined ? String(it.category) : undefined,
+        tags: it.tags !== undefined ? String(it.tags) : undefined
+      }))
+
+      setJsonImportFileName(file.name)
+      setJsonImportItems(normalizedItems)
+      setJsonImportReport(null)
+      setJsonImportProgressLabel('Siap untuk preview')
+      setJsonImportProgressPct(60)
+      setJsonImportStep(2)
+    },
+    [showToast]
+  )
+
+  const jsonImportUnknownHymnalIds = useMemo(() => {
+    const known = new Set(hymnals.map((h) => h.id))
+    const unknown = new Set<number>()
+    for (const it of jsonImportItems) {
+      if (typeof it.hymnal_id === 'number' && Number.isFinite(it.hymnal_id)) {
+        if (!known.has(it.hymnal_id)) unknown.add(it.hymnal_id)
+      }
+    }
+    return Array.from(unknown).sort((a, b) => a - b)
+  }, [hymnals, jsonImportItems])
+
+  const jsonImportMissingHymnalCount = useMemo(() => {
+    return jsonImportItems.filter((it) => it.hymnal_id === undefined || it.hymnal_id === null)
+      .length
+  }, [jsonImportItems])
+
+  const jsonImportPreviewConflicts = useMemo(() => {
+    const defaultHymnal = jsonImportDefaultHymnalId
+    const known = new Set(hymnals.map((h) => h.id))
+    const existingKeySet = new Set(
+      songs.map((s) => `${s.hymnal_id}:${normalizeImportNumber(String(s.number ?? ''))}`)
+    )
+
+    const conflicts: Array<{
+      key: string
+      index: number
+      hymnal_id: number
+      number: string
+      title: string
+      existingTitle?: string
+    }> = []
+
+    for (let i = 0; i < jsonImportItems.length; i++) {
+      const it = jsonImportItems[i]
+      const numberRaw = String(it.number ?? '').trim()
+      const titleRaw = String(it.title ?? '').trim()
+      if (!numberRaw || !titleRaw) continue
+
+      const hymnalBase =
+        typeof it.hymnal_id === 'number' && Number.isFinite(it.hymnal_id)
+          ? it.hymnal_id
+          : defaultHymnal
+      if (!hymnalBase) continue
+      const hymnalResolved = jsonImportHymnalRemap[hymnalBase] ?? hymnalBase
+      if (!known.has(hymnalResolved)) continue
+
+      const normalizedNumber = normalizeImportNumber(numberRaw)
+      const key = `${hymnalResolved}:${normalizedNumber}`
+      if (existingKeySet.has(key)) {
+        const existing = songs.find(
+          (s) => `${s.hymnal_id}:${normalizeImportNumber(String(s.number ?? ''))}` === key
+        )
+        conflicts.push({
+          key,
+          index: i,
+          hymnal_id: hymnalResolved,
+          number: normalizedNumber,
+          title: titleRaw,
+          existingTitle: existing?.title
+        })
+      }
+    }
+
+    return conflicts
+  }, [
+    hymnals,
+    jsonImportDefaultHymnalId,
+    jsonImportHymnalRemap,
+    jsonImportItems,
+    normalizeImportNumber,
+    songs
+  ])
+
+  const setJsonImportPolicyForAllConflicts = useCallback(
+    (policy: 'skip' | 'overwrite' | 'append'): void => {
+      setJsonImportPerItemPolicy((prev) => {
+        const next = { ...prev }
+        for (const c of jsonImportPreviewConflicts) {
+          next[c.key] = policy
+        }
+        return next
+      })
+    },
+    [jsonImportPreviewConflicts]
+  )
+
+  const executeJsonImport = useCallback(async (): Promise<void> => {
+    if (jsonImportItems.length === 0) {
+      showToast('Tidak ada data untuk diimpor', 'error')
+      return
+    }
+    if (jsonImportMissingHymnalCount > 0 && !jsonImportDefaultHymnalId) {
+      showToast('Pilih buku lagu target untuk item yang tidak punya hymnal_id', 'error')
+      return
+    }
+    if (jsonImportUnknownHymnalIds.length > 0) {
+      const missingMap = jsonImportUnknownHymnalIds.filter((id) => !jsonImportHymnalRemap[id])
+      if (missingMap.length > 0) {
+        showToast('Mapping hymnal_id tidak dikenal belum lengkap', 'error')
+        return
+      }
+    }
+
+    setJsonImportBusy(true)
+    setJsonImportProgressLabel(
+      jsonImportDryRun ? 'Validasi dataset...' : 'Mengimpor ke database...'
+    )
+    setJsonImportProgressPct(20)
+
+    try {
+      const payload = {
+        items: jsonImportItems,
+        defaultHymnalId: jsonImportDefaultHymnalId,
+        hymnalIdRemap: jsonImportHymnalRemap,
+        conflictPolicy: jsonImportConflictPolicy,
+        perItemPolicy: jsonImportPerItemPolicy,
+        dryRun: jsonImportDryRun
+      }
+
+      setJsonImportStep(3)
+
+      const res = (await window.api.songs.importJson(payload)) as {
+        total: number
+        validated: number
+        conflicts: number
+        inserted: number
+        skipped: number
+        updated_overwrite: number
+        updated_append: number
+        failed: number
+        unknownHymnalIds: number[]
+        errors: Array<{ index: number; message: string }>
+        dryRun?: boolean
+      }
+
+      setJsonImportReport(res)
+
+      setJsonImportProgressPct(85)
+      setJsonImportProgressLabel('Menyegarkan library...')
+
+      if (!jsonImportDryRun && selectedHymnalId) {
+        await loadSongs(selectedHymnalId)
+      }
+
+      setJsonImportProgressPct(100)
+      setJsonImportProgressLabel('Selesai')
+
+      const summaryParts = [jsonImportDryRun ? 'Validated' : 'Imported', String(res.inserted)]
+      if (res.updated_overwrite > 0) summaryParts.push(`Overwrite ${res.updated_overwrite}`)
+      if (res.updated_append > 0) summaryParts.push(`Append ${res.updated_append}`)
+      if (res.skipped > 0) summaryParts.push(`Skipped ${res.skipped}`)
+      if (res.failed > 0) summaryParts.push(`Failed ${res.failed}`)
+      showToast(summaryParts.join(' | '), res.errors?.length ? 'error' : 'success')
+
+      setJsonImportBusy(false)
+    } catch (err) {
+      logger.error('JSON import failed:', err)
+      showToast('Import JSON gagal', 'error')
+      setJsonImportBusy(false)
+      setJsonImportStep(2)
+    }
+  }, [
+    jsonImportItems,
+    jsonImportMissingHymnalCount,
+    jsonImportDefaultHymnalId,
+    jsonImportUnknownHymnalIds,
+    jsonImportHymnalRemap,
+    jsonImportConflictPolicy,
+    jsonImportPerItemPolicy,
+    jsonImportDryRun,
+    selectedHymnalId,
+    loadSongs,
+    showToast
+  ])
+
+  const downloadJsonReport = useCallback((): void => {
+    if (!jsonImportReport) return
+    const dataStr = JSON.stringify(jsonImportReport, null, 2)
+    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr)
+    const exportFileDefaultName = `sion-media-json-import-report-${new Date().toISOString().split('T')[0]}.json`
+    const linkElement = document.createElement('a')
+    linkElement.setAttribute('href', dataUri)
+    linkElement.setAttribute('download', exportFileDefaultName)
+    linkElement.click()
+  }, [jsonImportReport])
 
   // Load hymnals on mount
   useEffect(() => {
@@ -570,21 +917,31 @@ export function ManagementMode(): React.JSX.Element {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowNewHymnalDialog(true)}
-              className="btn btn-primary text-xs flex items-center gap-2"
+              className="btn-premium btn-premium-primary text-xs flex items-center gap-2"
             >
               <FolderPlus size={14} />
               Buku Baru
             </button>
             <button
+              onClick={() => {
+                setShowJsonImportWizard(true)
+                resetJsonImportState()
+              }}
+              className="btn-premium btn-premium-ghost text-xs flex items-center gap-2"
+            >
+              <UploadCloud size={14} />
+              Import JSON
+            </button>
+            <button
               onClick={() => setScreen('import-export')}
-              className="btn btn-ghost text-xs flex items-center gap-2"
+              className="btn-premium btn-premium-ghost text-xs flex items-center gap-2"
             >
               <UploadCloud size={14} />
               Import/Export
             </button>
             <button
               onClick={() => setScreen('settings')}
-              className="btn btn-ghost text-xs flex items-center gap-2"
+              className="btn-premium btn-premium-ghost text-xs flex items-center gap-2"
             >
               <Settings size={14} />
               Pengaturan
@@ -782,7 +1139,7 @@ export function ManagementMode(): React.JSX.Element {
                   {/* Add Song Button */}
                   <button
                     onClick={handleAddNewSong}
-                    className="btn btn-primary text-xs flex items-center gap-2"
+                    className="btn-premium btn-premium-primary text-xs flex items-center gap-2"
                   >
                     <Plus size={16} />
                     Tambah Lagu
@@ -1657,6 +2014,428 @@ export function ManagementMode(): React.JSX.Element {
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        {showJsonImportWizard && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget && !jsonImportBusy) {
+                setShowJsonImportWizard(false)
+                resetJsonImportState()
+              }
+            }}
+          >
+            <motion.div
+              className="w-[min(920px,92vw)] max-h-[86vh] overflow-hidden rounded-2xl bg-bg-surface border border-border-default shadow-2xl"
+              initial={{ y: 12, scale: 0.98, opacity: 0 }}
+              animate={{ y: 0, scale: 1, opacity: 1 }}
+              exit={{ y: 12, scale: 0.98, opacity: 0 }}
+              transition={{ duration: 0.18 }}
+            >
+              <div className="px-6 py-4 border-b border-border-subtle flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-bold">Import Lagu via JSON</div>
+                  <div className="text-xs text-text-muted">
+                    {jsonImportFileName ? jsonImportFileName : 'Pilih file JSON (maks. 10MB)'}
+                  </div>
+                </div>
+                <button
+                  className="p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors"
+                  onClick={() => {
+                    if (jsonImportBusy) return
+                    setShowJsonImportWizard(false)
+                    resetJsonImportState()
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="px-6 py-3 border-b border-border-subtle bg-bg-base/40">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="text-[11px] text-text-muted font-semibold">
+                    Step {jsonImportStep}/3
+                  </div>
+                  <div className="flex-1 h-2 rounded-full bg-white/[0.06] overflow-hidden">
+                    <motion.div
+                      className="h-full bg-brand-primary"
+                      animate={{ width: `${Math.max(0, Math.min(100, jsonImportProgressPct))}%` }}
+                      transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+                    />
+                  </div>
+                  <div className="text-[11px] text-text-muted font-semibold whitespace-nowrap">
+                    {jsonImportProgressLabel}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 overflow-y-auto max-h-[calc(86vh-140px)]">
+                {jsonImportStep === 1 && (
+                  <div className="space-y-4">
+                    <div
+                      className={`rounded-2xl border-2 border-dashed p-10 text-center transition-all cursor-pointer ${
+                        jsonImportIsDragging
+                          ? 'border-brand-primary bg-brand-primary/10'
+                          : 'border-border-default hover:border-brand-primary/40 hover:bg-brand-primary/5'
+                      }`}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        setJsonImportIsDragging(true)
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault()
+                        setJsonImportIsDragging(false)
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        setJsonImportIsDragging(false)
+                        const f = e.dataTransfer.files?.[0]
+                        if (f) void parseJsonImportFile(f)
+                      }}
+                      onClick={() => {
+                        const el = document.getElementById(
+                          'json-import-file-input'
+                        ) as HTMLInputElement | null
+                        el?.click()
+                      }}
+                    >
+                      <UploadCloud size={44} className="mx-auto text-brand-primary mb-4" />
+                      <div className="text-sm font-bold">Drag & drop JSON di sini</div>
+                      <div className="text-xs text-text-muted mt-1">
+                        atau klik untuk memilih file
+                      </div>
+                      <input
+                        id="json-import-file-input"
+                        type="file"
+                        accept=".json,application/json"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0]
+                          if (f) void parseJsonImportFile(f)
+                        }}
+                      />
+                    </div>
+
+                    <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+                      <div className="text-[11px] font-bold text-text-primary mb-1">
+                        Field wajib
+                      </div>
+                      <div className="text-[11px] text-text-muted">
+                        number, title, lyrics_raw, hymnal_id (atau pilih Default Hymnal)
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {jsonImportStep === 2 && (
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+                        <div className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+                          Total
+                        </div>
+                        <div className="text-2xl font-bold mt-1">{jsonImportItems.length}</div>
+                      </div>
+                      <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+                        <div className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+                          Konflik (preview)
+                        </div>
+                        <div className="text-2xl font-bold mt-1">
+                          {jsonImportPreviewConflicts.length}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+                        <div className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+                          Missing hymnal_id
+                        </div>
+                        <div className="text-2xl font-bold mt-1">
+                          {jsonImportMissingHymnalCount}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                          <div className="text-[11px] font-bold">
+                            Default Hymnal (untuk item tanpa hymnal_id)
+                          </div>
+                          <div className="text-[11px] text-text-muted">
+                            Ini juga dipakai untuk proses preview konflik.
+                          </div>
+                        </div>
+                        <select
+                          value={jsonImportDefaultHymnalId ?? ''}
+                          onChange={(e) =>
+                            setJsonImportDefaultHymnalId(
+                              e.target.value ? Number(e.target.value) : null
+                            )
+                          }
+                          className="input-premium"
+                        >
+                          <option value="">(Tidak dipilih)</option>
+                          {hymnals.map((h) => (
+                            <option key={h.id} value={h.id}>
+                              {h.code} - {h.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {jsonImportUnknownHymnalIds.length > 0 && (
+                      <div className="rounded-2xl bg-status-warning/10 border border-status-warning/20 p-4">
+                        <div className="text-[11px] font-bold text-status-warning">
+                          hymnal_id tidak dikenal terdeteksi
+                        </div>
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {jsonImportUnknownHymnalIds.map((unknownId) => (
+                            <div
+                              key={unknownId}
+                              className="rounded-xl bg-bg-surface border border-border-subtle p-3 flex items-center justify-between gap-3"
+                            >
+                              <div className="text-[11px] text-text-primary font-semibold">
+                                hymnal_id {unknownId}
+                              </div>
+                              <select
+                                value={jsonImportHymnalRemap[unknownId] ?? ''}
+                                onChange={(e) => {
+                                  const target = e.target.value ? Number(e.target.value) : NaN
+                                  setJsonImportHymnalRemap((prev) =>
+                                    Number.isFinite(target)
+                                      ? { ...prev, [unknownId]: target }
+                                      : prev
+                                  )
+                                }}
+                                className="input-premium"
+                              >
+                                <option value="">Pilih mapping</option>
+                                {hymnals.map((h) => (
+                                  <option key={h.id} value={h.id}>
+                                    {h.code} - {h.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div>
+                          <div className="text-[11px] font-bold">Default Conflict Policy</div>
+                          <div className="text-[11px] text-text-muted">
+                            Berlaku untuk konflik yang tidak di-override per item.
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-2 text-[11px] text-text-muted font-semibold">
+                            <input
+                              type="checkbox"
+                              checked={jsonImportDryRun}
+                              onChange={(e) => setJsonImportDryRun(e.target.checked)}
+                            />
+                            Dry Run (Validate Only)
+                          </label>
+                          <select
+                            value={jsonImportConflictPolicy}
+                            onChange={(e) =>
+                              setJsonImportConflictPolicy(
+                                e.target.value as 'skip' | 'overwrite' | 'append'
+                              )
+                            }
+                            className="input-premium"
+                          >
+                            <option value="skip">SKIP</option>
+                            <option value="overwrite">OVERWRITE</option>
+                            <option value="append">APPEND</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {jsonImportPreviewConflicts.length > 0 && (
+                      <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 overflow-hidden">
+                        <div className="p-4 border-b border-border-subtle flex items-center justify-between gap-3 flex-wrap">
+                          <div>
+                            <div className="text-[11px] font-bold">Conflict Resolution</div>
+                            <div className="text-[11px] text-text-muted">
+                              Konflik berbasis (hymnal_id, number) setelah normalisasi.
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              className="btn-premium btn-premium-ghost text-xs"
+                              onClick={() => setJsonImportPolicyForAllConflicts('skip')}
+                            >
+                              SKIP all
+                            </button>
+                            <button
+                              className="btn-premium btn-premium-ghost text-xs"
+                              onClick={() => setJsonImportPolicyForAllConflicts('overwrite')}
+                            >
+                              OVERWRITE all
+                            </button>
+                            <button
+                              className="btn-premium btn-premium-ghost text-xs"
+                              onClick={() => setJsonImportPolicyForAllConflicts('append')}
+                            >
+                              APPEND all
+                            </button>
+                          </div>
+                        </div>
+                        <div className="max-h-[240px] overflow-y-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead className="sticky top-0 bg-bg-surface">
+                              <tr className="border-b border-border-subtle">
+                                <th className="p-3">Key</th>
+                                <th className="p-3">Incoming</th>
+                                <th className="p-3">Existing</th>
+                                <th className="p-3 w-40">Policy</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {jsonImportPreviewConflicts.map((c) => (
+                                <tr key={c.key} className="border-b border-border-subtle">
+                                  <td className="p-3 font-mono text-[11px] text-text-muted">
+                                    {c.key}
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="font-semibold">{c.number}</div>
+                                    <div className="text-text-muted text-[11px]">{c.title}</div>
+                                  </td>
+                                  <td className="p-3 text-[11px] text-text-muted">
+                                    {c.existingTitle ? c.existingTitle : '—'}
+                                  </td>
+                                  <td className="p-3">
+                                    <select
+                                      value={jsonImportPerItemPolicy[c.key] ?? ''}
+                                      onChange={(e) => {
+                                        const v = e.target.value as
+                                          | 'skip'
+                                          | 'overwrite'
+                                          | 'append'
+                                          | ''
+                                        setJsonImportPerItemPolicy((prev) => {
+                                          const next = { ...prev }
+                                          if (!v) delete next[c.key]
+                                          else next[c.key] = v
+                                          return next
+                                        })
+                                      }}
+                                      className="input-premium w-full"
+                                    >
+                                      <option value="">(Default)</option>
+                                      <option value="skip">SKIP</option>
+                                      <option value="overwrite">OVERWRITE</option>
+                                      <option value="append">APPEND</option>
+                                    </select>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between gap-3">
+                      <button
+                        className="btn-premium btn-premium-ghost"
+                        disabled={jsonImportBusy}
+                        onClick={() => {
+                          setJsonImportStep(1)
+                          setJsonImportReport(null)
+                        }}
+                      >
+                        Kembali
+                      </button>
+                      <button
+                        className="btn-premium btn-premium-primary"
+                        disabled={jsonImportBusy}
+                        onClick={() => void executeJsonImport()}
+                      >
+                        {jsonImportDryRun ? 'Validate' : 'Import'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {jsonImportStep !== 1 && jsonImportStep !== 2 && (
+                  <div className="space-y-4">
+                    <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-5">
+                      <div className="text-sm font-bold">
+                        {jsonImportBusy
+                          ? jsonImportDryRun
+                            ? 'Validasi berjalan...'
+                            : 'Import berjalan...'
+                          : 'Selesai'}
+                      </div>
+                      <div className="text-xs text-text-muted mt-1">
+                        {jsonImportBusy
+                          ? 'Jangan tutup aplikasi sampai proses selesai.'
+                          : 'Kamu bisa mengunduh report untuk audit/debugging.'}
+                      </div>
+                    </div>
+
+                    {jsonImportReport && (
+                      <div className="rounded-2xl bg-bg-base/40 border border-border-subtle p-4 space-y-2">
+                        <div className="text-[11px] font-bold">Import Session Report</div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[11px]">
+                          <div>
+                            <div className="text-text-muted">Total</div>
+                            <div className="font-bold">{jsonImportReport.total}</div>
+                          </div>
+                          <div>
+                            <div className="text-text-muted">Validated</div>
+                            <div className="font-bold">{jsonImportReport.validated}</div>
+                          </div>
+                          <div>
+                            <div className="text-text-muted">Conflicts</div>
+                            <div className="font-bold">{jsonImportReport.conflicts}</div>
+                          </div>
+                          <div>
+                            <div className="text-text-muted">Failed</div>
+                            <div className="font-bold">{jsonImportReport.failed}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 flex-wrap pt-2">
+                          <div className="text-[11px] text-text-muted">
+                            Persisted sebagai `last_json_import_report` di `app_state`.
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              className="btn-premium btn-premium-ghost"
+                              onClick={downloadJsonReport}
+                            >
+                              Download Report
+                            </button>
+                            <button
+                              className="btn-premium btn-premium-primary"
+                              onClick={() => {
+                                setShowJsonImportWizard(false)
+                                resetJsonImportState()
+                              }}
+                            >
+                              Selesai
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -80,58 +80,228 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
     'Menyinkronkan konfigurasi...'
   ]
 
+  const statusTitle = ready ? 'All systems operational' : statusMessages[statusIndex]
+
   return (
-    <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden px-6">
+    <div className="drag-area relative flex h-full w-full flex-col items-center justify-center overflow-hidden px-6">
       <MeshBackground />
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-6 flex items-center justify-between px-6 text-[10px] font-bold tracking-widest text-text-disabled/70">
-        <span>Version 3.0.0 “Aurora”</span>
-        <span className="uppercase">SION Media</span>
-      </div>
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-24"
+        style={{
+          background:
+            'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.0) 100%)'
+        }}
+      />
+
+      <div
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 50% 0%, rgba(255,255,255,0.05), transparent 45%),' +
+            'radial-gradient(circle at 0% 100%, rgba(255,255,255,0.03), transparent 40%)'
+        }}
+      />
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.92, filter: 'blur(10px)' }}
-        animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-        transition={{ duration: 0.9, ease: easePremium }}
-        className="flex flex-col items-center text-center"
-      >
-        {/* Official Logo */}
-        <div className="mb-10 flex h-28 w-28 items-center justify-center rounded-[28px] border border-brand-primary/15 bg-brand-primary/[0.07] shadow-[0_0_48px_rgba(59,130,246,0.14)]">
-          <img
-            src={logoSrc}
-            alt="SION Media"
-            className="h-16 w-16 object-contain"
-            draggable={false}
-          />
-        </div>
+        className="pointer-events-none absolute inset-0 -z-10"
+        initial={{ opacity: 0.55 }}
+        animate={{ opacity: [0.45, 0.7, 0.45] }}
+        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+        style={{
+          background:
+            'radial-gradient(circle at 55% 45%, rgba(59,130,246,0.10), transparent 58%),' +
+            'radial-gradient(circle at 45% 55%, rgba(139,92,246,0.08), transparent 62%)'
+        }}
+      />
 
-        <h1 className="text-[32px] font-black tracking-tight text-text-primary">SION Media</h1>
-        <p className="mt-3 text-sm font-medium tracking-wide text-text-secondary">
-          Elevating Worship Experience
-        </p>
+      <motion.div
+        className="pointer-events-none absolute inset-0 -z-10"
+        initial={{ opacity: 0.22 }}
+        animate={{ opacity: [0.18, 0.26, 0.18] }}
+        transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
+        style={{
+          background:
+            'radial-gradient(700px 320px at 20% 30%, rgba(59,130,246,0.10), transparent 60%),' +
+            'radial-gradient(680px 340px at 85% 55%, rgba(139,92,246,0.08), transparent 62%),' +
+            'radial-gradient(620px 320px at 55% 85%, rgba(59,130,246,0.06), transparent 60%)',
+          filter: 'blur(24px)'
+        }}
+      />
 
-        {/* Linear Progress Bar */}
-        <div className="mt-12 h-[2px] w-56 overflow-hidden rounded-full bg-white/[0.06]">
+      <div
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{
+          background:
+            'radial-gradient(circle at 50% 50%, transparent 45%, rgba(0,0,0,0.55) 100%)'
+        }}
+      />
+
+      <div
+        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.035] mix-blend-overlay"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/></svg>\")"
+        }}
+      />
+
+      {/* Ambient volumetric glow behind logo */}
+      <motion.div
+        className="pointer-events-none absolute top-[22%] left-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 0.55, scale: 1 }}
+        transition={{ duration: 1.4, ease: easePremium }}
+        style={{
+          background:
+            'radial-gradient(circle at 50% 50%, rgba(59,130,246,0.22), transparent 55%),' +
+            'radial-gradient(circle at 50% 50%, rgba(139,92,246,0.12), transparent 68%)',
+          filter: 'blur(60px)'
+        }}
+      />
+
+      {/* Floating content stack - generous gaps between sections */}
+      <div className="no-drag-area relative z-10 flex flex-col items-center text-center gap-10">
+        {/* Header Group - tight internal spacing */}
+        <div className="flex flex-col items-center gap-3">
+          {/* Logo with volumetric glow */}
           <motion.div
-            className="h-full bg-brand-primary"
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.3, ease: 'linear' }}
-          />
-        </div>
-        <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted">
-          {ready ? 'System Ready' : statusMessages[statusIndex]}
-        </p>
+            className="relative flex h-[96px] w-[96px] items-center justify-center"
+            initial={{ opacity: 0, y: 12, scale: 0.92 }}
+            animate={{ opacity: 1, y: [0, -4, 0], scale: 1 }}
+            transition={{
+              opacity: { duration: 0.9, ease: easePremium },
+              scale: { duration: 0.9, ease: easePremium },
+              y: { duration: 9, repeat: Infinity, ease: 'easeInOut' }
+            }}
+          >
+            <div
+              className="pointer-events-none absolute inset-[-24px]"
+              style={{
+                background:
+                  'radial-gradient(circle at 50% 50%, rgba(59,130,246,0.28), transparent 60%),' +
+                  'radial-gradient(circle at 50% 50%, rgba(139,92,246,0.14), transparent 72%)',
+                filter: 'blur(22px)'
+              }}
+            />
+            <motion.div
+              className="pointer-events-none absolute inset-[-44px]"
+              animate={{ opacity: [0.35, 0.55, 0.35], scale: [0.98, 1.03, 0.98] }}
+              transition={{ duration: 8.5, repeat: Infinity, ease: 'easeInOut' }}
+              style={{
+                background:
+                  'radial-gradient(circle at 50% 50%, rgba(59,130,246,0.16), transparent 58%),' +
+                  'radial-gradient(circle at 50% 50%, rgba(139,92,246,0.09), transparent 70%)',
+                filter: 'blur(28px)'
+              }}
+            />
+            <img src={logoSrc} alt="SION Media" className="h-16 w-16 object-contain" draggable={false} />
+          </motion.div>
 
-        {/* Get Started */}
+          {/* Ambient haze behind title */}
+          <motion.div
+            className="pointer-events-none absolute -top-4 left-1/2 h-[280px] w-[500px] -translate-x-1/2"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.3 }}
+            transition={{ duration: 1.6, ease: easePremium }}
+            style={{
+              background:
+                'radial-gradient(circle at 50% 50%, rgba(59,130,246,0.12), transparent 55%),' +
+                'radial-gradient(circle at 50% 50%, rgba(139,92,246,0.06), transparent 70%)',
+              filter: 'blur(50px)'
+            }}
+          />
+
+          {/* Title */}
+          <motion.h1
+            className="text-[56px] font-bold leading-[1.0] tracking-tight text-text-primary"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.12, ease: easePremium }}
+          >
+            SION Media
+          </motion.h1>
+
+          {/* Subtitle */}
+          <motion.p
+            className="text-[16px] font-normal tracking-wide text-text-secondary/70"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.22, ease: easePremium }}
+          >
+            Elevating Worship Experience
+          </motion.p>
+        </div>
+
+        {/* System status - glassmorphism pill */}
+        <motion.div
+          className="flex items-center gap-3 rounded-full bg-white/[0.04] px-5 py-2.5 backdrop-blur-sm ring-1 ring-white/[0.06]"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, delay: 0.32, ease: easePremium }}
+        >
+          {/* Pulsing indicator */}
+          <span className="relative flex h-2.5 w-2.5">
+            {ready && (
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-primary opacity-60" />
+            )}
+            <span
+              className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                ready
+                  ? 'bg-brand-primary shadow-[0_0_10px_rgba(59,130,246,0.55)]'
+                  : 'animate-pulse bg-white/[0.50]'
+              }`}
+            />
+          </span>
+          <span className="text-[12px] font-medium tracking-wide text-text-secondary/80">
+            {ready
+              ? 'Engine Online • Library Indexed • Renderer Ready'
+              : `${statusTitle}${!ready ? `  •  ${Math.round(progress)}%` : ''}`
+            }
+          </span>
+        </motion.div>
+
+        {/* Progress bar - only during loading */}
+        {!ready && (
+          <motion.div
+            className="h-[3px] w-[200px] overflow-hidden rounded-full bg-white/[0.06]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4, delay: 0.38 }}
+          >
+            <motion.div
+              className="h-full bg-[linear-gradient(90deg,rgba(59,130,246,1),rgba(139,92,246,1))]"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.25, ease: 'linear' }}
+            />
+          </motion.div>
+        )}
+
+        {/* CTA - isolated with breathing room */}
         <AnimatePresence>
           {ready && (
-            <MagneticButton onClick={onNext}>
-              Get Started
-              <ArrowRight size={16} />
-            </MagneticButton>
+            <motion.div
+              initial={{ opacity: 0, y: 14, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.5, ease: easePremium }}
+            >
+              <MagneticButton onClick={onNext}>
+                Launch Studio
+                <ArrowRight size={16} />
+              </MagneticButton>
+            </motion.div>
           )}
         </AnimatePresence>
+      </div>
+
+      {/* Version badge - bottom of screen, away from CTA */}
+      <motion.div
+        className="no-drag-area absolute bottom-6 text-[10px] font-mono uppercase tracking-widest text-text-disabled/35"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.5 }}
+      >
+        V3.0 AURORA
       </motion.div>
     </div>
   )
@@ -157,10 +327,10 @@ function ThemePhase({
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.55, ease: easePremium }}
-        className="relative z-10 w-full max-w-xl"
+        className="relative z-10 w-full max-w-3xl px-4"
       >
-        <div className="mb-12 text-center">
-          <h2 className="text-[26px] font-black tracking-tight text-text-primary">
+        <div className="mb-16 text-center">
+          <h2 className="text-2xl font-bold tracking-tight text-text-primary">
             Pilih Tampilan
           </h2>
           <p className="mt-3 text-sm text-text-secondary">
@@ -172,16 +342,16 @@ function ThemePhase({
           {/* System */}
           <button
             onClick={() => onChange('system')}
-            className={`group relative flex flex-col items-center rounded-2xl border p-10 transition-all duration-300 ${
+            className={`group relative flex flex-col items-center rounded-2xl border p-8 transition-all duration-300 ${
               value === 'system'
                 ? 'border-brand-primary/30 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.07),transparent_60%),linear-gradient(180deg,rgba(27,32,49,0.62),rgba(13,15,23,0.46))] shadow-[0_0_28px_rgba(59,130,246,0.10)]'
                 : 'border-border-subtle bg-bg-surface/30 hover:border-border-default hover:bg-bg-surface/50'
             }`}
           >
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.03]">
-              <MonitorSmartphone size={28} className="text-accent" />
+            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03]">
+              <MonitorSmartphone size={24} className="text-accent" />
             </div>
-            <h3 className="mb-2 text-base font-bold text-text-primary">System</h3>
+            <h3 className="mb-2 text-sm font-semibold text-text-primary">System</h3>
             <p className="text-center text-xs leading-relaxed text-text-muted">
               Ikuti pengaturan tema dari OS.
             </p>
@@ -195,16 +365,16 @@ function ThemePhase({
           {/* Celestial Dark */}
           <button
             onClick={() => onChange('dark')}
-            className={`group relative flex flex-col items-center rounded-2xl border p-10 transition-all duration-300 ${
+            className={`group relative flex flex-col items-center rounded-2xl border p-8 transition-all duration-300 ${
               value === 'dark'
                 ? 'border-brand-primary/30 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.08),transparent_60%),linear-gradient(180deg,rgba(27,32,49,0.70),rgba(13,15,23,0.55))] shadow-[0_0_28px_rgba(59,130,246,0.10)]'
                 : 'border-border-subtle bg-bg-surface/30 hover:border-border-default hover:bg-bg-surface/50'
             }`}
           >
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.03]">
-              <Moon size={28} className="text-brand-primary" />
+            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03]">
+              <Moon size={24} className="text-brand-primary" />
             </div>
-            <h3 className="mb-2 text-base font-bold text-text-primary">Celestial Dark</h3>
+            <h3 className="mb-2 text-sm font-semibold text-text-primary">Celestial Dark</h3>
             <p className="text-center text-xs leading-relaxed text-text-muted">
               Deep indigo & black. Fokus maksimal untuk operasi malam hari.
             </p>
@@ -218,16 +388,16 @@ function ThemePhase({
           {/* Sacred Light */}
           <button
             onClick={() => onChange('light')}
-            className={`group relative flex flex-col items-center rounded-2xl border p-10 transition-all duration-300 ${
+            className={`group relative flex flex-col items-center rounded-2xl border p-8 transition-all duration-300 ${
               value === 'light'
                 ? 'border-brand-primary/30 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.06),transparent_60%),linear-gradient(180deg,rgba(241,245,249,0.95),rgba(226,232,240,0.90))] shadow-[0_0_28px_rgba(59,130,246,0.08)]'
                 : 'border-border-subtle bg-bg-surface/30 hover:border-border-default hover:bg-bg-surface/50'
             }`}
           >
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.03]">
-              <Sun size={28} className="text-status-warning" />
+            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03]">
+              <Sun size={24} className="text-status-warning" />
             </div>
-            <h3 className="mb-2 text-base font-bold text-text-primary">Sacred Light</h3>
+            <h3 className="mb-2 text-sm font-semibold text-text-primary">Sacred Light</h3>
             <p className="text-center text-xs leading-relaxed text-text-muted">
               Clean grey & white. Terang dan nyaman untuk penggunaan siang.
             </p>
@@ -240,13 +410,13 @@ function ThemePhase({
         </div>
 
         <div className="mt-12 flex justify-center">
-          <div className="flex items-center gap-3">
-            <button onClick={onBack} className="btn-premium h-11 px-8 text-[13px]">
+          <div className="flex items-center gap-4">
+            <button onClick={onBack} className="btn-premium h-11 px-10 text-[13px]">
               Kembali
             </button>
             <button
               onClick={onNext}
-              className="btn-premium btn-premium-primary h-11 px-10 text-[13px]"
+              className="btn-premium btn-premium-primary h-11 px-12 text-[13px]"
             >
               Lanjutkan
               <ArrowRight size={16} />
@@ -434,16 +604,11 @@ function MagneticButton({
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       style={{ x: springX, y: springY }}
-      className="btn-premium btn-premium-primary group relative mt-12 h-11 px-10 text-[13px]"
+      className="group relative inline-flex h-11 items-center justify-center gap-2 rounded-full bg-brand-primary px-8 text-[14px] font-semibold text-white shadow-lg shadow-brand-primary/25 transition-all duration-200 hover:bg-brand-primary-hover hover:shadow-xl hover:shadow-brand-primary/30 hover:-translate-y-0.5"
     >
-      {/* Outer glow */}
-      <div
-        className="pointer-events-none absolute inset-[-6px] rounded-[inherit] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-        style={{
-          background: 'radial-gradient(circle at 50% 50%, rgba(59,130,246,0.30), transparent 65%)',
-          filter: 'blur(10px)'
-        }}
-      />
+      {/* Inner highlight */}
+      <div className="pointer-events-none absolute inset-0 rounded-[inherit] [background:linear-gradient(180deg,rgba(255,255,255,0.1)_0%,transparent_50%)]" />
+
       <span className="relative z-10 flex items-center gap-2">{children}</span>
     </motion.button>
   )

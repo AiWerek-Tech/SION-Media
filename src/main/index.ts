@@ -19,6 +19,26 @@ import { setupIPCHealth } from './ipc-health'
 import { createMainWindow, createProjectionWindow } from './windows'
 import { setupDisplayMonitor } from './display-monitor'
 
+process.on('uncaughtException', (err) => {
+  console.error('[main] uncaughtException:', err)
+})
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[main] unhandledRejection:', reason)
+})
+
+process.on('exit', (code) => {
+  console.error('[main] process exit', { code })
+})
+
+app.on('before-quit', () => {
+  console.error('[main] before-quit')
+})
+
+app.on('will-quit', () => {
+  console.error('[main] will-quit')
+})
+
 if (is.dev) {
   app.commandLine.appendSwitch(
     'disk-cache-dir',

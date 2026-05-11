@@ -464,7 +464,7 @@ export function PlaylistPanel({
                 <div className="p-4 bg-bg-base/50 border-t border-border-subtle flex justify-end">
                   <button
                     onClick={() => setShowLoadDialog(false)}
-                    className="btn btn-ghost text-xs"
+                    className="btn-premium btn-premium-ghost text-xs"
                   >
                     Tutup
                   </button>

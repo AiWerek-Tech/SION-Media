@@ -16,8 +16,7 @@ export function SongEditorScreen(): React.JSX.Element {
   const { editingSong, hymnals, songs, setScreen, loadSongs, showToast } = useAppStore()
   const isEditing = !!editingSong
 
-  const inputBaseClass =
-    'w-full h-11 bg-bg-base/50 border border-border-subtle/60 rounded-xl px-4 text-[14px] font-medium text-text-primary focus:border-brand-primary/50 focus:ring-4 focus:ring-brand-primary/10 outline-none transition'
+  const inputBaseClass = 'input-premium w-full h-11 px-4 text-[14px] font-medium'
   const selectBaseClass = `${inputBaseClass} appearance-none cursor-pointer`
 
   const [hymnalId, setHymnalId] = useState<number>(editingSong?.hymnal_id || hymnals[0]?.id || 1)

@@ -12,12 +12,18 @@ export function SectionHeader({
   action
 }: SectionHeaderProps): React.JSX.Element {
   return (
-    <div className="flex items-end justify-between mb-5">
-      <div>
-        <h3 className="text-lg font-semibold text-text-primary tracking-tight">{title}</h3>
-        {description && <p className="text-[12px] text-text-muted mt-1">{description}</p>}
+    <div className="flex items-center justify-between mb-6 group">
+      <div className="space-y-1">
+        <h3 className="text-section-title font-bold text-text-primary tracking-tight group-hover:text-brand-primary transition-colors duration-300">
+          {title}
+        </h3>
+        {description && (
+          <p className="text-label uppercase tracking-widest text-text-muted font-medium">
+            {description}
+          </p>
+        )}
       </div>
-      {action && <div>{action}</div>}
+      {action && <div className="flex-shrink-0 ml-4">{action}</div>}
     </div>
   )
 }

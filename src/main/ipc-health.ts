@@ -56,7 +56,7 @@ class IPCHealthRegistry {
     // Listen for heartbeats from renderer windows
     ipcMain.on('health:heartbeat', (event, endpointId: EndpointId) => {
       this.recordHeartbeat(endpointId)
-      
+
       // Echo back immediately to allow renderer to calculate latency
       event.sender.send('health:heartbeat-ack', { id: endpointId, timestamp: Date.now() })
     })
@@ -136,7 +136,7 @@ export const healthRegistry = new IPCHealthRegistry()
 
 export function setupIPCHealth(): void {
   healthRegistry.setup()
-  
+
   // Expose manual fetch for renderer initial load
   ipcMain.handle('health:get-status', () => {
     return healthRegistry.getState()

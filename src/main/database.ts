@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3'
 import { join } from 'path'
 import { app } from 'electron'
-import { copyFileSync, existsSync, mkdirSync, unlinkSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from 'fs'
 import { initialSongs } from './seed-data'
 import { runMigrations } from './migrations'
 
@@ -15,11 +15,586 @@ function checkpointWal(mode: 'PASSIVE' | 'FULL' | 'RESTART' | 'TRUNCATE' = 'PASS
   }
 }
 
+export function getSongForConflictByNumber(
+  hymnalId: number,
+  number: string
+): {
+  id: number
+  hymnal_id: number
+  hymnal_code: string
+  hymnal_name: string
+  hymnal_is_official: number
+  number: string
+  title: string
+  lyrics_raw: string
+  author: string
+  composer: string
+  key_note: string
+  time_signature: string
+  category: string
+  tags: string
+} | null {
+  const normalizedNumber = normalizeSongNumber(String(number ?? ''))
+  const row = db
+    .prepare(
+      `SELECT s.id, s.hymnal_id, h.code as hymnal_code, h.name as hymnal_name, h.is_official as hymnal_is_official,
+              s.number, s.title, s.lyrics_raw, s.author, s.composer, s.key_note, s.time_signature, s.category, s.tags
+       FROM songs s JOIN hymnals h ON s.hymnal_id = h.id
+       WHERE s.hymnal_id = ? AND s.number = ?
+       LIMIT 1`
+    )
+    .get(hymnalId, normalizedNumber) as
+    | {
+        id: number
+        hymnal_id: number
+        hymnal_code: string
+        hymnal_name: string
+        hymnal_is_official: number
+        number: string
+        title: string
+        lyrics_raw: string
+        author: string
+        composer: string
+        key_note: string
+        time_signature: string
+        category: string
+        tags: string
+      }
+    | undefined
+  return row ?? null
+}
+
+export function findSongsForConflictByTitle(
+  hymnalId: number,
+  title: string,
+  limit: number = 10
+): Array<{
+  id: number
+  hymnal_id: number
+  hymnal_code: string
+  hymnal_name: string
+  hymnal_is_official: number
+  number: string
+  title: string
+  lyrics_raw: string
+  author: string
+  composer: string
+  key_note: string
+  time_signature: string
+  category: string
+  tags: string
+}> {
+  const t = String(title ?? '').trim()
+  if (!t) return []
+  const q = `%${t.slice(0, 60)}%`
+  const safeLimit = Math.max(1, Math.min(50, Math.floor(limit)))
+
+  return db
+    .prepare(
+      `SELECT s.id, s.hymnal_id, h.code as hymnal_code, h.name as hymnal_name, h.is_official as hymnal_is_official,
+              s.number, s.title, s.lyrics_raw, s.author, s.composer, s.key_note, s.time_signature, s.category, s.tags
+       FROM songs s JOIN hymnals h ON s.hymnal_id = h.id
+       WHERE s.hymnal_id = ? AND s.title LIKE ?
+       ORDER BY CAST(s.number AS INTEGER), s.number
+       LIMIT ?`
+    )
+    .all(hymnalId, q, safeLimit) as Array<{
+    id: number
+    hymnal_id: number
+    hymnal_code: string
+    hymnal_name: string
+    hymnal_is_official: number
+    number: string
+    title: string
+    lyrics_raw: string
+    author: string
+    composer: string
+    key_note: string
+    time_signature: string
+    category: string
+    tags: string
+  }>
+}
+
 function normalizeSongNumber(input: string): string {
   const raw = String(input ?? '').trim()
   if (raw === '') return raw
-  const trimmed = raw.replace(/^0+/, '')
-  return trimmed === '' ? '0' : trimmed
+  // Only strip leading zeros for digit-only strings to preserve values like "100A"
+  if (/^[0-9]+$/.test(raw)) {
+    const trimmed = raw.replace(/^0+/, '')
+    return trimmed === '' ? '0' : trimmed
+  }
+  return raw
+}
+
+export function filterAllowedUpdateEntries(
+  updates: Record<string, unknown>,
+  allowedKeys: ReadonlySet<string>,
+  errorMessage: string
+): Array<[string, unknown]> {
+  const safeEntries = Object.entries(updates).filter(([key]) => allowedKeys.has(key))
+  if (safeEntries.length === 0) {
+    throw new Error(errorMessage)
+  }
+  return safeEntries
+}
+
+// ============================================================================
+// Scraper Audit Log Functions
+// ============================================================================
+
+export interface ScraperAuditRecord {
+  id: number
+  task_id: string
+  timestamp: string
+  provider_id: string
+  target_hymnal_id: number
+  range_start: string | null
+  range_end: string | null
+  imported_count: number
+  skipped_count: number
+  overwritten_count: number
+  renamed_count: number
+  merged_count: number
+  failed_count: number
+  critical_conflicts: number
+  duration_ms: number
+  report_json: string | null
+}
+
+export interface ScraperAuditItemRecord {
+  id: number
+  audit_id: number
+  song_number: string
+  song_title: string | null
+  action: string
+  conflict_type: string | null
+  conflict_severity: string | null
+  old_data: string | null
+  new_data: string | null
+  timestamp: string
+}
+
+export interface CreateScraperAuditParams {
+  taskId: string
+  providerId: string
+  targetHymnalId: number
+  rangeStart?: string
+  rangeEnd?: string
+}
+
+export interface CompleteScraperAuditParams {
+  taskId: string
+  imported: number
+  skipped: number
+  overwritten: number
+  renamed: number
+  merged: number
+  failed: number
+  criticalConflicts: number
+  durationMs: number
+  reportJson?: string
+}
+
+export interface AddScraperAuditItemParams {
+  auditId: number
+  songNumber: string
+  songTitle?: string
+  action: string
+  conflictType?: string
+  conflictSeverity?: string
+  oldData?: string
+  newData?: string
+}
+
+export function createScraperAudit(params: CreateScraperAuditParams): number {
+  const stmt = db.prepare(`
+    INSERT INTO scraper_import_audit (task_id, provider_id, target_hymnal_id, range_start, range_end)
+    VALUES (?, ?, ?, ?, ?)
+  `)
+  const result = stmt.run(
+    params.taskId,
+    params.providerId,
+    params.targetHymnalId,
+    params.rangeStart ?? null,
+    params.rangeEnd ?? null
+  )
+  return result.lastInsertRowid as number
+}
+
+export function completeScraperAudit(params: CompleteScraperAuditParams): void {
+  const stmt = db.prepare(`
+    UPDATE scraper_import_audit
+    SET imported_count = ?, skipped_count = ?, overwritten_count = ?, renamed_count = ?,
+        merged_count = ?, failed_count = ?, critical_conflicts = ?, duration_ms = ?, report_json = ?
+    WHERE task_id = ?
+  `)
+  stmt.run(
+    params.imported,
+    params.skipped,
+    params.overwritten,
+    params.renamed,
+    params.merged,
+    params.failed,
+    params.criticalConflicts,
+    params.durationMs,
+    params.reportJson ?? null,
+    params.taskId
+  )
+}
+
+export function addScraperAuditItem(params: AddScraperAuditItemParams): number {
+  const stmt = db.prepare(`
+    INSERT INTO scraper_import_audit_items
+    (audit_id, song_number, song_title, action, conflict_type, conflict_severity, old_data, new_data)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+  const result = stmt.run(
+    params.auditId,
+    params.songNumber,
+    params.songTitle ?? null,
+    params.action,
+    params.conflictType ?? null,
+    params.conflictSeverity ?? null,
+    params.oldData ?? null,
+    params.newData ?? null
+  )
+  return result.lastInsertRowid as number
+}
+
+export function getScraperAuditByTaskId(taskId: string): ScraperAuditRecord | null {
+  const stmt = db.prepare('SELECT * FROM scraper_import_audit WHERE task_id = ?')
+  const row = stmt.get(taskId) as ScraperAuditRecord | undefined
+  return row ?? null
+}
+
+export function getScraperAuditItems(auditId: number): ScraperAuditItemRecord[] {
+  const stmt = db.prepare('SELECT * FROM scraper_import_audit_items WHERE audit_id = ? ORDER BY id')
+  return stmt.all(auditId) as ScraperAuditItemRecord[]
+}
+
+export function getRecentScraperAudits(limit: number = 20): ScraperAuditRecord[] {
+  const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)))
+  const stmt = db.prepare('SELECT * FROM scraper_import_audit ORDER BY timestamp DESC LIMIT ?')
+  return stmt.all(safeLimit) as ScraperAuditRecord[]
+}
+
+export function getScraperAuditsByHymnal(
+  hymnalId: number,
+  limit: number = 50
+): ScraperAuditRecord[] {
+  const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)))
+  const stmt = db.prepare(
+    'SELECT * FROM scraper_import_audit WHERE target_hymnal_id = ? ORDER BY timestamp DESC LIMIT ?'
+  )
+  return stmt.all(hymnalId, safeLimit) as ScraperAuditRecord[]
+}
+
+// ============================================================================
+// JSON Import Functions
+// ============================================================================
+
+export type JsonImportConflictPolicy = 'skip' | 'overwrite' | 'append'
+
+export interface JsonSongImportItem {
+  hymnal_id?: number
+  number?: string
+  title?: string
+  alternate_title?: string
+  lyrics_raw?: string
+  category?: string
+  language?: string
+  author?: string
+  composer?: string
+  key_note?: string
+  time_signature?: string
+  tempo?: string | number
+  tags?: string
+  theme?: string
+  scripture_reference?: string
+}
+
+export interface ImportSongsFromJsonRequest {
+  items: JsonSongImportItem[]
+  defaultHymnalId?: number | null
+  hymnalIdRemap?: Record<number, number>
+  conflictPolicy?: JsonImportConflictPolicy
+  perItemPolicy?: Record<string, JsonImportConflictPolicy>
+  dryRun?: boolean
+}
+
+export interface ImportSongsFromJsonResult {
+  total: number
+  validated: number
+  conflicts: number
+  inserted: number
+  skipped: number
+  updated_overwrite: number
+  updated_append: number
+  failed: number
+  unknownHymnalIds: number[]
+  errors: Array<{ index: number; message: string }>
+}
+
+function rebuildSongsFts(): void {
+  try {
+    db.exec(`INSERT INTO songs_fts(songs_fts) VALUES('rebuild');`)
+  } catch {
+    // ignore (FTS5 might not be available)
+  }
+}
+
+function getExistingHymnalIdSet(): Set<number> {
+  const rows = db.prepare('SELECT id FROM hymnals').all() as Array<{ id: number }>
+  return new Set(rows.map((r) => r.id))
+}
+
+function resolveHymnalId(
+  input: number | undefined,
+  defaultHymnalId: number | null | undefined,
+  hymnalIdRemap: Record<number, number> | undefined,
+  existingHymnalIds: Set<number>
+): { hymnalId: number | null; unknownHymnalId: number | null } {
+  const base = input ?? defaultHymnalId ?? undefined
+  if (base === undefined) return { hymnalId: null, unknownHymnalId: null }
+
+  const remapped = hymnalIdRemap?.[base] ?? base
+  if (!existingHymnalIds.has(remapped)) {
+    return { hymnalId: null, unknownHymnalId: base }
+  }
+  return { hymnalId: remapped, unknownHymnalId: null }
+}
+
+function buildConflictKey(hymnalId: number, normalizedNumber: string): string {
+  return `${hymnalId}:${normalizedNumber}`
+}
+
+export function importSongsFromJson(
+  request: ImportSongsFromJsonRequest
+): ImportSongsFromJsonResult {
+  const items = Array.isArray(request.items) ? request.items : []
+  const total = items.length
+  const dryRun = request.dryRun === true
+
+  // Guard: coarse payload size check (defense-in-depth; renderer also checks file size)
+  try {
+    const approxBytes = Buffer.byteLength(JSON.stringify(items), 'utf8')
+    const MAX_BYTES = 10 * 1024 * 1024
+    if (approxBytes > MAX_BYTES) {
+      throw new Error('Payload terlalu besar. Maksimum 10MB.')
+    }
+  } catch (e) {
+    if (e instanceof Error) throw e
+    throw new Error('Payload invalid.')
+  }
+
+  const result: ImportSongsFromJsonResult = {
+    total,
+    validated: 0,
+    conflicts: 0,
+    inserted: 0,
+    skipped: 0,
+    updated_overwrite: 0,
+    updated_append: 0,
+    failed: 0,
+    unknownHymnalIds: [],
+    errors: []
+  }
+
+  if (total === 0) return result
+
+  const existingHymnalIds = getExistingHymnalIdSet()
+  const conflictPolicy: JsonImportConflictPolicy = request.conflictPolicy ?? 'skip'
+  const perItemPolicy = request.perItemPolicy ?? {}
+  const hymnalIdRemap = request.hymnalIdRemap
+  const defaultHymnalId = request.defaultHymnalId ?? null
+
+  const selectExisting = db.prepare(
+    'SELECT id, lyrics_raw FROM songs WHERE hymnal_id = ? AND number = ? LIMIT 1'
+  )
+  const insertSong = db.prepare(
+    `INSERT INTO songs (
+      hymnal_id, number, title, alternate_title, lyrics_raw,
+      category, language, author, composer, key_note, time_signature, tempo, tags,
+      theme, scripture_reference
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  )
+  const updateOverwrite = db.prepare(
+    `UPDATE songs SET
+      title = ?,
+      alternate_title = ?,
+      lyrics_raw = ?,
+      category = ?,
+      language = ?,
+      author = ?,
+      composer = ?,
+      key_note = ?,
+      time_signature = ?,
+      tempo = ?,
+      tags = ?,
+      theme = ?,
+      scripture_reference = ?,
+      updated_at = datetime('now')
+    WHERE id = ?`
+  )
+  const updateAppendLyrics = db.prepare(
+    `UPDATE songs SET
+      lyrics_raw = ?,
+      updated_at = datetime('now')
+    WHERE id = ?`
+  )
+
+  const unknownHymnals = new Set<number>()
+
+  const process = (): void => {
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index]
+
+      try {
+        const numberRaw = String(item.number ?? '').trim()
+        const titleRaw = String(item.title ?? '').trim()
+        const lyricsRaw = String(item.lyrics_raw ?? '')
+
+        if (!numberRaw || !titleRaw || !lyricsRaw) {
+          throw new Error('Missing required fields: number, title, lyrics_raw')
+        }
+
+        const normalizedNumber = normalizeSongNumber(numberRaw)
+
+        const { hymnalId, unknownHymnalId } = resolveHymnalId(
+          item.hymnal_id,
+          defaultHymnalId,
+          hymnalIdRemap,
+          existingHymnalIds
+        )
+
+        if (unknownHymnalId !== null) {
+          unknownHymnals.add(unknownHymnalId)
+          throw new Error(`Foreign key violation: hymnal_id ${unknownHymnalId} tidak ditemukan.`)
+        }
+        if (hymnalId === null) {
+          throw new Error('hymnal_id tidak ditemukan dan default hymnal belum dipilih.')
+        }
+
+        result.validated++
+
+        const conflictKey = buildConflictKey(hymnalId, normalizedNumber)
+        const policy = perItemPolicy[conflictKey] ?? conflictPolicy
+
+        const existing = selectExisting.get(hymnalId, normalizedNumber) as
+          | { id: number; lyrics_raw: string }
+          | undefined
+
+        if (!existing) {
+          if (!dryRun) {
+            insertSong.run(
+              hymnalId,
+              normalizedNumber,
+              titleRaw,
+              String(item.alternate_title ?? ''),
+              lyricsRaw,
+              String(item.category ?? ''),
+              String(item.language ?? 'Indonesia'),
+              String(item.author ?? ''),
+              String(item.composer ?? ''),
+              String(item.key_note ?? ''),
+              String(item.time_signature ?? ''),
+              String(item.tempo ?? ''),
+              String(item.tags ?? ''),
+              String(item.theme ?? ''),
+              String(item.scripture_reference ?? '')
+            )
+          }
+          result.inserted++
+          continue
+        }
+
+        result.conflicts++
+
+        if (policy === 'skip') {
+          result.skipped++
+          continue
+        }
+
+        if (policy === 'overwrite') {
+          if (!dryRun) {
+            updateOverwrite.run(
+              titleRaw,
+              String(item.alternate_title ?? ''),
+              lyricsRaw,
+              String(item.category ?? ''),
+              String(item.language ?? 'Indonesia'),
+              String(item.author ?? ''),
+              String(item.composer ?? ''),
+              String(item.key_note ?? ''),
+              String(item.time_signature ?? ''),
+              String(item.tempo ?? ''),
+              String(item.tags ?? ''),
+              String(item.theme ?? ''),
+              String(item.scripture_reference ?? ''),
+              existing.id
+            )
+          }
+          result.updated_overwrite++
+          continue
+        }
+
+        if (policy === 'append') {
+          if (!dryRun) {
+            const existingLyrics = String(existing.lyrics_raw ?? '')
+            const sep = existingLyrics.trim().length > 0 ? '\n\n' : ''
+            const merged = existingLyrics + sep + lyricsRaw
+            updateAppendLyrics.run(merged, existing.id)
+          }
+          result.updated_append++
+          continue
+        }
+
+        result.skipped++
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        if (result.errors.length < 50) result.errors.push({ index, message })
+        result.failed++
+      }
+    }
+  }
+
+  if (dryRun) {
+    process()
+    result.unknownHymnalIds = Array.from(unknownHymnals)
+    try {
+      saveAppState(
+        'last_json_import_report',
+        JSON.stringify({ ...result, dryRun: true, generatedAt: new Date().toISOString() })
+      )
+    } catch {
+      // ignore
+    }
+    return result
+  }
+
+  const tx = db.transaction(() => {
+    checkpointWal('FULL')
+    process()
+    result.unknownHymnalIds = Array.from(unknownHymnals)
+    checkpointWal('FULL')
+  })
+
+  tx()
+
+  // FTS rebuild is required after bulk operations to guarantee search consistency.
+  rebuildSongsFts()
+
+  try {
+    saveAppState(
+      'last_json_import_report',
+      JSON.stringify({ ...result, dryRun: false, generatedAt: new Date().toISOString() })
+    )
+  } catch {
+    // ignore
+  }
+
+  return result
 }
 
 export function initDatabase(): void {
@@ -29,22 +604,37 @@ export function initDatabase(): void {
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
 
-  // Legacy schema handling (Destructive Reset)
-  // If the old schema exists (no hymnals table), wipe the DB files and start fresh.
+  // Legacy schema handling (Non-destructive Backup)
+  // If the old schema exists (no hymnals table), move DB files aside and start fresh.
   const hymnalTableExists = db
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='hymnals'")
     .get()
 
   if (!hymnalTableExists) {
-    console.log('Old schema detected. Performing mandatory wipe-out for Multi-Hymnal revamp...')
+    console.log('Old schema detected. Backing up legacy DB for Multi-Hymnal revamp...')
     try {
       db.close()
+
+      const ts = new Date().toISOString().replace(/[:.]/g, '-')
+      const legacyBase = `${dbPath}.legacy-backup-${ts}`
       for (const suffix of ['', '-wal', '-shm']) {
-        const filePath = `${dbPath}${suffix}`
-        if (existsSync(filePath)) unlinkSync(filePath)
+        const from = `${dbPath}${suffix}`
+        if (!existsSync(from)) continue
+        const to = `${legacyBase}${suffix}`
+        try {
+          renameSync(from, to)
+        } catch (e) {
+          console.warn(`Legacy DB backup move failed for ${suffix}; attempting copy+unlink`, e)
+          try {
+            copyFileSync(from, to)
+            unlinkSync(from)
+          } catch (e2) {
+            console.error(`Legacy DB backup failed for ${suffix}`, e2)
+          }
+        }
       }
     } catch (e) {
-      console.error('Failed to wipe out old database:', e)
+      console.error('Failed to backup legacy database:', e)
     }
 
     db = new Database(dbPath)
@@ -1143,10 +1733,25 @@ export function updateCustomSlide(
   id: number,
   updates: Record<string, unknown>
 ): Database.RunResult {
-  const fields = Object.keys(updates)
-    .map((key) => `${key} = ?`)
-    .join(', ')
-  const values = [...Object.values(updates), id]
+  const allowedKeys = new Set([
+    'title',
+    'content',
+    'slide_type',
+    'background_color',
+    'background_image',
+    'text_color',
+    'font_size',
+    'display_duration',
+    'is_active',
+    'sort_order'
+  ])
+  const safeEntries = filterAllowedUpdateEntries(
+    updates,
+    allowedKeys,
+    'No valid fields to update for custom slide.'
+  )
+  const fields = safeEntries.map(([key]) => `${key} = ?`).join(', ')
+  const values = [...safeEntries.map(([, value]) => value), id]
   const result = db
     .prepare(`UPDATE custom_slides SET ${fields}, updated_at = datetime('now') WHERE id = ?`)
     .run(...values)
@@ -1182,10 +1787,14 @@ export function addSlideGroup(group: {
 }
 
 export function updateSlideGroup(id: number, updates: Record<string, unknown>): Database.RunResult {
-  const fields = Object.keys(updates)
-    .map((key) => `${key} = ?`)
-    .join(', ')
-  const values = [...Object.values(updates), id]
+  const allowedKeys = new Set(['name', 'description', 'loop_interval', 'is_active'])
+  const safeEntries = filterAllowedUpdateEntries(
+    updates,
+    allowedKeys,
+    'No valid fields to update for slide group.'
+  )
+  const fields = safeEntries.map(([key]) => `${key} = ?`).join(', ')
+  const values = [...safeEntries.map(([, value]) => value), id]
   const result = db.prepare(`UPDATE slide_groups SET ${fields} WHERE id = ?`).run(...values)
   if (result.changes > 0) checkpointWal()
   return result

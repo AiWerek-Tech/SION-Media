@@ -116,7 +116,7 @@ export function BackupSettings({
           <button
             onClick={handleBackup}
             disabled={isBackingUp}
-            className="btn btn-primary w-full py-3"
+            className="btn-premium btn-premium-primary w-full py-3"
           >
             {isBackingUp ? 'Memproses...' : 'Buat Backup Sekarang'}
           </button>
@@ -132,7 +132,7 @@ export function BackupSettings({
               Impor file cadangan untuk mengembalikan data lagu yang telah disimpan sebelumnya.
             </p>
           </div>
-          <label className="btn btn-ghost border-border-strong w-full py-3 cursor-pointer">
+          <label className="btn-premium btn-premium-ghost w-full py-3 cursor-pointer">
             <input
               type="file"
               className="hidden"
@@ -159,7 +159,7 @@ export function BackupSettings({
         <button
           onClick={handleReseed}
           disabled={isReseeding}
-          className="px-4 py-2 rounded-lg border border-status-error/30 text-status-error text-xs font-bold hover:bg-status-error hover:text-white transition-all"
+          className="btn-premium btn-premium-danger"
         >
           {isReseeding ? 'Mereset...' : 'Reset Database ke Standar'}
         </button>
@@ -223,7 +223,7 @@ export function BackupSettings({
             <button
               onClick={handleIntegrityCheck}
               disabled={isCheckingIntegrity}
-              className="btn btn-secondary h-9 px-4"
+              className="btn-premium btn-premium-ghost h-9 px-4"
             >
               {isCheckingIntegrity ? 'Memeriksa...' : 'Generate Report'}
             </button>

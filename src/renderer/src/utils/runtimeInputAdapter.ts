@@ -272,6 +272,7 @@ export abstract class BaseRuntimeInputAdapter implements RuntimeInputAdapter {
     payload?: Record<string, unknown>,
     _inputEvent?: InputEvent // TODO: Use for correlation chain in Inspector
   ): RuntimeCommand {
+    void _inputEvent
     const command = commandBus.createCommand(commandType, payload, this.source)
 
     // Track activity
@@ -330,7 +331,9 @@ export abstract class BaseRuntimeInputAdapter implements RuntimeInputAdapter {
     if (!inputEvent.modifiers) return required.length === 0
 
     return required.every((req) =>
-      inputEvent.modifiers!.some((m) => m.type === req.type && (req.value === undefined || m.value === req.value))
+      inputEvent.modifiers!.some(
+        (m) => m.type === req.type && (req.value === undefined || m.value === req.value)
+      )
     )
   }
 

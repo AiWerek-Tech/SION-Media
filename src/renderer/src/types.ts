@@ -246,7 +246,13 @@ export interface RecoveryState {
 
 export type FilterTab = 'all' | 'favorites' | 'recent' | 'category'
 
-export type AppScreen = 'dashboard' | 'song-editor' | 'import-export' | 'settings' | 'bible'
+export type AppScreen =
+  | 'dashboard'
+  | 'song-editor'
+  | 'import-export'
+  | 'settings'
+  | 'bible'
+  | 'management-song-scraper'
 
 // ============================================================================
 // Confidence Monitor Types - Stage-facing display system

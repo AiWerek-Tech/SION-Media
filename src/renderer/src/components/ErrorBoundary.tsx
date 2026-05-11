@@ -29,7 +29,10 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
           <div className="glass-panel p-6 max-w-xl text-center">
             <h2 className="text-h3 font-bold mb-2">Terjadi Kesalahan</h2>
             <p className="text-sm text-text-muted mb-4 break-words">{this.state.errorMessage}</p>
-            <button className="btn-primary" onClick={() => window.location.reload()}>
+            <button
+              className="btn-premium btn-premium-primary"
+              onClick={() => window.location.reload()}
+            >
               Muat Ulang
             </button>
           </div>

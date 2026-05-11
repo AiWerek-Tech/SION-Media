@@ -60,7 +60,7 @@ export function TitleBarIdentity(): React.JSX.Element {
       <span className="title-bar-appname">
         SION <span className="text-accent">{modeLabel}</span>
       </span>
-      <span className="title-bar-version">v2.1</span>
+      <span className="title-bar-version">v3.0</span>
 
       {/* Workspace name - editable on double-click */}
       {currentMode !== 'LIBRARY' && (displayName || isEditing) && (

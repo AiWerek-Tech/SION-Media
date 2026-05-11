@@ -10,6 +10,10 @@ import icon from '../../resources/icon.png?asset'
 import { getLatestProjectionTheme, mergeProjectionTheme } from './theme-manager'
 
 type EffectiveTheme = 'dark' | 'light'
+// Sandbox is desirable, but this app currently relies on preload behaviors that
+// may not be compatible with sandboxed renderers in all environments.
+// Opt-in via ELECTRON_ENABLE_SANDBOX=1.
+const isSandboxEnabled = process.env['ELECTRON_ENABLE_SANDBOX'] === '1'
 
 // Window references
 let mainWindow: BrowserWindow | null = null
@@ -142,8 +146,31 @@ export function createMainWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      sandbox: isSandboxEnabled,
+      webviewTag: false
     }
+  })
+
+  if (is.dev) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' })
+  }
+
+  if (is.dev) {
+    mainWindow.webContents.on('console-message', (_e, level, message, line, sourceId) => {
+      const lvl = level === 0 ? 'LOG' : level === 1 ? 'WARN' : level === 2 ? 'ERROR' : 'INFO'
+      console.error('[renderer console]', { lvl, message, line, sourceId })
+    })
+  }
+
+  mainWindow.webContents.on('did-fail-load', (_e, errorCode, errorDescription, validatedURL) => {
+    console.error('[mainWindow] did-fail-load', { errorCode, errorDescription, validatedURL })
+  })
+
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    console.error('[mainWindow] render-process-gone', details)
   })
 
   mainWindow.on('ready-to-show', () => {
@@ -161,6 +188,11 @@ export function createMainWindow(): void {
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
+  })
+
+  // Block navigations away from the app shell.
+  mainWindow.webContents.on('will-navigate', (e) => {
+    e.preventDefault()
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -199,8 +231,21 @@ export function createProjectionWindow(): void {
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      sandbox: isSandboxEnabled,
+      webviewTag: false
     }
+  })
+
+  projectionWindow.webContents.setWindowOpenHandler((details) => {
+    shell.openExternal(details.url)
+    return { action: 'deny' }
+  })
+
+  projectionWindow.webContents.on('will-navigate', (e) => {
+    e.preventDefault()
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -242,8 +287,21 @@ export function createStageDisplayWindow(): void {
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      sandbox: isSandboxEnabled,
+      webviewTag: false
     }
+  })
+
+  stageDisplayWindow.webContents.setWindowOpenHandler((details) => {
+    shell.openExternal(details.url)
+    return { action: 'deny' }
+  })
+
+  stageDisplayWindow.webContents.on('will-navigate', (e) => {
+    e.preventDefault()
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {

@@ -4,6 +4,10 @@
 **Status:** ✅ Complete
 **Phase:** P2.1 — External Input Protocol Layer
 
+> **Update:** The adapter registry health is now surfaced in Runtime Inspector v2 (`INPUTS` tab). A DEV-only simulator is available in:
+> - `.docs/log-impl-virtual-input-simulator-v1.md`
+> - `.docs/log-impl-runtime-inspector-v2-tabs-simulator.md`
+
 ---
 
 ## Overview

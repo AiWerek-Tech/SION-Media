@@ -89,6 +89,8 @@ const api = {
       options?: { offset?: number; limit?: number }
     ): Promise<unknown[]> => ipcRenderer.invoke('db:search-songs', query, hymnalId, options),
     add: (song: unknown): Promise<unknown> => ipcRenderer.invoke('db:add-song', song),
+    importJson: (payload: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('db:import-json', payload),
     update: (id: number, song: unknown): Promise<unknown> =>
       ipcRenderer.invoke('db:update-song', id, song),
     delete: (id: number): Promise<boolean> => ipcRenderer.invoke('db:delete-song', id),
@@ -133,11 +135,12 @@ const api = {
     createBackup: (customPath?: string): Promise<string> =>
       ipcRenderer.invoke('db:create-backup', customPath),
     restoreBackup: (backupPath: string): Promise<boolean> =>
-      ipcRenderer.invoke('db:restore-backup', backupPath),
+      ipcRenderer.invoke('db:restore-backup', { backupPath, confirmRestore: true }),
     saveSession: (state: unknown): Promise<void> => ipcRenderer.invoke('db:save-session', state),
     getRecoveryState: (): Promise<unknown> => ipcRenderer.invoke('db:get-recovery-state'),
     markCleanExit: (): Promise<void> => ipcRenderer.invoke('db:mark-clean-exit'),
-    reseed: (): Promise<void> => ipcRenderer.invoke('db:reseed'),
+    reseed: (): Promise<void> =>
+      ipcRenderer.invoke('db:reseed', { confirmToken: 'RESEED_DATABASE' }),
     checkMultiHymnalIntegrity: (hymnalId?: number): Promise<unknown> =>
       ipcRenderer.invoke('db:check-multi-hymnal-integrity', hymnalId),
     getMemory: (): Promise<unknown> => ipcRenderer.invoke('system:get-memory'),
@@ -147,7 +150,11 @@ const api = {
   // File System
   file: {
     parseExcel: (filePath: string): Promise<unknown[]> =>
-      ipcRenderer.invoke('file:parse-excel', filePath)
+      ipcRenderer.invoke('file:parse-excel', filePath),
+    showSaveDialog: (options: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('file:show-save-dialog', options),
+    writeJson: (filePath: string, data: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('file:write-json', filePath, data)
   },
 
   // Bible
@@ -219,13 +226,48 @@ const api = {
       ipcRenderer.on('health:status-update', listener)
       return () => ipcRenderer.removeListener('health:status-update', listener)
     },
-    onHeartbeatAck: (
-      callback: (data: { id: string; timestamp: number }) => void
-    ): (() => void) => {
+    onHeartbeatAck: (callback: (data: { id: string; timestamp: number }) => void): (() => void) => {
       const listener = (_e: IpcRendererEvent, data: { id: string; timestamp: number }): void =>
         callback(data)
       ipcRenderer.on('health:heartbeat-ack', listener)
       return () => ipcRenderer.removeListener('health:heartbeat-ack', listener)
+    }
+  },
+
+  // Scraper
+  scraper: {
+    getProviders: (): Promise<unknown[]> => ipcRenderer.invoke('scraper:get-providers'),
+    getProviderDefinitions: (): Promise<unknown[]> =>
+      ipcRenderer.invoke('scraper:get-provider-definitions'),
+    validateProvider: (payload: { providerId: string; baseUrl?: string }): Promise<unknown> =>
+      ipcRenderer.invoke('scraper:validate-provider', payload),
+    getProviderHealth: (payload: { providerId: string }): Promise<string> =>
+      ipcRenderer.invoke('scraper:get-provider-health', payload),
+    dryRun: (payload: unknown): Promise<unknown> => ipcRenderer.invoke('scraper:dry-run', payload),
+    importFromDryRun: (payload: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('scraper:import', payload),
+    start: (payload: unknown): Promise<void> => ipcRenderer.invoke('scraper:start', payload),
+    abort: (): Promise<void> => ipcRenderer.invoke('scraper:abort'),
+    retryFailed: (): Promise<void> => ipcRenderer.invoke('scraper:retry-failed'),
+    preview: (payload: unknown): Promise<unknown> => ipcRenderer.invoke('scraper:preview', payload),
+    getAuditHistory: (payload: { hymnalId?: number; limit?: number }): Promise<unknown[]> =>
+      ipcRenderer.invoke('scraper:get-audit-history', payload),
+    getAuditDetail: (taskId: string): Promise<unknown> =>
+      ipcRenderer.invoke('scraper:get-audit-detail', taskId),
+    getSavedDryRunState: (): Promise<unknown> =>
+      ipcRenderer.invoke('scraper:get-saved-dry-run-state'),
+    clearSavedDryRunState: (): Promise<boolean> =>
+      ipcRenderer.invoke('scraper:clear-saved-dry-run-state'),
+    getSavedRunningTaskState: (): Promise<unknown> =>
+      ipcRenderer.invoke('scraper:get-saved-running-task-state'),
+    clearSavedRunningTaskState: (): Promise<boolean> =>
+      ipcRenderer.invoke('scraper:clear-saved-running-task-state'),
+    resumeFailed: (payload: { request: unknown; failedNumbers: unknown }): Promise<unknown> =>
+      ipcRenderer.invoke('scraper:resume-failed', payload),
+    onProgress: (callback: (progress: unknown) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, progress: unknown): void => callback(progress)
+      ipcRenderer.on('scraper:progress', listener)
+      return () => ipcRenderer.removeListener('scraper:progress', listener)
     }
   }
 }

@@ -1,5 +1,241 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
+type EndpointId =
+  | 'MAIN_DASHBOARD'
+  | 'PROJECTION_WINDOW'
+  | 'STAGE_DISPLAY'
+  | 'MIDI_BRIDGE'
+  | 'STREAM_DECK'
+  | 'REMOTE_APP'
+
+interface EndpointHealth {
+  id: EndpointId
+  connected: boolean
+  lastSeen: number
+  reconnectCount: number
+  latencyMs?: number
+  lastError?: string
+  lastDisconnect?: number
+}
+
+type ScraperProviderHealth = 'OK' | 'DEGRADED' | 'BROKEN' | 'UNKNOWN'
+type ScraperConflictPolicy = 'skip' | 'overwrite' | 'ask'
+type ScraperImportAction = 'skip' | 'overwrite' | 'rename' | 'merge_metadata'
+
+interface ScraperSong {
+  providerId: string
+  sourceUrl: string
+  sourceHymnalCode: string
+  sourceSongNumber: string
+  title: string
+  lyrics_raw: string
+  key_note?: string
+  time_signature?: string
+  author?: string
+  composer?: string
+  category?: string
+  tags?: string
+}
+
+interface ScraperStartPayload {
+  providerId: string
+  baseUrl?: string
+  targetHymnalId: number
+  startNumber: number
+  endNumber: number
+  concurrency: number
+  retryCount: number
+  delayMs: number
+  conflictPolicy: ScraperConflictPolicy
+  perItemPolicy?: Record<string, 'skip' | 'overwrite' | 'append'>
+}
+
+interface ScraperProviderInfo {
+  id: string
+  label: string
+  defaultBaseUrl: string
+  capabilities: {
+    supportsNumericRange: boolean
+    supportsSlug: boolean
+    requiresBrowser: boolean
+    supportsMetadata: boolean
+    supportsPreview: boolean
+  }
+}
+
+interface ScraperConflictItem {
+  key: string
+  type: 'NUMBER_DUPLICATE' | 'TITLE_SIMILAR' | 'LYRICS_IDENTICAL'
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  reason: string
+  scraped: ScraperSong
+  existing: {
+    id: number
+    hymnal_id: number
+    number: string
+    title: string
+    lyrics_raw: string
+  }
+  lyricsHashMatch: boolean
+  titleSimilarity: number
+  confidenceScore?: number
+}
+
+interface ScraperDryRunResult {
+  taskId: string
+  items: ScraperSong[]
+  conflicts: ScraperConflictItem[]
+}
+
+interface ScraperImportSummary {
+  taskId: string
+  imported: number
+  skipped: number
+  overwritten: number
+  renamed: number
+  merged: number
+  failed: number
+  duplicates: number
+  durationMs: number
+  generatedAt: string
+}
+
+interface ScraperProgressPayload {
+  taskId: string
+  providerId: string
+  state: 'RUNNING' | 'ABORTED' | 'COMPLETED' | 'IDLE'
+  total: number
+  processed: number
+  success: number
+  failed: number
+  skipped: number
+  retries: number
+  songsPerSec: number
+  etaSec: number | null
+  recentLogs: Array<{
+    ts: number
+    level: 'INFO' | 'WARN' | 'ERROR'
+    phase?: 'FETCH' | 'PARSE' | 'NORMALIZE' | 'DB' | 'FTS'
+    message: string
+    providerId?: string
+    songNumber?: string
+  }>
+  recentSongUpdates: Array<{
+    number: string
+    status: 'PENDING' | 'FETCHING' | 'SUCCESS' | 'FAILED' | 'SKIPPED'
+    attempts: number
+    error?: string
+    sourceUrl?: string
+    title?: string
+  }>
+  failedNumbers: string[]
+}
+
+interface HymnalDto {
+  id: number
+  code: string
+  name: string
+  language: string
+  region: string
+  version: string
+  publisher: string
+  is_official: number
+  created_at: string
+  updated_at: string
+}
+
+interface SongDto {
+  id: number
+  hymnal_id: number
+  number: string
+  title: string
+  alternate_title: string
+  title_en?: string
+  lyrics_raw: string
+  category: string
+  language: string
+  author: string
+  composer: string
+  key_note: string
+  time_signature: string
+  tempo: string
+  tags: string
+  theme: string
+  scripture_reference: string
+  is_favorite: number
+  created_at: string
+  updated_at: string
+  hymnal_code?: string
+  hymnal_name?: string
+  last_played?: string
+  last_used?: string
+}
+
+interface SongMutationPayload {
+  hymnal_id?: number
+  number?: string
+  title?: string
+  alternate_title?: string
+  lyrics_raw?: string
+  category?: string
+  language?: string
+  author?: string
+  composer?: string
+  key_note?: string
+  time_signature?: string
+  tempo?: string | number
+  tags?: string
+  title_en?: string
+  theme?: string
+  scripture_reference?: string
+}
+
+interface SongRelationDto {
+  id: number
+  song_id?: number
+  related_song_id?: number
+  relation_type?: string
+  notes?: string
+  number: string
+  title: string
+  hymnal_code: string
+  created_at?: string
+}
+
+interface SongRelationCreatePayload {
+  song_id: number
+  related_song_id: number
+  relation_type: string
+  notes?: string
+}
+
+interface PlaylistDto {
+  id: number
+  name: string
+  service_date: string
+  description: string
+  created_at: string
+  updated_at: string
+}
+
+interface PlaylistItemDto {
+  id: number
+  playlist_id: number
+  song_id: number
+  sort_order: number
+  section_label: string
+  number: string
+  title: string
+  alternate_title: string
+  lyrics_raw: string
+  category: string
+  key_note?: string
+  time_signature?: string
+  tempo?: string
+  hymnal_code?: string
+  hymnal_name?: string
+}
+
 interface WindowAPI {
   minimize: () => void
   maximize: () => void
@@ -36,38 +272,70 @@ interface DisplayAPI {
 }
 
 interface HymnalsAPI {
-  getAll: () => Promise<unknown[]>
-  add: (hymnal: unknown) => Promise<unknown>
-  update: (id: number, hymnal: unknown) => Promise<unknown>
+  getAll: () => Promise<HymnalDto[]>
+  add: (hymnal: unknown) => Promise<HymnalDto>
+  update: (id: number, hymnal: unknown) => Promise<HymnalDto>
   delete: (id: number) => Promise<boolean>
 }
 
 interface SongsAPI {
-  getAll: (hymnalId?: number) => Promise<unknown[]>
+  getAll: (hymnalId?: number) => Promise<SongDto[]>
   search: (
     query: string,
     hymnalId?: number,
     options?: { offset?: number; limit?: number }
-  ) => Promise<unknown[]>
-  add: (song: unknown) => Promise<unknown>
-  update: (id: number, song: unknown) => Promise<unknown>
+  ) => Promise<SongDto[]>
+  add: (song: SongMutationPayload) => Promise<number | SongDto>
+  importJson: (payload: {
+    items: SongMutationPayload[]
+    defaultHymnalId?: number | null
+    hymnalIdRemap?: Record<number, number>
+    conflictPolicy?: 'skip' | 'overwrite' | 'append'
+    perItemPolicy?: Record<string, 'skip' | 'overwrite' | 'append'>
+    dryRun?: boolean
+  }) => Promise<{
+    total: number
+    validated: number
+    conflicts: number
+    inserted: number
+    skipped: number
+    updated_overwrite: number
+    updated_append: number
+    failed: number
+    unknownHymnalIds: number[]
+    errors: Array<{ index: number; message: string }>
+    dryRun?: boolean
+  }>
+  update: (id: number, song: SongMutationPayload) => Promise<SongDto | boolean | void>
   delete: (id: number) => Promise<boolean>
-  toggleFavorite: (id: number) => Promise<unknown>
-  getRelations: (songId: number) => Promise<unknown[]>
-  addRelation: (relation: unknown) => Promise<unknown>
+  toggleFavorite: (id: number) => Promise<SongDto | boolean | void>
+  getRelations: (songId: number) => Promise<SongRelationDto[]>
+  addRelation: (relation: SongRelationCreatePayload) => Promise<SongRelationDto>
   deleteRelation: (id: number) => Promise<boolean>
 }
 
 interface PlaylistsAPI {
-  getAll: () => Promise<unknown[]>
-  add: (playlist: unknown) => Promise<unknown>
-  update: (id: number, playlist: unknown) => Promise<unknown>
+  getAll: () => Promise<PlaylistDto[]>
+  add: (playlist: {
+    name: string
+    service_date: string
+    description?: string
+  }) => Promise<number | PlaylistDto>
+  update: (
+    id: number,
+    playlist: { name?: string; service_date?: string; description?: string }
+  ) => Promise<PlaylistDto>
   delete: (id: number) => Promise<boolean>
-  getItems: (playlistId: number) => Promise<unknown[]>
-  addItem: (item: unknown) => Promise<unknown>
-  updateItem: (id: number, data: unknown) => Promise<void>
+  getItems: (playlistId: number) => Promise<PlaylistItemDto[]>
+  addItem: (item: {
+    playlist_id: number
+    song_id: number
+    section_label?: string
+    sort_order?: number
+  }) => Promise<number | { id: number }>
+  updateItem: (id: number, data: { section_label?: string; sort_order?: number }) => Promise<void>
   deleteItem: (id: number) => Promise<boolean>
-  reorderItems: (items: unknown[]) => Promise<void>
+  reorderItems: (items: Array<{ id: number; sort_order: number }>) => Promise<void>
 }
 
 interface SettingsAPI {
@@ -77,7 +345,7 @@ interface SettingsAPI {
 
 interface SystemAPI {
   logHistory: (songId: number) => Promise<void>
-  getRecentSongs: (limit?: number) => Promise<unknown[]>
+  getRecentSongs: (limit?: number) => Promise<SongDto[]>
   createBackup: (customPath?: string) => Promise<string>
   restoreBackup: (backupPath: string) => Promise<boolean>
   saveSession: (state: unknown) => Promise<void>
@@ -90,7 +358,23 @@ interface SystemAPI {
 }
 
 interface FileAPI {
-  parseExcel: (filePath: string) => Promise<unknown[]>
+  parseExcel: (filePath: string) => Promise<
+    Array<{
+      hymnal_id: number | string
+      number: string
+      title: string
+      lyrics_raw: string
+      category: string
+      language: string
+      author: string
+      composer: string
+      key_note: string
+      tempo: string
+      tags: string
+    }>
+  >
+  showSaveDialog: (options: unknown) => Promise<{ canceled: boolean; filePath?: string }>
+  writeJson: (filePath: string, data: unknown) => Promise<unknown>
 }
 
 interface BibleAPI {
@@ -132,10 +416,43 @@ interface SlidesAPI {
 }
 
 interface HealthAPI {
-  getStatus: () => Promise<unknown[]>
-  onStatusUpdate: (callback: (status: unknown[]) => void) => () => void
-  sendHeartbeat: (endpointId: string) => void
-  onHeartbeatAck: (callback: (data: { id: string; timestamp: number }) => void) => () => void
+  getStatus: () => Promise<EndpointHealth[]>
+  onStatusUpdate: (callback: (status: EndpointHealth[]) => void) => () => void
+  sendHeartbeat: (endpointId: EndpointId) => void
+  onHeartbeatAck: (callback: (data: { id: EndpointId; timestamp: number }) => void) => () => void
+}
+
+interface ScraperAPI {
+  getProviders: () => Promise<ScraperProviderInfo[]>
+  getProviderDefinitions: () => Promise<unknown[]>
+  validateProvider: (payload: { providerId: string; baseUrl?: string }) => Promise<unknown>
+  getProviderHealth: (payload: { providerId: string }) => Promise<ScraperProviderHealth>
+  preview: (payload: {
+    providerId: string
+    input: string
+    baseUrl?: string
+  }) => Promise<ScraperSong>
+  dryRun: (payload: ScraperStartPayload) => Promise<ScraperDryRunResult>
+  importFromDryRun: (payload: {
+    taskId: string
+    request: ScraperStartPayload
+    items: ScraperSong[]
+    decisions: Record<string, { action: ScraperImportAction; renameTitle?: string }>
+    defaultAction: ScraperImportAction
+  }) => Promise<ScraperImportSummary>
+  start: (payload: ScraperStartPayload) => Promise<{ taskId: string }>
+  abort: () => Promise<boolean>
+  retryFailed: () => Promise<{ restarted: boolean; taskId?: string }>
+  onProgress: (callback: (payload: ScraperProgressPayload) => void) => () => void
+  getAuditHistory: (payload: { hymnalId?: number; limit?: number }) => Promise<unknown[]>
+  getAuditDetail: (taskId: string) => Promise<unknown>
+  getSavedDryRunState: () => Promise<unknown>
+  clearSavedDryRunState: () => Promise<boolean>
+  getSavedRunningTaskState: () => Promise<unknown>
+  clearSavedRunningTaskState: () => Promise<boolean>
+  resumeFailed: (payload: { request: ScraperStartPayload; failedNumbers: string[] }) => Promise<{
+    taskId: string
+  }>
 }
 
 interface API {
@@ -153,6 +470,7 @@ interface API {
   bible: BibleAPI
   slides: SlidesAPI
   health: HealthAPI
+  scraper: ScraperAPI
 }
 
 declare global {

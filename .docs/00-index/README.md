@@ -6,11 +6,14 @@ Dokumentasi ini disusun untuk memberikan panduan yang jelas bagi AI Agent dan De
 
 ```text
 .docs/
+├── 00-index/             # README dan indeks navigasi dokumentasi
 ├── 01-architecture/      # Arsitektur sistem, alur aplikasi, dan laporan audit backend
 ├── 02-planning/          # Roadmap, rencana fitur, dan strategi upgrade per versi
-├── 03-implementation/    # Riwayat implementasi dan teknis per versi
-├── 04-guides/            # Referensi data (daftar lagu) dan panduan operasional
-├── 05-logs/              # Catatan pembaruan, laporan audit, dan scratchpad history
+├── 03-design/            # Sistem desain, spesifikasi UI/UX, dan laporan audit desain
+│   └── design-reports/   # Laporan usability dan audit UI/UX
+├── 04-implementation/    # Log implementasi teknis per fitur/versi
+├── 05-guides/            # Referensi data (daftar lagu) dan panduan operasional
+├── 06-history/           # Catatan pembaruan historis, laporan audit, dan scratchpad
 └── assets/               # Aset desain, branding, dan workspace
 ```
 
@@ -20,9 +23,10 @@ Untuk menjaga kerapian, gunakan format penamaan berikut untuk file baru:
 
 - **Architecture**: `arch-[topic].md` (contoh: `arch-database-schema.md`)
 - **Planning**: `plan-[topic]-[vX].md` (contoh: `plan-feature-bible-v3.md`)
-- **Implementation**: `impl-[topic]-[vX].md` (contoh: `impl-obs-integration-v2.md`)
+- **Design**: `design-[topic]-[vX].md` atau `audit-[topic].md` (contoh: `design-system-v1.md`)
+- **Implementation**: `impl-[topic]-[vX].md` atau `log-impl-[topic]-[vX].md` (contoh: `impl-obs-integration-v2.md`)
 - **Guides**: `guide-[topic].md` (contoh: `guide-user-manual.md`)
-- **Logs**: `log-[type]-[date/vX].md` (contoh: `log-update-20240101.md`)
+- **History**: `log-[type]-[date/vX].md` (contoh: `log-update-20240101.md`)
 
 ## Prinsip Dokumentasi
 
@@ -33,9 +37,23 @@ Untuk menjaga kerapian, gunakan format penamaan berikut untuk file baru:
 
 ---
 
-_Terakhir diperbarui: 2026-05-10_
+_Terakhir diperbarui: 2026-05-11_
+
+## Roadmap Aktif (Audit & Hardening)
+
+- `02-planning/plan-roadmap-audit-hardening-v1.md` - roadmap 90 hari berbasis audit teknis menyeluruh.
+- `02-planning/plan-roadmap-audit-hardening-task-breakdown-v1.md` - checklist eksekusi per modul untuk breakdown ke tiket kerja.
 
 ## Current Implementation Snapshot (2026-05-10)
+
+### Runtime Infrastructure (Operator-Grade)
+SION Media kini memiliki fondasi runtime yang observable dan extensible:
+
+- **Runtime Command Bus**: unified routing → validation → handlers → event stream
+- **Runtime Inspector v2**: tabbed Operations Console
+  - `EVENTS` / `HEALTH` / `INPUTS` (+ `SIMULATOR` DEV-only)
+- **Input Adapter Architecture (P2.1)**: device-agnostic input layer + adapter health
+- **Virtual Input Simulator (P2.2)**: stress test + replay testing (DEV-only via Inspector)
 
 ### Workspace Adaptive Layout v10.2
 Refined ManagementMode adaptive layout for **suite-class desktop experience**:
@@ -88,15 +106,15 @@ Nomor lagu dinormalisasi agar **tidak menampilkan leading zeros**:
 - `npm run build`: ✅
 
 Dokumen yang perlu dirujuk untuk perubahan ini:
-- `log-impl-library-immersive-player-v6.md`
-- `log-impl-library-perfection-v8.md`
-- `log-impl-titlebar-modernization-v9.md`
-- `log-impl-workspace-adaptive-v10.2.md`
-- `plan-library-immersive-player-v6.md`
-- `plan-library-perfection-v8.md`
-- `plan-titlebar-modernization-v9.md`
-- `plan-song-number-normalization.md`
-- `01-architecture/arch-workspace-panels.md`
+- `04-implementation/12-log-impl-library-immersive-player-v6.md`
+- `04-implementation/13-log-impl-library-perfection-v8.md`
+- `04-implementation/19-log-impl-titlebar-modernization-v9.md`
+- `04-implementation/24-log-impl-workspace-adaptive-v10.2.md`
+- `02-planning/11-plan-library-immersive-player-v6.md`
+- `02-planning/10-audit-library-perfection-v8.md`
+- `02-planning/18-plan-titlebar-modernization-v9.md`
+- `02-planning/20-plan-song-number-normalization.md`
+- `01-architecture/03-arch-workspace-panels.md`
 
 ---
 
@@ -115,8 +133,8 @@ Perombakan renderer terbaru mendorong SION Presenter lebih dekat ke model operas
 
 Dokumen yang perlu dirujuk untuk perubahan ini:
 
-- `05-logs/log-update-20260507.md`
-- `06-design/ui-ux-audit.md`
-- `02-planning/plan-feature-titlebar.md`
-- `02-planning/plan-feature-songsion.md`
-- `03-implementation/impl-history-v2.md`
+- `06-history/01-log-update-20260507.md`
+- `03-design/design-reports/01-ui-ux-audit.md`
+- `02-planning/16-plan-feature-titlebar.md`
+- `02-planning/15-plan-feature-songsion.md`
+- `04-implementation/02-impl-history-v2.md`

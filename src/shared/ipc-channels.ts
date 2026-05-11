@@ -92,6 +92,7 @@ export const IPC_SONGS = {
   GET_ALL: 'db:get-songs',
   SEARCH: 'db:search-songs',
   ADD: 'db:add-song',
+  IMPORT_JSON: 'db:import-json',
   UPDATE: 'db:update-song',
   DELETE: 'db:delete-song',
   TOGGLE_FAVORITE: 'db:toggle-favorite',
@@ -140,7 +141,34 @@ export const IPC_RECOVERY = {
 // ============================================================================
 
 export const IPC_FILE = {
-  PARSE_EXCEL: 'file:parse-excel'
+  PARSE_EXCEL: 'file:parse-excel',
+  SHOW_SAVE_DIALOG: 'file:show-save-dialog',
+  WRITE_JSON: 'file:write-json'
+} as const
+
+// ==========================================================================
+// Scraper - Song Acquisition
+// ==========================================================================
+
+export const IPC_SCRAPER = {
+  GET_PROVIDERS: 'scraper:get-providers',
+  GET_PROVIDER_DEFINITIONS: 'scraper:get-provider-definitions',
+  VALIDATE_PROVIDER: 'scraper:validate-provider',
+  GET_PROVIDER_HEALTH: 'scraper:get-provider-health',
+  DRY_RUN: 'scraper:dry-run',
+  IMPORT: 'scraper:import',
+  START: 'scraper:start',
+  RESUME_FAILED: 'scraper:resume-failed',
+  ABORT: 'scraper:abort',
+  PROGRESS: 'scraper:progress',
+  PREVIEW: 'scraper:preview',
+  RETRY_FAILED: 'scraper:retry-failed',
+  GET_SAVED_DRY_RUN_STATE: 'scraper:get-saved-dry-run-state',
+  CLEAR_SAVED_DRY_RUN_STATE: 'scraper:clear-saved-dry-run-state',
+  GET_SAVED_RUNNING_TASK_STATE: 'scraper:get-saved-running-task-state',
+  CLEAR_SAVED_RUNNING_TASK_STATE: 'scraper:clear-saved-running-task-state',
+  GET_AUDIT_HISTORY: 'scraper:get-audit-history',
+  GET_AUDIT_DETAIL: 'scraper:get-audit-detail'
 } as const
 
 // ============================================================================
