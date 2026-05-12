@@ -1,5 +1,27 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react'
-import { ArrowLeft, Save, Wand2, SplitSquareHorizontal, AlertTriangle } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Activity,
+  CheckCircle2,
+  ChevronDown,
+  Clock3,
+  FileText,
+  GripVertical,
+  Image as ImageIcon,
+  MonitorPlay,
+  MoreVertical,
+  Music2,
+  Plus,
+  Radio,
+  Save,
+  Settings2,
+  SlidersHorizontal,
+  Sparkles,
+  SplitSquareHorizontal,
+  Wand2
+} from 'lucide-react'
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { useAppStore } from '../store/useAppStore'
 import { useProjectionStore } from '../store/useProjectionStore'
 import { generateSlides, autoFormatLyrics } from '../engine/slideEngine'
@@ -12,12 +34,25 @@ import {
   formatTempo
 } from '../utils/metadataValidation'
 
+function formatRuntime(seconds: number): string {
+  const safeSeconds = Math.max(0, seconds)
+  const minutes = Math.floor(safeSeconds / 60)
+  const remainder = safeSeconds % 60
+  return `${minutes.toString().padStart(2, '0')}:${remainder.toString().padStart(2, '0')}`
+}
+
 export function SongEditorScreen(): React.JSX.Element {
   const { editingSong, hymnals, songs, setScreen, loadSongs, showToast } = useAppStore()
   const isEditing = !!editingSong
-
-  const inputBaseClass = 'input-premium w-full h-11 px-4 text-[14px] font-medium'
-  const selectBaseClass = `${inputBaseClass} appearance-none cursor-pointer`
+  const projectionState = useProjectionStore((state) => state.projectionState)
+  const programLockState = useProjectionStore((state) => state.programLockState)
+  const hasPendingLiveChanges = useProjectionStore((state) => state.hasPendingLiveChanges)
+  const timerElapsed = useProjectionStore((state) => state.timerElapsed)
+  const timerRunning = useProjectionStore((state) => state.timerRunning)
+  const fadeSpeed = useProjectionStore((state) => state.fadeSpeed)
+  const programSlide = useProjectionStore((state) => state.programSlide)
+  const programSlideIndex = useProjectionStore((state) => state.programSlideIndex)
+  const programSlides = useProjectionStore((state) => state.programSlides)
 
   const [hymnalId, setHymnalId] = useState<number>(editingSong?.hymnal_id || hymnals[0]?.id || 1)
   const [songNumber, setSongNumber] = useState(editingSong?.number || '')
@@ -25,6 +60,11 @@ export function SongEditorScreen(): React.JSX.Element {
   const [alternateTitle, setAlternateTitle] = useState(editingSong?.alternate_title || '')
   const [lyricsRaw, setLyricsRaw] = useState(editingSong?.lyrics_raw || '')
   const [category, setCategory] = useState(editingSong?.category || '')
+  const [author, setAuthor] = useState(editingSong?.author || '')
+  const [composer, setComposer] = useState(editingSong?.composer || '')
+  const [scriptureReference, setScriptureReference] = useState(
+    editingSong?.scripture_reference || ''
+  )
   const [keyNote, setKeyNote] = useState(editingSong?.key_note || '')
   const [timeSignature, setTimeSignature] = useState(editingSong?.time_signature || '')
   const [tempo, setTempo] = useState(editingSong?.tempo || '')
@@ -35,8 +75,8 @@ export function SongEditorScreen(): React.JSX.Element {
   const [keyNoteError, setKeyNoteError] = useState<string | null>(null)
   const [tempoError, setTempoError] = useState<string | null>(null)
   const [showDiscardDialog, setShowDiscardDialog] = useState(false)
+  const [inspectorTab, setInspectorTab] = useState<'preview' | 'properties'>('preview')
 
-  // Dirty State Guard: snapshot of initial values
   const [initialSnapshot] = useState({
     hymnalId: editingSong?.hymnal_id || hymnals[0]?.id || 1,
     songNumber: editingSong?.number || '',
@@ -44,6 +84,9 @@ export function SongEditorScreen(): React.JSX.Element {
     alternateTitle: editingSong?.alternate_title || '',
     lyricsRaw: editingSong?.lyrics_raw || '',
     category: editingSong?.category || '',
+    author: editingSong?.author || '',
+    composer: editingSong?.composer || '',
+    scriptureReference: editingSong?.scripture_reference || '',
     keyNote: editingSong?.key_note || '',
     timeSignature: editingSong?.time_signature || '',
     tempo: editingSong?.tempo || ''
@@ -57,6 +100,9 @@ export function SongEditorScreen(): React.JSX.Element {
       alternateTitle !== initialSnapshot.alternateTitle ||
       lyricsRaw !== initialSnapshot.lyricsRaw ||
       category !== initialSnapshot.category ||
+      author !== initialSnapshot.author ||
+      composer !== initialSnapshot.composer ||
+      scriptureReference !== initialSnapshot.scriptureReference ||
       keyNote !== initialSnapshot.keyNote ||
       timeSignature !== initialSnapshot.timeSignature ||
       tempo !== initialSnapshot.tempo
@@ -68,6 +114,9 @@ export function SongEditorScreen(): React.JSX.Element {
     alternateTitle,
     lyricsRaw,
     category,
+    author,
+    composer,
+    scriptureReference,
     keyNote,
     timeSignature,
     tempo,
@@ -89,7 +138,6 @@ export function SongEditorScreen(): React.JSX.Element {
     })
   }, [lyricsRaw, editingSong, keyNote, timeSignature, tempo])
 
-  // Check for duplicate song number or title in the same hymnal
   const checkDuplicate = useCallback((): string | null => {
     const hymnalSongs = songs.filter((s) => s.hymnal_id === hymnalId)
     const duplicateByNumber = hymnalSongs.find(
@@ -114,7 +162,6 @@ export function SongEditorScreen(): React.JSX.Element {
   const handleSave = useCallback(async (): Promise<void> => {
     if (!songNumber.trim() || !title.trim()) return
 
-    // Validate metadata
     const keyNoteValidation = validateKeyNote(keyNote)
     const tempoValidation = validateTempo(tempo)
     setKeyNoteError(keyNoteValidation.valid ? null : keyNoteValidation.message || null)
@@ -124,7 +171,6 @@ export function SongEditorScreen(): React.JSX.Element {
       return
     }
 
-    // Check for duplicates
     const duplicate = checkDuplicate()
     if (duplicate) {
       showToast(duplicate, 'error')
@@ -142,16 +188,16 @@ export function SongEditorScreen(): React.JSX.Element {
         lyrics_raw: lyricsRaw,
         category,
         language: editingSong?.language || 'Indonesia',
-        author: editingSong?.author || '',
-        composer: editingSong?.composer || '',
+        author,
+        composer,
         key_note: keyNote,
         time_signature: timeSignature,
         tempo,
+        scripture_reference: scriptureReference,
         tags: editingSong?.tags || ''
       }
       if (isEditing && editingSong) {
         await window.api.songs.update(editingSong.id, songData)
-        // Hot-Swap API: if this song is currently live, update the projection seamlessly
         const newSlides = generateSlides(editingSong.id, lyricsRaw, undefined, {
           keyNote: keyNote || undefined,
           timeSignature: timeSignature || undefined,
@@ -178,6 +224,9 @@ export function SongEditorScreen(): React.JSX.Element {
     alternateTitle,
     lyricsRaw,
     category,
+    author,
+    composer,
+    scriptureReference,
     keyNote,
     timeSignature,
     tempo,
@@ -189,7 +238,6 @@ export function SongEditorScreen(): React.JSX.Element {
     checkDuplicate
   ])
 
-  // Listen for Ctrl+S
   useEffect(() => {
     const handler = (): void => {
       void handleSave()
@@ -197,6 +245,14 @@ export function SongEditorScreen(): React.JSX.Element {
     document.addEventListener('sion:save-song', handler)
     return () => document.removeEventListener('sion:save-song', handler)
   }, [handleSave])
+
+  const handleBack = (): void => {
+    if (isDirty && !showDiscardDialog) {
+      setShowDiscardDialog(true)
+      return
+    }
+    setScreen('dashboard')
+  }
 
   const handleAutoFormat = (): void => {
     setLyricsRaw(autoFormatLyrics(lyricsRaw))
@@ -264,695 +320,555 @@ export function SongEditorScreen(): React.JSX.Element {
     'Sembah dan Puji'
   ]
 
-  const activeSlide = previewSlides[activeSlideIdx]
-
-  // Theme
+  const activeSlide = previewSlides[Math.min(activeSlideIdx, Math.max(previewSlides.length - 1, 0))]
   const fontFamily = theme.projection_font_family || 'Inter'
   const textColor = theme.projection_text_color || '#ffffff'
-  const bgColor = theme.projection_bg_color || '#0f0f1a'
-
-  // Overflow warnings
+  const bgColor = theme.projection_bg_color || '#07101f'
+  const bgOpacity = Number(theme.projection_bg_opacity || 0.74) || 0.74
   const lineWarnings = lyricsRaw.split('\n').reduce((count, line) => {
     return count + (line.length > 40 ? 1 : 0)
   }, 0)
 
+  const activeLineCount = activeSlide?.text.split('\n').filter(Boolean).length || 0
+  const activeCharacterCount = activeSlide?.text.length || 0
+  const selectedHymnal = hymnals.find((h) => h.id === hymnalId)
+  const isCurrentSongLive = Boolean(editingSong?.id && programSlide?.songId === editingSong.id)
+  const outputLabel =
+    projectionState === 'LIVE'
+      ? 'OUTPUT ACTIVE'
+      : projectionState === 'BLACK'
+        ? 'BLACKOUT'
+        : projectionState === 'FREEZE'
+          ? 'FREEZE'
+          : 'STANDBY'
+  const routeLabel = isCurrentSongLive
+    ? `PROGRAM ${programSlideIndex + 1}/${Math.max(programSlides.length, 1)}`
+    : 'PREVIEW ROUTE'
+  const lockLabel = hasPendingLiveChanges
+    ? 'LIVE DIRTY'
+    : programLockState === 'LIVE_LOCK'
+      ? 'LIVE LOCK'
+      : 'SAFE EDIT'
+
   return (
-    <div className="h-full w-full flex flex-col bg-bg-base overflow-hidden">
-      {/* Header */}
-      <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-border-subtle/50 bg-bg-base/40 backdrop-blur-md shadow-[0_1px_0_rgba(255,255,255,0.03)] z-20 relative">
-        <div className="flex items-center gap-5">
-          <button
-            onClick={() => {
-              if (isDirty && !showDiscardDialog) {
-                setShowDiscardDialog(true)
-                return
-              }
-              setScreen('dashboard')
-            }}
-            className="p-2.5 rounded-xl text-text-secondary bg-bg-surface/50 border border-border-subtle hover:bg-bg-elevated hover:text-text-primary hover:border-border-strong transition-all active:scale-95 shadow-sm"
-          >
+    <div className="song-studio">
+      <header className="song-studio__topbar">
+        <div className="song-studio__title-group">
+          <button className="song-studio__back-button" onClick={handleBack} aria-label="Kembali">
             <ArrowLeft size={18} />
           </button>
-          <div className="flex flex-col">
-            <h1 className="text-2xl font-bold text-text-primary leading-tight tracking-tight">
-              {isEditing ? 'Edit Lagu' : 'Tambah Lagu Baru'}
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="h-1.5 w-1.5 rounded-full bg-brand-primary" />
-              <span className="text-[10px] text-text-muted font-black uppercase tracking-widest">
-                {isEditing
-                  ? `${editingSong?.hymnal_code || 'LS'} ${editingSong?.number} — ${editingSong?.title}`
-                  : 'Input Data Baru'}
+          <div>
+            <div className="song-studio__title-row">
+              <h1>{isEditing ? 'Edit Lagu' : 'Tambah Lagu Baru'}</h1>
+              <span className={`song-studio__save-state ${isDirty ? 'is-dirty' : ''}`}>
+                {isDirty ? 'Belum disimpan' : 'Tersimpan'}
               </span>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2 ml-4 border-l border-border-subtle pl-4">
-            {lineWarnings > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-status-warning/10 border border-status-warning/20 text-status-warning shadow-sm">
-                <div className="w-1.5 h-1.5 rounded-full bg-status-warning animate-pulse" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">
-                  {lineWarnings} Baris Panjang
-                </span>
-              </div>
-            )}
-            {duplicateWarning && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-status-error/10 border border-status-error/20 text-status-error shadow-sm">
-                <AlertTriangle size={12} />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Duplikat</span>
-              </div>
-            )}
-            {isDirty && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-primary/10 border border-brand-primary/20 text-brand-primary shadow-sm">
-                <div className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">
-                  Belum Disimpan
-                </span>
-              </div>
-            )}
+            <div className="song-studio__breadcrumb">
+              <span>{selectedHymnal?.code || editingSong?.hymnal_code || 'LS'}</span>
+              <span>{songNumber || editingSong?.number || 'New'}</span>
+              <span>{title || 'Judul lagu belum diisi'}</span>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              if (isDirty && !showDiscardDialog) {
-                setShowDiscardDialog(true)
-                return
-              }
-              setScreen('dashboard')
-            }}
-            className="btn-premium btn-premium-ghost text-xs px-5 h-9"
-          >
+        <div className="song-studio__broadcast-rack" aria-label="Status broadcast">
+          <div className={`song-studio__rack-cell ${projectionState === 'LIVE' ? 'is-live' : ''}`}>
+            <Radio size={14} />
+            <span>{outputLabel}</span>
+          </div>
+          <div className="song-studio__rack-cell">
+            <MonitorPlay size={14} />
+            <span>{routeLabel}</span>
+          </div>
+          <div className={`song-studio__rack-cell ${timerRunning ? 'is-running' : ''}`}>
+            <Clock3 size={14} />
+            <span>{formatRuntime(timerElapsed)}</span>
+          </div>
+          <div className={`song-studio__rack-cell ${hasPendingLiveChanges ? 'is-warning' : ''}`}>
+            <Activity size={14} />
+            <span>{lockLabel}</span>
+          </div>
+        </div>
+
+        <div className="song-studio__status-cluster">
+          {duplicateWarning && (
+            <span className="song-studio__warning-pill">
+              <AlertTriangle size={13} />
+              Duplikat
+            </span>
+          )}
+          {lineWarnings > 0 && (
+            <span className="song-studio__warning-pill">
+              <AlertTriangle size={13} />
+              {lineWarnings} baris panjang
+            </span>
+          )}
+          <button className="song-studio__ghost-action" onClick={handleBack}>
             Batal
           </button>
           <button
+            className="song-studio__primary-action"
             onClick={handleSave}
             disabled={isSaving || !songNumber.trim() || !title.trim()}
-            className={`btn-premium btn-premium-primary text-xs px-6 h-9 gap-2 shadow-brand-primary/20 shadow-lg ${isDirty ? 'ring-2 ring-brand-primary/30' : ''}`}
           >
             <Save size={16} />
             {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
+            <ChevronDown size={14} />
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Professional Lyric Studio: 3-Column Layout */}
-      <div className="flex-1 flex min-h-0">
-        {/* Column 1: Metadata & Lyrics Editor */}
-        <div className="flex-[4] flex flex-col min-h-0 bg-bg-surface/10 relative">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_50%)] pointer-events-none" />
-
-          <div className="flex-1 overflow-y-auto p-8 space-y-10 relative z-10 custom-scrollbar">
-            {/* Essential Info Section */}
-            <section>
-              <div className="flex items-end justify-between mb-5">
-                <div>
-                  <h3 className="text-lg font-semibold text-text-primary tracking-tight">
-                    Informasi Dasar
-                  </h3>
-                  <p className="text-[12px] text-text-muted mt-1">
-                    Identitas lagu dan pengaturan buku lagu.
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-2xl bg-white/5 border border-white/10 p-6 shadow-[0_10px_40px_rgba(0,0,0,0.25)] space-y-5">
-                <div className="grid grid-cols-12 gap-5">
-                  <div className="col-span-5">
-                    <label className="text-[12px] font-semibold text-text-secondary mb-2 block">
-                      Buku Lagu (Hymnal)
-                    </label>
-                    <select
-                      value={hymnalId}
-                      onChange={(e) => setHymnalId(Number(e.target.value))}
-                      className={selectBaseClass}
-                    >
-                      {hymnals.map((h) => (
-                        <option key={h.id} value={h.id}>
-                          {h.code} - {h.name}
-                        </option>
-                      ))}
-                    </select>
+      <PanelGroup className="song-studio__workspace" direction="horizontal">
+        <Panel defaultSize={28} minSize={20} maxSize={42} order={1}>
+          <aside className="song-studio__left-panel song-studio__panel">
+            <PanelGroup direction="vertical">
+              <Panel defaultSize={68} minSize={38} order={1}>
+                <section className="song-studio__section">
+                  <div className="song-studio__section-heading">
+                    <div>
+                      <h2>Informasi Dasar</h2>
+                      <p>Identitas lagu dan pengaturan buku lagu.</p>
+                    </div>
+                    <Music2 size={16} />
                   </div>
-                  <div className="col-span-3">
-                    <label className="text-[12px] font-semibold text-text-secondary mb-2 block">
-                      Nomor
-                    </label>
-                    <input
-                      type="text"
-                      value={songNumber}
-                      onChange={(e) => setSongNumber(e.target.value)}
-                      placeholder="001"
-                      className={`${inputBaseClass} font-semibold`}
-                    />
-                  </div>
-                </div>
 
-                <div>
-                  <label className="text-[12px] font-semibold text-text-secondary mb-2 block">
-                    Judul Utama
+                  <div className="song-studio__form-grid two">
+                    <label className="song-field span-wide">
+                      <span>Buku Lagu (Hymnal)</span>
+                      <div className="song-select-wrap">
+                        <select
+                          value={hymnalId}
+                          onChange={(e) => setHymnalId(Number(e.target.value))}
+                        >
+                          {hymnals.map((h) => (
+                            <option key={h.id} value={h.id}>
+                              {h.code} - {h.name}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} />
+                      </div>
+                    </label>
+
+                    <label className="song-field">
+                      <span>Nomor</span>
+                      <input value={songNumber} onChange={(e) => setSongNumber(e.target.value)} />
+                    </label>
+                  </div>
+
+                  <label className="song-field">
+                    <span>Judul Utama</span>
+                    <input value={title} onChange={(e) => setTitle(e.target.value)} />
                   </label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Contoh: Kudus, Kudus, Kudus"
-                    className={`${inputBaseClass} text-[15px] font-semibold`}
-                  />
-                </div>
 
-                <div className="grid grid-cols-12 gap-5">
-                  <div className="col-span-5">
-                    <label className="text-[12px] font-semibold text-text-secondary mb-2 block">
-                      Kategori
-                    </label>
-                    <select
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      className={selectBaseClass}
-                    >
-                      <option value="">Pilih Kategori...</option>
-                      {categories.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-span-7">
-                    <label className="text-[12px] font-semibold text-text-secondary mb-2 block">
-                      Sub Judul (English/Optional)
-                    </label>
+                  <label className="song-field">
+                    <span>Kategori</span>
+                    <div className="song-select-wrap">
+                      <select value={category} onChange={(e) => setCategory(e.target.value)}>
+                        <option value="">Pilih Kategori</option>
+                        {categories.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} />
+                    </div>
+                  </label>
+
+                  <label className="song-field">
+                    <span>Sub Judul (English/Optional)</span>
                     <input
-                      type="text"
                       value={alternateTitle}
                       onChange={(e) => setAlternateTitle(e.target.value)}
-                      placeholder="Holy, Holy, Holy"
-                      className={inputBaseClass}
+                      placeholder="Before Jehovah's Awful Throne"
                     />
-                  </div>
-                </div>
+                  </label>
 
-                <div className="grid grid-cols-12 gap-5 p-5 rounded-2xl bg-black/10 border border-white/10">
-                  <div className="col-span-4">
-                    <label className="text-[12px] font-semibold text-text-secondary mb-2 block">
-                      Nada Dasar
+                  <div className="song-studio__form-grid two-even">
+                    <label className="song-field">
+                      <span>Pengarang (Arranger)</span>
+                      <input value={author} onChange={(e) => setAuthor(e.target.value)} />
                     </label>
+                    <label className="song-field">
+                      <span>Komposer</span>
+                      <input value={composer} onChange={(e) => setComposer(e.target.value)} />
+                    </label>
+                  </div>
+
+                  <label className="song-field">
+                    <span>Referensi Alkitab</span>
                     <input
-                      type="text"
-                      value={keyNote}
-                      onChange={(e) => {
-                        setKeyNote(e.target.value)
-                        const v = validateKeyNote(e.target.value)
-                        setKeyNoteError(v.valid ? null : v.message || null)
-                      }}
-                      onBlur={() => setKeyNote(formatKeyNote(keyNote))}
-                      placeholder="C / G / Am"
-                      className={`w-full h-11 bg-bg-base/50 border rounded-xl px-4 text-[14px] font-semibold outline-none transition ${
-                        keyNoteError
-                          ? 'border-status-error/70 focus:border-status-error focus:ring-4 focus:ring-status-error/10'
-                          : 'border-white/10 focus:border-brand-primary/50 focus:ring-4 focus:ring-brand-primary/10'
-                      }`}
+                      value={scriptureReference}
+                      onChange={(e) => setScriptureReference(e.target.value)}
+                      placeholder="Yohanes 3:16"
                     />
-                    {keyNoteError && (
-                      <span className="text-[12px] text-status-error mt-2 block font-medium">
-                        {keyNoteError}
-                      </span>
-                    )}
-                  </div>
-                  <div className="col-span-4">
-                    <label className="text-[12px] font-semibold text-text-secondary mb-2 block">
-                      Birama
+                  </label>
+
+                  <div className="song-studio__form-grid musical">
+                    <label className={`song-field ${keyNoteError ? 'has-error' : ''}`}>
+                      <span>Nada Dasar</span>
+                      <input
+                        value={keyNote}
+                        onChange={(e) => {
+                          setKeyNote(e.target.value)
+                          const v = validateKeyNote(e.target.value)
+                          setKeyNoteError(v.valid ? null : v.message || null)
+                        }}
+                        onBlur={() => setKeyNote(formatKeyNote(keyNote))}
+                        placeholder="C / G / Am"
+                      />
+                      {keyNoteError && <small>{keyNoteError}</small>}
                     </label>
-                    <select
-                      value={timeSignature}
-                      onChange={(e) => setTimeSignature(e.target.value)}
-                      className={`${selectBaseClass} font-semibold`}
-                    >
-                      <option value="">Pilih Birama...</option>
-                      <optgroup label="Common">
-                        <option value="2/2">2/2 (Cut Time)</option>
-                        <option value="2/4">2/4</option>
-                        <option value="3/4">3/4 (Waltz)</option>
-                        <option value="4/4">4/4 (Common Time)</option>
-                        <option value="6/8">6/8</option>
-                      </optgroup>
-                      <optgroup label="Complex">
-                        <option value="3/8">3/8</option>
-                        <option value="5/4">5/4</option>
-                        <option value="7/8">7/8</option>
-                        <option value="9/8">9/8</option>
-                        <option value="12/8">12/8</option>
-                      </optgroup>
-                      <optgroup label="Other">
-                        <option value="C">C (Common Time)</option>
-                        <option value="C|">C| (Alla Breve)</option>
-                      </optgroup>
-                    </select>
-                  </div>
-                  <div className="col-span-4">
-                    <label className="text-[12px] font-semibold text-text-secondary mb-2 block">
-                      Tempo (BPM)
-                    </label>
-                    <input
-                      type="text"
-                      value={tempo}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/[^0-9]/g, '')
-                        setTempo(val)
-                        const v = validateTempo(val)
-                        setTempoError(v.valid ? null : v.message || null)
-                      }}
-                      onBlur={() => setTempo(formatTempo(tempo))}
-                      placeholder="100"
-                      className={`w-full h-11 bg-bg-base/50 border rounded-xl px-4 text-[14px] font-semibold outline-none transition ${
-                        tempoError
-                          ? 'border-status-error/70 focus:border-status-error focus:ring-4 focus:ring-status-error/10'
-                          : 'border-white/10 focus:border-brand-primary/50 focus:ring-4 focus:ring-brand-primary/10'
-                      }`}
-                    />
-                    {tempoError && (
-                      <span className="text-[12px] text-status-error mt-2 block font-medium">
-                        {tempoError}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </section>
 
-            <div className="w-full h-px bg-white/5" />
-
-            {/* Lyrics Editor Section */}
-            <section>
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-secondary/10 border border-brand-secondary/20 text-brand-secondary text-[11px] font-bold">
-                    2
-                  </div>
-                  <h3 className="text-xs font-black uppercase tracking-widest text-text-primary">
-                    Lirik & Struktur
-                  </h3>
-                </div>
-                <button
-                  onClick={handleAutoFormat}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] ring-1 ring-white/10 text-[11px] font-bold text-text-secondary hover:text-brand-secondary hover:bg-brand-secondary/10 transition-all duration-200"
-                  title="Auto-format spasi dan baris"
-                >
-                  <Wand2 size={12} />
-                  Format Lirik
-                </button>
-              </div>
-
-              <div className="rounded-2xl bg-white/5 border border-white/10 shadow-[0_18px_60px_rgba(0,0,0,0.28)] focus-within:ring-2 focus-within:ring-brand-secondary/15 transition-shadow">
-                <div className="px-4 pt-4">
-                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-black/10 ring-1 ring-white/10 px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="text-[10px] font-bold uppercase tracking-widest text-text-disabled">
-                          Structure
-                        </div>
-                        <div className="flex items-center gap-1.5 bg-white/[0.03] ring-1 ring-white/10 rounded-2xl p-1.5">
-                          {['Bait', 'Chorus', 'Bridge', 'Ending', 'Pre-Chorus'].map((sec, i) => (
-                            <button
-                              key={sec}
-                              onClick={() => insertSection(sec)}
-                              className="group relative px-3 h-8 rounded-xl text-[11px] font-semibold text-text-secondary hover:text-text-primary hover:bg-white/[0.06] active:bg-white/[0.08] active:scale-[0.98] transition-all duration-150"
-                            >
-                              <span>{sec}</span>
-                              <span className="absolute -top-0.5 -right-0.5 opacity-0 group-hover:opacity-100 transition-opacity px-1 py-0.5 rounded bg-white/5 text-[8px] font-mono text-text-muted tabular-nums">
-                                {i + 1}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="hidden md:block w-px h-7 bg-white/5" />
-
-                      <div className="flex items-center gap-3">
-                        <div className="text-[10px] font-bold uppercase tracking-widest text-text-disabled">
-                          Slide
-                        </div>
-                        <button
-                          onClick={insertBreak}
-                          className="group relative flex items-center gap-1.5 px-3 h-8 rounded-2xl bg-brand-primary/10 ring-1 ring-brand-primary/20 text-[11px] font-semibold text-brand-primary hover:bg-brand-primary/15 active:bg-brand-primary/20 active:scale-[0.98] transition-all duration-150"
+                    <label className="song-field">
+                      <span>Birama</span>
+                      <div className="song-select-wrap">
+                        <select
+                          value={timeSignature}
+                          onChange={(e) => setTimeSignature(e.target.value)}
                         >
-                          <SplitSquareHorizontal size={12} />
-                          <span>Slide Break</span>
-                          <span className="opacity-0 group-hover:opacity-100 transition-opacity px-1.5 py-0.5 rounded bg-white/5 text-[8px] font-mono text-text-muted">
-                            ---
-                          </span>
-                        </button>
+                          <option value="">Pilih Birama</option>
+                          <option value="2/2">2/2</option>
+                          <option value="2/4">2/4</option>
+                          <option value="3/4">3/4</option>
+                          <option value="4/4">4/4</option>
+                          <option value="6/8">6/8</option>
+                          <option value="12/8">12/8</option>
+                          <option value="C">C</option>
+                          <option value="C|">C|</option>
+                        </select>
+                        <ChevronDown size={14} />
                       </div>
-                    </div>
+                    </label>
 
-                    <div className="flex items-center gap-4">
-                      <div className="hidden md:flex items-center gap-2 text-[9px] text-text-disabled font-mono">
-                        <span className="px-1.5 py-0.5 rounded bg-white/5">Ctrl+S</span>
-                        <span className="text-text-muted/40">·</span>
-                        <span className="text-text-muted">save</span>
-                      </div>
-                      <div className="text-[10px] text-text-disabled font-mono">
-                        {lyricsRaw.length} karakter · {lyricsRaw.split('\n').length} baris
-                      </div>
-                    </div>
+                    <label className={`song-field ${tempoError ? 'has-error' : ''}`}>
+                      <span>Tempo (BPM)</span>
+                      <input
+                        value={tempo}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9]/g, '')
+                          setTempo(val)
+                          const v = validateTempo(val)
+                          setTempoError(v.valid ? null : v.message || null)
+                        }}
+                        onBlur={() => setTempo(formatTempo(tempo))}
+                        placeholder="100"
+                      />
+                      {tempoError && <small>{tempoError}</small>}
+                    </label>
                   </div>
-                </div>
+                </section>
+              </Panel>
 
-                <div className="relative px-4 pb-4 pt-3">
+              <PanelResizeHandle className="song-studio__resize-handle song-studio__resize-handle--vertical" />
+
+              <Panel defaultSize={32} minSize={22} order={2}>
+                <section className="song-studio__section song-studio__lyrics-section">
+                  <div className="song-studio__section-heading">
+                    <div>
+                      <h2>Lirik & Struktur</h2>
+                      <p>Kelola lirik dan struktur slide lagu.</p>
+                    </div>
+                    <FileText size={16} />
+                  </div>
+
+                  <div className="song-studio__chip-group">
+                    {['Bait', 'Chorus', 'Bridge', 'Ending', 'Pre-Chorus'].map((sec) => (
+                      <button key={sec} onClick={() => insertSection(sec)}>
+                        {sec}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="song-studio__tool-row">
+                    <button onClick={insertBreak}>
+                      <SplitSquareHorizontal size={14} />
+                      Slide Break
+                    </button>
+                    <button onClick={handleAutoFormat}>
+                      <Wand2 size={14} />
+                      Format
+                    </button>
+                  </div>
+
                   <textarea
                     value={lyricsRaw}
                     onChange={(e) => setLyricsRaw(e.target.value)}
-                    placeholder="Ketik lirik di sini... gunakan --- untuk membagi slide secara manual."
-                    className="w-full h-[480px] bg-bg-base/40 ring-1 ring-white/10 rounded-2xl p-6 text-[14px] font-mono leading-[1.9] text-text-primary/95 placeholder:text-text-muted/50 focus:ring-4 focus:ring-brand-secondary/10 focus:ring-offset-0 outline-none transition resize-none shadow-inner custom-scrollbar"
+                    placeholder="Ketik lirik di sini. Gunakan --- untuk membagi slide manual."
                     spellCheck={false}
                   />
-                </div>
-              </div>
-            </section>
-          </div>
-        </div>
+                </section>
+              </Panel>
+            </PanelGroup>
+          </aside>
+        </Panel>
 
-        {/* Column 2: Slide Strip */}
-        <div className="flex-[2] flex flex-col min-h-0 bg-bg-base/20 relative">
-          <div className="shrink-0 px-5 py-4 border-b border-border-subtle bg-bg-surface/50 backdrop-blur-md z-10 flex flex-col gap-1">
-            <h3 className="text-[11px] font-black uppercase tracking-widest text-text-primary">
-              Slide Strip
-            </h3>
-            <p className="text-[10px] text-text-muted font-medium uppercase tracking-wider">
-              {previewSlides.length} slide otomatis
-            </p>
-          </div>
-          <div className="flex-1 overflow-y-auto p-5 space-y-3 custom-scrollbar relative z-0">
-            {previewSlides.map((slide, idx) => {
-              const isActive = activeSlideIdx === idx
-              const excerpt = (slide.text || '').replace(/\n+/g, ' ').trim()
+        <PanelResizeHandle className="song-studio__resize-handle" />
 
-              return (
-                <button
-                  key={idx}
-                  onClick={() => setActiveSlideIdx(idx)}
-                  className={`w-full text-left rounded-2xl transition-all duration-200 ease-out active:scale-[0.99] group ${
-                    isActive
-                      ? 'bg-brand-primary/10 shadow-[0_18px_50px_rgba(0,0,0,0.35)] ring-1 ring-brand-primary/25'
-                      : 'bg-white/[0.03] hover:bg-white/[0.05] ring-1 ring-white/10 hover:ring-white/15'
-                  }`}
-                >
-                  <div className="flex items-center gap-4 px-4 py-3.5">
-                    <div className="shrink-0 flex items-center gap-3">
-                      <div
-                        className={`w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-black tabular-nums transition-colors ${
-                          isActive
-                            ? 'bg-brand-primary/20 text-brand-primary'
-                            : 'bg-black/20 text-text-muted group-hover:text-text-secondary'
-                        }`}
-                      >
-                        {idx + 1}
-                      </div>
-
-                      <div
-                        className={`relative w-16 aspect-video rounded-lg overflow-hidden transition-transform duration-300 ${
-                          isActive ? 'scale-[1.02]' : 'group-hover:scale-[1.02]'
-                        }`}
-                      >
-                        <div className="absolute inset-0 bg-black" />
-                        <div
-                          className="absolute inset-0 bg-cover bg-center"
-                          style={{
-                            backgroundColor: bgColor,
-                            backgroundImage: theme.projection_bg_image
-                              ? `url(${theme.projection_bg_image})`
-                              : 'none',
-                            opacity: 0.55
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-black/60" />
-                      </div>
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0 flex items-center gap-2">
-                          {slide.sectionLabel && (
-                            <span
-                              className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                                isActive
-                                  ? 'bg-brand-secondary/15 text-brand-secondary'
-                                  : 'bg-white/5 text-text-muted'
-                              }`}
-                            >
-                              {slide.sectionLabel}
-                            </span>
-                          )}
-                          <span
-                            className={`truncate text-[12px] font-semibold transition-colors ${
-                              isActive
-                                ? 'text-text-primary'
-                                : 'text-text-secondary group-hover:text-text-primary'
-                            }`}
-                          >
-                            {excerpt || 'Slide kosong'}
-                          </span>
-                        </div>
-
-                        <div
-                          className={`shrink-0 text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                            isActive ? 'text-brand-primary' : 'text-text-disabled'
-                          }`}
-                        >
-                          {slide.text.split('\n').filter(Boolean).length} baris
-                        </div>
-                      </div>
-
-                      <div className="mt-2 h-px bg-white/5" />
-                    </div>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Column 3: Live Presentation Preview 16:9 */}
-        <div className="flex-[5] flex flex-col min-h-0 bg-bg-base/60 relative">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.02),transparent_60%)] pointer-events-none" />
-
-          <div className="p-8 border-b border-border-subtle bg-bg-surface/20 relative z-10 flex flex-col justify-center min-h-[60%]">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-bg-elevated border border-border-subtle shadow-sm">
-                  <div className="w-2.5 h-2.5 rounded-full bg-status-success animate-pulse shadow-[0_0_8px_rgba(46,204,113,0.6)]" />
-                </div>
-                <div className="flex flex-col">
-                  <h3 className="text-lg font-bold text-text-primary">Live Monitor</h3>
-                  <p className="text-[11px] text-text-muted font-medium uppercase tracking-widest">
-                    Simulasi Proyeksi
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 bg-bg-surface/80 p-1.5 rounded-xl border border-border-subtle shadow-sm backdrop-blur-md">
-                <span className="px-3 text-[10px] font-black text-text-muted uppercase tracking-wider">
-                  Slide
-                </span>
-                <div className="flex items-center gap-1 bg-bg-base rounded-lg p-0.5 border border-border-subtle shadow-inner">
-                  <button
-                    disabled={activeSlideIdx <= 0}
-                    onClick={() => setActiveSlideIdx((v) => v - 1)}
-                    className="p-2 rounded-md hover:bg-bg-elevated text-text-primary disabled:opacity-20 transition-colors"
-                  >
-                    <ArrowLeft size={14} />
-                  </button>
-                  <span className="text-[12px] font-bold text-brand-primary w-12 text-center tabular-nums">
-                    {previewSlides.length > 0
-                      ? `${activeSlideIdx + 1} / ${previewSlides.length}`
-                      : '0'}
-                  </span>
-                  <button
-                    disabled={activeSlideIdx >= previewSlides.length - 1}
-                    onClick={() => setActiveSlideIdx((v) => v + 1)}
-                    className="p-2 rounded-md hover:bg-bg-elevated text-text-primary disabled:opacity-20 rotate-180 transition-colors"
-                  >
-                    <ArrowLeft size={14} />
-                  </button>
-                </div>
-              </div>
+        <Panel defaultSize={45} minSize={30} order={2}>
+          <section className="song-studio__center-panel song-studio__panel">
+          <div className="song-studio__panel-header">
+            <div>
+              <h2>Slide Strip</h2>
+              <p>Susunan slide otomatis berdasarkan struktur lagu.</p>
             </div>
-
-            {/* Projection Frame Simulator */}
-            <div className="aspect-video w-full max-w-4xl mx-auto rounded-2xl overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.55)] bg-black relative group/monitor">
-              {/* Subtle bezel / screen depth */}
-              <div className="absolute inset-0 ring-1 ring-white/[0.07] rounded-2xl" />
-              <div className="absolute inset-[1px] ring-[3px] ring-black/40 rounded-2xl" />
-
-              {/* Simulator Background */}
-              <div
-                className="absolute inset-[4px] rounded-xl bg-cover bg-center bg-noisetexture transition-transform duration-1000 group-hover/monitor:scale-[1.02]"
-                style={{
-                  backgroundColor: bgColor,
-                  backgroundImage: theme.projection_bg_image
-                    ? `url(${theme.projection_bg_image})`
-                    : 'none',
-                  opacity: theme.projection_bg_opacity || 0.7
-                }}
-              />
-
-              {/* Projection atmosphere layers */}
-              <div className="absolute inset-[4px] rounded-xl bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.05),rgba(0,0,0,0.45))]" />
-              <div className="absolute inset-[4px] rounded-xl bg-gradient-to-b from-black/15 via-transparent to-black/40" />
-
-              {/* Subtle inner shadow for screen depth */}
-              <div className="absolute inset-[4px] rounded-xl shadow-[inset_0_2px_20px_rgba(0,0,0,0.35)]" />
-
-              {/* Simulator Content */}
-              <div className="absolute inset-[4px] rounded-xl flex flex-col items-center justify-center p-[8%] z-10 text-center">
-                {activeSlide ? (
-                  <div
-                    className="w-full animate-fade-in drop-shadow-[0_4px_30px_rgba(0,0,0,0.5)]"
-                    style={{
-                      fontFamily,
-                      color: textColor,
-                      textShadow:
-                        theme.projection_text_shadow === '1'
-                          ? '0 2px 20px rgba(0,0,0,0.9), 0 4px 40px rgba(0,0,0,0.5)'
-                          : '0 2px 12px rgba(0,0,0,0.6)',
-                      fontSize: 'clamp(18px, 3.2vw, 32px)',
-                      lineHeight: '1.55',
-                      fontWeight: '500',
-                      letterSpacing: '0.01em',
-                      whiteSpace: 'pre-line'
-                    }}
-                  >
-                    {activeSlide.sectionLabel && (
-                      <div
-                        className="text-[0.55em] opacity-50 mb-3 font-semibold tracking-widest uppercase"
-                        style={{ color: textColor }}
-                      >
-                        {activeSlide.sectionLabel}
-                      </div>
-                    )}
-                    {activeSlide.text}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-4 text-white/25">
-                    <div className="w-16 h-16 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 flex items-center justify-center">
-                      <SplitSquareHorizontal size={28} className="opacity-40" />
-                    </div>
-                    <div className="text-[13px] font-medium tracking-wide">Tidak ada lirik</div>
-                  </div>
-                )}
-              </div>
-
-              {/* Metadata Overlay - Integrated with Preview */}
-              {(keyNote || timeSignature || tempo) && (
-                <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2 rounded-full bg-black/50 backdrop-blur-xl ring-1 ring-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
-                  {keyNote && (
-                    <div className="flex items-center gap-1.5 text-white/70">
-                      <span className="text-[9px] font-semibold uppercase tracking-wider opacity-50">
-                        Nada
-                      </span>
-                      <span className="text-[11px] font-semibold">{formatKeyNote(keyNote)}</span>
-                    </div>
-                  )}
-                  {timeSignature && (
-                    <div className="flex items-center gap-1.5 text-white/70">
-                      <span className="text-[9px] font-semibold uppercase tracking-wider opacity-50">
-                        Birama
-                      </span>
-                      <span className="text-[11px] font-semibold">{timeSignature}</span>
-                    </div>
-                  )}
-                  {tempo && (
-                    <div className="flex items-center gap-1.5 text-white/70">
-                      <span className="text-[9px] font-semibold uppercase tracking-wider opacity-50">
-                        BPM
-                      </span>
-                      <span className="text-[11px] font-semibold">{formatTempo(tempo)}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Status Badge Overlays - Broadcast style */}
-              <div className="absolute top-4 left-4 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-black/40 backdrop-blur-xl ring-1 ring-white/[0.08] text-[9px] text-white/50 font-semibold tracking-wider">
-                PREVIEW
-              </div>
-
-              <div className="absolute top-4 right-4 flex items-center gap-1.5">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-primary/15 backdrop-blur-xl ring-1 ring-brand-primary/20 text-[9px] text-brand-primary/90 font-semibold tracking-wider">
-                  <div className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse" />
-                  LIVE
-                </div>
-                <div className="px-2.5 py-1 rounded-md bg-black/40 backdrop-blur-xl ring-1 ring-white/[0.08] text-[9px] text-white/45 font-mono tracking-tight">
-                  1920×1080
-                </div>
-                <div className="px-2 py-1 rounded-md bg-black/40 backdrop-blur-xl ring-1 ring-white/[0.08] text-[9px] text-white/40 font-mono tracking-tight">
-                  16:9
-                </div>
-              </div>
+            <div className="song-studio__header-actions">
+              <button>
+                <Plus size={15} />
+                Tambah Slide
+              </button>
+              <button onClick={handleAutoFormat}>
+                <Sparkles size={15} />
+                Otomatis
+              </button>
             </div>
           </div>
 
-          {/* Slide Info Panel */}
-          <div className="flex-1 overflow-y-auto p-8 relative z-10 custom-scrollbar">
-            {activeSlide ? (
-              <div className="max-w-4xl mx-auto rounded-2xl border border-border-subtle bg-bg-surface/30 p-6 space-y-4 shadow-sm">
-                <div className="flex items-center justify-between border-b border-border-subtle/50 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-text-muted">
-                      Konten Slide #{activeSlideIdx + 1}
-                    </div>
-                    {activeSlide.sectionLabel && (
-                      <span className="px-2 py-0.5 rounded-md bg-brand-secondary/10 text-brand-secondary text-[10px] font-bold uppercase tracking-wider">
-                        {activeSlide.sectionLabel}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-4 text-[10px] font-bold text-text-disabled uppercase tracking-wider">
-                    <span>{activeSlide.text.length} karakter</span>
-                    <span>{activeSlide.text.split('\n').length} baris</span>
-                  </div>
-                </div>
-                <div className="text-[14px] text-text-primary leading-relaxed whitespace-pre-line font-medium pt-2">
-                  {activeSlide.text}
-                </div>
+          <div className="song-studio__slide-stack">
+            {previewSlides.length === 0 ? (
+              <div className="song-studio__empty-strip">
+                <SplitSquareHorizontal size={30} />
+                <span>Belum ada slide. Tambahkan lirik untuk membuat strip presentasi.</span>
               </div>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-text-muted opacity-50">
-                <p className="text-sm font-medium">Slide Kosong</p>
-              </div>
+              previewSlides.map((slide, idx) => {
+                const isActive = activeSlideIdx === idx
+                const lineCount = slide.text.split('\n').filter(Boolean).length
+                const excerpt = slide.text.split('\n').filter(Boolean).slice(0, 2).join(' ')
+
+                return (
+                  <button
+                    key={`${slide.slideIndex}-${idx}`}
+                    className={`song-studio__slide-card ${isActive ? 'is-active' : ''}`}
+                    onClick={() => setActiveSlideIdx(idx)}
+                  >
+                    <GripVertical size={18} className="song-studio__drag" />
+                    <span className="song-studio__section-badge">
+                      {slide.sectionLabel || 'Slide'}
+                    </span>
+                    <span className="song-studio__slide-copy">{excerpt || 'Slide kosong'}</span>
+                    <span className="song-studio__line-count">{lineCount} baris</span>
+                    <MoreVertical size={17} className="song-studio__more" />
+                  </button>
+                )
+              })
             )}
           </div>
-        </div>
-      </div>
+          </section>
+        </Panel>
 
-      {/* Dirty State Discard Dialog */}
-      {showDiscardDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="glass-panel-strong rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-border-subtle">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-10 w-10 rounded-full bg-status-warning/10 flex items-center justify-center text-status-warning">
-                <AlertTriangle size={20} />
+        <PanelResizeHandle className="song-studio__resize-handle" />
+
+        <Panel defaultSize={27} minSize={20} maxSize={40} order={3}>
+          <aside className="song-studio__right-panel song-studio__panel">
+            <PanelGroup direction="vertical">
+              <Panel defaultSize={46} minSize={32} order={1}>
+                <div className="song-studio__right-top">
+                  <div className="song-studio__panel-header compact">
+                    <div>
+                      <h2>Preview & Properti</h2>
+                      <p>Pratinjau slide aktif dan properti konten.</p>
+                    </div>
+                    <MonitorPlay size={17} />
+                  </div>
+
+                  <div className="song-studio__tabs">
+                    <button
+                      className={inspectorTab === 'preview' ? 'is-active' : ''}
+                      onClick={() => setInspectorTab('preview')}
+                    >
+                      Preview
+                    </button>
+                    <button
+                      className={inspectorTab === 'properties' ? 'is-active' : ''}
+                      onClick={() => setInspectorTab('properties')}
+                    >
+                      Properti
+                    </button>
+                  </div>
+
+                  <div className="song-studio__preview-frame">
+                    <div className="song-studio__preview-tally">
+                      <span className={projectionState === 'LIVE' ? 'is-live' : ''} />
+                      {projectionState === 'LIVE' ? 'PROGRAM LIVE' : 'PREVIEW'}
+                    </div>
+                    <div
+                      className="song-studio__preview-bg"
+                      style={{
+                        backgroundColor: bgColor,
+                        backgroundImage: theme.projection_bg_image
+                          ? `url(${theme.projection_bg_image})`
+                          : undefined,
+                        opacity: bgOpacity
+                      }}
+                    />
+                    <div className="song-studio__preview-light" />
+                    <div className="song-studio__preview-scan" />
+                    <div className="song-studio__preview-index">{activeSlideIdx + 1}</div>
+                    <div className="song-studio__preview-badge">
+                      {activeSlide?.sectionLabel || 'Preview'}
+                    </div>
+                    <div
+                      className="song-studio__preview-text"
+                      style={{
+                        fontFamily,
+                        color: textColor,
+                        textShadow:
+                          theme.projection_text_shadow === '1'
+                            ? '0 3px 24px rgba(0,0,0,.88), 0 8px 48px rgba(0,0,0,.55)'
+                            : '0 3px 18px rgba(0,0,0,.7)'
+                      }}
+                    >
+                      {activeSlide ? activeSlide.text : 'Belum ada lirik'}
+                    </div>
+                    <div className="song-studio__preview-meta">1920 x 1080</div>
+                  </div>
+
+                  <div className="song-studio__output-strip">
+                    <span>60 FPS</span>
+                    <span>{outputLabel}</span>
+                    <span>Fade {fadeSpeed.toFixed(1)}s</span>
+                    <span>{isCurrentSongLive ? 'Confidence linked' : 'Preview safe'}</span>
+                  </div>
+                </div>
+              </Panel>
+
+              <PanelResizeHandle className="song-studio__resize-handle song-studio__resize-handle--vertical" />
+
+              <Panel defaultSize={54} minSize={32} order={2}>
+                <div className="song-studio__right-scroll">
+
+          <section className="song-studio__property-card">
+            <div className="song-studio__property-title">
+              <FileText size={15} />
+              <span>Konten</span>
+              <strong>{activeCharacterCount} karakter</strong>
+            </div>
+            <div className="song-studio__content-box">
+              <div>
+                <span>Slide #{activeSlideIdx + 1}</span>
+                <strong>{activeSlide?.sectionLabel || 'Slide'}</strong>
+              </div>
+              <p>{activeSlide?.text || 'Slide kosong'}</p>
+            </div>
+          </section>
+
+          <section className="song-studio__property-card">
+            <div className="song-studio__property-title">
+              <Settings2 size={15} />
+              <span>Pengaturan Slide</span>
+            </div>
+            <div className="song-studio__settings-grid">
+              <label className="song-field">
+                <span>Transisi</span>
+                <div className="song-select-wrap">
+                  <select defaultValue="Fade">
+                    <option>Fade</option>
+                    <option>Dissolve</option>
+                    <option>Cut</option>
+                  </select>
+                  <ChevronDown size={14} />
+                </div>
+              </label>
+              <label className="song-field">
+                <span>Durasi (Detik)</span>
+                <input defaultValue="5.0" />
+              </label>
+              <label className="song-field">
+                <span>Background</span>
+                <div className="song-studio__background-select">
+                  <ImageIcon size={15} />
+                  <span>Theme</span>
+                  <ChevronDown size={14} />
+                </div>
+              </label>
+            </div>
+          </section>
+
+          <section className="song-studio__property-card">
+            <div className="song-studio__property-title">
+              <SlidersHorizontal size={15} />
+              <span>Studio Metadata</span>
+            </div>
+            <div className="song-studio__meta-grid">
+              <div>
+                <Music2 size={14} />
+                <span>Key</span>
+                <strong>{keyNote || '-'}</strong>
               </div>
               <div>
-                <h3 className="text-h3">Perubahan Belum Disimpan</h3>
-                <p className="text-caption mt-1">Apakah Anda yakin ingin keluar tanpa menyimpan?</p>
+                <Clock3 size={14} />
+                <span>BPM</span>
+                <strong>{tempo || '-'}</strong>
+              </div>
+              <div>
+                <Radio size={14} />
+                <span>Birama</span>
+                <strong>{timeSignature || '-'}</strong>
+              </div>
+              <div>
+                <CheckCircle2 size={14} />
+                <span>Baris</span>
+                <strong>{activeLineCount}</strong>
               </div>
             </div>
-            <div className="flex items-center justify-end gap-3 mt-6">
+          </section>
+
+          <section className="song-studio__property-card">
+            <div className="song-studio__property-title">
+              <MonitorPlay size={15} />
+              <span>Output Mapping</span>
+              <strong>{routeLabel}</strong>
+            </div>
+            <div className="song-studio__broadcast-grid">
+              <div>
+                <span>Program</span>
+                <strong>{projectionState}</strong>
+              </div>
+              <div>
+                <span>Lock</span>
+                <strong>{programLockState}</strong>
+              </div>
+              <div>
+                <span>Timer</span>
+                <strong>{formatRuntime(timerElapsed)}</strong>
+              </div>
+              <div>
+                <span>Screen</span>
+                <strong>MAIN 16:9</strong>
+              </div>
+            </div>
+          </section>
+
+          <label className="song-field">
+            <span>Catatan (Opsional)</span>
+            <input placeholder="Tambahkan catatan untuk slide ini..." />
+          </label>
+                </div>
+              </Panel>
+            </PanelGroup>
+          </aside>
+        </Panel>
+      </PanelGroup>
+
+      {showDiscardDialog && (
+        <div className="song-studio__modal">
+          <div className="song-studio__modal-card">
+            <div className="song-studio__modal-icon">
+              <AlertTriangle size={22} />
+            </div>
+            <h3>Perubahan Belum Disimpan</h3>
+            <p>Apakah Anda yakin ingin keluar tanpa menyimpan perubahan lagu ini?</p>
+            <div className="song-studio__modal-actions">
+              <button onClick={() => setShowDiscardDialog(false)}>Lanjutkan Edit</button>
               <button
-                onClick={() => setShowDiscardDialog(false)}
-                className="btn-premium btn-premium-ghost text-xs h-9 px-4"
-              >
-                Lanjutkan Edit
-              </button>
-              <button
+                className="danger"
                 onClick={() => {
                   setShowDiscardDialog(false)
                   setScreen('dashboard')
                 }}
-                className="btn-premium btn-premium-primary text-xs h-9 px-5 bg-status-error border-status-error text-white hover:bg-status-error/90"
               >
                 Buang Perubahan
               </button>

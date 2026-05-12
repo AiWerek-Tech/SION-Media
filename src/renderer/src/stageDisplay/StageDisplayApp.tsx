@@ -270,7 +270,11 @@ export function StageDisplayApp(): React.JSX.Element {
                 <span className="text-zinc-400 text-lg font-medium ml-2">Key: {song.keyNote}</span>
               )}
             </div>
-            <div className="text-zinc-500 text-lg font-medium">{song.hymnalName}</div>
+            <div className="flex items-center gap-6 text-zinc-400 text-sm">
+              <div className="text-zinc-500 text-lg font-medium">{song.hymnalName}</div>
+              {song.composer && <span className="text-zinc-400">Composer: {song.composer}</span>}
+              {song.author && <span className="text-zinc-400">Arranger: {song.author}</span>}
+            </div>
           </>
         ) : (
           <div className="text-zinc-600 text-lg font-medium">No song loaded</div>

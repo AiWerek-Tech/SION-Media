@@ -246,13 +246,7 @@ export interface RecoveryState {
 
 export type FilterTab = 'all' | 'favorites' | 'recent' | 'category'
 
-export type AppScreen =
-  | 'dashboard'
-  | 'song-editor'
-  | 'import-export'
-  | 'settings'
-  | 'bible'
-  | 'management-song-scraper'
+export type AppScreen = 'dashboard' | 'song-editor' | 'import-export' | 'settings' | 'bible'
 
 // ============================================================================
 // Confidence Monitor Types - Stage-facing display system
@@ -299,6 +293,8 @@ export interface ConfidencePayload {
     hymnalCode: string
     hymnalName: string
     keyNote?: string
+    composer?: string
+    author?: string
   } | null
 
   // Timing

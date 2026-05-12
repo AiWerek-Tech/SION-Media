@@ -1,7 +1,7 @@
 import React from 'react'
-import { AlertTriangle, Eye, Plus, Star } from 'lucide-react'
+import { AlertTriangle, Eye, GripVertical, Plus, Star } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
-import { getHymnalColor, getHymnalBgColor, getHymnalBorderColor } from '../utils/hymnal-colors'
+import { getHymnalBgColor, getHymnalBorderColor, getHymnalColor } from '../utils/hymnal-colors'
 import type { Song } from '../types'
 
 function normalizeDisplayNumber(input: string | null | undefined): string {
@@ -29,136 +29,96 @@ export function SongCard({
   onToggleFavorite
 }: SongCardProps): React.JSX.Element {
   const { showToast } = useAppStore.getState()
-
-  const gradientIndex =
-    ((song.id ?? 0) +
-      (song.number ? parseInt(String(song.number).replace(/[^0-9]/g, ''), 10) || 0 : 0)) %
-    6
-  const gradients = [
-    'from-brand-primary/22 via-brand-secondary/10 to-transparent',
-    'from-brand-secondary/22 via-accent/10 to-transparent',
-    'from-status-warning/18 via-brand-primary/10 to-transparent',
-    'from-preview/18 via-brand-primary/10 to-transparent',
-    'from-live-red/16 via-brand-secondary/10 to-transparent',
-    'from-accent/20 via-brand-primary/8 to-transparent'
-  ]
+  const hymnalCode = song.hymnal_code || 'LS'
+  const hymnalAccent = getHymnalColor(hymnalCode)
+  const hymnalBg = getHymnalBgColor(hymnalCode)
+  const hymnalBorder = getHymnalBorderColor(hymnalCode)
+  const hasEmptyLyrics = !song.lyrics_raw?.trim()
+  const verseCount = Math.max(1, song.lyrics_raw?.split(/\n\s*\n/).filter(Boolean).length || 1)
+  const bpm = song.tempo?.match(/\d+/)?.[0] ?? '72'
 
   const handleProjectNow = (): void => {
     onProjectNow(song)
     showToast(`Cue "${song.title}" masuk ke Preview`, 'success')
   }
 
-  const hasEmptyLyrics = !song.lyrics_raw?.trim()
-  const meta = [song.key_note ? `Nada ${song.key_note}` : '', song.tempo || ''].filter(Boolean)
-  const hymnalCode = song.hymnal_code || 'LS'
-  const hymnalAccent = getHymnalColor(hymnalCode)
-  const hymnalBg = getHymnalBgColor(hymnalCode)
-  const hymnalBorder = getHymnalBorderColor(hymnalCode)
-
   return (
     <div
-      className={`group flex h-full items-center justify-between rounded-xl border px-3 py-2 transition-all duration-200 hover:scale-[1.02] ${
-        isActive
-          ? 'bg-preview/12 border-preview/45 shadow-[var(--shadow-elevation-3),var(--shadow-glow-green)]'
-          : rowIndex % 2 === 0
-            ? 'bg-bg-elevated/72 border-border-subtle shadow-[var(--shadow-elevation-1)] hover:bg-bg-elevated-hover hover:border-border-strong hover:shadow-[var(--shadow-elevation-2)]'
-            : 'bg-bg-surface/70 border-border-subtle shadow-[var(--shadow-elevation-1)] hover:bg-bg-elevated-hover hover:border-border-strong hover:shadow-[var(--shadow-elevation-2)]'
+      className={`projection-song-row ${isActive ? 'is-active' : ''} ${
+        rowIndex % 2 === 0 ? 'is-even' : ''
       }`}
+      role="button"
+      tabIndex={0}
+      onDoubleClick={handleProjectNow}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') handleProjectNow()
+      }}
     >
-      {/* Left info: Song identity */}
-      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-        <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded-xl border border-border-subtle bg-bg-base/40">
-          <div
-            className={`absolute inset-0 bg-gradient-to-br ${gradients[gradientIndex]} opacity-100`}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-bg-base/50 to-transparent" />
-          <div className="relative flex h-full w-full flex-col items-start justify-between p-2">
-            <div
-              className="rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em]"
-              style={{
-                backgroundColor: hymnalBg,
-                color: hymnalAccent,
-                border: `1px solid ${hymnalBorder}`
-              }}
-            >
-              {hymnalCode}
-            </div>
-            <div className="text-[12px] font-black leading-none text-text-primary">
-              {normalizeDisplayNumber(song.number)}
-            </div>
-          </div>
-          {isActive && (
-            <div className="absolute inset-0 rounded-xl ring-1 ring-preview/35 shadow-[var(--shadow-glow-green)]" />
+      <button
+        className="projection-song-row__favorite"
+        onClick={(event) => {
+          event.stopPropagation()
+          onToggleFavorite(song)
+        }}
+        title="Toggle favorite"
+        aria-label={`${song.is_favorite ? 'Remove' : 'Add'} ${song.title} favorite`}
+      >
+        <Star size={15} fill={song.is_favorite ? 'currentColor' : 'none'} />
+      </button>
+
+      <div className="projection-song-row__thumb">
+        <div
+          className="projection-song-row__hymnal"
+          style={{
+            backgroundColor: hymnalBg,
+            borderColor: hymnalBorder,
+            color: hymnalAccent
+          }}
+        >
+          {hymnalCode}
+        </div>
+        <strong>{normalizeDisplayNumber(song.number)}</strong>
+      </div>
+
+      <div className="projection-song-row__main">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="projection-song-row__title">{song.title}</span>
+          {hasEmptyLyrics && (
+            <span className="projection-song-row__warning">
+              <AlertTriangle size={10} />
+              Empty
+            </span>
           )}
         </div>
-
-        <div className="flex flex-col min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="flex-1 min-w-0 truncate text-[12px] font-bold text-text-primary transition-colors group-hover:text-preview">
-              {song.title}
-            </div>
-            {hasEmptyLyrics && (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-status-warning/30 bg-status-warning/12 px-1.5 py-0.5 text-[10px] font-black uppercase text-status-warning">
-                <AlertTriangle size={10} />
-                Lirik Kosong
-              </span>
-            )}
-          </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 min-w-0">
-            {song.alternate_title && (
-              <span className="max-w-[140px] truncate text-[12px] italic text-text-muted">
-                {song.alternate_title}
-              </span>
-            )}
-            <span className="rounded border border-border-subtle bg-bg-base/60 px-1.5 py-0.5 text-[12px] font-bold text-text-muted">
-              {song.category || 'Song'}
-            </span>
-            {meta.map((item) => (
-              <span
-                key={item}
-                className="rounded border border-border-subtle bg-bg-base/40 px-1.5 py-0.5 text-[12px] font-bold text-text-disabled"
-              >
-                {item}
-              </span>
-            ))}
-          </div>
+        <div className="projection-song-row__subtitle">
+          <span>{song.alternate_title || song.title_en || song.composer || 'SION Media'}</span>
+          <span>{song.category || 'Song'}</span>
         </div>
       </div>
 
-      {/* Action buttons: Progressive Disclosure */}
-      <div className="flex items-center gap-1 ml-2 opacity-20 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200">
-        <button
-          onClick={handleProjectNow}
-          className="p-1.5 rounded-md text-preview hover:bg-preview/20 transition-all hover:scale-105"
-          title="Cue to Preview"
-          aria-label={`Cue ${song.title}`}
-        >
-          <Eye size={16} />
+      <div className="projection-song-row__stats">
+        <span>4/4</span>
+        <span>BPM {bpm}</span>
+        <span>{verseCount} verse</span>
+      </div>
+
+      <div className="projection-song-row__actions">
+        <button onClick={handleProjectNow} title="Cue to Preview" aria-label={`Cue ${song.title}`}>
+          <Eye size={15} />
         </button>
         <button
-          onClick={() => onAddToPlaylist(song)}
-          className="p-1.5 rounded-md text-brand-primary hover:bg-brand-primary/20 transition-all hover:scale-105"
+          onClick={(event) => {
+            event.stopPropagation()
+            onAddToPlaylist(song)
+          }}
           title="Add to Playlist"
           aria-label={`Add ${song.title} to playlist`}
         >
-          <Plus size={18} />
+          <Plus size={16} />
         </button>
-
-        {/* Overflow Menu Style for less frequent actions */}
-        <div className="flex items-center border-l border-border-strong ml-1 pl-1 gap-1">
-          <button
-            onClick={() => onToggleFavorite(song)}
-            className={`p-1.5 rounded-md transition-colors ${
-              song.is_favorite
-                ? 'text-brand-accent hover:bg-brand-accent/10'
-                : 'text-text-muted hover:bg-bg-active'
-            }`}
-            title="Toggle Favorite"
-            aria-label={`${song.is_favorite ? 'Remove' : 'Add'} ${song.title} favorite`}
-          >
-            <Star size={16} fill={song.is_favorite ? 'currentColor' : 'none'} />
-          </button>
-        </div>
+        <button title="More actions" aria-label={`More actions for ${song.title}`}>
+          <GripVertical size={15} />
+        </button>
       </div>
     </div>
   )

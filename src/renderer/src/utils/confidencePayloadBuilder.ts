@@ -26,7 +26,12 @@ export function buildConfidencePayload(
   programSlides: SlideData[],
   programSlideIndex: number,
   nextSlideData: SlideData | null,
-  programSongMeta: { hymnalCode: string; hymnalName: string } | null,
+  programSongMeta: {
+    hymnalCode: string
+    hymnalName: string
+    composer?: string
+    author?: string
+  } | null,
   projectionState: ProjectionState,
   timerElapsed: number = 0
 ): ConfidencePayload {
@@ -59,7 +64,9 @@ export function buildConfidencePayload(
           title: programSongMeta?.hymnalName || 'Unknown',
           hymnalCode: programSongMeta?.hymnalCode || '',
           hymnalName: programSongMeta?.hymnalName || '',
-          keyNote: programSlide?.keyNote
+          keyNote: programSlide?.keyNote,
+          composer: programSongMeta?.composer,
+          author: programSongMeta?.author
         }
       : null
 

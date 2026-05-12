@@ -243,6 +243,11 @@ export function LibraryTitleView({
                           {song.category}
                         </span>
                       )}
+                      {song.composer && (
+                        <span className="text-[10px] text-text-muted truncate">
+                          {song.composer}
+                        </span>
+                      )}
                       {song.author && (
                         <span className="text-[10px] text-text-muted truncate">{song.author}</span>
                       )}
