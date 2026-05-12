@@ -28,6 +28,8 @@ if (navigator.userAgent.toLowerCase().includes('windows')) {
 
 async function initTheme(): Promise<void> {
   try {
+    if (!window.api?.settings) return
+
     const settings = await window.api.settings.getAll()
     const modeRaw = settings.app_theme_mode
     const mode = isAppThemeMode(modeRaw) ? modeRaw : 'system'
@@ -51,11 +53,13 @@ async function initTheme(): Promise<void> {
 
 void initTheme()
 
-window.api.appTheme?.onUpdated((payload) => {
-  if (payload && (payload.effective === 'dark' || payload.effective === 'light')) {
-    applyEffectiveTheme(payload.effective)
-  }
-})
+if (window.api?.appTheme) {
+  window.api.appTheme.onUpdated((payload) => {
+    if (payload && (payload.effective === 'dark' || payload.effective === 'light')) {
+      applyEffectiveTheme(payload.effective)
+    }
+  })
+}
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

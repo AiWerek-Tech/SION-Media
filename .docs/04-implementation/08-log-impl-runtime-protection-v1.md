@@ -83,7 +83,7 @@ Implementasi **Runtime Protection System** sebagai fondasi untuk menjaga **runti
 
 /**
  * Program Lock State - Controls edit access to live content
- * 
+ *
  * UNLOCKED: Program can be modified (output is CLEAR/BLACK)
  * LIVE_LOCK: Program is immutable while live (output is LIVE/FREEZE)
  * LIVE_DIRTY: Program has pending changes that require confirmation
@@ -92,7 +92,7 @@ export type ProgramLockState = 'UNLOCKED' | 'LIVE_LOCK' | 'LIVE_DIRTY'
 
 /**
  * Preview Sync State - Relationship between preview and program
- * 
+ *
  * SYNCED: Preview matches program exactly
  * AHEAD: Preview is ahead of program (ready to TAKE)
  * INDEPENDENT: Preview has different content (different song)
@@ -110,6 +110,7 @@ export interface PendingChange {
 ```
 
 **Rationale**:
+
 - `ProgramLockState` mendefinisikan 3 state eksplisit untuk authority control
 - `PreviewSyncState` disiapkan untuk future use (tracking relationship preview-program)
 - `PendingChange` menyimpan audit trail perubahan
@@ -125,7 +126,7 @@ export interface PendingChange {
 ```typescript
 interface ProjectionStore {
   // ... existing fields ...
-  
+
   // ═══════════════════════════════════════════════════════════════
   // RUNTIME PROTECTION STATE
   // ═══════════════════════════════════════════════════════════════
@@ -140,7 +141,7 @@ interface ProjectionStore {
 ```typescript
 interface ProjectionStore {
   // ... existing actions ...
-  
+
   // Runtime Protection Actions
   markDirty: (change: PendingChange) => void
   updateLive: () => void
@@ -153,8 +154,14 @@ interface ProjectionStore {
 
 ```typescript
 hotSwapSlides: (songId, newSlides) => {
-  const { slides, currentSlideIndex, programSlide, programSlideIndex, 
-          projectionState, programLockState } = get()
+  const {
+    slides,
+    currentSlideIndex,
+    programSlide,
+    programSlideIndex,
+    projectionState,
+    programLockState
+  } = get()
 
   // Handle preview updates (always allowed)
   const newCueIndex = Math.max(0, Math.min(currentSlideIndex, newSlides.length - 1))
@@ -203,6 +210,7 @@ hotSwapSlides: (songId, newSlides) => {
 ```
 
 **Key Decisions**:
+
 1. **Changes to preview always allowed** - Preview adalah sandbox
 2. **Changes to program check lock state** - Jika LIVE_LOCK, redirect ke preview
 3. **Pending changes recorded** - Audit trail untuk debugging
@@ -231,11 +239,16 @@ updateLive: () => {
   })
 
   sendLiveSlide(slideData)
-  logger.info('[Runtime Protection] Live updated with pending changes:', pendingChanges.length, 'changes')
+  logger.info(
+    '[Runtime Protection] Live updated with pending changes:',
+    pendingChanges.length,
+    'changes'
+  )
 }
 ```
 
 **Key Decisions**:
+
 1. **Guard clause** - Hanya bisa dipanggil saat LIVE_DIRTY
 2. **Full state sync** - Preview → Program
 3. **Lock state restored** - Kembali ke LIVE_LOCK setelah update
@@ -266,6 +279,7 @@ discardChanges: () => {
 ```
 
 **Key Decisions**:
+
 1. **Guard clause** - Hanya bisa dipanggil saat LIVE_DIRTY
 2. **Reverse sync** - Program → Preview
 3. **Lock state restored** - Kembali ke LIVE_LOCK
@@ -291,16 +305,21 @@ interface MonitorFrameProps {
 #### LIVE_LOCK Badge
 
 ```tsx
-{/* Runtime Protection: LIVE_LOCK indicator */}
-{isProgram && programLockState === 'LIVE_LOCK' && (
-  <span className="inline-flex items-center gap-1 rounded bg-status-success/16 px-1.5 py-0.5 text-[12px] font-black text-status-success">
-    <Lock size={11} />
-    LIVE-LOCK
-  </span>
-)}
+{
+  /* Runtime Protection: LIVE_LOCK indicator */
+}
+{
+  isProgram && programLockState === 'LIVE_LOCK' && (
+    <span className="inline-flex items-center gap-1 rounded bg-status-success/16 px-1.5 py-0.5 text-[12px] font-black text-status-success">
+      <Lock size={11} />
+      LIVE-LOCK
+    </span>
+  )
+}
 ```
 
 **Visual Design**:
+
 - Green color (`status-success`) → Calm, protected
 - Lock icon → Immutable state
 - Position: Title bar, Program monitor
@@ -308,16 +327,21 @@ interface MonitorFrameProps {
 #### LIVE_DIRTY Badge
 
 ```tsx
-{/* Runtime Protection: LIVE_DIRTY warning */}
-{isProgram && programLockState === 'LIVE_DIRTY' && (
-  <span className="inline-flex items-center gap-1 rounded bg-status-warning/20 px-1.5 py-0.5 text-[12px] font-black text-status-warning animate-pulse">
-    <AlertCircle size={11} />
-    LIVE-DIRTY
-  </span>
-)}
+{
+  /* Runtime Protection: LIVE_DIRTY warning */
+}
+{
+  isProgram && programLockState === 'LIVE_DIRTY' && (
+    <span className="inline-flex items-center gap-1 rounded bg-status-warning/20 px-1.5 py-0.5 text-[12px] font-black text-status-warning animate-pulse">
+      <AlertCircle size={11} />
+      LIVE-DIRTY
+    </span>
+  )
+}
 ```
 
 **Visual Design**:
+
 - Yellow color (`status-warning`) → Attention required
 - Alert icon → Warning state
 - `animate-pulse` → Dynamic, needs action
@@ -326,30 +350,35 @@ interface MonitorFrameProps {
 #### Dirty State Warning Bar
 
 ```tsx
-{/* Runtime Protection: Dirty State Warning Bar */}
-{programLockState === 'LIVE_DIRTY' && (
-  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded-lg bg-status-warning/12 px-4 py-2.5 text-[13px] font-semibold text-status-warning shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-sm border border-status-warning/20">
-    <AlertCircle size={16} className="animate-pulse" />
-    <span>Pending changes detected. Apply to live output?</span>
-    <div className="flex items-center gap-2 ml-2">
-      <button
-        onClick={() => useProjectionStore.getState().updateLive()}
-        className="rounded bg-status-success/20 px-3 py-1 text-[12px] font-bold text-status-success hover:bg-status-success/30 transition-colors"
-      >
-        Update Live
-      </button>
-      <button
-        onClick={() => useProjectionStore.getState().discardChanges()}
-        className="rounded bg-white/10 px-3 py-1 text-[12px] font-bold text-text-muted hover:bg-white/20 transition-colors"
-      >
-        Discard
-      </button>
+{
+  /* Runtime Protection: Dirty State Warning Bar */
+}
+{
+  programLockState === 'LIVE_DIRTY' && (
+    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded-lg bg-status-warning/12 px-4 py-2.5 text-[13px] font-semibold text-status-warning shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-sm border border-status-warning/20">
+      <AlertCircle size={16} className="animate-pulse" />
+      <span>Pending changes detected. Apply to live output?</span>
+      <div className="flex items-center gap-2 ml-2">
+        <button
+          onClick={() => useProjectionStore.getState().updateLive()}
+          className="rounded bg-status-success/20 px-3 py-1 text-[12px] font-bold text-status-success hover:bg-status-success/30 transition-colors"
+        >
+          Update Live
+        </button>
+        <button
+          onClick={() => useProjectionStore.getState().discardChanges()}
+          className="rounded bg-white/10 px-3 py-1 text-[12px] font-bold text-text-muted hover:bg-white/20 transition-colors"
+        >
+          Discard
+        </button>
+      </div>
     </div>
-  </div>
-)}
+  )
+}
 ```
 
 **Visual Design**:
+
 - Centered at bottom → Prominent but not blocking
 - Glass morphism (`backdrop-blur-sm`) → Modern, premium
 - Two action buttons → Clear choices
@@ -373,6 +402,7 @@ case 'Enter':
 ```
 
 **Rationale**:
+
 - `Ctrl+Enter` adalah pattern umum untuk "confirm/submit"
 - Hanya aktif saat `LIVE_DIRTY`
 - Tidak mengganggu normal Enter behavior
@@ -395,6 +425,7 @@ case 'Escape':
 ```
 
 **Rationale**:
+
 - `Ctrl+Escape` adalah pattern untuk "cancel/revert"
 - Preserves original `Escape` → `clearScreen()` behavior
 - Hanya aktif saat `LIVE_DIRTY`
@@ -503,15 +534,15 @@ case 'Escape':
 
 ## Code Metrics
 
-| Metric | Value |
-|--------|-------|
-| Files modified | 4 |
-| Lines added (types) | ~30 |
-| Lines added (store) | ~120 |
-| Lines added (UI) | ~50 |
-| Lines added (keyboard) | ~15 |
-| Total new code | ~215 lines |
-| Build status | ✅ Success |
+| Metric                 | Value      |
+| ---------------------- | ---------- |
+| Files modified         | 4          |
+| Lines added (types)    | ~30        |
+| Lines added (store)    | ~120       |
+| Lines added (UI)       | ~50        |
+| Lines added (keyboard) | ~15        |
+| Total new code         | ~215 lines |
+| Build status           | ✅ Success |
 
 ---
 

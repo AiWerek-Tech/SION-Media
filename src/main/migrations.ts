@@ -384,62 +384,6 @@ export const migrations: Migration[] = [
         // ignore (FTS5 might not be available in some environments)
       }
     }
-  },
-  {
-    version: 10,
-    name: 'scraper_import_audit_tables',
-    up: (db) => {
-      // Main audit log for scraper imports
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS scraper_import_audit (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          task_id TEXT NOT NULL,
-          timestamp TEXT DEFAULT (datetime('now')),
-          provider_id TEXT NOT NULL,
-          target_hymnal_id INTEGER NOT NULL,
-          range_start TEXT,
-          range_end TEXT,
-          imported_count INTEGER DEFAULT 0,
-          skipped_count INTEGER DEFAULT 0,
-          overwritten_count INTEGER DEFAULT 0,
-          renamed_count INTEGER DEFAULT 0,
-          merged_count INTEGER DEFAULT 0,
-          failed_count INTEGER DEFAULT 0,
-          critical_conflicts INTEGER DEFAULT 0,
-          duration_ms INTEGER DEFAULT 0,
-          report_json TEXT
-        );
-      `)
-
-      // Per-song decisions within an import
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS scraper_import_audit_items (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          audit_id INTEGER NOT NULL,
-          song_number TEXT NOT NULL,
-          song_title TEXT,
-          action TEXT NOT NULL,
-          conflict_type TEXT,
-          conflict_severity TEXT,
-          old_data TEXT,
-          new_data TEXT,
-          timestamp TEXT DEFAULT (datetime('now')),
-          FOREIGN KEY (audit_id) REFERENCES scraper_import_audit(id) ON DELETE CASCADE
-        );
-      `)
-
-      // Indexes for efficient querying
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_scraper_audit_task ON scraper_import_audit(task_id)`)
-      db.exec(
-        `CREATE INDEX IF NOT EXISTS idx_scraper_audit_timestamp ON scraper_import_audit(timestamp)`
-      )
-      db.exec(
-        `CREATE INDEX IF NOT EXISTS idx_scraper_audit_hymnal ON scraper_import_audit(target_hymnal_id)`
-      )
-      db.exec(
-        `CREATE INDEX IF NOT EXISTS idx_scraper_audit_items_audit ON scraper_import_audit_items(audit_id)`
-      )
-    }
   }
 ]
 

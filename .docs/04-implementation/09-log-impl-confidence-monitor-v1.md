@@ -3,7 +3,8 @@
 **Date**: 2026-05-10
 **Feature**: Confidence Monitor - Stage-facing display system
 **Priority**: P1.1 (Highest visible impact)
-**Prerequisites**: 
+**Prerequisites**:
+
 - log-impl-runtime-protection-v1.md
 - log-impl-next-state-v1.md
 - log-impl-quick-jump-v1.md
@@ -107,7 +108,7 @@ export type DisplayRole = 'PROGRAM' | 'STAGE' | 'CONFIDENCE' | 'PREVIEW'
 
 /**
  * Confidence Payload - Normalized runtime data for confidence display
- * 
+ *
  * Built from current runtime state and broadcast to confidence monitors.
  * Used by: stage display, external monitors, websocket remote, mobile apps
  */
@@ -284,7 +285,7 @@ timerTick: () => {
 },
 
 getConfidencePayload: () => {
-  const { programSlide, programSlides, programSlideIndex, nextSlideData, 
+  const { programSlide, programSlides, programSlideIndex, nextSlideData,
           programSongMeta, projectionState, timerElapsed } = get()
   return buildConfidencePayload(...)
 }
@@ -341,26 +342,26 @@ export const IPC_CONFIDENCE = {
 
 #### Typography Scale
 
-| Element | Size | Style |
-|---------|------|-------|
-| Clock | 5xl | Bold, tabular-nums |
-| Timer | 2xl | Mono, tabular-nums |
-| Section Label | 3xl | Black, uppercase, tracking-wide |
-| Current Slide | 7xl-9xl | Bold, leading-tight |
-| Next Slide | 4xl-5xl | Medium, italic |
-| Song Title | xl | Semibold |
-| Hymnal Code | lg | Bold, accent color |
+| Element       | Size    | Style                           |
+| ------------- | ------- | ------------------------------- |
+| Clock         | 5xl     | Bold, tabular-nums              |
+| Timer         | 2xl     | Mono, tabular-nums              |
+| Section Label | 3xl     | Black, uppercase, tracking-wide |
+| Current Slide | 7xl-9xl | Bold, leading-tight             |
+| Next Slide    | 4xl-5xl | Medium, italic                  |
+| Song Title    | xl      | Semibold                        |
+| Hymnal Code   | lg      | Bold, accent color              |
 
 #### Color Scheme
 
-| Element | Color | Purpose |
-|---------|-------|---------|
-| Background | Black | Low-glare, stage-friendly |
-| Current Text | White | Maximum contrast |
-| Section Label | Accent (cyan) | Visual anchor |
-| Next Slide | Zinc-400 | Subtle, not distracting |
-| Live Indicator | Red | Broadcast standard |
-| Timer (running) | Yellow | Active state |
+| Element         | Color         | Purpose                   |
+| --------------- | ------------- | ------------------------- |
+| Background      | Black         | Low-glare, stage-friendly |
+| Current Text    | White         | Maximum contrast          |
+| Section Label   | Accent (cyan) | Visual anchor             |
+| Next Slide      | Zinc-400      | Subtle, not distracting   |
+| Live Indicator  | Red           | Broadcast standard        |
+| Timer (running) | Yellow        | Active state              |
 
 ---
 
@@ -398,17 +399,17 @@ export const IPC_CONFIDENCE = {
 
 ## Code Metrics
 
-| Metric | Value |
-|--------|-------|
-| Files created | 1 |
-| Files modified | 5 |
-| Lines added (types) | ~50 |
-| Lines added (builder) | ~120 |
-| Lines added (store) | ~50 |
-| Lines added (stage app) | ~200 |
-| Lines added (IPC) | ~10 |
-| Total new code | ~430 lines |
-| Build status | ✅ Success |
+| Metric                  | Value      |
+| ----------------------- | ---------- |
+| Files created           | 1          |
+| Files modified          | 5          |
+| Lines added (types)     | ~50        |
+| Lines added (builder)   | ~120       |
+| Lines added (store)     | ~50        |
+| Lines added (stage app) | ~200       |
+| Lines added (IPC)       | ~10        |
+| Total new code          | ~430 lines |
+| Build status            | ✅ Success |
 
 ---
 
@@ -486,21 +487,21 @@ export const IPC_CONFIDENCE = {
 
 ### Existing Systems Used
 
-| System | Usage |
-|--------|-------|
-| NEXT State | `nextSlideData` for next preview |
-| Runtime Protection | `projectionState` for status |
-| Program Slide | `programSlide` for current content |
-| Section Map | Section awareness |
+| System             | Usage                              |
+| ------------------ | ---------------------------------- |
+| NEXT State         | `nextSlideData` for next preview   |
+| Runtime Protection | `projectionState` for status       |
+| Program Slide      | `programSlide` for current content |
+| Section Map        | Section awareness                  |
 
 ### Future Integration
 
-| System | Usage |
-|--------|-------|
-| Command Bus | Timer control commands |
-| WebSocket API | Remote confidence broadcast |
-| Mobile App | Confidence payload consumer |
-| OBS Integration | Browser source output |
+| System          | Usage                       |
+| --------------- | --------------------------- |
+| Command Bus     | Timer control commands      |
+| WebSocket API   | Remote confidence broadcast |
+| Mobile App      | Confidence payload consumer |
+| OBS Integration | Browser source output       |
 
 ---
 
@@ -549,7 +550,7 @@ export const IPC_CONFIDENCE = {
 ## References
 
 - **Architecture Doc**: `@/.docs/02-planning/arch-projection-runtime-state-machine-v1.md`
-- **Previous Logs**: 
+- **Previous Logs**:
   - `@/.docs/log-impl-runtime-protection-v1.md`
   - `@/.docs/log-impl-next-state-v1.md`
   - `@/.docs/log-impl-quick-jump-v1.md`

@@ -14,17 +14,20 @@ Refined ManagementMode adaptive layout to achieve **suite-class desktop experien
 ### 1. Resizable Panels System
 
 **Files Modified:**
+
 - `src/renderer/src/store/usePanelLayoutStore.ts` — Zustand persistence store
 - `src/renderer/src/components/design-system/ResizablePanels.tsx` — Panel components
 - `src/renderer/src/components/design-system/ResizeHandle.tsx` — Subtle handle
 - `src/renderer/src/components/design-system/index.ts` — Exports
 
 **Modes Updated:**
+
 - ProjectionMode — Bottom panel split (SongLibrary | Playlist)
 - Dashboard — Bottom panel split (SongLibrary | Playlist)
 - ManagementMode — Main panel split (SongList | Detail)
 
 **Features:**
+
 - Persisted layouts via localStorage
 - Debounced save (200ms)
 - Min/max constraints per workspace
@@ -36,34 +39,37 @@ Refined ManagementMode adaptive layout to achieve **suite-class desktop experien
 ### 2. Adaptive Density System
 
 **Files Modified:**
+
 - `src/renderer/src/assets/main.css` — Container queries
 
 **Container Query Architecture:**
+
 ```css
 .management-list-panel {
   container-type: inline-size;
 }
 
 .management-inspector-panel {
-  container-type: size;  /* Height-based queries */
+  container-type: size; /* Height-based queries */
   container-name: inspector;
 }
 ```
 
 **Behaviors:**
 
-| Condition | Effect |
-|-----------|--------|
-| `@container (max-width: 520px)` | Hide secondary meta, show row actions, compact title |
-| `@container (max-height: 600px)` | Lyrics max-height 200px |
-| `@container (max-height: 450px)` | Lyrics max-height 120px |
-| `@container (max-width: 400px)` | Lyrics font 10.5px, reduced padding |
+| Condition                        | Effect                                               |
+| -------------------------------- | ---------------------------------------------------- |
+| `@container (max-width: 520px)`  | Hide secondary meta, show row actions, compact title |
+| `@container (max-height: 600px)` | Lyrics max-height 200px                              |
+| `@container (max-height: 450px)` | Lyrics max-height 120px                              |
+| `@container (max-width: 400px)`  | Lyrics font 10.5px, reduced padding                  |
 
 ---
 
 ### 3. Nested Scroll Harmony
 
 **CSS Implementation:**
+
 ```css
 .management-inspector-body {
   overflow-y: auto;
@@ -85,6 +91,7 @@ Refined ManagementMode adaptive layout to achieve **suite-class desktop experien
 ### 4. Scroll Shadows & Edge Awareness
 
 **CSS Implementation:**
+
 ```css
 .management-lyrics-scroll-wrapper::before,
 .management-lyrics-scroll-wrapper::after {
@@ -103,6 +110,7 @@ Refined ManagementMode adaptive layout to achieve **suite-class desktop experien
 ```
 
 **JS Detection:**
+
 - ResizeObserver on lyrics scroll wrapper
 - Toggles `has-scroll` class when content exceeds container
 - Re-checks on song selection change
@@ -112,6 +120,7 @@ Refined ManagementMode adaptive layout to achieve **suite-class desktop experien
 ### 5. Sticky Interaction Zones
 
 **CSS Implementation:**
+
 ```css
 .management-inspector-panel > .flex-1 > .shrink-0 {
   position: sticky;
@@ -128,6 +137,7 @@ Refined ManagementMode adaptive layout to achieve **suite-class desktop experien
 ### 6. Overflow Resilience
 
 **CSS Implementation:**
+
 ```css
 .management-inspector-panel .truncate {
   max-width: 100%;
@@ -148,6 +158,7 @@ Refined ManagementMode adaptive layout to achieve **suite-class desktop experien
 ### 7. Resize Stress Stability
 
 **CSS Implementation:**
+
 ```css
 /* Scrollbar jitter prevention */
 .management-list-panel,
@@ -174,20 +185,20 @@ Refined ManagementMode adaptive layout to achieve **suite-class desktop experien
 
 ## Semantic Classes Added
 
-| Class | Purpose |
-|-------|---------|
-| `.management-list-panel` | Song list container |
-| `.management-inspector-panel` | Detail panel container |
-| `.management-row` | Virtualized song row |
-| `.secondary-meta` | Category, date metadata |
-| `.row-actions` | Action buttons |
-| `.management-inspector-body` | Primary scroll region |
-| `.management-inspector-title` | Song title |
-| `.management-inspector-subtitle` | Alternate title |
-| `.management-inspector-actions` | Action button zone |
-| `.management-lyrics-preview` | Lyrics card container |
+| Class                               | Purpose                     |
+| ----------------------------------- | --------------------------- |
+| `.management-list-panel`            | Song list container         |
+| `.management-inspector-panel`       | Detail panel container      |
+| `.management-row`                   | Virtualized song row        |
+| `.secondary-meta`                   | Category, date metadata     |
+| `.row-actions`                      | Action buttons              |
+| `.management-inspector-body`        | Primary scroll region       |
+| `.management-inspector-title`       | Song title                  |
+| `.management-inspector-subtitle`    | Alternate title             |
+| `.management-inspector-actions`     | Action button zone          |
+| `.management-lyrics-preview`        | Lyrics card container       |
 | `.management-lyrics-scroll-wrapper` | Scroll wrapper with shadows |
-| `.management-lyrics-content` | Actual lyrics content |
+| `.management-lyrics-content`        | Actual lyrics content       |
 
 ---
 

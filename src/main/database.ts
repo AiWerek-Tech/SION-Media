@@ -140,157 +140,6 @@ export function filterAllowedUpdateEntries(
 }
 
 // ============================================================================
-// Scraper Audit Log Functions
-// ============================================================================
-
-export interface ScraperAuditRecord {
-  id: number
-  task_id: string
-  timestamp: string
-  provider_id: string
-  target_hymnal_id: number
-  range_start: string | null
-  range_end: string | null
-  imported_count: number
-  skipped_count: number
-  overwritten_count: number
-  renamed_count: number
-  merged_count: number
-  failed_count: number
-  critical_conflicts: number
-  duration_ms: number
-  report_json: string | null
-}
-
-export interface ScraperAuditItemRecord {
-  id: number
-  audit_id: number
-  song_number: string
-  song_title: string | null
-  action: string
-  conflict_type: string | null
-  conflict_severity: string | null
-  old_data: string | null
-  new_data: string | null
-  timestamp: string
-}
-
-export interface CreateScraperAuditParams {
-  taskId: string
-  providerId: string
-  targetHymnalId: number
-  rangeStart?: string
-  rangeEnd?: string
-}
-
-export interface CompleteScraperAuditParams {
-  taskId: string
-  imported: number
-  skipped: number
-  overwritten: number
-  renamed: number
-  merged: number
-  failed: number
-  criticalConflicts: number
-  durationMs: number
-  reportJson?: string
-}
-
-export interface AddScraperAuditItemParams {
-  auditId: number
-  songNumber: string
-  songTitle?: string
-  action: string
-  conflictType?: string
-  conflictSeverity?: string
-  oldData?: string
-  newData?: string
-}
-
-export function createScraperAudit(params: CreateScraperAuditParams): number {
-  const stmt = db.prepare(`
-    INSERT INTO scraper_import_audit (task_id, provider_id, target_hymnal_id, range_start, range_end)
-    VALUES (?, ?, ?, ?, ?)
-  `)
-  const result = stmt.run(
-    params.taskId,
-    params.providerId,
-    params.targetHymnalId,
-    params.rangeStart ?? null,
-    params.rangeEnd ?? null
-  )
-  return result.lastInsertRowid as number
-}
-
-export function completeScraperAudit(params: CompleteScraperAuditParams): void {
-  const stmt = db.prepare(`
-    UPDATE scraper_import_audit
-    SET imported_count = ?, skipped_count = ?, overwritten_count = ?, renamed_count = ?,
-        merged_count = ?, failed_count = ?, critical_conflicts = ?, duration_ms = ?, report_json = ?
-    WHERE task_id = ?
-  `)
-  stmt.run(
-    params.imported,
-    params.skipped,
-    params.overwritten,
-    params.renamed,
-    params.merged,
-    params.failed,
-    params.criticalConflicts,
-    params.durationMs,
-    params.reportJson ?? null,
-    params.taskId
-  )
-}
-
-export function addScraperAuditItem(params: AddScraperAuditItemParams): number {
-  const stmt = db.prepare(`
-    INSERT INTO scraper_import_audit_items
-    (audit_id, song_number, song_title, action, conflict_type, conflict_severity, old_data, new_data)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `)
-  const result = stmt.run(
-    params.auditId,
-    params.songNumber,
-    params.songTitle ?? null,
-    params.action,
-    params.conflictType ?? null,
-    params.conflictSeverity ?? null,
-    params.oldData ?? null,
-    params.newData ?? null
-  )
-  return result.lastInsertRowid as number
-}
-
-export function getScraperAuditByTaskId(taskId: string): ScraperAuditRecord | null {
-  const stmt = db.prepare('SELECT * FROM scraper_import_audit WHERE task_id = ?')
-  const row = stmt.get(taskId) as ScraperAuditRecord | undefined
-  return row ?? null
-}
-
-export function getScraperAuditItems(auditId: number): ScraperAuditItemRecord[] {
-  const stmt = db.prepare('SELECT * FROM scraper_import_audit_items WHERE audit_id = ? ORDER BY id')
-  return stmt.all(auditId) as ScraperAuditItemRecord[]
-}
-
-export function getRecentScraperAudits(limit: number = 20): ScraperAuditRecord[] {
-  const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)))
-  const stmt = db.prepare('SELECT * FROM scraper_import_audit ORDER BY timestamp DESC LIMIT ?')
-  return stmt.all(safeLimit) as ScraperAuditRecord[]
-}
-
-export function getScraperAuditsByHymnal(
-  hymnalId: number,
-  limit: number = 50
-): ScraperAuditRecord[] {
-  const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)))
-  const stmt = db.prepare(
-    'SELECT * FROM scraper_import_audit WHERE target_hymnal_id = ? ORDER BY timestamp DESC LIMIT ?'
-  )
-  return stmt.all(hymnalId, safeLimit) as ScraperAuditRecord[]
-}
-
-// ============================================================================
 // JSON Import Functions
 // ============================================================================
 
@@ -599,6 +448,24 @@ export function importSongsFromJson(
 
 export function initDatabase(): void {
   const dbPath = join(app.getPath('userData'), 'sion.db')
+  const resourcesPath = join(__dirname, '../../resources/sion.db')
+
+  // Copy default database from resources if it doesn't exist
+  if (!existsSync(dbPath) && existsSync(resourcesPath)) {
+    console.log('Copying default database from resources...')
+    try {
+      // Ensure userData directory exists
+      const userDataDir = app.getPath('userData')
+      if (!existsSync(userDataDir)) {
+        mkdirSync(userDataDir, { recursive: true })
+      }
+      copyFileSync(resourcesPath, dbPath)
+      console.log('Default database copied successfully')
+    } catch (error) {
+      console.error('Failed to copy default database:', error)
+      // Continue with normal initialization if copy fails
+    }
+  }
 
   db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
@@ -662,10 +529,8 @@ function seedDatabase(): void {
      VALUES ('LS', 'Lagu Sion Edisi Lengkap', 'Indonesia', 'Indonesia', 'GMAHK', 1)`
     )
     .run()
-  const hymnalId =
-    hymnalResult.lastInsertRowid ||
-    (db.prepare("SELECT id FROM hymnals WHERE code = 'LS'").get() as { id: number })
-  const lsId = typeof hymnalId === 'number' ? hymnalId : (hymnalId as { id: number }).id
+  const existingHymnal = db.prepare("SELECT id FROM hymnals WHERE code = 'LS'").get() as { id: number }
+  const lsId = hymnalResult.lastInsertRowid || existingHymnal.id
 
   const insert = db.prepare(`
     INSERT INTO songs (hymnal_id, number, title, alternate_title, language, lyrics_raw)
@@ -1221,6 +1086,14 @@ export function deleteSong(id: number): boolean {
   const result = db.prepare('DELETE FROM songs WHERE id = ?').run(id)
   if (result.changes > 0) checkpointWal()
   return result.changes > 0
+}
+
+export function clearLyrics(hymnalId: number, songNumbers: string[]): number {
+  const placeholders = songNumbers.map(() => '?').join(',')
+  const sql = `UPDATE songs SET lyrics_raw = '', updated_at = datetime('now') WHERE hymnal_id = ? AND number IN (${placeholders})`
+  const result = db.prepare(sql).run(hymnalId, ...songNumbers)
+  if (result.changes > 0) checkpointWal()
+  return result.changes
 }
 
 // ========== Song Relation Operations ==========

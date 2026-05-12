@@ -7,7 +7,6 @@ import { SongEditorScreen } from './screens/SongEditorScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { ImportExportScreen } from './screens/ImportExportScreen'
 import { BibleScreen } from './screens/BibleScreen'
-import { SongScraperPage } from './pages/management/SongScraperPage'
 import { ProjectionMode } from './screens/modes/ProjectionMode'
 import { LibraryMode } from './screens/modes/LibraryModeRedesigned'
 import { ManagementMode } from './screens/modes/ManagementMode'
@@ -126,17 +125,6 @@ function App(): React.JSX.Element {
               className="absolute inset-0 z-50"
             >
               <BibleScreen />
-            </motion.div>
-          ) : currentScreen === 'management-song-scraper' ? (
-            <motion.div
-              key="management-song-scraper"
-              initial={{ opacity: 0, x: 100 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 100 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute inset-0 z-50"
-            >
-              <SongScraperPage />
             </motion.div>
           ) : isFirstInstall ? (
             <motion.div

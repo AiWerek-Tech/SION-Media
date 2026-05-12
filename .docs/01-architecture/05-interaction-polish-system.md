@@ -12,22 +12,22 @@ This document defines the interaction polish layer — motion consistency, focus
 
 ### Duration Tokens
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--duration-instant` | 50ms | Toolbar buttons, icon toggles |
-| `--duration-fast` | 150ms | Buttons, hover states, opacity changes |
-| `--duration-normal` | 200ms | Surface transitions, list items, cards |
-| `--duration-slow` | 300ms | Panel transitions, dense list hover |
-| `--duration-slower` | 400ms | Modal transitions, large area changes |
+| Token                | Value | Usage                                  |
+| -------------------- | ----- | -------------------------------------- |
+| `--duration-instant` | 50ms  | Toolbar buttons, icon toggles          |
+| `--duration-fast`    | 150ms | Buttons, hover states, opacity changes |
+| `--duration-normal`  | 200ms | Surface transitions, list items, cards |
+| `--duration-slow`    | 300ms | Panel transitions, dense list hover    |
+| `--duration-slower`  | 400ms | Modal transitions, large area changes  |
 
 ### Easing Functions
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--ease-premium` | `cubic-bezier(0.22, 1, 0.36, 1)` | Default for all UI transitions |
-| `--ease-out-expo` | `cubic-bezier(0.16, 1, 0.3, 1)` | Enter animations, reveals |
-| `--ease-spring` | `cubic-bezier(0.34, 1.56, 0.64, 1)` | Playful micro-interactions |
-| `--ease-in-out-smooth` | `cubic-bezier(0.4, 0, 0.2, 1)` | Fade transitions |
+| Token                  | Value                               | Usage                          |
+| ---------------------- | ----------------------------------- | ------------------------------ |
+| `--ease-premium`       | `cubic-bezier(0.22, 1, 0.36, 1)`    | Default for all UI transitions |
+| `--ease-out-expo`      | `cubic-bezier(0.16, 1, 0.3, 1)`     | Enter animations, reveals      |
+| `--ease-spring`        | `cubic-bezier(0.34, 1.56, 0.64, 1)` | Playful micro-interactions     |
+| `--ease-in-out-smooth` | `cubic-bezier(0.4, 0, 0.2, 1)`      | Fade transitions               |
 
 ### Interaction Utility Classes
 
@@ -69,17 +69,17 @@ input:focus-visible,
 [tabindex]:focus-visible {
   outline: none;
   box-shadow:
-    0 0 0 2px var(--color-bg-base),      /* Inner ring (background) */
-    0 0 0 4px rgba(59, 130, 246, 0.45);  /* Outer ring (brand) */
+    0 0 0 2px var(--color-bg-base),
+    /* Inner ring (background) */ 0 0 0 4px rgba(59, 130, 246, 0.45); /* Outer ring (brand) */
   border-radius: var(--radius-sm);
 }
 ```
 
 ### Keyboard Navigation Classes
 
-| Class | Purpose |
-|-------|---------|
-| `.keyboard-item` | Focusable item in a list/grid with visible focus ring |
+| Class              | Purpose                                                   |
+| ------------------ | --------------------------------------------------------- |
+| `.keyboard-item`   | Focusable item in a list/grid with visible focus ring     |
 | `.keyboard-active` | Selected item (not focused) — subtle background highlight |
 
 ### Focus Visibility Rules
@@ -97,17 +97,17 @@ input:focus-visible,
 
 ```css
 ::-webkit-scrollbar {
-  width: 5px;  /* Subtle, non-intrusive */
+  width: 5px; /* Subtle, non-intrusive */
   height: 5px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);  /* Very subtle */
+  background: rgba(255, 255, 255, 0.08); /* Very subtle */
   border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);  /* Slightly visible on hover */
+  background: rgba(255, 255, 255, 0.15); /* Slightly visible on hover */
 }
 ```
 
@@ -115,11 +115,11 @@ input:focus-visible,
 
 Visual cues for scrollable content:
 
-| Class | Usage |
-|-------|-------|
-| `.scroll-shadow-top` | Content extends above viewport |
-| `.scroll-shadow-bottom` | Content extends below viewport |
-| `.scroll-shadow-both` | Content extends both directions |
+| Class                   | Usage                           |
+| ----------------------- | ------------------------------- |
+| `.scroll-shadow-top`    | Content extends above viewport  |
+| `.scroll-shadow-bottom` | Content extends below viewport  |
+| `.scroll-shadow-both`   | Content extends both directions |
 
 ### Scrollbar Hiding
 
@@ -152,6 +152,7 @@ For edge areas where scrollbar is not needed:
 ```
 
 **Variants:**
+
 - `.skeleton-text` — Text placeholder (small radius)
 - `.skeleton-card` — Card placeholder (medium radius)
 - `.skeleton-avatar` — Avatar placeholder (full radius)
@@ -287,23 +288,25 @@ All animations respect user preferences:
 
 ### When to Use Each Duration
 
-| Context | Duration | Reason |
-|---------|----------|--------|
-| Toolbar icons | `instant` | Immediate feedback expected |
-| Buttons | `fast` | Quick but not jarring |
-| List items | `normal` | Smooth scanning |
-| Panel transitions | `slow` | Spatial awareness |
-| Modal/dialog | `slower` | Attention shift |
+| Context           | Duration  | Reason                      |
+| ----------------- | --------- | --------------------------- |
+| Toolbar icons     | `instant` | Immediate feedback expected |
+| Buttons           | `fast`    | Quick but not jarring       |
+| List items        | `normal`  | Smooth scanning             |
+| Panel transitions | `slow`    | Spatial awareness           |
+| Modal/dialog      | `slower`  | Attention shift             |
 
 ### Transition Property Guidelines
 
 **Avoid `transition: all`** — it's expensive and can cause unintended side effects.
 
 **Use explicit properties:**
+
 ```css
 /* Good */
-transition: background-color var(--duration-normal) var(--ease-premium),
-            box-shadow var(--duration-normal) var(--ease-premium);
+transition:
+  background-color var(--duration-normal) var(--ease-premium),
+  box-shadow var(--duration-normal) var(--ease-premium);
 
 /* Avoid */
 transition: all var(--duration-normal) var(--ease-premium);

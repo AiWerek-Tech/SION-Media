@@ -5,6 +5,7 @@
 ---
 
 ## Priority Legend
+
 - 🔴 **P0** = Critical (must fix, bugs/security)
 - 🟠 **P1** = High (core features, architecture)
 - 🟡 **P2** = Medium (important enhancements)
@@ -28,8 +29,9 @@
 - [x] **(Hardening) Guard IPC UI Actions (Projection/Stage toggles, delete ops) with error handling**
 
 Notes:
+
 - Implementasi `ErrorBoundary` yang dipakai di codebase berada di `src/renderer/src/components/ErrorBoundary.tsx` dan dipasang di entrypoint (`src/renderer/src/main.tsx`, `src/renderer/src/projection/main.tsx`, `src/renderer/src/stageDisplay/main.tsx`).
-- Selain itu, dilakukan hardening tambahan untuk mencegah *unhandled promise rejection* dan meningkatkan diagnosa error melalui `logger`, termasuk:
+- Selain itu, dilakukan hardening tambahan untuk mencegah _unhandled promise rejection_ dan meningkatkan diagnosa error melalui `logger`, termasuk:
   - `settings.getAll()` dan `window.isMaximized()` yang sebelumnya `.then(...)` tanpa `.catch(...)`.
   - `settings.update(...)` yang dipanggil dari UI (mis. pengaturan tema/transisi) agar tidak crash saat IPC gagal.
   - beberapa operasi delete/toggle yang sebelumnya `await` tanpa `try/catch`.
@@ -41,6 +43,7 @@ Notes:
 **Files**: `App.tsx`, `ProjectionApp.tsx`, `StageDisplayApp.tsx`, all mode screens
 
 **Implementation**:
+
 ```typescript
 // src/renderer/src/components/ErrorBoundary.tsx
 import React, { Component, ErrorInfo, ReactNode } from 'react'
@@ -94,6 +97,7 @@ export class ErrorBoundary extends Component<Props, State> {
 ```
 
 **Usage**:
+
 ```typescript
 // App.tsx
 <ErrorBoundary>
@@ -115,6 +119,7 @@ export class ErrorBoundary extends Component<Props, State> {
 **File**: `src/renderer/src/store/useAppStore.ts:146`
 
 **Implementation**:
+
 ```typescript
 // Option 1: Use useRef in Toast component (recommended)
 // src/renderer/src/components/Toast.tsx
@@ -149,6 +154,7 @@ export function Toast() {
 **Problem**: `loadSongs()`, `loadHymnals()`, `loadPlaylists()` have no try/catch.
 
 **Implementation**:
+
 ```typescript
 // src/renderer/src/store/useAppStore.ts
 loadSongs: async (hymnalId?: number) => {
@@ -182,6 +188,7 @@ loadHymnals: async () => {
 **File**: `src/renderer/src/engine/mediaEngine.ts`
 
 **Implementation**:
+
 ```typescript
 preloadVideo(url: string): Promise<void> {
   if (this.videoCache.has(url)) return Promise.resolve()
@@ -238,6 +245,7 @@ preloadVideo(url: string): Promise<void> {
 **File**: `src/main/database.ts:13-17`
 
 **Implementation**:
+
 ```typescript
 function initDatabase(): void {
   const dbPath = join(app.getPath('userData'), 'sion.db')
@@ -269,12 +277,19 @@ function initDatabase(): void {
 **Problem**: No CSP on `index.html` and `projection.html`.
 
 **Implementation**:
+
 ```html
 <!-- src/renderer/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: https:; font-src 'self' data:; connect-src 'self' ws: wss:;">
+<meta
+  http-equiv="Content-Security-Policy"
+  content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: https:; font-src 'self' data:; connect-src 'self' ws: wss:;"
+/>
 
 <!-- src/projection/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: https:; font-src 'self' data:;">
+<meta
+  http-equiv="Content-Security-Policy"
+  content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: https:; font-src 'self' data:;"
+/>
 ```
 
 ---
@@ -284,6 +299,7 @@ function initDatabase(): void {
 **Problem**: Direct `console.*` bypasses `logger` utility.
 
 **Implementation**: Search and replace all occurrences:
+
 ```bash
 # Find all console.* calls in renderer
 grep -r "console\." src/renderer/src --include="*.ts" --include="*.tsx"
@@ -337,6 +353,7 @@ grep -r "console\." src/renderer/src --include="*.ts" --include="*.tsx"
 ### 2.1 Split `index.ts` Main Process
 
 **New File Structure**:
+
 ```
 src/main/
 ├── index.ts           # Entry point only
@@ -348,6 +365,7 @@ src/main/
 ```
 
 **Implementation**:
+
 ```typescript
 // src/main/windows.ts
 import { BrowserWindow } from 'electron'
@@ -381,6 +399,7 @@ export function createStageDisplayWindow() {
 ### 2.2 Split `SettingsScreen.tsx`
 
 **New File Structure**:
+
 ```
 src/renderer/src/screens/settings/
 ├── ProjectionSettings.tsx
@@ -395,6 +414,7 @@ src/renderer/src/screens/settings/
 ### 2.3 Type Safety for IPC
 
 **New File**: `src/shared/types.ts`
+
 ```typescript
 export interface Song {
   id: number
@@ -434,6 +454,7 @@ export interface IPCResponse<T> {
 ### 2.4 IPC Channel Constants
 
 **New File**: `src/shared/ipc-channels.ts`
+
 ```typescript
 export const IPC_CHANNELS = {
   // Database
@@ -454,10 +475,10 @@ export const IPC_CHANNELS = {
   SYSTEM_SAVE_SESSION: 'system:save-session',
 
   // File
-  FILE_PARSE_EXCEL: 'file:parse-excel',
+  FILE_PARSE_EXCEL: 'file:parse-excel'
 } as const
 
-export type IPCChannel = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS]
+export type IPCChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]
 ```
 
 ---
@@ -465,6 +486,7 @@ export type IPCChannel = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS]
 ### 2.5 Database Migration System
 
 **New Table**: `schema_migrations`
+
 ```sql
 CREATE TABLE IF NOT EXISTS schema_migrations (
   version INTEGER PRIMARY KEY,
@@ -474,6 +496,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 ```
 
 **Implementation**:
+
 ```typescript
 // src/main/database.ts
 const CURRENT_SCHEMA_VERSION = 2
@@ -490,8 +513,10 @@ function migrateDatabase(db: Database.Database): void {
     if (migration) {
       console.log(`Applying migration v${v}: ${migration.description}`)
       db.exec(migration.up)
-      db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)')
-        .run(v, migration.description)
+      db.prepare('INSERT INTO schema_migrations (version, description) VALUES (?, ?)').run(
+        v,
+        migration.description
+      )
     }
   }
 }
@@ -541,6 +566,7 @@ const migrations: Record<number, { up: string; description: string }> = {
 ### 3.1 Bible Module
 
 **DB Schema**:
+
 ```sql
 CREATE TABLE bibles (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -564,6 +590,7 @@ CREATE INDEX idx_bible_lookup ON bible_verses(bible_id, book, chapter, verse);
 ```
 
 **New Screen**: `src/renderer/src/screens/BibleScreen.tsx`
+
 - Book picker (Genesis, Exodus, etc.)
 - Chapter/verse selector
 - Search by text (FTS5)
@@ -575,6 +602,7 @@ CREATE INDEX idx_bible_lookup ON bible_verses(bible_id, book, chapter, verse);
 ### 3.2 Announcement Slides
 
 **DB Schema**:
+
 ```sql
 CREATE TABLE custom_slides (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -603,6 +631,7 @@ CREATE TABLE playlist_custom_items (
 **Dependencies**: `npm install @aspect/ndi`
 
 **Implementation**:
+
 ```typescript
 // src/main/ndi-output.ts
 import { NDISender } from '@aspect/ndi'
@@ -642,6 +671,7 @@ export function stopNDIOutput(): void {
 **Dependencies**: `npm install midi`
 
 **Implementation**:
+
 ```typescript
 // src/main/hid-detection.ts
 import { input } from 'midi'
@@ -652,10 +682,13 @@ midiInput.on('message', (deltaTime, message) => {
   const [status, data1, data2] = message
 
   // Map MIDI CC to actions
-  if (status === 176) { // Control Change
-    if (data1 === 1) { // CC 1 → Next slide
+  if (status === 176) {
+    // Control Change
+    if (data1 === 1) {
+      // CC 1 → Next slide
       mainWindow?.webContents.send('midi:next-slide')
-    } else if (data1 === 2) { // CC 2 → Previous slide
+    } else if (data1 === 2) {
+      // CC 2 → Previous slide
       mainWindow?.webContents.send('midi:prev-slide')
     }
   }
@@ -669,6 +702,7 @@ midiInput.on('message', (deltaTime, message) => {
 ### 4.1 Layer-Based Looks System
 
 **DB Schema**:
+
 ```sql
 CREATE TABLE looks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -694,6 +728,7 @@ CREATE TABLE output_looks (
 ### 4.2 Alpha Key / Transparent Output
 
 **Implementation**:
+
 ```typescript
 // src/main/windows.ts - createProjectionWindow
 export function createProjectionWindow() {
@@ -718,6 +753,7 @@ export function createProjectionWindow() {
 ## PHASE 5-8: Additional Enhancements
 
 See feature-gap-analysis.md for detailed breakdown of:
+
 - UX Polish (drag-and-drop, multi-select, undo/redo)
 - Performance (virtualization, debouncing, LRU cache)
 - Import/Export (USFM Bible, OpenLP, ProPresenter)

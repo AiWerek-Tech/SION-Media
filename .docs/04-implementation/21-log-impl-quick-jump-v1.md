@@ -3,7 +3,8 @@
 **Date**: 2026-05-10
 **Feature**: Quick Jump - Semantic Navigation System
 **Priority**: P0 (Operator Speed Layer)
-**Prerequisites**: 
+**Prerequisites**:
+
 - log-impl-runtime-protection-v1.md
 - log-impl-next-state-v1.md
 
@@ -102,7 +103,7 @@ export type SlideAddressType = 'NUMERIC' | 'SECTION' | 'RELATIVE' | 'SPECIAL'
 
 /**
  * Slide Address - Universal addressing format for navigation
- * 
+ *
  * Examples:
  * - { type: 'NUMERIC', value: 5 } → Go to slide 5
  * - { type: 'SECTION', value: 'chorus' } → Go to first chorus slide
@@ -224,6 +225,7 @@ export function buildSectionIndexMap(slides: SlideData[]): SectionIndexMap {
 ```
 
 **Result Example**:
+
 ```javascript
 {
   'verse': [0, 4, 9],      // Verses at slides 0, 4, 9
@@ -241,13 +243,13 @@ export function buildSectionIndexMap(slides: SlideData[]): SectionIndexMap {
 function findFuzzySection(input: string, sectionMap: SectionIndexMap): string | null {
   // Common abbreviations
   const abbreviations: Record<string, string> = {
-    'v': 'verse',
-    'c': 'chorus',
-    'b': 'bridge',
-    'i': 'intro',
-    'o': 'outro',
-    'p': 'pre-chorus',
-    'pc': 'pre-chorus'
+    v: 'verse',
+    c: 'chorus',
+    b: 'bridge',
+    i: 'intro',
+    o: 'outro',
+    p: 'pre-chorus',
+    pc: 'pre-chorus'
   }
 
   if (abbreviations[input]) {
@@ -304,7 +306,7 @@ goToLiveAddress: (address: SlideAddress) => void
 cueGoToAddress: (address: SlideAddress) => {
   const { slides, sectionMap, currentSlideIndex } = get()
   const result = resolveSlideAddress(address, slides, sectionMap, currentSlideIndex)
-  
+
   if (result.found && result.slideIndex !== null) {
     set({ currentSlideIndex: result.slideIndex })
     logger.info('[Quick Jump] Preview navigated:', result.description)
@@ -319,7 +321,7 @@ cueGoToAddress: (address: SlideAddress) => {
 ```typescript
 goToLiveSlide: (index: number) => {
   const { programSlides, programLockState } = get()
-  
+
   // Runtime Protection: Cannot navigate live while locked
   if (programLockState === 'LIVE_LOCK') {
     logger.warn('[Quick Jump] Cannot navigate live while LIVE_LOCK is active')
@@ -387,19 +389,28 @@ export function QuickJumpOverlay({ isOpen, onClose, mode = 'preview' }) {
   const { slides, sectionMap, currentSlideIndex, programSlideIndex } = useProjectionStore()
 
   // Generate and filter targets
-  const allTargets = useMemo(() => generateQuickJumpTargets(slides, sectionMap), [slides, sectionMap])
-  const filteredTargets = useMemo(() => filterQuickJumpTargets(allTargets, query), [allTargets, query])
+  const allTargets = useMemo(
+    () => generateQuickJumpTargets(slides, sectionMap),
+    [slides, sectionMap]
+  )
+  const filteredTargets = useMemo(
+    () => filterQuickJumpTargets(allTargets, query),
+    [allTargets, query]
+  )
 
   // Handle selection
-  const handleSelect = useCallback((target: QuickJumpTarget) => {
-    const store = useProjectionStore.getState()
-    if (mode === 'preview') {
-      store.cueGoToSlide(target.slideIndex)
-    } else {
-      store.goToLiveSlide(target.slideIndex)
-    }
-    onClose()
-  }, [mode, onClose])
+  const handleSelect = useCallback(
+    (target: QuickJumpTarget) => {
+      const store = useProjectionStore.getState()
+      if (mode === 'preview') {
+        store.cueGoToSlide(target.slideIndex)
+      } else {
+        store.goToLiveSlide(target.slideIndex)
+      }
+      onClose()
+    },
+    [mode, onClose]
+  )
 
   // Keyboard navigation
   useEffect(() => {
@@ -424,13 +435,13 @@ export function QuickJumpOverlay({ isOpen, onClose, mode = 'preview' }) {
 
 #### Shortcuts Added
 
-| Key | Action | Description |
-|-----|--------|-------------|
-| `Ctrl+G` | Open Quick Jump Overlay | Command-palette style navigation |
-| `G` | Wait for slide number | G + 5 → Go to slide 5 |
-| `S` | Wait for section | S + chorus → Jump to chorus |
-| `Shift+→` | cueNextSlide | Preview navigation forward |
-| `Shift+←` | cuePrevSlide | Preview navigation backward |
+| Key       | Action                  | Description                      |
+| --------- | ----------------------- | -------------------------------- |
+| `Ctrl+G`  | Open Quick Jump Overlay | Command-palette style navigation |
+| `G`       | Wait for slide number   | G + 5 → Go to slide 5            |
+| `S`       | Wait for section        | S + chorus → Jump to chorus      |
+| `Shift+→` | cueNextSlide            | Preview navigation forward       |
+| `Shift+←` | cuePrevSlide            | Preview navigation backward      |
 
 #### Implementation
 
@@ -466,37 +477,37 @@ case 'PageDown':
 
 ### Numeric Addressing
 
-| Input | Resolved To | Description |
-|-------|-------------|-------------|
-| `5` | Slide 4 (index) | Go to slide 5 |
-| `slide:5` | Slide 4 (index) | Explicit format |
-| `1` | Slide 0 (index) | Go to first slide |
+| Input     | Resolved To     | Description       |
+| --------- | --------------- | ----------------- |
+| `5`       | Slide 4 (index) | Go to slide 5     |
+| `slide:5` | Slide 4 (index) | Explicit format   |
+| `1`       | Slide 0 (index) | Go to first slide |
 
 ### Section Addressing
 
-| Input | Resolved To | Description |
-|-------|-------------|-------------|
-| `chorus` | First chorus slide | Section match |
-| `verse` | Next verse from current | Smart wrap |
-| `c` | First chorus slide | Fuzzy match |
-| `v` | First verse slide | Abbreviation |
+| Input    | Resolved To             | Description   |
+| -------- | ----------------------- | ------------- |
+| `chorus` | First chorus slide      | Section match |
+| `verse`  | Next verse from current | Smart wrap    |
+| `c`      | First chorus slide      | Fuzzy match   |
+| `v`      | First verse slide       | Abbreviation  |
 
 ### Relative Addressing
 
-| Input | Resolved To | Description |
-|-------|-------------|-------------|
-| `+1` | Next slide | Forward 1 |
-| `-2` | Two slides back | Backward 2 |
-| `next` | Next slide | Alias |
-| `prev` | Previous slide | Alias |
+| Input  | Resolved To     | Description |
+| ------ | --------------- | ----------- |
+| `+1`   | Next slide      | Forward 1   |
+| `-2`   | Two slides back | Backward 2  |
+| `next` | Next slide      | Alias       |
+| `prev` | Previous slide  | Alias       |
 
 ### Special Addressing
 
-| Input | Resolved To | Description |
-|-------|-------------|-------------|
-| `first` | Slide 0 | First slide |
-| `last` | Last index | Last slide |
-| `next-section` | Next different section | Section jump |
+| Input          | Resolved To                | Description  |
+| -------------- | -------------------------- | ------------ |
+| `first`        | Slide 0                    | First slide  |
+| `last`         | Last index                 | Last slide   |
+| `next-section` | Next different section     | Section jump |
 | `prev-section` | Previous different section | Section jump |
 
 ---
@@ -508,7 +519,7 @@ Quick Jump respects the LIVE-LOCK system:
 ```typescript
 goToLiveSlide: (index: number) => {
   const { programLockState } = get()
-  
+
   // BLOCKED if LIVE_LOCK
   if (programLockState === 'LIVE_LOCK') {
     logger.warn('[Quick Jump] Cannot navigate live while LIVE_LOCK is active')
@@ -526,17 +537,17 @@ goToLiveSlide: (index: number) => {
 
 ## Code Metrics
 
-| Metric | Value |
-|--------|-------|
-| Files created | 2 |
-| Files modified | 4 |
-| Lines added (types) | ~75 |
-| Lines added (resolver) | ~470 |
-| Lines added (store) | ~120 |
-| Lines added (overlay) | ~200 |
-| Lines added (keyboard) | ~30 |
-| Total new code | ~895 lines |
-| Build status | ✅ Success |
+| Metric                 | Value      |
+| ---------------------- | ---------- |
+| Files created          | 2          |
+| Files modified         | 4          |
+| Lines added (types)    | ~75        |
+| Lines added (resolver) | ~470       |
+| Lines added (store)    | ~120       |
+| Lines added (overlay)  | ~200       |
+| Lines added (keyboard) | ~30        |
+| Total new code         | ~895 lines |
+| Build status           | ✅ Success |
 
 ---
 
@@ -654,7 +665,7 @@ goToLiveSlide: (index: number) => {
 ## References
 
 - **Architecture Doc**: `@/.docs/02-planning/arch-projection-runtime-state-machine-v1.md`
-- **Previous Logs**: 
+- **Previous Logs**:
   - `@/.docs/log-impl-runtime-protection-v1.md`
   - `@/.docs/log-impl-next-state-v1.md`
 - **State Machine**: Section 7 - Keyboard Command Surface v2

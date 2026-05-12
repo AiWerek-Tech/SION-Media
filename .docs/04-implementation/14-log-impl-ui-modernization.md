@@ -1,6 +1,7 @@
 # Implementation Log — UI Modernization (Premium Visual System)
 
 ## 2026-05-09
+
 - Initialized modernization plan (`/.docs/plan-ui-modernization.md`).
 - Updated UI tokens in `src/renderer/src/assets/main.css`:
   - Border subtle/strong aligned to `rgba(255,255,255,0.06)` / `rgba(255,255,255,0.12)`.
@@ -22,6 +23,7 @@
   - Action affordance: edit/delete actions default 20% opacity; hover/focus reveals.
 
 ## 2026-05-09 (Session 2) — Main Panels & Focus Live Mode
+
 - Applied **Depth Layering (L1-L4)** to main content panels across all modes:
   - **ProjectionMode**: Library & Playlist panels use L2 Surface (`bg-bg-surface/60 backdrop-blur-sm`) with inset highlight shadows.
   - **LibraryMode**: Command bar upgraded to L3 Elevated with glassmorphism (`bg-bg-surface/70 backdrop-blur-md`).
@@ -42,6 +44,7 @@
   - `transition-all duration-200` for smooth interactions.
 
 ## 2026-05-09 (Session 3) — Dashboard Visual Polish Pass
+
 - Upgraded **Library Number Grid** tile styling in `src/renderer/src/assets/main.css`:
   - `.number-cell` now uses layered gradients + inset highlight for a premium “keycap” feel.
   - Hover now applies lift + subtle scale and deeper shadow; active uses more deliberate downscale.
@@ -62,6 +65,7 @@
   - Preview lyrics “Buka Editor” action now uses premium ghost button for better discoverability.
 
 ## 2026-05-09 (Session 4) — Dialog & Overlay Surface Consistency
+
 - Standardized dialog overlays to premium L4 glass surfaces:
   - `PlaylistPanel` new/load dialogs now use `glass-panel-strong` and `backdrop-blur-md` overlay.
   - `ManagementMode` “Buat Buku Lagu Baru” dialog now uses `glass-panel-strong` with a stronger blur overlay.
@@ -70,6 +74,7 @@
   - Primary/secondary actions use `btn-premium-primary` and `btn-premium-ghost`.
 
 ## 2026-05-09 (Session 5) — Library Mode UI/UX Audit & Refactor
+
 - Conducted a comprehensive UI/UX audit of Library Mode and cross-referenced with `play.lagusion.org`.
 - **Hymnal Top Bar Refactor**:
   - Renamed `MultiHymnalSidebar.tsx` to `HymnalTopBar.tsx` for accuracy.
@@ -91,6 +96,7 @@
   - Deleted the legacy/orphan file `src/renderer/src/screens/modes/WelcomeModeSelector.tsx`.
 
 ## 2026-05-09 (Session 6) — Grid Typography & Layout Breathing Room
+
 - Conducted deep visual review of the full-width Grid mode on large screens.
 - **Padding & Margins (Breathing Room)**:
   - Eliminated the claustrophobic edge-to-edge stretching of the grid.
@@ -105,6 +111,7 @@
   - Refined the hover state shadow layer to pop correctly when hovered, increasing affordance for operators.
 
 ## 2026-05-09 (Session 7) — Premium Command Palette & Segmented Tabs
+
 - **Segmented Control Tabs**:
   - Replaced basic flat tabs in `LibraryModeRedesigned` with a premium macOS/iOS-style Segmented Control (`.pill-tabs`).
   - Active tabs now use a distinct `bg-white/5` sliding background with subtle inner shadows (`pill-tab-active`).
@@ -116,7 +123,7 @@
   - **Backdrop**: Deepened blur to `backdrop-blur-md` with `bg-black/60` to heavily mask background noise.
   - **Surface**: Used `glass-panel-strong` with deep shadow (`shadow-[0_32px_64px_rgba(0,0,0,0.5)]`).
   - **Input Area**: Enlarged search input text to `text-[22px]` with a bottom glowing gradient separator.
-  - **Numpad Stream-Deck Evolution**: 
+  - **Numpad Stream-Deck Evolution**:
     - Transformed the flat number pad into a beautiful hardware-style keypad.
     - Each key features explicit `aspect-ratio: 1/1` and custom multi-layered `box-shadow` (inset highlights and drop shadows) to mirror the grid layout's tactile feel.
     - The `C` (Clear) button is now an illuminated red hardware key.

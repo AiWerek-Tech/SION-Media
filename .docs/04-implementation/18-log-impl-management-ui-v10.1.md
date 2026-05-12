@@ -19,6 +19,7 @@ This log documents the comprehensive UI/UX overhaul of the `ManagementMode` and 
 **File**: `src/renderer/src/screens/modes/ManagementMode.tsx`
 
 The basic right-side song detail view was completely refactored into a structured, premium dashboard-grade layout:
+
 - **Glassmorphism & Gradients**: Integrated `bg-surface/50` with `backdrop-blur-xl` and brand-colored radial gradients for depth.
 - **Header & Navigation**: Replaced plain titles with a sleek breadcrumb/title component featuring a circular primary-colored accent.
 - **Bento Grid for Details**: Grouped information into distinct, beautifully spaced cards:
@@ -41,17 +42,18 @@ The basic right-side song detail view was completely refactored into a structure
 **File**: `src/renderer/src/screens/SongEditorScreen.tsx`
 
 Transformed the `SongEditorScreen` to maintain consistency with the newly established premium aesthetic.
+
 - **Top Header**: Upgraded to a sleek `backdrop-blur` container. The "Simpan Perubahan" (Save Changes) button was updated to `btn-premium btn-premium-primary` with a glowing shadow (`shadow-brand-primary/20`), making it a distinct primary call-to-action.
 - **Step Indicators**: Added circular numeric badges ("1" for Informasi Dasar, "2" for Lirik & Struktur) to guide the user's workflow visually.
-- **Form Inputs (Column 1)**: 
+- **Form Inputs (Column 1)**:
   - Upgraded standard input borders to soft `border-border-subtle` with subtle `bg-base/60` backgrounds.
   - Added inner shadows (`shadow-inner`) to create depth for the input fields.
   - Enhanced focus states with `ring-2 ring-brand-primary/20` for immediate visual feedback.
-- **Slide Strip (Column 2)**: 
+- **Slide Strip (Column 2)**:
   - Restyled the vertical slide previews to act more like a timeline in professional video editing software.
   - Added subtle zoom-in animations (`group-hover:scale-105`) to the slide background on hover.
   - Active slides now receive a bold border and a glowing ring effect (`ring-4`).
-- **Live Monitor (Column 3)**: 
+- **Live Monitor (Column 3)**:
   - Built a simulated "proyektor" container with thick dark borders and heavy drop-shadows to simulate an actual hardware monitor.
   - Added a pulsing green "Status" indicator to the "Live Monitor" title.
   - Implemented an elegant "Slide Info Panel" below the monitor to display current slide character stats with proper visual grouping.
@@ -70,6 +72,7 @@ Transformed the `SongEditorScreen` to maintain consistency with the newly establ
 ### Design System Adherence
 
 The UI modernization relies strictly on Tailwind utility classes defined in the `tailwind.config.js` and the application's central design tokens:
+
 - **Surfaces**: Extensive use of `bg-bg-surface/20`, `bg-bg-base/60`, and `bg-bg-elevated` for depth.
 - **Borders**: Softened interface boundaries using `border-border-subtle`.
 - **Typography**: Heavily utilized `text-[10px]`, `text-xs`, `uppercase`, `tracking-widest`, and `font-black` for metadata labels, giving the app a distinct "pro-tools" feel rather than a standard web page.

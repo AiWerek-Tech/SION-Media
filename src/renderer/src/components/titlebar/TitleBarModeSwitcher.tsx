@@ -1,20 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { MonitorPlay, Library, LayoutDashboard, Settings, ChevronDown } from 'lucide-react'
+import { MonitorPlay, Library, LayoutDashboard, Settings, ChevronDown, Check } from 'lucide-react'
 import { useModeStore, AppMode } from '../../store/useModeStore'
 
 const MODE_CONFIG: Record<AppMode, { label: string; icon: React.ReactNode; colorClass: string }> = {
   PROJECTION: {
     label: 'Projection',
-    icon: <MonitorPlay size={12} />,
+    icon: <MonitorPlay size={14} />,
     colorClass: 'text-brand-primary'
   },
-  LIBRARY: { label: 'Library', icon: <Library size={12} />, colorClass: 'text-brand-secondary' },
+  LIBRARY: { label: 'Library', icon: <Library size={14} />, colorClass: 'text-brand-secondary' },
   BROADCAST: {
     label: 'Broadcast',
-    icon: <LayoutDashboard size={12} />,
+    icon: <LayoutDashboard size={14} />,
     colorClass: 'text-status-warning'
   },
-  MANAGEMENT: { label: 'Management', icon: <Settings size={12} />, colorClass: 'text-text-primary' }
+  MANAGEMENT: { label: 'Management', icon: <Settings size={14} />, colorClass: 'text-text-primary' }
 }
 
 export function TitleBarModeSwitcher(): React.JSX.Element {
@@ -35,28 +35,27 @@ export function TitleBarModeSwitcher(): React.JSX.Element {
   const config = MODE_CONFIG[currentMode]
 
   return (
-    <div className="relative flex items-center h-full no-drag" ref={menuRef}>
-      <div className="title-bar-separator" />
+    <div className="title-bar-mode-switcher no-drag" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 px-2.5 py-1 rounded-md hover:bg-white/[0.06] transition-all duration-200 mx-1 active:scale-95"
+        className={`title-bar-mode-trigger ${isOpen ? 'is-open' : ''}`}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
       >
         <span
-          className={`${config.colorClass} flex items-center transition-transform duration-300 ${isOpen ? 'scale-110' : ''}`}
+          className={`title-bar-mode-trigger__icon ${config.colorClass} ${isOpen ? 'is-open' : ''}`}
         >
           {config.icon}
         </span>
-        <span className="text-[11px] font-bold text-text-primary uppercase tracking-[0.05em]">
-          {config.label}
-        </span>
+        <span className="title-bar-mode-trigger__text">{config.label}</span>
         <ChevronDown
-          size={12}
-          className={`text-text-muted transition-all duration-300 ${isOpen ? 'rotate-180 text-brand-primary' : ''}`}
+          size={13}
+          className={`title-bar-mode-trigger__chevron ${isOpen ? 'is-open' : ''}`}
         />
       </button>
 
       {isOpen && (
-        <div className="title-bar-dropdown absolute top-full left-0 mt-1.5 w-52 animate-in fade-in zoom-in-[0.98] duration-150 origin-top-left">
+        <div className="title-bar-mode-dropdown animate-in fade-in zoom-in-[0.98] duration-150">
           {(Object.keys(MODE_CONFIG) as AppMode[]).map((mode) => {
             const item = MODE_CONFIG[mode]
             const isActive = currentMode === mode
@@ -67,19 +66,18 @@ export function TitleBarModeSwitcher(): React.JSX.Element {
                   setMode(mode)
                   setIsOpen(false)
                 }}
-                className={`title-bar-dropdown-item mb-0.5 last:mb-0 ${
-                  isActive ? 'bg-brand-primary/15 text-brand-primary' : ''
-                }`}
+                className={`title-bar-mode-option ${isActive ? 'is-active' : ''}`}
               >
-                <div className="flex items-center gap-2.5">
-                  <span className={isActive ? 'text-brand-primary' : item.colorClass}>
+                <div className="title-bar-mode-option__main">
+                  <span className={`title-bar-mode-option__icon ${item.colorClass}`}>
                     {item.icon}
                   </span>
-                  <span className={isActive ? 'font-bold' : ''}>{item.label}</span>
+                  <div>
+                    <span>{item.label}</span>
+                    <small>{mode.toLowerCase()}</small>
+                  </div>
                 </div>
-                {isActive && (
-                  <div className="w-1.5 h-1.5 rounded-full bg-brand-primary shadow-glow-sm" />
-                )}
+                {isActive && <Check size={14} className="title-bar-mode-option__check" />}
               </button>
             )
           })}

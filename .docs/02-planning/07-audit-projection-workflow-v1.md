@@ -41,12 +41,12 @@ SION Media saat ini telah memiliki fondasi **Preview/Program separation** yang s
 
 ### State Separation Analysis
 
-| Concept | Current State | Professional Standard | Gap |
-|---------|---------------|------------------------|-----|
-| **Preview** | `slides` + `currentSlideIndex` | ✅ Implemented | - |
-| **Program** | `programSlides` + `programSlide` | ✅ Implemented | - |
-| **Next** | `nextSlideText` property | ⚠️ Partial | Needs dedicated state |
-| **Queued** | Not implemented | ❌ Missing | Future feature |
+| Concept     | Current State                    | Professional Standard | Gap                   |
+| ----------- | -------------------------------- | --------------------- | --------------------- |
+| **Preview** | `slides` + `currentSlideIndex`   | ✅ Implemented        | -                     |
+| **Program** | `programSlides` + `programSlide` | ✅ Implemented        | -                     |
+| **Next**    | `nextSlideText` property         | ⚠️ Partial            | Needs dedicated state |
+| **Queued**  | Not implemented                  | ❌ Missing            | Future feature        |
 
 ### Mental Model Mapping
 
@@ -124,21 +124,21 @@ Operator Mental Model          Current Implementation
 
 ### Prepare-Before-Push Analysis
 
-| Feature | Status | Implementation |
-|---------|--------|----------------|
+| Feature                                 | Status | Implementation              |
+| --------------------------------------- | ------ | --------------------------- |
 | Preview selection independent from live | ✅ Yes | `cueNextSlide/cuePrevSlide` |
-| Visual preview before TAKE | ✅ Yes | Preview Monitor |
-| TAKE button for commit | ✅ Yes | `takeCue()` |
-| Prevent duplicate TAKE | ✅ Yes | `isCueSameAsProgram` check |
-| Live output truly separated | ✅ Yes | Separate state + window |
+| Visual preview before TAKE              | ✅ Yes | Preview Monitor             |
+| TAKE button for commit                  | ✅ Yes | `takeCue()`                 |
+| Prevent duplicate TAKE                  | ✅ Yes | `isCueSameAsProgram` check  |
+| Live output truly separated             | ✅ Yes | Separate state + window     |
 
 ### Gap Analysis
 
-| Gap | Impact | Priority |
-|-----|--------|----------|
-| No "Prepare Next Song" workflow | Medium | High |
-| No slide reordering in preview | Low | Medium |
-| No "Edit while live" protection | High | Critical |
+| Gap                             | Impact | Priority |
+| ------------------------------- | ------ | -------- |
+| No "Prepare Next Song" workflow | Medium | High     |
+| No slide reordering in preview  | Low    | Medium   |
+| No "Edit while live" protection | High   | Critical |
 
 ---
 
@@ -252,13 +252,13 @@ Operator Mental Model          Current Implementation
 
 ### Mouse-Heavy Areas
 
-| Area | Current State | Keyboard Alternative |
-|------|---------------|----------------------|
-| Song search | Mouse click to focus | ✅ Ctrl+F |
-| Playlist item click | Mouse only | ⚠️ 1-9 (limited to 9) |
-| Slide thumbnail click | Mouse only | ❌ Missing |
-| Fade speed selector | Mouse only | ❌ Missing |
-| Theme settings | Mouse only | ❌ Not needed in live |
+| Area                  | Current State        | Keyboard Alternative  |
+| --------------------- | -------------------- | --------------------- |
+| Song search           | Mouse click to focus | ✅ Ctrl+F             |
+| Playlist item click   | Mouse only           | ⚠️ 1-9 (limited to 9) |
+| Slide thumbnail click | Mouse only           | ❌ Missing            |
+| Fade speed selector   | Mouse only           | ❌ Missing            |
+| Theme settings        | Mouse only           | ❌ Not needed in live |
 
 ### Missing Command Surface
 
@@ -296,16 +296,16 @@ Operator Mental Model          Current Implementation
 
 ### Full-Keyboard Operation Assessment
 
-| Task | Can Do Without Mouse? | Notes |
-|------|----------------------|-------|
-| Select song from playlist | ⚠️ Partial | Only first 9 songs via 1-9 |
-| Search for song | ✅ Yes | Ctrl+F |
-| Navigate cue slides | ❌ No | Need mouse for cue nav buttons |
-| TAKE to live | ✅ Yes | Space |
-| Navigate live slides | ✅ Yes | ← → arrows |
-| Black/Freeze/Clear | ✅ Yes | B, F, Esc |
-| Change fade speed | ❌ No | Mouse only |
-| Focus mode | ✅ Yes | Ctrl+Shift+F |
+| Task                      | Can Do Without Mouse? | Notes                          |
+| ------------------------- | --------------------- | ------------------------------ |
+| Select song from playlist | ⚠️ Partial            | Only first 9 songs via 1-9     |
+| Search for song           | ✅ Yes                | Ctrl+F                         |
+| Navigate cue slides       | ❌ No                 | Need mouse for cue nav buttons |
+| TAKE to live              | ✅ Yes                | Space                          |
+| Navigate live slides      | ✅ Yes                | ← → arrows                     |
+| Black/Freeze/Clear        | ✅ Yes                | B, F, Esc                      |
+| Change fade speed         | ❌ No                 | Mouse only                     |
+| Focus mode                | ✅ Yes                | Ctrl+Shift+F                   |
 
 **Current Keyboard Coverage**: ~70%
 
@@ -357,14 +357,14 @@ Operator Mental Model          Current Implementation
 
 ### State Visibility Matrix
 
-| Information | Visible? | Location | Clarity |
-|-------------|----------|----------|---------|
-| What's currently LIVE | ✅ Yes | Program Monitor + ControlBar | High |
-| What's selected (cue) | ✅ Yes | Preview Monitor + ControlBar | High |
-| What's NEXT | ⚠️ Partial | `nextSlideText` embedded | Low |
-| Current projection state | ✅ Yes | ControlBar badges | High |
-| Projector status | ✅ Yes | "PROJECTOR LOST" warning | High |
-| Song metadata | ⚠️ Partial | In monitor title | Medium |
+| Information              | Visible?   | Location                     | Clarity |
+| ------------------------ | ---------- | ---------------------------- | ------- |
+| What's currently LIVE    | ✅ Yes     | Program Monitor + ControlBar | High    |
+| What's selected (cue)    | ✅ Yes     | Preview Monitor + ControlBar | High    |
+| What's NEXT              | ⚠️ Partial | `nextSlideText` embedded     | Low     |
+| Current projection state | ✅ Yes     | ControlBar badges            | High    |
+| Projector status         | ✅ Yes     | "PROJECTOR LOST" warning     | High    |
+| Song metadata            | ⚠️ Partial | In monitor title             | Medium  |
 
 ### Visual Priority Analysis
 
@@ -389,13 +389,13 @@ Cognitive Load:
 
 ### "Trust the State" Assessment
 
-| Aspect | Trust Level | Reason |
-|--------|-------------|--------|
-| Live output matches Program monitor | ✅ High | Same state source |
-| Preview shows what will be live | ✅ High | TAKE commits exactly what's shown |
-| State indicators are accurate | ✅ High | Real-time state sync |
-| Next slide is visible | ⚠️ Medium | Embedded in slide, not prominent |
-| Queued song is visible | ❌ Low | Not implemented |
+| Aspect                              | Trust Level | Reason                            |
+| ----------------------------------- | ----------- | --------------------------------- |
+| Live output matches Program monitor | ✅ High     | Same state source                 |
+| Preview shows what will be live     | ✅ High     | TAKE commits exactly what's shown |
+| State indicators are accurate       | ✅ High     | Real-time state sync              |
+| Next slide is visible               | ⚠️ Medium   | Embedded in slide, not prominent  |
+| Queued song is visible              | ❌ Low      | Not implemented                   |
 
 ### Recommendations
 
@@ -465,28 +465,28 @@ Cognitive Load:
 
 ### Transition Queue Analysis
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Instant transition | ✅ Yes | fast-cut mode |
-| Fade transition | ✅ Yes | dissolve/crossfade modes |
-| Crossfade transition | ✅ Yes | crossfade mode |
-| Blur transition | ✅ Yes | smooth-blur mode |
-| Slide transition | ✅ Yes | slide mode |
-| **Transition queue** | ❌ No | Transitions are immediate |
-| **Auto transition** | ❌ No | No timer-based progression |
-| **Timed progression** | ❌ No | No auto-advance feature |
+| Feature               | Status | Notes                      |
+| --------------------- | ------ | -------------------------- |
+| Instant transition    | ✅ Yes | fast-cut mode              |
+| Fade transition       | ✅ Yes | dissolve/crossfade modes   |
+| Crossfade transition  | ✅ Yes | crossfade mode             |
+| Blur transition       | ✅ Yes | smooth-blur mode           |
+| Slide transition      | ✅ Yes | slide mode                 |
+| **Transition queue**  | ❌ No  | Transitions are immediate  |
+| **Auto transition**   | ❌ No  | No timer-based progression |
+| **Timed progression** | ❌ No  | No auto-advance feature    |
 
 ### Architecture Readiness for Future
 
-| Future Feature | Architecture Ready? | Changes Needed |
-|----------------|---------------------|----------------|
-| Fade with custom curve | ✅ Yes | Already supported |
-| Crossfade with overlap | ⚠️ Partial | Need `mode="parallel"` |
-| Cut (instant switch) | ✅ Yes | fast-cut mode |
-| Auto transition | ❌ No | Need timer + state machine |
-| Timed progression | ❌ No | Need countdown + auto-advance |
-| Transition queue | ❌ No | Need queue data structure |
-| Per-song transition preset | ⚠️ Partial | Need song-level settings |
+| Future Feature             | Architecture Ready? | Changes Needed                |
+| -------------------------- | ------------------- | ----------------------------- |
+| Fade with custom curve     | ✅ Yes              | Already supported             |
+| Crossfade with overlap     | ⚠️ Partial          | Need `mode="parallel"`        |
+| Cut (instant switch)       | ✅ Yes              | fast-cut mode                 |
+| Auto transition            | ❌ No               | Need timer + state machine    |
+| Timed progression          | ❌ No               | Need countdown + auto-advance |
+| Transition queue           | ❌ No               | Need queue data structure     |
+| Per-song transition preset | ⚠️ Partial          | Need song-level settings      |
 
 ### Recommendations
 
@@ -566,17 +566,17 @@ Cognitive Load:
 
 ### Visual Priority Assessment
 
-| Element | Visual Priority | Current Treatment | Improvement |
-|---------|-----------------|-------------------|-------------|
-| Program Monitor | CRITICAL | Large, prominent | ✅ Good |
-| Preview Monitor | HIGH | Large, prominent | ✅ Good |
-| TAKE button | CRITICAL | Centered, highlighted | ✅ Good |
-| State buttons | HIGH | Icon-based | ✅ Good |
-| Live status indicator | CRITICAL | "ON AIR" badge | ✅ Good |
-| Cue status | HIGH | Text label | ⚠️ Could be more prominent |
-| Next slide preview | MEDIUM | Embedded in slide | ⚠️ Low visibility |
-| Playlist | MEDIUM | Collapsible | ✅ Good |
-| Song library | LOW | Available | ✅ Good |
+| Element               | Visual Priority | Current Treatment     | Improvement                |
+| --------------------- | --------------- | --------------------- | -------------------------- |
+| Program Monitor       | CRITICAL        | Large, prominent      | ✅ Good                    |
+| Preview Monitor       | HIGH            | Large, prominent      | ✅ Good                    |
+| TAKE button           | CRITICAL        | Centered, highlighted | ✅ Good                    |
+| State buttons         | HIGH            | Icon-based            | ✅ Good                    |
+| Live status indicator | CRITICAL        | "ON AIR" badge        | ✅ Good                    |
+| Cue status            | HIGH            | Text label            | ⚠️ Could be more prominent |
+| Next slide preview    | MEDIUM          | Embedded in slide     | ⚠️ Low visibility          |
+| Playlist              | MEDIUM          | Collapsible           | ✅ Good                    |
+| Song library          | LOW             | Available             | ✅ Good                    |
 
 ### Cognitive Load Analysis
 
@@ -614,13 +614,13 @@ Cognitive Load:
 
 ### Stress Test Scenarios
 
-| Scenario | Current Support | Stress Level |
-|----------|-----------------|--------------|
-| Quick song switch | ✅ Good | Low |
-| Emergency black | ✅ Good (B key) | Low |
-| Finding specific verse | ⚠️ Medium | Medium |
-| Last-minute song addition | ⚠️ Medium | Medium |
-| Simultaneous multi-change | ❌ Poor | High |
+| Scenario                  | Current Support | Stress Level |
+| ------------------------- | --------------- | ------------ |
+| Quick song switch         | ✅ Good         | Low          |
+| Emergency black           | ✅ Good (B key) | Low          |
+| Finding specific verse    | ⚠️ Medium       | Medium       |
+| Last-minute song addition | ⚠️ Medium       | Medium       |
+| Simultaneous multi-change | ❌ Poor         | High         |
 
 ### Recommendations
 
@@ -725,14 +725,14 @@ Cognitive Load:
 
 ### Stage Display vs Confidence Monitor
 
-| Feature | Stage Display (Current) | Confidence Monitor (Target) |
-|---------|-------------------------|----------------------------|
-| Purpose | Musician reference | Singer/Presenter reference |
-| Content | Same as projection | Different layout |
-| Next slide | Not shown | Prominently shown |
-| Timing info | Not shown | Countdown, cues |
-| Key/Tempo | Shown (if in slide) | Always visible |
-| Position | 3rd display | 2nd or 3rd display |
+| Feature     | Stage Display (Current) | Confidence Monitor (Target) |
+| ----------- | ----------------------- | --------------------------- |
+| Purpose     | Musician reference      | Singer/Presenter reference  |
+| Content     | Same as projection      | Different layout            |
+| Next slide  | Not shown               | Prominently shown           |
+| Timing info | Not shown               | Countdown, cues             |
+| Key/Tempo   | Shown (if in slide)     | Always visible              |
+| Position    | 3rd display             | 2nd or 3rd display          |
 
 ### Multi-Display Future Roadmap
 
@@ -785,41 +785,41 @@ Cognitive Load:
 
 ### Critical Gaps (Must Fix)
 
-| Gap | Impact | Effort | Priority |
-|-----|--------|--------|----------|
-| No "Edit while live" protection | HIGH | Medium | P0 |
-| No quick jump to specific slide | HIGH | Low | P0 |
-| Preview navigation keyboard-only | MEDIUM | Low | P1 |
-| Next slide visibility low | MEDIUM | Low | P1 |
+| Gap                              | Impact | Effort | Priority |
+| -------------------------------- | ------ | ------ | -------- |
+| No "Edit while live" protection  | HIGH   | Medium | P0       |
+| No quick jump to specific slide  | HIGH   | Low    | P0       |
+| Preview navigation keyboard-only | MEDIUM | Low    | P1       |
+| Next slide visibility low        | MEDIUM | Low    | P1       |
 
 ### High Priority (Should Fix)
 
-| Gap | Impact | Effort | Priority |
-|-----|--------|--------|----------|
-| No confidence monitor support | HIGH | High | P2 |
-| No auto-advance timer | MEDIUM | Medium | P2 |
-| No section navigation | MEDIUM | Low | P2 |
-| No transition queue | MEDIUM | Medium | P2 |
+| Gap                           | Impact | Effort | Priority |
+| ----------------------------- | ------ | ------ | -------- |
+| No confidence monitor support | HIGH   | High   | P2       |
+| No auto-advance timer         | MEDIUM | Medium | P2       |
+| No section navigation         | MEDIUM | Low    | P2       |
+| No transition queue           | MEDIUM | Medium | P2       |
 
 ### Medium Priority (Nice to Have)
 
-| Gap | Impact | Effort | Priority |
-|-----|--------|--------|----------|
-| No queued song workflow | MEDIUM | Medium | P3 |
-| No per-song transition preset | LOW | Low | P3 |
-| No live duration timer | LOW | Low | P3 |
-| No panic shortcut | LOW | Low | P3 |
+| Gap                           | Impact | Effort | Priority |
+| ----------------------------- | ------ | ------ | -------- |
+| No queued song workflow       | MEDIUM | Medium | P3       |
+| No per-song transition preset | LOW    | Low    | P3       |
+| No live duration timer        | LOW    | Low    | P3       |
+| No panic shortcut             | LOW    | Low    | P3       |
 
 ### Architecture Strengths
 
-| Strength | Quality |
-|----------|---------|
+| Strength                   | Quality      |
+| -------------------------- | ------------ |
 | Preview/Program separation | ✅ Excellent |
-| State management | ✅ Excellent |
-| Transition system | ✅ Good |
-| Keyboard coverage | ✅ Good |
-| Multi-display foundation | ✅ Good |
-| Visual hierarchy | ✅ Good |
+| State management           | ✅ Excellent |
+| Transition system          | ✅ Good      |
+| Keyboard coverage          | ✅ Good      |
+| Multi-display foundation   | ✅ Good      |
+| Visual hierarchy           | ✅ Good      |
 
 ---
 

@@ -10,6 +10,7 @@
 Redesign Library Mode frontend untuk SION Media, terinspirasi dari desain web Lagu Sion (play.lagusion.org) dengan peningkatan premium untuk desktop.
 
 **Elemen dari Web UI yang Diterapkan:**
+
 - Sidebar buku lagu dengan icon unik dan statistik (jumlah lagu, diputar)
 - Grid nomor dengan hover preview card (judul + lirik preview)
 - Search bar "Tulis judul, lirik, no" dengan toggle grid/list view
@@ -18,6 +19,7 @@ Redesign Library Mode frontend untuk SION Media, terinspirasi dari desain web La
 - Number pad modal untuk pencarian cepat
 
 **Peningkatan di atas Web UI:**
+
 - Warna aksen unik per hymnal koleksi
 - FTS5 full-text search dengan highlighting
 - Auto-scroll dan font-size slider di lyric viewer
@@ -29,9 +31,11 @@ Redesign Library Mode frontend untuk SION Media, terinspirasi dari desain web La
 ## Components Created
 
 ### 1. MultiHymnalSidebar
+
 **File:** `src/renderer/src/components/library/MultiHymnalSidebar.tsx`
 
 **Features:**
+
 - Sidebar koleksi buku lagu dengan badge per-hymnal
 - Icon unik per koleksi (Guitar, BookOpen, Heart, Sun, Globe, Crown)
 - Warna aksen unik per koleksi (menggunakan `getHymnalColor()`)
@@ -43,20 +47,23 @@ Redesign Library Mode frontend untuk SION Media, terinspirasi dari desain web La
 - Tidak ada opsi "Semua Buku" (sesuai requirement)
 
 **Key Implementation:**
+
 ```tsx
 // Hymnal color mapping
 const HYMNAL_COLORS: Record<string, string> = {
-  LS: 'hsl(215, 72%, 56%)',   // Royal Blue
+  LS: 'hsl(215, 72%, 56%)', // Royal Blue
   SDAH: 'hsl(270, 60%, 58%)', // Amethyst Purple
-  PK: 'hsl(340, 65%, 55%)',   // Rose Pink
+  PK: 'hsl(340, 65%, 55%)' // Rose Pink
   // ... etc
 }
 ```
 
 ### 2. LibrarySearchPalette
+
 **File:** `src/renderer/src/components/library/LibrarySearchPalette.tsx`
 
 **Features:**
+
 - "Search Everywhere" bar dengan trigger Ctrl+K
 - Pencarian simultan: nomor, judul (ID/EN), lirik, tag via FTS5
 - Number pad (0-9) untuk input cepat berdasarkan nomor
@@ -65,6 +72,7 @@ const HYMNAL_COLORS: Record<string, string> = {
 - Recent searches disimpan di localStorage
 
 **Search Modes:**
+
 - Semua (default)
 - Nomor
 - Judul
@@ -72,9 +80,11 @@ const HYMNAL_COLORS: Record<string, string> = {
 - Tag
 
 ### 3. HighDensitySongGrid
+
 **File:** `src/renderer/src/components/library/HighDensitySongGrid.tsx`
 
 **Features:**
+
 - Grid kartu lagu compact dengan virtual scrolling
 - Metadata ditampilkan: Number (LS), Title (ID), Title (EN), Key, Tempo
 - Action buttons: Favorite, Add to Playlist
@@ -85,9 +95,11 @@ const HYMNAL_COLORS: Record<string, string> = {
 **Note:** Komponen ini dibuat namun tidak digunakan di LibraryMode final karena user mempertahankan tampilan tab-based (Nomor/Judul/Playlist).
 
 ### 4. LyricStudioLite
+
 **File:** `src/renderer/src/components/library/LyricStudioLite.tsx`
 
 **Features:**
+
 - Area tampilan lirik dengan auto-scroll
 - Font-size slider (14px - 48px)
 - Toggle fullscreen (F11)
@@ -96,9 +108,11 @@ const HYMNAL_COLORS: Record<string, string> = {
 - Parsing lirik dengan block labels (Reff, Verse, etc.)
 
 ### 5. LibraryNumberView (Updated)
+
 **File:** `src/renderer/src/components/library/LibraryNumberView.tsx`
 
 **Features Updated:**
+
 - Rich hover preview card saat hover pada cell grid nomor
 - Preview card menampilkan: header dengan hymnal accent color, icon Music, nomor badge
 - Judul lagu, alternate title, dan preview lirik (2 baris pertama)
@@ -106,27 +120,33 @@ const HYMNAL_COLORS: Record<string, string> = {
 - Z-index tinggi agar tidak terpotong oleh container
 
 ### 6. LibraryTitleView (Updated)
+
 **File:** `src/renderer/src/components/library/LibraryTitleView.tsx`
 
 **Features Updated:**
+
 - Number badge dengan warna aksen hymnal (bukan generic badge)
 - Background dan border badge menggunakan `getHymnalColor()`
 - Warna teks nomor sesuai hymnal accent
 - Font mono dan bold untuk nomor
 
 ### 7. LibraryBrowserPanel (Updated)
+
 **File:** `src/renderer/src/components/library/LibraryBrowserPanel.tsx`
 
 **Features Updated:**
+
 - Tab styling lebih mirip web Lagu Sion dengan warna oranye/merah aktif
 - Tab order: Playlist | Nomor | Judul
 - Active tab menggunakan warna `hsl(12, 85%, 55%)` (oranye merah)
 - Stats badge di pojok kanan atas tabs
 
 ### 8. LibraryModeRedesigned
+
 **File:** `src/renderer/src/screens/modes/LibraryModeRedesigned.tsx`
 
 **Features:**
+
 - Integrasi semua komponen baru
 - Top Command Bar dengan search button dan theme toggle
 - Multi-Hymnal Sidebar di kiri
@@ -136,24 +156,26 @@ const HYMNAL_COLORS: Record<string, string> = {
 
 ## Keyboard Navigation
 
-| Shortcut | Action |
-|----------|--------|
-| Ctrl+K | Buka Search Palette |
-| ↑↓ | Navigasi hasil pencarian / grid |
-| ←→ | Navigasi horizontal di grid |
-| Enter | Buka lagu / pilih |
-| Escape | Tutup palette / lyric viewer |
-| Space | Toggle auto-scroll (di lyric viewer) |
-| +/- | Ubah font size (di lyric viewer) |
-| F11 | Toggle fullscreen (di lyric viewer) |
+| Shortcut | Action                               |
+| -------- | ------------------------------------ |
+| Ctrl+K   | Buka Search Palette                  |
+| ↑↓       | Navigasi hasil pencarian / grid      |
+| ←→       | Navigasi horizontal di grid          |
+| Enter    | Buka lagu / pilih                    |
+| Escape   | Tutup palette / lyric viewer         |
+| Space    | Toggle auto-scroll (di lyric viewer) |
+| +/-      | Ubah font size (di lyric viewer)     |
+| F11      | Toggle fullscreen (di lyric viewer)  |
 
 ## Edge Cases Handled
 
 ### No Results
+
 - Empty state premium dengan ikon dan pesan
 - Saran untuk mencoba kata kunci lain
 
 ### Missing Lyrics
+
 - Badge merah "LIRIK KOSONG" di song cards
 - Pesan informatif di lyric viewer
 
@@ -215,6 +237,7 @@ src/renderer/src/
 ## Production-Ready Checklist
 
 ### Code Quality
+
 - [x] TypeScript: 0 errors
 - [x] ESLint: 0 warnings
 - [x] Build: Success
@@ -225,6 +248,7 @@ src/renderer/src/
 - [x] All useEffect dependencies correct
 
 ### Components Status
+
 - [x] `LibraryModeRedesigned` - Main entry, clean imports
 - [x] `MultiHymnalSidebar` - Icons, stats, search, recent songs
 - [x] `LibraryBrowserPanel` - Tabs, LyricStudioLite integration
@@ -234,6 +258,7 @@ src/renderer/src/
 - [x] `LyricStudioLite` - Auto-scroll, linked songs
 
 ### Features Verified
+
 - [x] Keyboard navigation (Ctrl+K, arrows, Enter, Escape)
 - [x] Theme toggle (dark/light)
 - [x] Focus mode toggle
@@ -245,6 +270,7 @@ src/renderer/src/
 - [x] Fullscreen mode (F11)
 
 ### Desktop App Considerations
+
 - [x] No web-specific APIs used
 - [x] localStorage for preferences (theme, font size, recent searches)
 - [x] Custom DOM events for inter-component communication

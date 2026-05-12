@@ -14,8 +14,7 @@ const STATE_CONFIG: Record<string, { label: string; dotClass: string; color: str
 }
 
 export function TitleBarStatus(): React.JSX.Element {
-  const { displayCount, isProjectionVisible, isStageDisplayVisible, selectedSong, isFocusMode } =
-    useAppStore()
+  const { displayCount, isProjectionVisible, isStageDisplayVisible, isFocusMode } = useAppStore()
   const { currentMode } = useModeStore()
   const { projectionState } = useProjectionStore()
   const config = STATE_CONFIG[projectionState] || STATE_CONFIG.CLEAR
@@ -53,25 +52,6 @@ export function TitleBarStatus(): React.JSX.Element {
 
   return (
     <div className="title-bar-status no-drag">
-      {/* Selected Song */}
-      {selectedSong && (
-        <div className="title-bar-song-info animate-fadeIn">
-          <div className="flex flex-col items-center">
-            <div className="flex items-center gap-1.5 leading-tight">
-              <span className="title-bar-song-number">
-                {selectedSong.hymnal_code || 'LS'} {selectedSong.number}
-              </span>
-              <span className="title-bar-song-title">{selectedSong.title}</span>
-            </div>
-            {selectedSong.alternate_title && (
-              <span className="text-xs text-text-muted italic leading-tight truncate max-w-[180px]">
-                {selectedSong.alternate_title}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
       {currentMode === 'PROJECTION' ? (
         <>
           {/* Projection toggle */}

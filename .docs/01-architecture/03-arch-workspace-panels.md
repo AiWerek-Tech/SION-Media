@@ -22,11 +22,11 @@ The resizable panel system is built on `react-resizable-panels` with a custom de
 
 ### Key Files
 
-| File | Purpose |
-|------|---------|
-| `src/renderer/src/store/usePanelLayoutStore.ts` | Zustand store for panel size persistence |
+| File                                                            | Purpose                                           |
+| --------------------------------------------------------------- | ------------------------------------------------- |
+| `src/renderer/src/store/usePanelLayoutStore.ts`                 | Zustand store for panel size persistence          |
 | `src/renderer/src/components/design-system/ResizablePanels.tsx` | `ResizablePanels` and `TwoPanelLayout` components |
-| `src/renderer/src/components/design-system/ResizeHandle.tsx` | Subtle, accessible resize handle |
+| `src/renderer/src/components/design-system/ResizeHandle.tsx`    | Subtle, accessible resize handle                  |
 
 ### Usage Pattern
 
@@ -56,14 +56,14 @@ The resizable panel system is built on `react-resizable-panels` with a custom de
 
 ### Constraints
 
-| Workspace | Panel | Default | Min | Max |
-|-----------|-------|---------|-----|-----|
-| ProjectionMode | Bottom Left | 50% | 25% | 75% |
-| ProjectionMode | Bottom Right | 50% | 25% | 75% |
-| Dashboard | Bottom Left | 50% | 25% | 75% |
-| Dashboard | Bottom Right | 50% | 25% | 75% |
-| ManagementMode | Main Left | 40% | 25% | 60% |
-| ManagementMode | Main Right | 60% | 40% | 75% |
+| Workspace      | Panel        | Default | Min | Max |
+| -------------- | ------------ | ------- | --- | --- |
+| ProjectionMode | Bottom Left  | 50%     | 25% | 75% |
+| ProjectionMode | Bottom Right | 50%     | 25% | 75% |
+| Dashboard      | Bottom Left  | 50%     | 25% | 75% |
+| Dashboard      | Bottom Right | 50%     | 25% | 75% |
+| ManagementMode | Main Left    | 40%     | 25% | 60% |
+| ManagementMode | Main Right   | 60%     | 40% | 75% |
 
 ---
 
@@ -72,6 +72,7 @@ The resizable panel system is built on `react-resizable-panels` with a custom de
 ### Philosophy
 
 Desktop workspaces face **multi-dimensional pressure**:
+
 - Width compression (panel resize)
 - Height compression (split workspace)
 - Dynamic runtime layout changes
@@ -98,18 +99,18 @@ SION uses **container queries** (`@container`) for precise, component-level resp
 
 #### List Panel Compression (`@container (max-width: 520px)`)
 
-| Element | Behavior |
-|---------|----------|
-| Secondary metadata (category, date) | Hidden |
-| Row actions | Always visible (opacity: 1) |
-| Title typography | Reduced to 13px |
-| Number badge | Compact (20px) |
+| Element                             | Behavior                    |
+| ----------------------------------- | --------------------------- |
+| Secondary metadata (category, date) | Hidden                      |
+| Row actions                         | Always visible (opacity: 1) |
+| Title typography                    | Reduced to 13px             |
+| Number badge                        | Compact (20px)              |
 
 #### Inspector Panel Compression
 
-| Query | Effect |
-|-------|--------|
-| `@container (max-width: 520px)` | Title 16px, subtitle hidden |
+| Query                           | Effect                              |
+| ------------------------------- | ----------------------------------- |
+| `@container (max-width: 520px)` | Title 16px, subtitle hidden         |
 | `@container (max-width: 400px)` | Lyrics font 10.5px, reduced padding |
 
 ---
@@ -119,6 +120,7 @@ SION uses **container queries** (`@container`) for precise, component-level resp
 ### Problem
 
 Nested scroll regions in desktop apps often suffer from:
+
 - **Scroll chaining** (unwanted propagation)
 - **Scroll fight** (competing scroll targets)
 - **Janky resize** (scrollbar appearance/disappearance)
@@ -170,22 +172,29 @@ The lyrics preview adapts its max-height based on **container height**, not view
 
 ```css
 /* Default */
-.management-lyrics-content { max-height: 340px; }
+.management-lyrics-content {
+  max-height: 340px;
+}
 
 /* Compressed inspector */
 @container (max-height: 600px) {
-  .management-lyrics-content { max-height: 200px; }
+  .management-lyrics-content {
+    max-height: 200px;
+  }
 }
 
 /* Severely compressed */
 @container (max-height: 450px) {
-  .management-lyrics-content { max-height: 120px; }
+  .management-lyrics-content {
+    max-height: 120px;
+  }
 }
 ```
 
 ### Why Height-Based Queries?
 
 Desktop workspaces face **vertical pressure** from:
+
 - Split panel layouts
 - Dynamic inspector content
 - Runtime state changes
@@ -266,6 +275,7 @@ Keep critical controls accessible during scroll, enabling **continuous workflow*
 ### Future Scalability
 
 The sticky architecture supports future inspector evolution:
+
 - Metadata workspace
 - Contextual controls
 - Quick edit panel
@@ -302,6 +312,7 @@ The sticky architecture supports future inspector evolution:
 ### Problem
 
 Rapid panel resizing can cause:
+
 - Content flashing
 - Layout thrashing
 - Scrollbar jitter
@@ -339,20 +350,20 @@ Rapid panel resizing can cause:
 
 Semantic classes enable **targeted CSS adjustments** without brittle selectors.
 
-| Class | Purpose |
-|-------|---------|
-| `.management-list-panel` | Song list container |
-| `.management-inspector-panel` | Detail panel container |
-| `.management-row` | Virtualized song row |
-| `.secondary-meta` | Category, date metadata |
-| `.row-actions` | Action buttons |
-| `.management-inspector-body` | Primary scroll region |
-| `.management-inspector-title` | Song title |
-| `.management-inspector-subtitle` | Alternate title |
-| `.management-inspector-actions` | Action button zone |
-| `.management-lyrics-preview` | Lyrics card container |
+| Class                               | Purpose                     |
+| ----------------------------------- | --------------------------- |
+| `.management-list-panel`            | Song list container         |
+| `.management-inspector-panel`       | Detail panel container      |
+| `.management-row`                   | Virtualized song row        |
+| `.secondary-meta`                   | Category, date metadata     |
+| `.row-actions`                      | Action buttons              |
+| `.management-inspector-body`        | Primary scroll region       |
+| `.management-inspector-title`       | Song title                  |
+| `.management-inspector-subtitle`    | Alternate title             |
+| `.management-inspector-actions`     | Action button zone          |
+| `.management-lyrics-preview`        | Lyrics card container       |
 | `.management-lyrics-scroll-wrapper` | Scroll wrapper with shadows |
-| `.management-lyrics-content` | Actual lyrics content |
+| `.management-lyrics-content`        | Actual lyrics content       |
 
 ---
 

@@ -3,7 +3,8 @@
 **Date**: 2026-05-10
 **Feature**: Runtime Command Bus - Unified command routing
 **Priority**: P1.2 (Ecosystem-ready architecture)
-**Prerequisites**: 
+**Prerequisites**:
+
 - log-impl-runtime-protection-v1.md
 - log-impl-next-state-v1.md
 - log-impl-quick-jump-v1.md
@@ -123,23 +124,23 @@ export type RuntimeCommandType =
   | 'NAV_CUE_NEXT'
   | 'NAV_CUE_PREV'
   | 'NAV_CUE_GOTO'
-  
+
   // Projection State Commands
   | 'PROJ_TAKE_CUE'
   | 'PROJ_BLACK'
   | 'PROJ_FREEZE'
   | 'PROJ_CLEAR'
   | 'PROJ_LIVE'
-  
+
   // Timer Commands
   | 'TIMER_START'
   | 'TIMER_STOP'
   | 'TIMER_RESET'
-  
+
   // Protection Commands
   | 'PROTECTION_UPDATE_LIVE'
   | 'PROTECTION_DISCARD'
-  
+
   // Next State Commands
   | 'NEXT_LOAD_SONG'
   | 'NEXT_CLEAR'
@@ -169,7 +170,7 @@ export interface RuntimeCommand {
 /**
  * Command Source - Where the command originated
  */
-export type CommandSource = 
+export type CommandSource =
   | 'KEYBOARD'
   | 'UI_BUTTON'
   | 'QUICK_JUMP'
@@ -217,7 +218,7 @@ class RuntimeCommandBus {
 
   /**
    * Execute a runtime command
-   * 
+   *
    * Flow: validate → execute → emit event → log
    */
   execute(command: RuntimeCommand): RuntimeEvent {
@@ -237,10 +238,10 @@ class RuntimeCommandBus {
     }
 
     const event = handler(command)
-    
+
     // 3. Emit event
     this.emitEvent(event)
-    
+
     // 4. Log command
     this.logCommand(command)
 
@@ -275,9 +276,7 @@ export function createRuntimeCommand(
 /**
  * Subscribe to runtime events
  */
-export function subscribeToRuntimeEvents(
-  listener: (event: RuntimeEvent) => void
-): () => void
+export function subscribeToRuntimeEvents(listener: (event: RuntimeEvent) => void): () => void
 ```
 
 ---
@@ -289,19 +288,20 @@ export const commands = {
   // Navigation
   nextSlide: (source?) => createRuntimeCommand('NAV_NEXT_SLIDE', undefined, source),
   prevSlide: (source?) => createRuntimeCommand('NAV_PREV_SLIDE', undefined, source),
-  goToSlide: (index, source?) => createRuntimeCommand('NAV_GOTO_SLIDE', { slideIndex: index }, source),
+  goToSlide: (index, source?) =>
+    createRuntimeCommand('NAV_GOTO_SLIDE', { slideIndex: index }, source),
   goToSection: (section, source?) => createRuntimeCommand('NAV_GOTO_SECTION', { section }, source),
-  
+
   // Projection
   takeCue: (source?) => createRuntimeCommand('PROJ_TAKE_CUE', undefined, source),
   black: (source?) => createRuntimeCommand('PROJ_BLACK', undefined, source),
   freeze: (source?) => createRuntimeCommand('PROJ_FREEZE', undefined, source),
   clear: (source?) => createRuntimeCommand('PROJ_CLEAR', undefined, source),
-  
+
   // Timer
   timerStart: (source?) => createRuntimeCommand('TIMER_START', undefined, source),
   timerStop: (source?) => createRuntimeCommand('TIMER_STOP', undefined, source),
-  timerReset: (source?) => createRuntimeCommand('TIMER_RESET', undefined, source),
+  timerReset: (source?) => createRuntimeCommand('TIMER_RESET', undefined, source)
 }
 ```
 
@@ -342,7 +342,7 @@ export function registerCommandHandlers(): void {
     store().timerStart()
     return { command: cmd, success: true, timestamp: Date.now() }
   })
-  
+
   // ... etc
 }
 ```
@@ -360,9 +360,14 @@ export function registerCommandValidators(): void {
   const store = useProjectionStore.getState
 
   // Validate navigation commands against LIVE_LOCK
-  const navigationCommands = ['NAV_NEXT_SLIDE', 'NAV_PREV_SLIDE', 'NAV_GOTO_SLIDE', 'NAV_GOTO_SECTION']
-  
-  navigationCommands.forEach(type => {
+  const navigationCommands = [
+    'NAV_NEXT_SLIDE',
+    'NAV_PREV_SLIDE',
+    'NAV_GOTO_SLIDE',
+    'NAV_GOTO_SECTION'
+  ]
+
+  navigationCommands.forEach((type) => {
     commandBus.registerValidator(type, (cmd) => {
       const { programLockState } = store()
       if (programLockState === 'LIVE_LOCK') {
@@ -482,14 +487,14 @@ ws.on('command', (data) => {
 
 ## Code Metrics
 
-| Metric | Value |
-|--------|-------|
-| Files created | 2 |
-| Files modified | 0 |
-| Lines added (bus) | ~340 |
-| Lines added (handlers) | ~300 |
-| Total new code | ~640 lines |
-| Build status | ✅ Success |
+| Metric                 | Value      |
+| ---------------------- | ---------- |
+| Files created          | 2          |
+| Files modified         | 0          |
+| Lines added (bus)      | ~340       |
+| Lines added (handlers) | ~300       |
+| Total new code         | ~640 lines |
+| Build status           | ✅ Success |
 
 ---
 
@@ -528,7 +533,7 @@ ws.on('message', (msg) => {
 ```typescript
 // Macro recording & playback
 const macro = commandBus.getCommandLog()
-macro.forEach(cmd => {
+macro.forEach((cmd) => {
   executeRuntimeCommand(cmd.type, cmd.payload, 'MACRO')
 })
 ```
@@ -537,15 +542,15 @@ macro.forEach(cmd => {
 
 ## Benefits
 
-| Feature | Before | After |
-|---------|--------|-------|
-| MIDI Support | ❌ Blocked | ✅ Easy |
-| Stream Deck | ❌ Blocked | ✅ Easy |
-| Remote App | ❌ Blocked | ✅ Easy |
-| Web Control | ❌ Blocked | ✅ Easy |
-| Macro Automation | ❌ No | ✅ Command log |
-| Multi-operator Sync | ❌ No | ✅ Event stream |
-| Audit/Event Log | ❌ No | ✅ Built-in |
+| Feature             | Before     | After           |
+| ------------------- | ---------- | --------------- |
+| MIDI Support        | ❌ Blocked | ✅ Easy         |
+| Stream Deck         | ❌ Blocked | ✅ Easy         |
+| Remote App          | ❌ Blocked | ✅ Easy         |
+| Web Control         | ❌ Blocked | ✅ Easy         |
+| Macro Automation    | ❌ No      | ✅ Command log  |
+| Multi-operator Sync | ❌ No      | ✅ Event stream |
+| Audit/Event Log     | ❌ No      | ✅ Built-in     |
 
 ---
 
@@ -599,7 +604,7 @@ macro.forEach(cmd => {
 ## References
 
 - **Architecture Doc**: `@/.docs/02-planning/arch-projection-runtime-state-machine-v1.md`
-- **Previous Logs**: 
+- **Previous Logs**:
   - `@/.docs/log-impl-runtime-protection-v1.md`
   - `@/.docs/log-impl-next-state-v1.md`
   - `@/.docs/log-impl-quick-jump-v1.md`

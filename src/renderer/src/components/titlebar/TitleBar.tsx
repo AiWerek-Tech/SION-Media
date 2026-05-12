@@ -1,10 +1,35 @@
 import React from 'react'
+import { Bell, Moon, Settings } from 'lucide-react'
 import { TitleBarIdentity } from './TitleBarIdentity'
 import { TitleBarMenu } from './TitleBarMenu'
 import { TitleBarModeSwitcher } from './TitleBarModeSwitcher'
 import { TitleBarStatus } from './TitleBarStatus'
 import { TitleBarControls } from './TitleBarControls'
 import { useModeStore } from '../../store/useModeStore'
+import { useAppStore } from '../../store/useAppStore'
+
+function TitleBarUtilityButtons(): React.JSX.Element {
+  const setScreen = useAppStore((s) => s.setScreen)
+
+  return (
+    <div className="title-bar-utilities no-drag">
+      <button type="button" className="title-bar-utility-btn" title="Theme">
+        <Moon size={14} />
+      </button>
+      <button
+        type="button"
+        className="title-bar-utility-btn"
+        title="Settings"
+        onClick={() => setScreen('settings')}
+      >
+        <Settings size={14} />
+      </button>
+      <button type="button" className="title-bar-utility-btn" title="Notifications">
+        <Bell size={14} />
+      </button>
+    </div>
+  )
+}
 
 /**
  * Professional Custom Title Bar — Application Command Center
@@ -23,23 +48,18 @@ export function TitleBar(): React.JSX.Element {
 
   return (
     <div className="title-bar">
-      {/* Left: App Identity + Menu System */}
       <div className="title-bar-left">
         <TitleBarIdentity />
-        {!isFirstInstall && (
-          <>
-            <TitleBarModeSwitcher />
-            <TitleBarMenu />
-          </>
-        )}
+        {!isFirstInstall && <TitleBarMenu />}
       </div>
 
-      {/* Center: Flexible drag region */}
-      <div className="title-bar-spacer" />
+      <div className="title-bar-center">
+        {!isFirstInstall && <TitleBarModeSwitcher />}
+      </div>
 
-      {/* Right: Status + Clock + Window Controls */}
       <div className="title-bar-right">
         {!isFirstInstall && <TitleBarStatus />}
+        {!isFirstInstall && <TitleBarUtilityButtons />}
         <TitleBarControls />
       </div>
     </div>

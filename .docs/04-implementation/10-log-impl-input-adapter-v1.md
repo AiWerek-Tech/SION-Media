@@ -5,6 +5,7 @@
 **Phase:** P2.1 — External Input Protocol Layer
 
 > **Update:** The adapter registry health is now surfaced in Runtime Inspector v2 (`INPUTS` tab). A DEV-only simulator is available in:
+>
 > - `.docs/log-impl-virtual-input-simulator-v1.md`
 > - `.docs/log-impl-runtime-inspector-v2-tabs-simulator.md`
 
@@ -69,8 +70,8 @@ Maps physical inputs to runtime commands:
 ```ts
 interface InputMapping {
   id: string
-  inputId: string        // Physical input ID (device-specific)
-  label: string          // Human-readable
+  inputId: string // Physical input ID (device-specific)
+  label: string // Human-readable
   commandType: RuntimeCommandType
   payload?: Record<string, unknown>
   enabled: boolean
@@ -80,6 +81,7 @@ interface InputMapping {
 ```
 
 This enables:
+
 - **Mapping Engine**: Physical → Command translation
 - **Learn Mode**: Capture input, assign command
 - **Profile System**: Save/load mappings
@@ -100,7 +102,7 @@ interface AdapterHealth {
   lastError: string | null
   lastErrorTime: number | null
   lastSuccessTime: number | null
-  deviceInfo?: { name, manufacturer, firmware, serialNumber }
+  deviceInfo?: { name; manufacturer; firmware; serialNumber }
   reconnectCount: number
   timestamp: number
 }
@@ -157,6 +159,7 @@ No parallel state paths. Single source of truth.
 ### 2. Health Visibility
 
 Every adapter tracks:
+
 - Commands emitted vs dropped
 - Latency (if measurable)
 - Reconnect count
@@ -199,9 +202,13 @@ class MIDIAdapter extends BaseRuntimeInputAdapter {
   id = 'midi-1'
   name = 'MIDI Controller'
   source = 'MIDI'
-  
-  async connect() { /* Web MIDI API */ }
-  async disconnect() { /* Cleanup */ }
+
+  async connect() {
+    /* Web MIDI API */
+  }
+  async disconnect() {
+    /* Cleanup */
+  }
 }
 ```
 
@@ -242,21 +249,21 @@ Registry handles the rest.
 
 ## Architecture Status
 
-| Domain | Status |
-|--------|--------|
-| Runtime workflow | ✅ |
-| Protection system | ✅ |
-| Semantic navigation | ✅ |
-| Multi-display foundation | ✅ |
-| Confidence monitor | ✅ |
-| Command bus | ✅ |
-| Runtime validation | ✅ |
-| Event stream | ✅ |
-| Runtime observability | ✅ |
-| Runtime inspection | ✅ |
-| Health metrics | ✅ |
-| Panic resilience | ✅ |
-| **Input adapter architecture** | ✅ |
+| Domain                         | Status |
+| ------------------------------ | ------ |
+| Runtime workflow               | ✅     |
+| Protection system              | ✅     |
+| Semantic navigation            | ✅     |
+| Multi-display foundation       | ✅     |
+| Confidence monitor             | ✅     |
+| Command bus                    | ✅     |
+| Runtime validation             | ✅     |
+| Event stream                   | ✅     |
+| Runtime observability          | ✅     |
+| Runtime inspection             | ✅     |
+| Health metrics                 | ✅     |
+| Panic resilience               | ✅     |
+| **Input adapter architecture** | ✅     |
 
 ---
 

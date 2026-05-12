@@ -10,7 +10,8 @@
 
 Dokumen ini mendefinisikan **Projection Runtime State Machine** secara formal sebagai fondasi untuk implementasi fitur-fitur runtime workflow.
 
-**Goal**: 
+**Goal**:
+
 - Explicit state definitions
 - Valid state transitions
 - Command-to-state mapping
@@ -110,51 +111,51 @@ type OutputState = 'CLEAR' | 'LIVE' | 'BLACK' | 'FREEZE' | 'LOGO'
 // ============================================================================
 
 interface ProgramState {
-  slides: SlideData[]           // Slides in current program
+  slides: SlideData[] // Slides in current program
   activeSlide: SlideData | null // Currently projected slide
-  slideIndex: number            // Position in slides array
-  songMeta: SongMeta | null     // Song metadata
-  lockState: ProgramLockState   // Protection state
+  slideIndex: number // Position in slides array
+  songMeta: SongMeta | null // Song metadata
+  lockState: ProgramLockState // Protection state
 }
 
-type ProgramLockState = 
-  | 'UNLOCKED'      // Program can be modified
-  | 'LIVE-LOCK'     // Program is live and immutable
-  | 'LIVE-DIRTY'    // Program has pending changes (warning)
+type ProgramLockState =
+  | 'UNLOCKED' // Program can be modified
+  | 'LIVE-LOCK' // Program is live and immutable
+  | 'LIVE-DIRTY' // Program has pending changes (warning)
 
 // ============================================================================
 // PREVIEW STATE - Operator preparation area
 // ============================================================================
 
 interface PreviewState {
-  slides: SlideData[]           // Slides in preview/cue
-  slideIndex: number            // Position in slides array
-  songMeta: SongMeta | null     // Song metadata
-  syncState: PreviewSyncState   // Relationship to program
+  slides: SlideData[] // Slides in preview/cue
+  slideIndex: number // Position in slides array
+  songMeta: SongMeta | null // Song metadata
+  syncState: PreviewSyncState // Relationship to program
 }
 
 type PreviewSyncState =
-  | 'SYNCED'        // Preview matches program exactly
-  | 'AHEAD'         // Preview is ahead of program (ready to TAKE)
-  | 'BEHIND'        // Preview is behind program (unusual)
-  | 'INDEPENDENT'   // Preview has different content (different song)
+  | 'SYNCED' // Preview matches program exactly
+  | 'AHEAD' // Preview is ahead of program (ready to TAKE)
+  | 'BEHIND' // Preview is behind program (unusual)
+  | 'INDEPENDENT' // Preview has different content (different song)
 
 // ============================================================================
 // NEXT STATE - Upcoming content
 // ============================================================================
 
 interface NextState {
-  slide: SlideData | null       // Next slide in current song
-  song: Song | null             // Next song in playlist
-  slides: SlideData[]           // Pre-loaded slides for next song
-  readyState: NextReadyState    // Availability state
+  slide: SlideData | null // Next slide in current song
+  song: Song | null // Next song in playlist
+  slides: SlideData[] // Pre-loaded slides for next song
+  readyState: NextReadyState // Availability state
 }
 
 type NextReadyState =
-  | 'EMPTY'         // No next content
-  | 'SLIDE-READY'   // Next slide available
-  | 'SONG-QUEUED'   // Next song pre-loaded
-  | 'BOTH-READY'    // Both next slide and next song available
+  | 'EMPTY' // No next content
+  | 'SLIDE-READY' // Next slide available
+  | 'SONG-QUEUED' // Next song pre-loaded
+  | 'BOTH-READY' // Both next slide and next song available
 
 // ============================================================================
 // TRANSITION STATE - Active visual transition
@@ -163,19 +164,14 @@ type NextReadyState =
 interface TransitionState {
   status: TransitionStatus
   type: TransitionType
-  duration: number              // Duration in seconds
-  progress: number              // 0.0 to 1.0
+  duration: number // Duration in seconds
+  progress: number // 0.0 to 1.0
   queue: TransitionQueueItem[] // Queued transitions
 }
 
 type TransitionStatus = 'IDLE' | 'TRANSITIONING' | 'QUEUED'
 
-type TransitionType = 
-  | 'dissolve' 
-  | 'crossfade' 
-  | 'fast-cut' 
-  | 'smooth-blur' 
-  | 'slide'
+type TransitionType = 'dissolve' | 'crossfade' | 'fast-cut' | 'smooth-blur' | 'slide'
 
 interface TransitionQueueItem {
   id: string
@@ -183,7 +179,7 @@ interface TransitionQueueItem {
   toSlide: SlideData
   type: TransitionType
   duration: number
-  executeAt?: number            // Timestamp for scheduled execution
+  executeAt?: number // Timestamp for scheduled execution
 }
 ```
 
@@ -396,97 +392,97 @@ Sync State Rules:
 interface CommandPreconditions {
   // OUTPUT COMMANDS
   takeCue: {
-    requires: 'hasCue'                    // slides.length > 0
+    requires: 'hasCue' // slides.length > 0
     blocked: 'isCueSameAsProgram && isLive'
   }
-  
+
   goToSlide: {
-    requires: 'hasCue && validIndex'      // slides.length > 0 && index in range
+    requires: 'hasCue && validIndex' // slides.length > 0 && index in range
     blocked: 'none'
   }
-  
+
   toggleBlack: {
     requires: 'none'
     blocked: 'none'
   }
-  
+
   toggleFreeze: {
-    requires: 'hasProgram'                // programSlides.length > 0
+    requires: 'hasProgram' // programSlides.length > 0
     blocked: 'none'
   }
-  
+
   clearScreen: {
     requires: 'none'
     blocked: 'none'
   }
-  
+
   // NAVIGATION COMMANDS - PREVIEW
   cueNextSlide: {
-    requires: 'hasCue && notAtEnd'        // slides.length > 0 && index < max
+    requires: 'hasCue && notAtEnd' // slides.length > 0 && index < max
     blocked: 'none'
   }
-  
+
   cuePrevSlide: {
-    requires: 'hasCue && notAtStart'      // slides.length > 0 && index > 0
+    requires: 'hasCue && notAtStart' // slides.length > 0 && index > 0
     blocked: 'none'
   }
-  
+
   cueGoToSlide: {
     requires: 'hasCue && validIndex'
     blocked: 'none'
   }
-  
+
   cueGoToSection: {
-    requires: 'hasCue && sectionExists'   // slides has section label
+    requires: 'hasCue && sectionExists' // slides has section label
     blocked: 'none'
   }
-  
+
   // NAVIGATION COMMANDS - PROGRAM (LIVE)
   nextSlide: {
     requires: 'hasProgram && isLive && notAtEnd'
     blocked: 'outputState is BLACK or CLEAR'
   }
-  
+
   prevSlide: {
     requires: 'hasProgram && isLive && notAtStart'
     blocked: 'outputState is BLACK or CLEAR'
   }
-  
+
   goToLiveSlide: {
     requires: 'hasProgram && isLive && validIndex'
     blocked: 'outputState is BLACK or CLEAR'
   }
-  
+
   goToSection: {
     requires: 'hasProgram && isLive && sectionExists'
     blocked: 'outputState is BLACK or CLEAR'
   }
-  
+
   // CONTENT COMMANDS
   loadSong: {
     requires: 'validSong'
     blocked: 'none'
     sideEffect: 'resets currentSlideIndex to 0'
   }
-  
+
   loadNextSong: {
     requires: 'hasNextSongInPlaylist'
     blocked: 'none'
     sideEffect: 'populates queuedSlides'
   }
-  
+
   hotSwapSlides: {
     requires: 'songIsLiveOrCued'
     blocked: 'programLockState is LIVE-LOCK'
     warning: 'triggers LIVE-DIRTY if program is live'
   }
-  
+
   updateLive: {
     requires: 'programLockState is LIVE-DIRTY'
     blocked: 'none'
-    confirmation: 'required'              // Explicit user confirmation
+    confirmation: 'required' // Explicit user confirmation
   }
-  
+
   discardChanges: {
     requires: 'programLockState is LIVE-DIRTY'
     blocked: 'none'
@@ -512,7 +508,7 @@ interface CommandEffects {
     previewSyncState: 'SYNCED'
     ipcEvent: 'projection:slide-update'
   }
-  
+
   goToSlide: {
     outputState: 'LIVE'
     currentSlideIndex: '= index'
@@ -523,47 +519,47 @@ interface CommandEffects {
     previewSyncState: 'SYNCED'
     ipcEvent: 'projection:slide-update'
   }
-  
+
   toggleBlack: {
     outputState: 'BLACK ⟷ LIVE'
     // If going to LIVE, restore programSlide
     ipcEvent: 'projection:state-change'
     ipcEventIfLive: 'projection:slide-update'
   }
-  
+
   toggleFreeze: {
     outputState: 'FREEZE ⟷ LIVE'
     ipcEvent: 'projection:state-change'
     ipcEventIfLive: 'projection:slide-update'
   }
-  
+
   clearScreen: {
     outputState: 'CLEAR'
     programLockState: 'UNLOCKED'
     ipcEvent: 'projection:state-change'
   }
-  
+
   // NAVIGATION - PREVIEW
   cueNextSlide: {
     currentSlideIndex: '++'
     previewSyncState: 'AHEAD or INDEPENDENT'
   }
-  
+
   cuePrevSlide: {
     currentSlideIndex: '--'
     previewSyncState: 'AHEAD or INDEPENDENT'
   }
-  
+
   cueGoToSlide: {
     currentSlideIndex: '= n'
     previewSyncState: 'AHEAD or INDEPENDENT'
   }
-  
+
   cueGoToSection: {
     currentSlideIndex: '= sectionStartIndex'
     previewSyncState: 'AHEAD or INDEPENDENT'
   }
-  
+
   // NAVIGATION - PROGRAM
   nextSlide: {
     programSlideIndex: '++'
@@ -571,28 +567,28 @@ interface CommandEffects {
     nextSlide: '= programSlides[newIndex + 1]'
     ipcEvent: 'projection:slide-update'
   }
-  
+
   prevSlide: {
     programSlideIndex: '--'
     programSlide: '= programSlides[newIndex]'
     nextSlide: '= programSlides[newIndex + 1]'
     ipcEvent: 'projection:slide-update'
   }
-  
+
   goToLiveSlide: {
     programSlideIndex: '= n'
     programSlide: '= programSlides[n]'
     nextSlide: '= programSlides[n + 1]'
     ipcEvent: 'projection:slide-update'
   }
-  
+
   goToSection: {
     programSlideIndex: '= sectionStartIndex'
     programSlide: '= programSlides[sectionStartIndex]'
     nextSlide: '= programSlides[sectionStartIndex + 1]'
     ipcEvent: 'projection:slide-update'
   }
-  
+
   // CONTENT
   loadSong: {
     slides: '= generateSlidesForSong(song)'
@@ -600,34 +596,34 @@ interface CommandEffects {
     cuedSongMeta: '= song.meta'
     previewSyncState: 'INDEPENDENT'
   }
-  
+
   loadNextSong: {
     queuedSlides: '= generateSlidesForSong(nextSong)'
     nextSong: '= nextSong'
     nextReadyState: 'SONG-QUEUED'
   }
-  
+
   hotSwapSlides: {
     // If song is cued
     slides: '= newSlides'
     currentSlideIndex: '= clamped to valid range'
-    
+
     // If song is program
     programSlides: '= newSlides'
     programSlideIndex: '= clamped to valid range'
     programSlide: '= newSlides[programSlideIndex]'
-    
+
     // If live
     programLockState: 'LIVE-DIRTY'
     ipcEvent: 'projection:slide-update' (if confirmed)
   }
-  
+
   updateLive: {
     programLockState: 'LIVE-LOCK'
     previewSyncState: 'SYNCED'
     ipcEvent: 'projection:slide-update'
   }
-  
+
   discardChanges: {
     slides: '= programSlides'
     currentSlideIndex: '= programSlideIndex'
@@ -682,21 +678,21 @@ interface CommandEffects {
 // SECTION LABELS - Standard worship song structure
 // ============================================================================
 
-type SectionLabel = 
-  | 'intro'        // Instrumental intro
-  | 'verse1'       // First verse
-  | 'verse2'       // Second verse
-  | 'verse3'       // Third verse
-  | 'pre-chorus'   // Build-up before chorus
-  | 'chorus'       // Main chorus/refrain
-  | 'bridge'       // Bridge section
-  | 'refrain'      // Short refrain
-  | 'outro'        // Ending
-  | 'tag'          // Tag/ending chorus
-  | 'interlude'    // Instrumental interlude
+type SectionLabel =
+  | 'intro' // Instrumental intro
+  | 'verse1' // First verse
+  | 'verse2' // Second verse
+  | 'verse3' // Third verse
+  | 'pre-chorus' // Build-up before chorus
+  | 'chorus' // Main chorus/refrain
+  | 'bridge' // Bridge section
+  | 'refrain' // Short refrain
+  | 'outro' // Ending
+  | 'tag' // Tag/ending chorus
+  | 'interlude' // Instrumental interlude
   | 'instrumental' // Pure instrumental
-  | 'ending'       // Final section
-  | 'custom'       // Custom label
+  | 'ending' // Final section
+  | 'custom' // Custom label
 
 // Section detection from slide data
 interface SectionInfo {
@@ -740,8 +736,8 @@ function goToLast(): void
 function goToNextSong(): void
 
 // Quick actions
-function repeatSection(): void    // Jump to start of current section
-function skipSection(): void      // Jump to start of next section
+function repeatSection(): void // Jump to start of current section
+function skipSection(): void // Jump to start of next section
 ```
 
 ---
@@ -856,14 +852,14 @@ interface DirtyStateIndicators {
       pulse: true
     }
   }
-  
+
   // Control Bar
   dirtyWarning: {
     show: 'programLockState === LIVE_DIRTY'
     style: 'inline-flex items-center gap-2 px-3 py-1 rounded bg-status-warning/15 text-status-warning'
     actions: ['Update Live', 'Discard']
   }
-  
+
   // Preview Monitor
   previewBadge: {
     SYNCED: {
@@ -935,38 +931,35 @@ interface NextState {
   // Immediate next (within current song)
   nextSlide: SlideData | null
   nextSlideIndex: number | null
-  
+
   // Next song (in playlist)
   nextSong: Song | null
   nextSongIndex: number | null
   queuedSlides: SlideData[]
-  
+
   // State
   readyState: NextReadyState
   visibility: NextVisibility
 }
 
-type NextReadyState = 
-  | 'EMPTY'           // No next content at all
-  | 'SLIDE-ONLY'      // Next slide exists, no next song
-  | 'SONG-ONLY'       // No next slide, but next song queued
-  | 'BOTH-READY'      // Both next slide and next song available
+type NextReadyState =
+  | 'EMPTY' // No next content at all
+  | 'SLIDE-ONLY' // Next slide exists, no next song
+  | 'SONG-ONLY' // No next slide, but next song queued
+  | 'BOTH-READY' // Both next slide and next song available
 
 type NextVisibility =
-  | 'VISIBLE'         // NEXT is shown prominently
-  | 'COLLAPSED'       // NEXT is minimized
-  | 'HIDDEN'          // NEXT is not shown
+  | 'VISIBLE' // NEXT is shown prominently
+  | 'COLLAPSED' // NEXT is minimized
+  | 'HIDDEN' // NEXT is not shown
 
 // Computed properties
-function computeNextState(
-  program: ProgramState,
-  playlist: PlaylistState
-): NextState {
+function computeNextState(program: ProgramState, playlist: PlaylistState): NextState {
   const nextSlideIndex = program.slideIndex + 1
   const hasNextSlide = nextSlideIndex < program.slides.length
   const nextSongIndex = playlist.currentIndex + 1
   const hasNextSong = nextSongIndex < playlist.items.length
-  
+
   return {
     nextSlide: hasNextSlide ? program.slides[nextSlideIndex] : null,
     nextSlideIndex: hasNextSlide ? nextSlideIndex : null,
@@ -1122,12 +1115,12 @@ function computeNextState(
 // KEYBOARD CONTEXT - Determines which commands are active
 // ============================================================================
 
-type KeyboardContext = 
-  | 'LIVE-OPERATION'    // Program is live, navigation affects output
-  | 'PREVIEW-EDIT'      // Focus is on preview, navigation affects cue
-  | 'PLAYLIST-FOCUS'    // Focus is on playlist, numbers select songs
-  | 'SEARCH-FOCUS'      // Focus is on search input
-  | 'EDITOR-FOCUS'      // Focus is in song editor
+type KeyboardContext =
+  | 'LIVE-OPERATION' // Program is live, navigation affects output
+  | 'PREVIEW-EDIT' // Focus is on preview, navigation affects cue
+  | 'PLAYLIST-FOCUS' // Focus is on playlist, numbers select songs
+  | 'SEARCH-FOCUS' // Focus is on search input
+  | 'EDITOR-FOCUS' // Focus is in song editor
 
 function determineKeyboardContext(
   outputState: OutputState,
@@ -1138,35 +1131,35 @@ function determineKeyboardContext(
     if (focusedElement?.id === 'song-search-input') return 'SEARCH-FOCUS'
     return 'EDITOR-FOCUS'
   }
-  
+
   if (outputState === 'LIVE' || outputState === 'FREEZE') {
     return 'LIVE-OPERATION'
   }
-  
+
   if (focusedElement?.closest('[data-panel="playlist"]')) {
     return 'PLAYLIST-FOCUS'
   }
-  
+
   return 'PREVIEW-EDIT'
 }
 
 // Command routing based on context
 function executeNavigationCommand(command: NavigationCommand): void {
   const context = determineKeyboardContext(/* ... */)
-  
+
   switch (context) {
     case 'LIVE-OPERATION':
       // Arrows affect programSlideIndex
       if (command === 'next') nextSlide()
       if (command === 'prev') prevSlide()
       break
-      
+
     case 'PREVIEW-EDIT':
       // Shift+arrows affect currentSlideIndex
       if (command === 'next') cueNextSlide()
       if (command === 'prev') cuePrevSlide()
       break
-      
+
     case 'PLAYLIST-FOCUS':
       // Numbers select playlist items
       if (command.type === 'select-index') quickSong(command.index)
@@ -1293,7 +1286,7 @@ interface ProjectionStoreV2 {
   // ══════════════════════════════════════════════════════════════════
   outputState: OutputState
   setOutputState: (state: OutputState) => void
-  
+
   // ══════════════════════════════════════════════════════════════════
   // PROGRAM STATE
   // ══════════════════════════════════════════════════════════════════
@@ -1302,15 +1295,15 @@ interface ProjectionStoreV2 {
   programSlideIndex: number
   programSongMeta: SongMeta | null
   programLockState: ProgramLockState
-  
+
   // ══════════════════════════════════════════════════════════════════
   // PREVIEW STATE
   // ══════════════════════════════════════════════════════════════════
-  previewSlides: SlideData[]        // Renamed from 'slides'
-  previewSlideIndex: number         // Renamed from 'currentSlideIndex'
+  previewSlides: SlideData[] // Renamed from 'slides'
+  previewSlideIndex: number // Renamed from 'currentSlideIndex'
   previewSongMeta: SongMeta | null // Renamed from 'cuedSongMeta'
   previewSyncState: PreviewSyncState
-  
+
   // ══════════════════════════════════════════════════════════════════
   // NEXT STATE
   // ══════════════════════════════════════════════════════════════════
@@ -1320,7 +1313,7 @@ interface ProjectionStoreV2 {
   nextSongIndex: number | null
   queuedSlides: SlideData[]
   nextReadyState: NextReadyState
-  
+
   // ══════════════════════════════════════════════════════════════════
   // TRANSITION STATE
   // ══════════════════════════════════════════════════════════════════
@@ -1328,7 +1321,7 @@ interface ProjectionStoreV2 {
   transitionType: TransitionType
   transitionDuration: number
   transitionQueue: TransitionQueueItem[]
-  
+
   // ══════════════════════════════════════════════════════════════════
   // OUTPUT COMMANDS
   // ══════════════════════════════════════════════════════════════════
@@ -1339,7 +1332,7 @@ interface ProjectionStoreV2 {
   toggleLogo: () => void
   clearScreen: () => void
   panic: () => void
-  
+
   // ══════════════════════════════════════════════════════════════════
   // NAVIGATION COMMANDS - PREVIEW
   // ══════════════════════════════════════════════════════════════════
@@ -1349,7 +1342,7 @@ interface ProjectionStoreV2 {
   cueGoToSection: (label: SectionLabel) => void
   cueGoToFirst: () => void
   cueGoToLast: () => void
-  
+
   // ══════════════════════════════════════════════════════════════════
   // NAVIGATION COMMANDS - PROGRAM
   // ══════════════════════════════════════════════════════════════════
@@ -1362,7 +1355,7 @@ interface ProjectionStoreV2 {
   nextSection: () => void
   prevSection: () => void
   repeatSection: () => void
-  
+
   // ══════════════════════════════════════════════════════════════════
   // CONTENT COMMANDS
   // ══════════════════════════════════════════════════════════════════
@@ -1371,7 +1364,7 @@ interface ProjectionStoreV2 {
   hotSwapSlides: (songId: number, newSlides: SlideData[]) => void
   updateLive: () => void
   discardChanges: () => void
-  
+
   // ══════════════════════════════════════════════════════════════════
   // TRANSITION COMMANDS
   // ══════════════════════════════════════════════════════════════════
@@ -1379,7 +1372,7 @@ interface ProjectionStoreV2 {
   setTransitionDuration: (duration: number) => void
   queueTransition: (item: TransitionQueueItem) => void
   clearTransitionQueue: () => void
-  
+
   // ══════════════════════════════════════════════════════════════════
   // COMPUTED / HELPERS
   // ══════════════════════════════════════════════════════════════════
@@ -1397,6 +1390,7 @@ interface ProjectionStoreV2 {
 Dokumen ini mendefinisikan **Projection Runtime State Machine** yang akan menjadi fondasi untuk implementasi fitur-fitur runtime workflow:
 
 **Key Elements:**
+
 1. **State Hierarchy** - OUTPUT, PROGRAM, PREVIEW, NEXT, TRANSITION
 2. **State Transitions** - Valid transitions between all states
 3. **Command Architecture** - Complete command taxonomy with preconditions
@@ -1406,6 +1400,7 @@ Dokumen ini mendefinisikan **Projection Runtime State Machine** yang akan menjad
 7. **Keyboard Surface v2** - Full keyboard operation capability
 
 **Implementation Priority:**
+
 - **Phase 1 (P0)**: Edit Protection + Quick Jump + NEXT State
 - **Phase 2 (P1)**: Keyboard Preview Navigation + Section Navigation
 - **Phase 3 (P2)**: Confidence Monitor + Transition Queue + Auto-Advance

@@ -52,54 +52,65 @@ Dokumen ini adalah roadmap eksekusi pasca audit menyeluruh kode SION Media. Foku
 ## Sprint 1 (Minggu 1-2): Security Baseline
 
 **Target**
+
 - Risiko kritikal keamanan ditutup tanpa regresi fitur utama.
 
 **Deliverables**
+
 - Hardening window preferences untuk main/projection/stage window.
 - Whitelist update field untuk query update dinamis.
 - Validator payload IPC untuk endpoint sensitif.
 - Dokumen keputusan keamanan (trade-off dan fallback compatibility).
 
 **Definition of Done**
+
 - Tidak ada temuan kritikal terbuka di area security baseline.
 - Smoke test mode PROJECTION/LIBRARY/MANAGEMENT/BROADCAST lulus.
 
 ## Sprint 2 (Minggu 3-4): Scraper Reliability
 
 **Target**
+
 - Pipeline scraper stabil untuk penggunaan produksi.
 
 **Deliverables**
+
 - Fix task lifecycle manager (active task reset + status transition jelas).
 - Fix timeout cleanup pada worker fetch.
 - Pengetesan retry/backoff/abort/retryFailed.
 - Audit logging scraper konsisten per item.
 
 **Definition of Done**
+
 - Tidak ada stuck task pada skenario start -> complete -> start ulang.
 - Dry-run/import konsisten pada >100 item skenario simulasi.
 
 ## Sprint 3 (Minggu 5-6): Code Quality Gate
 
 **Target**
+
 - Mencapai quality gate siap release.
 
 **Deliverables**
+
 - `eslint` zero error untuk seluruh workspace.
 - Pengurangan warning scraper UI secara signifikan.
 - Perbaikan pola React effect yang memicu cascading render.
 - Penyelarasan formatter agar diff bersih.
 
 **Definition of Done**
+
 - `npm run lint` tanpa error.
 - `npm run typecheck` lulus.
 
 ## Sprint 4 (Minggu 7-8): Type Contract & Refactor
 
 **Target**
+
 - Boundary antar process lebih aman dan mudah dipelihara.
 
 **Deliverables**
+
 - Introduksi DTO typed untuk domain utama (songs, playlists, scraper, health).
 - Penggantian `unknown` pada jalur kritis menjadi type eksplisit.
 - Refactor `App.tsx` menjadi hook modular:
@@ -108,34 +119,41 @@ Dokumen ini adalah roadmap eksekusi pasca audit menyeluruh kode SION Media. Foku
   - `useCrashRecovery`
 
 **Definition of Done**
+
 - Contract API preload terdokumentasi dan tervalidasi.
 - Regression manual test pada screen utama lulus.
 
 ## Sprint 5 (Minggu 9-10): Reliability Features
 
 **Target**
+
 - Operasional lebih aman untuk tim ibadah/live operator.
 
 **Deliverables**
+
 - Role-based safety mode (Operator/Admin).
 - Backup scheduler + retention + notifikasi kegagalan backup.
 - Guard konfirmasi untuk aksi destruktif (`reseed`, restore overwrite, mass overwrite).
 
 **Definition of Done**
+
 - Seluruh aksi destruktif terlindungi guard policy.
 - Backup otomatis tervalidasi di skenario restart aplikasi.
 
 ## Sprint 6 (Minggu 11-12): Observability & Extensibility
 
 **Target**
+
 - Platform siap tumbuh dan mudah diobservasi.
 
 **Deliverables**
+
 - Runtime observability panel (latency, error ratio, dropped command, heartbeat quality).
 - Import impact preview sebelum commit final.
 - Baseline plugin contract untuk provider scraper.
 
 **Definition of Done**
+
 - Dashboard observability menampilkan metrik inti real-time.
 - Uji coba minimal 1 provider baru via contract plugin.
 

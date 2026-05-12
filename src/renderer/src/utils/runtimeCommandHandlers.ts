@@ -580,8 +580,6 @@ export function registerCommandValidators(): void {
 
   // Validate navigation commands against LIVE_LOCK
   const navigationCommands: RuntimeCommandType[] = [
-    'NAV_NEXT_SLIDE',
-    'NAV_PREV_SLIDE',
     'NAV_GOTO_SLIDE',
     'NAV_GOTO_SECTION',
     'NAV_GOTO_ADDRESS',

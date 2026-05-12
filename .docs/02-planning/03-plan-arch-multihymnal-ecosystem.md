@@ -17,6 +17,7 @@ Task: Fix All Multi-Hymnal Ecosystem Bugs
 ### 🔴 CRITICAL — App Crash on Startup
 
 #### Bug 1: Duplicate IPC Handler Registration
+
 **File:** [ipc-handlers.ts](file:///d:/my_dev/SION-Media/src/main/ipc-handlers.ts)
 
 Bible handlers didaftarkan **DUA KALI** (lines 199-215 DAN lines 337-356). Custom Slides handlers juga didaftarkan **DUA KALI** (lines 217-236 DAN lines 358-381).
@@ -25,7 +26,7 @@ Electron's `ipcMain.handle()` akan melempar `Error: Attempted to register a seco
 
 ```diff
  // Lines 199-236: Bible & Slides handlers (FIRST registration — KEEP)
- 
+
 -// Lines 337-381: Bible & Slides handlers (DUPLICATE — DELETE)
 -  // ========== Bible IPC Handlers ==========
 -  ipcMain.handle('db:get-bible-translations', ...)
@@ -41,6 +42,7 @@ Electron's `ipcMain.handle()` akan melempar `Error: Attempted to register a seco
 ### 🔴 CRITICAL — Silent Feature Failure
 
 #### Bug 2: Display Channel Name Mismatch
+
 - [ipc-channels.ts](file:///d:/my_dev/SION-Media/src/shared/ipc-channels.ts) line 60: `GET_ALL: 'display_get-all'` (underscore `_`)
 - [ipc-handlers.ts](file:///d:/my_dev/SION-Media/src/main/ipc-handlers.ts) line 149: `ipcMain.handle('display_get-all', ...)` (underscore `_`)
 - [preload/index.ts](file:///d:/my_dev/SION-Media/src/preload/index.ts) line 52: `ipcRenderer.invoke('display:get-all')` (colon `:`)
@@ -57,6 +59,7 @@ Renderer memanggil `display:get-all` tapi handler mendengarkan `display_get-all`
 ### 🟡 HIGH — Bible Search Broken
 
 #### Bug 3: Bible Verse Search SQL Error
+
 **File:** [database.ts](file:///d:/my_dev/SION-Media/src/main/database.ts) lines 796-811
 
 Query menggunakan `WHERE bible_verses_fts MATCH ?` tanpa JOIN ke tabel FTS. Harus menggunakan `JOIN bible_verses_fts f ON v.id = f.rowid` dan `WHERE f.text MATCH ?`.
@@ -77,6 +80,7 @@ Query menggunakan `WHERE bible_verses_fts MATCH ?` tanpa JOIN ke tabel FTS. Haru
 ### 🟡 HIGH — Missing Preload APIs
 
 #### Bug 4: Bible & Custom Slides API Not Exposed to Renderer
+
 **Files:** [preload/index.ts](file:///d:/my_dev/SION-Media/src/preload/index.ts), [preload/index.d.ts](file:///d:/my_dev/SION-Media/src/preload/index.d.ts)
 
 IPC handlers untuk Bible dan Custom Slides sudah terdaftar di backend, tetapi preload bridge **tidak mengekspos** API ini ke renderer. Akibatnya renderer tidak bisa memanggil operasi Bible atau Custom Slides.
@@ -88,6 +92,7 @@ IPC handlers untuk Bible dan Custom Slides sudah terdaftar di backend, tetapi pr
 ### 🟡 HIGH — Type Declaration Incomplete
 
 #### Bug 5: SongsAPI Missing Relation Methods in Type Declarations
+
 **File:** [preload/index.d.ts](file:///d:/my_dev/SION-Media/src/preload/index.d.ts) lines 40-47
 
 Preload `index.ts` sudah mengekspos `getRelations`, `addRelation`, `deleteRelation` (lines 81-86), tetapi type declaration `SongsAPI` di `index.d.ts` **tidak mencantumkan** method-method ini.
@@ -97,6 +102,7 @@ Preload `index.ts` sudah mengekspos `getRelations`, `addRelation`, `deleteRelati
 ### 🟡 HIGH — Theme State Never Persisted
 
 #### Bug 6: Theme Manager `mergeProjectionTheme` Doesn't Update State
+
 **File:** [theme-manager.ts](file:///d:/my_dev/SION-Media/src/main/theme-manager.ts) line 12-22
 
 `mergeProjectionTheme()` mengembalikan hasil merge tapi **tidak pernah meng-update** `latestProjectionTheme`. Saat projection window di-reload atau stage display dibuat, snapshot theme akan selalu `null`.
@@ -121,6 +127,7 @@ Preload `index.ts` sudah mengekspos `getRelations`, `addRelation`, `deleteRelati
 ### 🟢 MINOR — Type Mismatches (Non-breaking)
 
 #### Bug 7: SongRelation Type vs DB Column Mismatch
+
 **File:** [shared/types.ts](file:///d:/my_dev/SION-Media/src/shared/types.ts) lines 78-84
 
 Type mendefinisikan `song_id` / `related_song_id`, tapi database menggunakan `source_song_id` / `target_song_id`. Type `relation_type` tidak mencakup value default `'translation'`.
@@ -132,6 +139,7 @@ Type mendefinisikan `song_id` / `related_song_id`, tapi database menggunakan `so
 ### 1. IPC Handlers — Remove Duplicates
 
 #### [MODIFY] [ipc-handlers.ts](file:///d:/my_dev/SION-Media/src/main/ipc-handlers.ts)
+
 - Hapus seluruh blok duplikat lines 337-381 (Bible, Custom Slides, dan Slide Groups handlers yang terduplikasi)
 
 ---
@@ -139,6 +147,7 @@ Type mendefinisikan `song_id` / `related_song_id`, tapi database menggunakan `so
 ### 2. Display Channel Fix
 
 #### [MODIFY] [preload/index.ts](file:///d:/my_dev/SION-Media/src/preload/index.ts)
+
 - Perbaiki `display:get-all` → `display_get-all` agar sesuai dengan handler
 
 ---
@@ -146,6 +155,7 @@ Type mendefinisikan `song_id` / `related_song_id`, tapi database menggunakan `so
 ### 3. Bible Search SQL Fix
 
 #### [MODIFY] [database.ts](file:///d:/my_dev/SION-Media/src/main/database.ts)
+
 - Tambahkan `JOIN bible_verses_fts f ON v.id = f.rowid` dan ubah `WHERE bible_verses_fts MATCH ?` → `WHERE f.text MATCH ?`
 
 ---
@@ -153,10 +163,12 @@ Type mendefinisikan `song_id` / `related_song_id`, tapi database menggunakan `so
 ### 4. Add Bible & Slides API to Preload
 
 #### [MODIFY] [preload/index.ts](file:///d:/my_dev/SION-Media/src/preload/index.ts)
+
 - Tambahkan `bible` namespace dengan semua operasi Bible
 - Tambahkan `slides` namespace dengan semua operasi Custom Slides & Groups
 
 #### [MODIFY] [preload/index.d.ts](file:///d:/my_dev/SION-Media/src/preload/index.d.ts)
+
 - Tambahkan `BibleAPI`, `SlidesAPI` interface declarations
 - Tambahkan `getRelations`, `addRelation`, `deleteRelation` ke `SongsAPI`
 - Tambahkan `bible` dan `slides` ke `API` interface
@@ -166,6 +178,7 @@ Type mendefinisikan `song_id` / `related_song_id`, tapi database menggunakan `so
 ### 5. Theme Manager Fix
 
 #### [MODIFY] [theme-manager.ts](file:///d:/my_dev/SION-Media/src/main/theme-manager.ts)
+
 - Perbaiki `mergeProjectionTheme()` agar mengupdate `latestProjectionTheme`
 
 ---
@@ -173,6 +186,7 @@ Type mendefinisikan `song_id` / `related_song_id`, tapi database menggunakan `so
 ### 6. SongRelation Type Fix
 
 #### [MODIFY] [shared/types.ts](file:///d:/my_dev/SION-Media/src/shared/types.ts)
+
 - Ubah field names agar sesuai database: `source_song_id`, `target_song_id`
 - Tambahkan `'translation'` ke union type `relation_type`
 
@@ -181,9 +195,11 @@ Type mendefinisikan `song_id` / `related_song_id`, tapi database menggunakan `so
 ## Verification Plan
 
 ### Automated Tests
+
 1. `npm run typecheck` — Pastikan zero TypeScript errors
 2. `npm run lint` — Pastikan zero ESLint errors/warnings
 3. `npx electron-vite build` — Pastikan production build berhasil
 
 ### Manual Verification
+
 - Jalankan `npm run dev` untuk memastikan app tidak crash saat startup (verifikasi Bug 1 fixed)

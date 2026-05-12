@@ -18,119 +18,6 @@ interface EndpointHealth {
   lastDisconnect?: number
 }
 
-type ScraperProviderHealth = 'OK' | 'DEGRADED' | 'BROKEN' | 'UNKNOWN'
-type ScraperConflictPolicy = 'skip' | 'overwrite' | 'ask'
-type ScraperImportAction = 'skip' | 'overwrite' | 'rename' | 'merge_metadata'
-
-interface ScraperSong {
-  providerId: string
-  sourceUrl: string
-  sourceHymnalCode: string
-  sourceSongNumber: string
-  title: string
-  lyrics_raw: string
-  key_note?: string
-  time_signature?: string
-  author?: string
-  composer?: string
-  category?: string
-  tags?: string
-}
-
-interface ScraperStartPayload {
-  providerId: string
-  baseUrl?: string
-  targetHymnalId: number
-  startNumber: number
-  endNumber: number
-  concurrency: number
-  retryCount: number
-  delayMs: number
-  conflictPolicy: ScraperConflictPolicy
-  perItemPolicy?: Record<string, 'skip' | 'overwrite' | 'append'>
-}
-
-interface ScraperProviderInfo {
-  id: string
-  label: string
-  defaultBaseUrl: string
-  capabilities: {
-    supportsNumericRange: boolean
-    supportsSlug: boolean
-    requiresBrowser: boolean
-    supportsMetadata: boolean
-    supportsPreview: boolean
-  }
-}
-
-interface ScraperConflictItem {
-  key: string
-  type: 'NUMBER_DUPLICATE' | 'TITLE_SIMILAR' | 'LYRICS_IDENTICAL'
-  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
-  reason: string
-  scraped: ScraperSong
-  existing: {
-    id: number
-    hymnal_id: number
-    number: string
-    title: string
-    lyrics_raw: string
-  }
-  lyricsHashMatch: boolean
-  titleSimilarity: number
-  confidenceScore?: number
-}
-
-interface ScraperDryRunResult {
-  taskId: string
-  items: ScraperSong[]
-  conflicts: ScraperConflictItem[]
-}
-
-interface ScraperImportSummary {
-  taskId: string
-  imported: number
-  skipped: number
-  overwritten: number
-  renamed: number
-  merged: number
-  failed: number
-  duplicates: number
-  durationMs: number
-  generatedAt: string
-}
-
-interface ScraperProgressPayload {
-  taskId: string
-  providerId: string
-  state: 'RUNNING' | 'ABORTED' | 'COMPLETED' | 'IDLE'
-  total: number
-  processed: number
-  success: number
-  failed: number
-  skipped: number
-  retries: number
-  songsPerSec: number
-  etaSec: number | null
-  recentLogs: Array<{
-    ts: number
-    level: 'INFO' | 'WARN' | 'ERROR'
-    phase?: 'FETCH' | 'PARSE' | 'NORMALIZE' | 'DB' | 'FTS'
-    message: string
-    providerId?: string
-    songNumber?: string
-  }>
-  recentSongUpdates: Array<{
-    number: string
-    status: 'PENDING' | 'FETCHING' | 'SUCCESS' | 'FAILED' | 'SKIPPED'
-    attempts: number
-    error?: string
-    sourceUrl?: string
-    title?: string
-  }>
-  failedNumbers: string[]
-}
-
 interface HymnalDto {
   id: number
   code: string
@@ -308,6 +195,7 @@ interface SongsAPI {
   }>
   update: (id: number, song: SongMutationPayload) => Promise<SongDto | boolean | void>
   delete: (id: number) => Promise<boolean>
+  clearLyrics: (hymnalId: number, songNumbers: string[]) => Promise<number>
   toggleFavorite: (id: number) => Promise<SongDto | boolean | void>
   getRelations: (songId: number) => Promise<SongRelationDto[]>
   addRelation: (relation: SongRelationCreatePayload) => Promise<SongRelationDto>
@@ -422,39 +310,6 @@ interface HealthAPI {
   onHeartbeatAck: (callback: (data: { id: EndpointId; timestamp: number }) => void) => () => void
 }
 
-interface ScraperAPI {
-  getProviders: () => Promise<ScraperProviderInfo[]>
-  getProviderDefinitions: () => Promise<unknown[]>
-  validateProvider: (payload: { providerId: string; baseUrl?: string }) => Promise<unknown>
-  getProviderHealth: (payload: { providerId: string }) => Promise<ScraperProviderHealth>
-  preview: (payload: {
-    providerId: string
-    input: string
-    baseUrl?: string
-  }) => Promise<ScraperSong>
-  dryRun: (payload: ScraperStartPayload) => Promise<ScraperDryRunResult>
-  importFromDryRun: (payload: {
-    taskId: string
-    request: ScraperStartPayload
-    items: ScraperSong[]
-    decisions: Record<string, { action: ScraperImportAction; renameTitle?: string }>
-    defaultAction: ScraperImportAction
-  }) => Promise<ScraperImportSummary>
-  start: (payload: ScraperStartPayload) => Promise<{ taskId: string }>
-  abort: () => Promise<boolean>
-  retryFailed: () => Promise<{ restarted: boolean; taskId?: string }>
-  onProgress: (callback: (payload: ScraperProgressPayload) => void) => () => void
-  getAuditHistory: (payload: { hymnalId?: number; limit?: number }) => Promise<unknown[]>
-  getAuditDetail: (taskId: string) => Promise<unknown>
-  getSavedDryRunState: () => Promise<unknown>
-  clearSavedDryRunState: () => Promise<boolean>
-  getSavedRunningTaskState: () => Promise<unknown>
-  clearSavedRunningTaskState: () => Promise<boolean>
-  resumeFailed: (payload: { request: ScraperStartPayload; failedNumbers: string[] }) => Promise<{
-    taskId: string
-  }>
-}
-
 interface API {
   window: WindowAPI
   appTheme: AppThemeAPI
@@ -470,7 +325,6 @@ interface API {
   bible: BibleAPI
   slides: SlidesAPI
   health: HealthAPI
-  scraper: ScraperAPI
 }
 
 declare global {

@@ -2,6 +2,7 @@
 
 > **Generated**: 2026-05-12
 > **Purpose**: Ringkasan lengkap seluruh dokumentasi di folder `.docs`
+> **Last Updated**: 2026-05-12 (Metadata UI audit, field display implementation, database default configuration)
 
 ---
 
@@ -13,12 +14,12 @@
 
 ### Target Pengguna
 
-| User | Deskripsi |
-|------|-----------|
-| **Operator Proyektor** | Pengelola visual ibadah di gereja |
-| **Pemusik/Singer** | Pengguna Stage Display untuk melihat lirik dan chord |
-| **Content Manager** | Pengelola database lagu dan buku lagu (hymnal) |
-| **Administrator** | Pengelola backup, restore, dan pengaturan sistem |
+| User                   | Deskripsi                                            |
+| ---------------------- | ---------------------------------------------------- |
+| **Operator Proyektor** | Pengelola visual ibadah di gereja                    |
+| **Pemusik/Singer**     | Pengguna Stage Display untuk melihat lirik dan chord |
+| **Content Manager**    | Pengelola database lagu dan buku lagu (hymnal)       |
+| **Administrator**      | Pengelola backup, restore, dan pengaturan sistem     |
 
 ### Technology Stack
 
@@ -170,21 +171,81 @@
 
 ### Core Features
 
-| Feature | Deskripsi | Status |
-|---------|-----------|--------|
-| **Multi-Hymnal System** | Mendukung banyak buku lagu dalam satu database (LS, SDAH, dll) | ✅ |
-| **FTS5 Search** | Pencarian instan ribuan lagu dengan fuzzy matching | ✅ |
-| **CUE → TAKE → PROGRAM** | Workflow aman untuk live projection | ✅ |
-| **Preview/Program Monitor** | Dual monitor 40/60 ratio ala broadcast console | ✅ |
-| **Stage Display** | Layar khusus pemusik dengan lirik, chord, timer | ✅ |
-| **Bible Module** | Pencarian dan proyeksi ayat Alkitab | ✅ |
-| **Announcement Slides** | Custom slides dengan auto-cycling | ✅ |
-| **Song Editor** | Editor lirik dengan live preview | ✅ |
-| **Playlist Management** | Drag-drop, section dividers, mixed-hymnal | ✅ |
-| **Theme System** | Dark mode dengan design tokens | ✅ |
-| **Import/Export** | Excel import, JSON export, backup/restore | ✅ |
-| **Crash Recovery** | Auto-save session state | ✅ |
-| **Virtualized Lists** | Performa tinggi untuk ribuan lagu | ✅ |
+| Feature                     | Deskripsi                                                      | Status          |
+| --------------------------- | -------------------------------------------------------------- | --------------- |
+| **Multi-Hymnal System**     | Mendukung banyak buku lagu dalam satu database (LS, SDAH, dll) | ✅              |
+| **FTS5 Search**             | Pencarian instan ribuan lagu dengan fuzzy matching             | ✅              |
+| **CUE → TAKE → PROGRAM**    | Workflow aman untuk live projection                            | ✅              |
+| **Preview/Program Monitor** | Dual monitor 40/60 ratio ala broadcast console                 | ✅              |
+| **Stage Display**           | Layar khusus pemusik dengan lirik, chord, timer                | ✅              |
+| **Bible Module**            | Pencarian dan proyeksi ayat Alkitab                            | ✅              |
+| **Announcement Slides**     | Custom slides dengan auto-cycling                              | ✅              |
+| **Song Editor**             | Editor lirik dengan live preview                               | ✅              |
+| **Playlist Management**     | Drag-drop, section dividers, mixed-hymnal                      | ✅              |
+| **Theme System**            | Dark mode dengan design tokens                                 | ✅              |
+| **Import/Export**           | Excel import, JSON export, backup/restore                      | ✅              |
+| **Crash Recovery**          | Auto-save session state                                        | ✅              |
+| **Virtualized Lists**       | Performa tinggi untuk ribuan lagu                              | ✅              |
+| **Default Database**        | Fresh install otomatis dengan 525 lagu LS                      | ✅ (2026-05-12) |
+| **Python Scraper**          | Scraper Python untuk import lagu tambahan                      | ✅ (2026-05-12) |
+
+### Database Content
+
+| Hymnal                      | Code | Jumlah Lagu | Status               |
+| --------------------------- | ---- | ----------- | -------------------- |
+| **Lagu Sion Edisi Lengkap** | LS   | 525         | ✅ Full (2026-05-12) |
+
+### Recent Changes (2026-05-12)
+
+#### 1. Scraper Module Removal
+
+**Status**: ✅ Selesai
+
+Sistem scraper internal telah dihapus sepenuhnya untuk mengurangi ukuran dan kompleksitas aplikasi.
+
+**Yang dihapus:**
+
+- Dependencies: `cheerio`, `playwright`
+- Backend: `src/main/scraper/` (seluruh direktori)
+- Frontend: `src/renderer/src/components/scraper/` (seluruh direktori)
+- Types: `src/shared/contracts/scraper.ts`, `src/shared/errors/scraperErrors.ts`
+- IPC: semua `IPC_SCRAPER` channels dan handlers
+- Database: semua fungsi audit scraper
+- Preload: scraper API di `preload/index.ts` dan `index.d.ts`
+- Pages: `SongScraperPage.tsx`
+- Menu: Song Scraper dari TitleBarMenu
+
+**Alasan**: Scraper Python lebih fleksibel, mudah dimaintain, dan tidak memberatkan aplikasi.
+
+#### 2. Lagu Sion Import (LS 1-525)
+
+**Status**: ✅ Selesai
+
+Total 525 lagu Lagu Sion Edisi Lengkap telah diimpor dengan lirik lengkap menggunakan section markers `[VERSE N]` dan `[CHORUS]`.
+
+**Batch Import:**
+
+- LS 1-5: Import awal untuk testing
+- LS 6-100: 94 lagu
+- LS 101-200: 100 lagu
+- LS 201-500: 300 lagu
+- LS 501-525: 25 lagu
+
+**Struktur Lirik**: Section markers memungkinkan slide engine mengelompokkan baris menjadi slide yang tepat (4 baris per slide).
+
+#### 3. Default Database Setup
+
+**Status**: ✅ Selesai
+
+Database dengan 525 lagu telah diset sebagai default untuk fresh install.
+
+**Implementasi:**
+
+- Database saat ini dicopy ke `resources/sion.db`
+- `initDatabase()` dimodifikasi untuk copy database dari resources jika belum ada
+- `package.json` include `resources/**/*` di build configuration
+
+**Cara kerja**: Saat aplikasi diinstall pertama kali, database dari resources akan dicopy ke userData otomatis.
 
 ### Operational Modes
 
@@ -253,13 +314,13 @@
 
 ### Output States
 
-| State | Deskripsi | Visual Indicator |
-|-------|-----------|------------------|
-| **CLEAR** | Tidak ada proyeksi (screen kosong/logo) | Badge abu-abu |
-| **LIVE** | Proyeksi aktif (konten terlihat) | Badge hijau + pulse |
-| **BLACK** | Hardware blackout (screen mati) | Badge hitam |
-| **FREEZE** | Frame terakhir di-freeze | Badge biru |
-| **LOGO** | Standby logo ditampilkan | Badge kuning |
+| State      | Deskripsi                               | Visual Indicator    |
+| ---------- | --------------------------------------- | ------------------- |
+| **CLEAR**  | Tidak ada proyeksi (screen kosong/logo) | Badge abu-abu       |
+| **LIVE**   | Proyeksi aktif (konten terlihat)        | Badge hijau + pulse |
+| **BLACK**  | Hardware blackout (screen mati)         | Badge hitam         |
+| **FREEZE** | Frame terakhir di-freeze                | Badge biru          |
+| **LOGO**   | Standby logo ditampilkan                | Badge kuning        |
 
 ### File Structure
 
@@ -301,13 +362,13 @@ sion-media/
 
 ### Performance Characteristics
 
-| Metric | Target | Current |
-|--------|--------|---------|
-| Startup time | < 3s | ✅ ~2s |
-| Search latency | < 100ms | ✅ ~50ms (FTS5) |
-| Slide transition | < 200ms | ✅ ~150ms |
-| Memory usage | < 300MB | ✅ ~250MB |
-| Bundle size | < 5MB | ✅ ~3MB |
+| Metric           | Target  | Current         |
+| ---------------- | ------- | --------------- |
+| Startup time     | < 3s    | ✅ ~2s          |
+| Search latency   | < 100ms | ✅ ~50ms (FTS5) |
+| Slide transition | < 200ms | ✅ ~150ms       |
+| Memory usage     | < 300MB | ✅ ~250MB       |
+| Bundle size      | < 5MB   | ✅ ~3MB         |
 
 ### Security Features
 
@@ -320,11 +381,11 @@ sion-media/
 
 ### Platform Support
 
-| Platform | Status | Notes |
-|----------|--------|-------|
-| **Windows 10/11** | ✅ Primary | Native title bar, snap layouts |
-| **macOS** | ✅ Supported | Custom title bar |
-| **Linux** | ✅ Supported | Custom title bar |
+| Platform          | Status       | Notes                          |
+| ----------------- | ------------ | ------------------------------ |
+| **Windows 10/11** | ✅ Primary   | Native title bar, snap layouts |
+| **macOS**         | ✅ Supported | Custom title bar               |
+| **Linux**         | ✅ Supported | Custom title bar               |
 
 ---
 
@@ -339,9 +400,20 @@ sion-media/
 ├── 04-implementation/           # Log implementasi (kosong)
 ├── 05-guides/                   # Panduan operasional (kosong)
 ├── 06-history/                  # Riwayat pembaruan (kosong)
+├── 07-song-scraper/             # Python scraper & import tools
+│   ├── README.md                # Dokumentasi scraper & import
+│   ├── scraper.py               # Python scraper script
+│   ├── import-to-db.js          # Node.js import script
+│   ├── songs-import-6-100.json  # LS 6-100 (94 lagu)
+│   ├── songs-import-101-200.json # LS 101-200 (100 lagu)
+│   ├── songs-import-201-500.json # LS 201-500 (300 lagu)
+│   └── songs-import-501-525.json # LS 501-525 (25 lagu)
 ├── assets/                      # Aset desain (kosong)
 ├── 00 - 01 index & Architecture.md.md  # File konsolidasi
-└── 02 Planning.md               # File konsolidasi
+├── 02 Planning.md               # File konsolidasi
+├── design-system-v4.md          # Design system documentation
+├── log-impl-json-import-v11.md  # Log implementasi JSON import
+└── plan-json-import-v11.md      # Plan JSON import
 ```
 
 ---
@@ -349,9 +421,11 @@ sion-media/
 ## 1. DOKUMENTASI INDEX (00-index/)
 
 ### README.md
+
 **Fungsi**: Hub dokumentasi dan snapshot implementasi terkini
 
 **Isi Utama**:
+
 - Struktur direktori dokumentasi
 - Konvensi penamaan file
 - Prinsip dokumentasi
@@ -373,37 +447,40 @@ sion-media/
 
 ### File-file yang Ada:
 
-| File | Deskripsi |
-|------|-----------|
-| `01-arch-multimode-blueprint.md` | Blueprint sistem multi-mode operasi |
+| File                               | Deskripsi                            |
+| ---------------------------------- | ------------------------------------ |
+| `01-arch-multimode-blueprint.md`   | Blueprint sistem multi-mode operasi  |
 | `02-arch-multihymnal-ecosystem.md` | Arsitektur ekosistem multi-buku lagu |
-| `03-arch-workspace-panels.md` | Arsitektur panel workspace |
-| `04-arch-flow-features.md` | Alur fitur dan fitur flow |
-| `05-interaction-polish-system.md` | Sistem polish interaksi |
-| `06-ipc-health-v1.md` | Indikator kesehatan IPC |
-| `07-title-bar-optimization.md` | Optimasi title bar untuk Windows 11 |
-| `08-arch-audit-report.md` | Laporan audit arsitektur backend |
-| `09-audit-findings.md` | Temuan audit dan status perbaikan |
-| `10-feature-gap-analysis.md` | Analisis gap fitur vs kompetitor |
-| `11-implementation-schedule.md` | Jadwal implementasi 6 sprint |
-| `12-improvement-plan.md` | Rencana perbaikan detail per fase |
+| `03-arch-workspace-panels.md`      | Arsitektur panel workspace           |
+| `04-arch-flow-features.md`         | Alur fitur dan fitur flow            |
+| `05-interaction-polish-system.md`  | Sistem polish interaksi              |
+| `06-ipc-health-v1.md`              | Indikator kesehatan IPC              |
+| `07-title-bar-optimization.md`     | Optimasi title bar untuk Windows 11  |
+| `08-arch-audit-report.md`          | Laporan audit arsitektur backend     |
+| `09-audit-findings.md`             | Temuan audit dan status perbaikan    |
+| `10-feature-gap-analysis.md`       | Analisis gap fitur vs kompetitor     |
+| `11-implementation-schedule.md`    | Jadwal implementasi 6 sprint         |
+| `12-improvement-plan.md`           | Rencana perbaikan detail per fase    |
 
 ### Ringkasan Isi:
 
 #### 06-ipc-health-v1.md
+
 - **Tujuan**: Visibility status koneksi endpoint eksternal
 - **Komponen**: Endpoint Registry, Heartbeat Protocol, Health Store
 - **Endpoints**: MAIN_DASHBOARD, PROJECTION_WINDOW, STAGE_DISPLAY, MIDI_BRIDGE, STREAM_DECK, REMOTE_APP
 
 #### 07-title-bar-optimization.md
+
 - **Tujuan**: Native Windows 11 title bar dengan snap layouts
-- **Perubahan**: 
+- **Perubahan**:
   - `titleBarOverlay` enabled untuk Windows
   - Custom controls hidden di Windows
   - CSS Grid layout untuk title bar
   - Responsive padding untuk native caption area
 
 #### 08-arch-audit-report.md
+
 - **Scope**: Backend & Core Feature Audit
 - **Temuan Utama**:
   - Main Process mengelola 3 window (Main, Projection, Stage Display)
@@ -413,6 +490,7 @@ sion-media/
 - **Status**: typecheck ✅, lint ✅, build ✅
 
 #### 09-audit-findings.md
+
 - **Critical Bugs (P0)**: 7 bug sudah fixed
   - Error Boundaries ✅
   - Toast Timer Leak ✅
@@ -420,11 +498,12 @@ sion-media/
   - Video Preload Timeout ✅
   - Database Race Condition ✅
   - CSP Missing ✅
-  - console.* in Production ✅
+  - console.\* in Production ✅
 - **Architecture Anti-Patterns (P1)**: Monolithic files sudah di-split
 - **Multi-Hymnal & IPC Stabilization**: Duplicate handlers, channel mismatch sudah fixed
 
 #### 10-feature-gap-analysis.md
+
 - **Kompetitor**: ProPresenter, EasyWorship, vMix
 - **Keunggulan SION Media**:
   - Cross-platform
@@ -438,6 +517,7 @@ sion-media/
   - 🟢 P3: Audio Playback, Cloud Sync
 
 #### 11-implementation-schedule.md
+
 - **Total Durasi**: 12 minggu (6 sprint)
 - **Sprint 1 (Week 1-2)**: Stability & Critical Fixes ✅
 - **Sprint 2 (Week 3-4)**: Architecture Refactoring ✅
@@ -445,6 +525,7 @@ sion-media/
 - **Sprint 4-6**: Multi-Hymnal UX & Reliability (scope only)
 
 #### 12-improvement-plan.md
+
 - **PHASE 1**: Critical Fixes & Stability (P0) ✅
 - **PHASE 2**: Architecture & Code Quality (P1) ✅
 - **PHASE 3**: Feature Parity (Bible, Announcement, NDI)
@@ -457,33 +538,34 @@ sion-media/
 
 ### File-file yang Ada:
 
-| File | Deskripsi |
-|------|-----------|
-| `01-plan-roadmap-v1.md` | Roadmap V1 (fondasi awal) |
-| `02-plan-roadmap-v2.md` | Roadmap V2 (enterprise upgrade) |
-| `03-plan-arch-multihymnal-ecosystem.md` | Audit & fix multi-hymnal bugs |
-| `04-plan-db-multihymnal.md` | Rancangan DB multi-hymnal |
-| `05-plan-multi-hymnal-v3.md` | UI/UX multi-hymnal premium |
-| `06-arch-projection-runtime-state-machine-v1.md` | State machine proyeksi |
-| `07-audit-projection-workflow-v1.md` | Audit workflow proyeksi |
-| `08-plan-projection-modernization-v9.md` | Modernisasi proyeksi |
-| `09-plan-projection-layout-v9.1.md` | Layout proyeksi |
-| `10-audit-library-perfection-v8.md` | Audit library mode |
-| `11-plan-library-immersive-player-v6.md` | Player immersive |
-| `12-plan-ui-modernization.md` | Modernisasi UI |
-| `13-plan-ui-multimode.md` | UI multi-mode |
-| `14-plan-management-refactor-v10.md` | Refactor management mode |
-| `15-plan-feature-songsion.md` | Fitur SongSion integration |
-| `16-plan-feature-titlebar.md` | Fitur title bar |
-| `17-plan-theme-light-dark-system.md` | Sistem tema Light/Dark/System |
-| `18-plan-titlebar-modernization-v9.md` | Modernisasi title bar v9 |
-| `19-plan-onboarding-v5.md` | Onboarding multi-phase |
-| `20-plan-song-number-normalization.md` | Normalisasi nomor lagu |
-| `21-scratchpad-lagusionplus.md` | Analisis play.lagusion.org |
+| File                                             | Deskripsi                       |
+| ------------------------------------------------ | ------------------------------- |
+| `01-plan-roadmap-v1.md`                          | Roadmap V1 (fondasi awal)       |
+| `02-plan-roadmap-v2.md`                          | Roadmap V2 (enterprise upgrade) |
+| `03-plan-arch-multihymnal-ecosystem.md`          | Audit & fix multi-hymnal bugs   |
+| `04-plan-db-multihymnal.md`                      | Rancangan DB multi-hymnal       |
+| `05-plan-multi-hymnal-v3.md`                     | UI/UX multi-hymnal premium      |
+| `06-arch-projection-runtime-state-machine-v1.md` | State machine proyeksi          |
+| `07-audit-projection-workflow-v1.md`             | Audit workflow proyeksi         |
+| `08-plan-projection-modernization-v9.md`         | Modernisasi proyeksi            |
+| `09-plan-projection-layout-v9.1.md`              | Layout proyeksi                 |
+| `10-audit-library-perfection-v8.md`              | Audit library mode              |
+| `11-plan-library-immersive-player-v6.md`         | Player immersive                |
+| `12-plan-ui-modernization.md`                    | Modernisasi UI                  |
+| `13-plan-ui-multimode.md`                        | UI multi-mode                   |
+| `14-plan-management-refactor-v10.md`             | Refactor management mode        |
+| `15-plan-feature-songsion.md`                    | Fitur SongSion integration      |
+| `16-plan-feature-titlebar.md`                    | Fitur title bar                 |
+| `17-plan-theme-light-dark-system.md`             | Sistem tema Light/Dark/System   |
+| `18-plan-titlebar-modernization-v9.md`           | Modernisasi title bar v9        |
+| `19-plan-onboarding-v5.md`                       | Onboarding multi-phase          |
+| `20-plan-song-number-normalization.md`           | Normalisasi nomor lagu          |
+| `21-scratchpad-lagusionplus.md`                  | Analisis play.lagusion.org      |
 
 ### Ringkasan Isi:
 
 #### 01-plan-roadmap-v1.md
+
 - **Scope**: Pondasi awal SION Media V1
 - **Isi**: UI/UX Implementation Plan, Core Flow Architecture, Initial Database Schema
 - **Maintenance Update (2026-05-07)**:
@@ -492,6 +574,7 @@ sion-media/
   - Backup SQLite checkpoint WAL
 
 #### 02-plan-roadmap-v2.md
+
 - **Scope**: Enterprise Upgrade V2
 - **Key Objectives**:
   - FTS5 integration
@@ -504,6 +587,7 @@ sion-media/
   - Control bar switcher-style
 
 #### 03-plan-arch-multihymnal-ecosystem.md
+
 - **Status**: ✅ All bugs fixed
 - **Bug Fixes**:
   1. Duplicate IPC handlers ✅
@@ -515,6 +599,7 @@ sion-media/
   7. SongRelation type mismatch ✅
 
 #### 04-plan-db-multihymnal.md
+
 - **Skema Baru**:
   - `hymnals`: Koleksi buku lagu
   - `songs`: Master data dengan FK ke hymnals
@@ -523,6 +608,7 @@ sion-media/
 - **Eksekusi**: Wipe-out DB lama, fresh schema, re-seeding
 
 #### 05-plan-multi-hymnal-v3.md
+
 - **Target**: Premium Desktop App bergaya broadcast console
 - **Komponen Baru**:
   - `HymnalSidebar.tsx`: Collapsible sidebar navigasi
@@ -531,6 +617,7 @@ sion-media/
   - Section dividers di playlist
 
 #### 06-arch-projection-runtime-state-machine-v1.md
+
 - **State Hierarchy**:
   - OUTPUT STATE: CLEAR, LIVE, BLACK, FREEZE, LOGO
   - PROGRAM STATE: programSlides, programSlide, LIVE-LOCK, LIVE-DIRTY
@@ -539,6 +626,7 @@ sion-media/
   - TRANSITION STATE: IDLE, TRANSITIONING, QUEUED-TRANSITION
 
 #### 10-audit-library-perfection-v8.md
+
 - **Temuan**: 42 item (7 Critical, 12 High, 15 Medium, 8 Low)
 - **Area Audit**:
   - Grid Discipline (4px base grid)
@@ -549,6 +637,7 @@ sion-media/
   - Number Normalization regression risk
 
 #### 17-plan-theme-light-dark-system.md
+
 - **Mode Tema**: Dark, Light, System
 - **Scope**: Operator UI, Stage Display, Projection
 - **Implementasi**:
@@ -560,123 +649,114 @@ sion-media/
   - Phase 6: QA & Polish
 
 #### 20-plan-song-number-normalization.md
+
 - **Objective**: Hilangkan leading zeros (001 → 1, 010 → 10, 001A → 1A)
 - **Strategi**:
   - DB Migration v9: UPDATE dengan LTRIM
   - Prevent regression: normalize di addSong/updateSong
-  - Renderer audit: hapus padding formatter
 
 ---
 
-## 4. FILE KONSOLIDASI
+## 4. DOKUMENTASI HISTORY (06-history/)
 
-### 00 - 01 index & Architecture.md.md (108KB)
-- Gabungan dokumentasi index dan arsitektur
-- Versi konsolidasi untuk referensi cepat
+### File-file yang Ada:
 
-### 02 Planning.md (255KB)
-- Gabungan semua dokumen planning
-- Roadmap V1 & V2
-- Multi-Hymnal ecosystem audit
-- DB multi-hymnal design
-- UI/UX multi-hymnal v3
-- Projection state machine
-- Library perfection audit
-- Theme system plan
-- Dan lain-lain
+| File                                      | Deskripsi                                       |
+| ----------------------------------------- | ----------------------------------------------- |
+| `2026-05-12-scraper-removal-ls-import.md` | Riwayat penghapusan scraper dan import LS 1-525 |
 
----
+### Ringkasan Isi:
 
-## 5. STATUS IMPLEMENTASI
+#### 2026-05-12-scraper-removal-ls-import.md
 
-### ✅ Selesai (Sprint 1-3)
-- [x] Error Boundaries
-- [x] Toast Timer Memory Leak
-- [x] Error Handling in Stores
-- [x] Video Preload Timeout
-- [x] Database Race Condition
-- [x] CSP Headers
-- [x] console.* → logger.*
-- [x] Main Process modularization
-- [x] SettingsScreen modularization
-- [x] Type-safe IPC
-- [x] DB Migration System
-- [x] i18n Foundation
-- [x] Security Hardening (xlsx)
-- [x] Bible Module
-- [x] Announcement Slides
-- [x] Song List Virtualization
-- [x] Multi-Hymnal DB Schema
-- [x] TitleBar Modernization v9
-- [x] Library Immersive Player v6
-- [x] Library Perfection v8
-- [x] Song Number Normalization v9
-- [x] Workspace Adaptive Layout v10.2
+- **Scraper Module Removal**:
+  - Penghapusan dependencies: cheerio, playwright
+  - Penghapusan backend: src/main/scraper/
+  - Penghapusan frontend: src/renderer/src/components/scraper/
+  - Penghapusan types: src/shared/contracts/scraper.ts, src/shared/errors/scraperErrors.ts
+  - Penghapusan IPC: semua IPC_SCRAPER channels dan handlers
+  - Penghapusan database: fungsi audit scraper
+  - Penghapusan preload: scraper API
+  - Penghapusan pages: SongScraperPage.tsx
+  - Penghapusan menu: Song Scraper dari TitleBarMenu
+  - Alasan: Scraper Python lebih fleksibel dan tidak memberatkan aplikasi
 
-### ✅ Song Scraper Module (Sprint 4 - 2026-05-12)
+- **Lagu Sion Import (LS 1-525)**:
+  - Total 525 lagu diimpor dengan lirik lengkap
+  - Menggunakan Python scraper + Node.js import script
+  - Batch import: 1-5, 6-100, 101-200, 201-500, 501-525
+  - Struktur lirik dengan section markers [VERSE N] dan [CHORUS]
+  - JSON files tersedia di .docs/07-song-scraper/
 
-**Dokumentasi lengkap**: `.docs/07-scrapper-lagu-sion/log-impl-song-scraper-management-v13.md`
-
-**Fitur Utama:**
-- [x] **Phase 1-2**: Scraper infrastructure, provider registry, dry-run workflow
-- [x] **Phase 3-6**: Conflict resolution engine, per-song decision UI, audit logging
-- [x] **Phase 7-9**: Merge metadata, confidence scoring, operator sorting/filtering
-- [x] **Phase 10-12**: Session persistence, bulk actions, provider abstraction
-- [x] **Phase 13-16**: Design system v4, UI redesign, runtime inspector
-- [x] **Phase 17**: IPC contracts (Zod), error taxonomy, crash recovery, security hardening
-
-**Komponen Utama:**
-| Komponen | Lokasi | Fungsi |
-|----------|--------|--------|
-| ScraperTaskManager | `src/main/scraper/task/` | Orchestration scraping task |
-| Provider Registry | `src/main/scraper/providerRegistry.ts` | Provider abstraction |
-| Conflict Engine | `src/main/scraper/conflictEngine.ts` | Deteksi konflik lagu |
-| IPC Contracts | `src/shared/contracts/scraper.ts` | Zod schemas untuk validasi runtime |
-| Error Taxonomy | `src/shared/errors/scraperErrors.ts` | `ScraperError` dengan kode stabil |
-| SongScraperPage | `src/renderer/src/pages/management/` | UI operator scraper |
-
-**IPC Channels:**
-- `scraper:get-providers`, `scraper:preview`, `scraper:start`, `scraper:abort`
-- `scraper:dry-run`, `scraper:import`, `scraper:retry-failed`
-- `scraper:get-saved-dry-run-state`, `scraper:get-saved-running-task-state`
-- `scraper:resume-failed`
-
-**Error Codes:**
-`PROVIDER_TIMEOUT` | `NETWORK_OFFLINE` | `RATE_LIMITED` | `PARSE_FAILED` | `ABORTED` | `INVALID_PAYLOAD` | `INTERNAL`
-
-### 🔄 Dalam Progress / Planned
-- [ ] NDI Output
-- [ ] Alpha Key Support
-- [ ] Layer-Based Looks System
-- [ ] Theme Light/Dark/System
-- [ ] Stage Display Enhancement
-- [ ] MIDI Support
-- [ ] Custom Keyboard Shortcuts
+- **Default Database Setup**:
+  - Database dicopy ke resources/sion.db
+  - initDatabase() dimodifikasi untuk copy dari resources
+  - Fresh install otomatis dengan 525 lagu
 
 ---
 
-## 6. VERIFIKASI TERAKHIR
+## 5. DOKUMENTASI SONG SCRAPER (07-song-scraper/)
 
-**Date**: 2026-05-12
+### File-file yang Ada:
 
-| Check | Status |
-|-------|--------|
-| `npm run typecheck` | ✅ |
-| `npm run lint` | ✅ (0 errors, 0 warnings) |
-| `npm run build` | ✅ |
+| File                        | Deskripsi                                    |
+| --------------------------- | -------------------------------------------- |
+| `README.md`                 | Dokumentasi lengkap scraper & import lagu    |
+| `scraper.py`                | Python scraper script untuk extract lagu     |
+| `import-to-db.js`           | Node.js script untuk import JSON ke database |
+| `songs-import-6-100.json`   | Lagu LS 6-100 (94 lagu)                      |
+| `songs-import-101-200.json` | Lagu LS 101-200 (100 lagu)                   |
+| `songs-import-201-500.json` | Lagu LS 201-500 (300 lagu)                   |
+| `songs-import-501-525.json` | Lagu LS 501-525 (25 lagu)                    |
+
+### Ringkasan Isi:
+
+#### README.md
+
+- **Perubahan Penting (2026-05-12)**:
+  - Penghapusan sistem scraper internal
+  - Import lagu LS 1-525
+  - Setup default database untuk fresh install
+
+- **Python Scraper**:
+  - Menggunakan Playwright dan BeautifulSoup
+  - Menghasilkan JSON dengan struktur yang sesuai
+  - Menambahkan section markers [VERSE N] dan [CHORUS]
+
+- **Import Script**:
+  - Menggunakan better-sqlite3
+  - Mendukung OS-specific database path
+  - Update lyrics untuk existing songs
+
+- **Struktur Lirik**:
+  - Section markers menggunakan huruf kapital
+  - Setiap section dipisahkan dengan baris kosong
+  - Verse diberi nomor berurutan
+
+- **Troubleshooting**:
+  - NODE_MODULE_VERSION mismatch
+  - Database locked
+  - File not found
 
 ---
 
-## 7. REFERENSI UTAMA
+## 6. DOKUMENTASI TAMBAHAN
 
-Untuk memahami SION Media secara menyeluruh, baca file-file berikut secara berurutan:
+### design-system-v4.md
 
-1. **Index**: `00-index/README.md` - Overview dan snapshot terkini
-2. **Arsitektur**: `01-architecture/08-arch-audit-report.md` - Audit backend
-3. **Planning**: `02-planning/02-plan-roadmap-v2.md` - Roadmap enterprise
-4. **Implementasi**: `11-implementation-schedule.md` - Jadwal dan progres
-5. **Detail**: `12-improvement-plan.md` - Rencana perbaikan detail
+- **Scope**: Design system documentation
+- **Isi**: Design tokens, color system, typography, spacing
+
+### log-impl-json-import-v11.md
+
+- **Scope**: Log implementasi JSON import
+- **Isi**: Riwayat implementasi import JSON ke database
+
+### plan-json-import-v11.md
+
+- **Scope**: Plan JSON import
+- **Isi**: Perencanaan dan strategi import JSON
 
 ---
 
-_Dokumen ini digenerate otomatis sebagai ringkasan seluruh dokumentasi SION Media._
+## END OF DOCUMENTATION

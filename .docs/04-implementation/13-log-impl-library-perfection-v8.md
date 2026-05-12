@@ -20,6 +20,7 @@ Audit 360 derajat pada Library Mode menemukan 42 temuan yang dikategorikan Criti
 **Issue:** Meskipun migrasi v9 berhasil menormalkan DB, beberapa view masih menampilkan nomor dengan leading zeros (raw `song.number`).
 
 **Files Fixed:**
+
 - `src/renderer/src/components/library/LibraryTitleView.tsx`
   - Added `normalizeDisplayNumber()` helper
   - Applied ke badge nomor: `{normalizeDisplayNumber(song.number)}`
@@ -35,6 +36,7 @@ Audit 360 derajat pada Library Mode menemukan 42 temuan yang dikategorikan Criti
   - Applied ke recent songs number display
 
 **Verification:**
+
 - `npm run typecheck`: ✅
 - `npm run lint`: ✅
 
@@ -45,6 +47,7 @@ Audit 360 derajat pada Library Mode menemukan 42 temuan yang dikategorikan Criti
 **Issue:** `title_en` diakses melalui unsafe cast `(song as unknown as { title_en?: string }).title_en` di `LibraryLyricsViewer`.
 
 **Files Fixed:**
+
 - `src/renderer/src/types.ts`
   - Added `title_en?: string` ke `Song` interface
 - `src/shared/types.ts`
@@ -59,6 +62,7 @@ Audit 360 derajat pada Library Mode menemukan 42 temuan yang dikategorikan Criti
 **Issue:** Saat lagu dipilih dari search palette, lyrics overlay (z-[80]) muncul di belakang search modal (z-[2000]).
 
 **Files Fixed:**
+
 - `src/renderer/src/screens/modes/LibraryModeRedesigned.tsx`
   - `handleSelectSong` sekarang memanggil `setShowSearch(false)` untuk menutup search sebelum membuka lyrics
   - Menambahkan `setShowSearch` ke dependency array
@@ -72,6 +76,7 @@ Audit 360 derajat pada Library Mode menemukan 42 temuan yang dikategorikan Criti
 **Issue:** `LibraryTitleView` tidak memiliki zebra striping, menurunkan scanability untuk operator saat memantau ribuan lagu.
 
 **Files Fixed:**
+
 - `src/renderer/src/components/library/LibraryTitleView.tsx`
   - Modified row styling:
     - Even rows: `bg-bg-elevated/50`
@@ -87,6 +92,7 @@ Audit 360 derajat pada Library Mode menemukan 42 temuan yang dikategorikan Criti
 **Issue:** Shortcut `Ctrl+Shift+F` untuk focus mode tidak diimplementasikan di Library Mode.
 
 **Files Fixed:**
+
 - `src/renderer/src/screens/modes/LibraryModeRedesigned.tsx`
   - Added keyboard handler untuk `Ctrl+Shift+F`
   - Memanggil `useAppStore.getState().toggleFocusMode()`
@@ -99,6 +105,7 @@ Audit 360 derajat pada Library Mode menemukan 42 temuan yang dikategorikan Criti
 **Issue:** Immersive player overlay tidak memiliki focus trap - keyboard focus bisa "escape" ke elemen di belakang overlay.
 
 **Files Fixed:**
+
 - `src/renderer/src/components/library/LibraryLyricsViewer.tsx`
   - Added `data-lyrics-back` attribute ke Back button
   - On mount, auto-focus Back button via `document.querySelector('[data-lyrics-back]')?.focus()`
@@ -113,11 +120,12 @@ Audit 360 derajat pada Library Mode menemukan 42 temuan yang dikategorikan Criti
 **Issue:** `react-hooks/set-state-in-effect` violations di `CommandPalette` dan `LibrarySearchPalette`.
 
 **Pattern:**
+
 ```tsx
 // Before (anti-pattern)
 useEffect(() => {
   if (isOpen) {
-    setQuery('')      // ❌ synchronous setState in effect
+    setQuery('') // ❌ synchronous setState in effect
     setResults([])
     setSelectedIndex(0)
   }
@@ -125,6 +133,7 @@ useEffect(() => {
 ```
 
 **Fix:** Defer state update dengan `setTimeout(..., 0)`:
+
 ```tsx
 // After (fixed)
 useEffect(() => {
@@ -141,6 +150,7 @@ useEffect(() => {
 ```
 
 **Files Fixed:**
+
 - `src/renderer/src/components/CommandPalette.tsx`
 - `src/renderer/src/components/library/LibrarySearchPalette.tsx`
 
@@ -158,25 +168,25 @@ useEffect(() => {
 
 ## Remaining Items (Deferred to Next Iteration)
 
-| Priority | Item | Reason |
-|----------|------|--------|
-| Medium | Extract `normalizeDisplayNumber()` ke shared utility | Code duplication masih ada di 4 files, tapi functional |
-| Medium | Font size viewport-aware clamping di lyrics viewer | Requires viewport measurement + dynamic calculation |
-| Medium | Loading skeleton untuk song lists | Nice-to-have, current blank state acceptable |
-| Low | `aria-live` regions untuk screen reader | Accessibility enhancement |
-| Low | Full Tab cycling focus trap di lyrics | Current Escape + Arrow keys sufficient untuk primary use case |
-| Low | Standardisasi toolbar heights ke 56px | Requires touching multiple files, low UX impact |
-| Low | Remove duplicate Bible interfaces di `types.ts` | Technical debt, no runtime impact |
+| Priority | Item                                                 | Reason                                                        |
+| -------- | ---------------------------------------------------- | ------------------------------------------------------------- |
+| Medium   | Extract `normalizeDisplayNumber()` ke shared utility | Code duplication masih ada di 4 files, tapi functional        |
+| Medium   | Font size viewport-aware clamping di lyrics viewer   | Requires viewport measurement + dynamic calculation           |
+| Medium   | Loading skeleton untuk song lists                    | Nice-to-have, current blank state acceptable                  |
+| Low      | `aria-live` regions untuk screen reader              | Accessibility enhancement                                     |
+| Low      | Full Tab cycling focus trap di lyrics                | Current Escape + Arrow keys sufficient untuk primary use case |
+| Low      | Standardisasi toolbar heights ke 56px                | Requires touching multiple files, low UX impact               |
+| Low      | Remove duplicate Bible interfaces di `types.ts`      | Technical debt, no runtime impact                             |
 
 ---
 
 ## Verification Results
 
-| Check | Status |
-|-------|--------|
-| `npm run typecheck` | ✅ Pass |
-| `npm run lint` | ✅ Pass (0 errors, 0 warnings) |
-| `npm run build` | ✅ Pass |
+| Check               | Status                         |
+| ------------------- | ------------------------------ |
+| `npm run typecheck` | ✅ Pass                        |
+| `npm run lint`      | ✅ Pass (0 errors, 0 warnings) |
+| `npm run build`     | ✅ Pass                        |
 
 ---
 
@@ -198,14 +208,14 @@ scripts/verify-db-normalization.mjs
 
 ## Acceptance Criteria Verification
 
-| Criteria | Status |
-|----------|--------|
-| Antarmuka Library Mode terlihat identik dengan standar aplikasi desktop premium 2026 | ✅ Zebra striping, normalized numbers, consistent layering |
-| Navigasi keyboard (Ctrl+K, Arrows, Enter, Esc, Ctrl+Shift+F) berjalan 100% | ✅ All shortcuts implemented and tested |
-| Tidak ada lagi angka "001" di daftar nomor atau pencarian | ✅ All views now use `normalizeDisplayNumber()` |
-| Transisi antar bait di player terasa sangat halus | ✅ 0.4s duration, premium bezier (already implemented in v6) |
-| Aplikasi lulus `npm run typecheck` dan `npm run lint` | ✅ Both pass cleanly |
+| Criteria                                                                             | Status                                                       |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| Antarmuka Library Mode terlihat identik dengan standar aplikasi desktop premium 2026 | ✅ Zebra striping, normalized numbers, consistent layering   |
+| Navigasi keyboard (Ctrl+K, Arrows, Enter, Esc, Ctrl+Shift+F) berjalan 100%           | ✅ All shortcuts implemented and tested                      |
+| Tidak ada lagi angka "001" di daftar nomor atau pencarian                            | ✅ All views now use `normalizeDisplayNumber()`              |
+| Transisi antar bait di player terasa sangat halus                                    | ✅ 0.4s duration, premium bezier (already implemented in v6) |
+| Aplikasi lulus `npm run typecheck` dan `npm run lint`                                | ✅ Both pass cleanly                                         |
 
 ---
 
-*End of Implementation Log*
+_End of Implementation Log_

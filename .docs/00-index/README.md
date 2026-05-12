@@ -47,6 +47,7 @@ _Terakhir diperbarui: 2026-05-11_
 ## Current Implementation Snapshot (2026-05-10)
 
 ### Runtime Infrastructure (Operator-Grade)
+
 SION Media kini memiliki fondasi runtime yang observable dan extensible:
 
 - **Runtime Command Bus**: unified routing → validation → handlers → event stream
@@ -56,7 +57,9 @@ SION Media kini memiliki fondasi runtime yang observable dan extensible:
 - **Virtual Input Simulator (P2.2)**: stress test + replay testing (DEV-only via Inspector)
 
 ### Workspace Adaptive Layout v10.2
+
 Refined ManagementMode adaptive layout for **suite-class desktop experience**:
+
 - **Resizable Panels**: Persisted split layouts for ProjectionMode, Dashboard, ManagementMode via Zustand + localStorage
 - **Adaptive Density**: Container-query based responsiveness for width and height compression
 - **Nested Scroll Harmony**: `overscroll-behavior: contain` prevents scroll chaining between inspector body and lyrics preview
@@ -67,20 +70,26 @@ Refined ManagementMode adaptive layout for **suite-class desktop experience**:
 - **Resize Stress Stability**: `scrollbar-gutter: stable`, `contain: layout style`, `translateZ(0)` for smooth resize
 
 ### TitleBar Modernization v9
+
 TitleBar kini memiliki estetika premium dengan sistem Glassmorphism 2.0:
+
 - **Global Dropdown Style**: Blur 16px, border radius 12px, dan shadow-xl yang konsisten di semua menu (File, Edit, Mode Switcher).
 - **Mode Switcher Enhancements**: Mikro-animasi pada pemicu, indikator aktif berupa pendaran (glow), dan skema warna yang lebih berani.
 - **Performance**: Pembersihan z-index redundan dan optimalisasi transisi CSS.
 
 ### Library Perfection v8
+
 Audit 360 derajat dan refaktorisasi pada Library Mode untuk standar produksi:
+
 - **Action Affordance**: Tombol aksi (Favorite, Playlist, dll) kini memiliki opacity 20% saat idle dan 100% saat hover, menghilangkan re-render tiba-tiba.
 - **Zebra Striping**: List view di `LibraryTitleView` kini memiliki baris selang-seling untuk meningkatkan scanability.
 - **Grid Consistency**: Standarisasi toolbar height (56px) dan padding berbasis 4px grid.
 - **Type Safety**: Pembersihan unused variables dan peningkatan keamanan data `Song`.
 
 ### Library Immersive Player v6
+
 Library Mode kini menggunakan **full-width immersive lyrics overlay** menggantikan split-pane layout sebelumnya:
+
 - Klik lagu -> langsung masuk ke viewer full-screen overlay dengan animasi smooth.
 - **Stanza-based pagination**: 1 bait per layar dengan vertical dot navigation.
 - **Keyboard navigation**: Escape (close), Arrow/Page keys (navigasi bait), Space (play/pause auto-scroll).
@@ -88,7 +97,9 @@ Library Mode kini menggunakan **full-width immersive lyrics overlay** menggantik
 - **Glassmorphism design**: Background blur, dynamic gradient overlay.
 
 ### Song Number Normalization (Migration v9)
+
 Nomor lagu dinormalisasi agar **tidak menampilkan leading zeros**:
+
 - `001` -> `1`, `010` -> `10`, `001A` -> `1A`
 - Migrasi DB v9 mengupdate semua nomor di database.
 - Write-path normalization di `addSong/updateSong` mencegah regresi.
@@ -96,16 +107,19 @@ Nomor lagu dinormalisasi agar **tidak menampilkan leading zeros**:
 - FTS5 search konsisten dengan nomor yang dinormalisasi.
 
 ### Bug Fixes
+
 - **Scroll jump fix**: Klik nomor lagu tidak lagi menyebabkan scroll melompat.
 - **Lint fixes**: React hooks set-state-in-effect errors resolved.
 - **Hook dependency**: ResizeObserver untuk grid width calculation.
 
 ### Verifikasi
+
 - `npm run typecheck`: ✅
 - `npm run lint`: ✅ (0 errors, 0 warnings)
 - `npm run build`: ✅
 
 Dokumen yang perlu dirujuk untuk perubahan ini:
+
 - `04-implementation/12-log-impl-library-immersive-player-v6.md`
 - `04-implementation/13-log-impl-library-perfection-v8.md`
 - `04-implementation/19-log-impl-titlebar-modernization-v9.md`

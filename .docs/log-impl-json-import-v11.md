@@ -8,6 +8,7 @@ status: implemented
 # Phase 2 — Implementation Log
 
 ## Ringkasan
+
 Fitur **Import Lagu via JSON** telah ditambahkan ke **Management Mode** untuk mendukung import massal ribuan lagu dengan:
 
 - IPC handler `db:import-json`
@@ -34,6 +35,7 @@ Enhancement tambahan (enterprise-grade):
 - Schema wrapper support: JSON boleh berupa array langsung atau wrapper `{ schema_version, exported_at, songs: [...] }` (backward compatible).
 
 ## Files Changed
+
 - `src/main/database.ts`
   - Tambah `importSongsFromJson()`
   - Tambah `rebuildSongsFts()`
@@ -50,6 +52,7 @@ Enhancement tambahan (enterprise-grade):
   - Tambah **Import JSON Wizard** (Step 1-3)
 
 ## Cara Pakai (Operator)
+
 1. Masuk ke **Management Mode**.
 2. Klik tombol **Import JSON**.
 3. Drag & drop file `.json` (maks 10MB) atau klik untuk memilih file.
@@ -65,6 +68,7 @@ Enhancement tambahan (enterprise-grade):
 6. Setelah selesai, library akan refresh otomatis dan lagu langsung bisa dicari di **Library Mode** (FTS rebuild).
 
 ## Format JSON (Enterprise Standard)
+
 Top-level JSON bisa berupa:
 
 - Array langsung (legacy / simple)
@@ -79,6 +83,7 @@ Top-level JSON bisa berupa:
   - `alternate_title`, `author`, `composer`, `key_note`, `time_signature`, `tempo`, `category`, `tags`
 
 ### Contoh
+
 ```json
 {
   "schema_version": 1,
@@ -117,6 +122,7 @@ Top-level JSON bisa berupa:
 ```
 
 ## Dry Run (Validate Only)
+
 Di wizard import, operator dapat mengaktifkan opsi **Dry Run**.
 
 Yang dilakukan:
@@ -133,6 +139,7 @@ Yang tidak dilakukan:
 Hasil dry run tetap menghasilkan **Import Session Report**.
 
 ## Import Session Report
+
 Setelah proses selesai (import ataupun dry run), aplikasi menampilkan report summary dan menyediakan tombol **Download Report**.
 
 Report juga dipersist ke `app_state` dengan key:
@@ -140,12 +147,14 @@ Report juga dipersist ke `app_state` dengan key:
 - `last_json_import_report`
 
 ## Aturan Normalisasi `number`
+
 - Jika `number` digit-only (`^[0-9]+$`), leading zeros dihapus otomatis:
   - `"001" -> "1"`
   - `"000" -> "0"`
 - Jika mengandung huruf (mis. `100A`), value dipertahankan (hanya trim whitespace).
 
 ## Catatan Konflik
+
 Konflik dihitung berbasis:
 
 - `(resolved_hymnal_id, normalized_number)`
@@ -157,5 +166,6 @@ Policy:
 - `APPEND`: append `lyrics_raw` baru di bawah lirik lama dipisah `\n\n`
 
 ## Verifikasi
+
 - `npm run typecheck`: OK
 - `npm run lint`: OK (0 errors; warnings Prettier tetap ada)

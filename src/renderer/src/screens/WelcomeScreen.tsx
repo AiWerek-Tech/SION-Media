@@ -89,8 +89,7 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
       <div
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-24"
         style={{
-          background:
-            'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.0) 100%)'
+          background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.0) 100%)'
         }}
       />
 
@@ -132,8 +131,7 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
       <div
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
-          background:
-            'radial-gradient(circle at 50% 50%, transparent 45%, rgba(0,0,0,0.55) 100%)'
+          background: 'radial-gradient(circle at 50% 50%, transparent 45%, rgba(0,0,0,0.55) 100%)'
         }}
       />
 
@@ -194,7 +192,12 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
                 filter: 'blur(28px)'
               }}
             />
-            <img src={logoSrc} alt="SION Media" className="h-16 w-16 object-contain" draggable={false} />
+            <img
+              src={logoSrc}
+              alt="SION Media"
+              className="h-16 w-16 object-contain"
+              draggable={false}
+            />
           </motion.div>
 
           {/* Ambient haze behind title */}
@@ -255,8 +258,7 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
           <span className="text-[12px] font-medium tracking-wide text-text-secondary/80">
             {ready
               ? 'Engine Online • Library Indexed • Renderer Ready'
-              : `${statusTitle}${!ready ? `  •  ${Math.round(progress)}%` : ''}`
-            }
+              : `${statusTitle}${!ready ? `  •  ${Math.round(progress)}%` : ''}`}
           </span>
         </motion.div>
 
@@ -330,9 +332,7 @@ function ThemePhase({
         className="relative z-10 w-full max-w-3xl px-4"
       >
         <div className="mb-16 text-center">
-          <h2 className="text-2xl font-bold tracking-tight text-text-primary">
-            Pilih Tampilan
-          </h2>
+          <h2 className="text-2xl font-bold tracking-tight text-text-primary">Pilih Tampilan</h2>
           <p className="mt-3 text-sm text-text-secondary">
             Personalisasi antarmuka agar sesuai dengan preferensi Anda.
           </p>

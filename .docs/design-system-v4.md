@@ -32,7 +32,6 @@
   - Overlay toolbars
 - Do not use `glass-panel` for primary page content or workspace panels.
 
-
 ## Overview
 
 SION Media Design System V4 adalah **production-grade design token system** untuk aplikasi broadcast-production. Fokus pada:
@@ -51,13 +50,13 @@ SION Media Design System V4 adalah **production-grade design token system** untu
 
 Modern palette untuk status dan severity:
 
-| Palette | Usage |
-|---------|-------|
-| **Emerald** | Success, OK, Completed |
-| **Amber** | Warning, Degraded, Medium severity |
-| **Rose** | Error, Broken, Critical |
-| **Cyan** | Info, Low severity |
-| **Zinc** | Neutral, Unknown, Idle |
+| Palette     | Usage                              |
+| ----------- | ---------------------------------- |
+| **Emerald** | Success, OK, Completed             |
+| **Amber**   | Warning, Degraded, Medium severity |
+| **Rose**    | Error, Broken, Critical            |
+| **Cyan**    | Info, Low severity                 |
+| **Zinc**    | Neutral, Unknown, Idle             |
 
 ```css
 /* State Colors */
@@ -79,12 +78,12 @@ Modern palette untuk status dan severity:
 
 ```css
 /* Semantic Sizes */
---text-workspace-title: 28px;  /* Hero area */
---text-section-title: 18px;    /* Panel headers */
---text-card-header: 14px;     /* Card titles */
---text-label: 11px;           /* Labels, badges */
---text-data: 14px;            /* Data values */
---text-console: 12px;         /* Console, logs */
+--text-workspace-title: 28px; /* Hero area */
+--text-section-title: 18px; /* Panel headers */
+--text-card-header: 14px; /* Card titles */
+--text-label: 11px; /* Labels, badges */
+--text-data: 14px; /* Data values */
+--text-console: 12px; /* Console, logs */
 
 /* Line Heights */
 --leading-tight: 1.2;
@@ -144,6 +143,7 @@ Modern palette untuk status dan severity:
 ```
 
 **Key Principles:**
+
 - No aggressive borders → surface elevation instead
 - Subtle hover states → lift effect
 - Glassmorphism-ready → backdrop-filter support
@@ -186,9 +186,7 @@ Modern palette untuk status dan severity:
     <Icon name="inbox" />
   </div>
   <div class="empty-state__title">No active task</div>
-  <div class="empty-state__description">
-    Start a dry run to begin the acquisition workflow
-  </div>
+  <div class="empty-state__description">Start a dry run to begin the acquisition workflow</div>
 </div>
 ```
 
@@ -204,7 +202,7 @@ Modern palette untuk status dan severity:
     <span class="activity-item__message">Fetched song #1</span>
     <span class="activity-item__detail">234ms</span>
   </div>
-  
+
   <div class="activity-item activity-item--warning">
     <span class="activity-item__timestamp">12:01:24</span>
     <Icon class="activity-item__icon" name="alert" />
@@ -272,6 +270,7 @@ Modern palette untuk status dan severity:
 ### From Border-Heavy to Surface Elevation
 
 **Before:**
+
 ```css
 .panel {
   border: 1px solid #2a2a2a;
@@ -280,6 +279,7 @@ Modern palette untuk status dan severity:
 ```
 
 **After:**
+
 ```css
 .panel {
   background: rgba(255, 255, 255, 0.03);
@@ -291,15 +291,23 @@ Modern palette untuk status dan severity:
 ### From Flat Colors to Semantic Colors
 
 **Before:**
+
 ```css
-.status-success { color: #10b981; }
-.status-warning { color: #f59e0b; }
-.status-error { color: #ef4444; }
+.status-success {
+  color: #10b981;
+}
+.status-warning {
+  color: #f59e0b;
+}
+.status-error {
+  color: #ef4444;
+}
 ```
 
 **After:**
+
 ```css
-.status-badge--ok { 
+.status-badge--ok {
   background: rgba(16, 185, 129, 0.12);
   color: var(--color-emerald-400);
 }
@@ -343,11 +351,11 @@ Operator-facing UI perlu **visual rest**:
 
 Setiap state punya palette konsisten:
 
-| State | Background | Text | Dot Glow |
-|-------|------------|------|----------|
-| OK | emerald-12 | emerald-400 | emerald-500 |
-| DEGRADED | amber-12 | amber-400 | amber-500 |
-| BROKEN | rose-12 | rose-400 | rose-500 |
+| State    | Background | Text        | Dot Glow    |
+| -------- | ---------- | ----------- | ----------- |
+| OK       | emerald-12 | emerald-400 | emerald-500 |
+| DEGRADED | amber-12   | amber-400   | amber-500   |
+| BROKEN   | rose-12    | rose-400    | rose-500    |
 
 ---
 
@@ -362,10 +370,10 @@ Setiap state punya palette konsisten:
 
 ## Files
 
-| File | Purpose |
-|------|---------|
+| File                               | Purpose                    |
+| ---------------------------------- | -------------------------- |
 | `src/renderer/src/assets/main.css` | Design tokens & components |
-| `.docs/design-system-v4.md` | This documentation |
+| `.docs/design-system-v4.md`        | This documentation         |
 
 ---
 

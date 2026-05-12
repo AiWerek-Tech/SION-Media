@@ -38,6 +38,7 @@ This log documents the implementation progress of the Management Mode refactor, 
 **File**: `src/main/ipc-handlers.ts`
 
 Already implemented with the following limits:
+
 - **Max file size**: 10MB
 - **Max rows**: 5000
 - **Max columns**: 50
@@ -52,6 +53,7 @@ Already implemented with the following limits:
 Implemented comprehensive conflict resolution for duplicate imports:
 
 **Features**:
+
 - **Per-song resolution**: Each conflict can be resolved individually
 - **Three resolution options**:
   - **Skip**: Keep existing song, don't modify
@@ -64,6 +66,7 @@ Implemented comprehensive conflict resolution for duplicate imports:
 - **Summary message**: Shows count of imported, skipped, overwritten, and merged songs
 
 **State Management**:
+
 - `conflictResolutions`: `Record<number, ConflictResolution>` - tracks resolution per song index
 - `showMergePreview`: `number | null` - toggles merge preview panel
 - `allConflictsResolved`: computed check before allowing import
@@ -73,12 +76,14 @@ Implemented comprehensive conflict resolution for duplicate imports:
 **File**: `src/main/migrations.ts`
 
 Verified existing migrations are non-destructive:
+
 - `version 7 - songs_time_signature`: Checks column existence before adding
 - All migrations use `IF NOT EXISTS` or existence checks
 
 ### 5. Lint Fixes
 
 **Files**:
+
 - `src/renderer/src/components/HymnalSidebar.tsx`: Removed unused `FolderOpen` import
 - `src/renderer/src/components/SongCard.tsx`: Removed unused `setScreen`, `setEditingSong` from destructuring
 - All prettier formatting issues resolved with `--fix`
@@ -90,6 +95,7 @@ Verified existing migrations are non-destructive:
 ### Merge Strategy for Lyrics
 
 When merging, the following format is used:
+
 ```
 [Existing lyrics]
 
@@ -123,6 +129,7 @@ All song modifications (add, update, delete) automatically trigger FTS5 re-index
 ### Validation Integration
 
 **SongEditorScreen.tsx** (`src/renderer/src/screens/SongEditorScreen.tsx`):
+
 - Added real-time validation for Key Note and Tempo inputs
 - Error messages displayed inline below fields
 - Format on blur (auto-corrects casing)
@@ -130,17 +137,20 @@ All song modifications (add, update, delete) automatically trigger FTS5 re-index
 - Tempo input restricted to numeric-only via `replace(/[^0-9]/g, '')`
 
 **ManagementMode.tsx** (Quick Edit):
+
 - Added Key Note validation to quick edit form
 - Real-time error display
 - Format on blur
 
 **ImportExportScreen.tsx**:
+
 - Metadata formatting applied during import (new songs, overwrite, merge)
 - Invalid values logged as warnings but import continues with formatted values
 
 ### Bento Grid Dashboard
 
 **ManagementMode.tsx** (`src/renderer/src/screens/modes/ManagementMode.tsx`):
+
 - Transformed header into "Enterprise Content Hub" dashboard
 - Added Bento Grid cards (2-5 columns responsive):
   - **Total Hymnals**: Count + official count
@@ -167,6 +177,7 @@ All song modifications (add, update, delete) automatically trigger FTS5 re-index
 Transformed from 2-column into Professional Lyric Studio:
 
 **Column 1 — Metadata & Lyrics Editor** (`flex-[4]`):
+
 - Compact metadata form (hymnal, number, title, category, sub-title)
 - Musical metadata row: Key Note + Time Signature + Tempo (BPM)
 - Real-time validation with inline errors
@@ -176,6 +187,7 @@ Transformed from 2-column into Professional Lyric Studio:
 - Character/line counter
 
 **Column 2 — Slide Strip** (`flex-[3]`):
+
 - Vertical thumbnail strip showing all generated slides
 - Full-width aspect-video buttons with slide preview
 - Section labels (Bait/Chorus/etc.) badges on thumbnails
@@ -183,6 +195,7 @@ Transformed from 2-column into Professional Lyric Studio:
 - Active slide highlighted with brand-primary border + ring
 
 **Column 3 — Live Presentation Preview 16:9** (`flex-[5]`):
+
 - Large 16:9 projection-accurate preview frame
 - Theme-aware (font family, text color, background color/image, opacity)
 - Slide navigation controls (prev/next with counter)
@@ -235,11 +248,13 @@ All files passing `npm run lint` (exit code 0).
 ### Projection Output Metadata Integration
 
 **Files**:
+
 - `src/renderer/src/types.ts` — Added `keyNote`, `timeSignature`, `tempo` to `SlideData`
 - `src/renderer/src/engine/slideEngine.ts` — Updated `generateSlides` to accept metadata param
 - `src/renderer/src/projection/ProjectionApp.tsx` — Added metadata overlay layer
 
 **ProjectionApp Metadata Overlay**:
+
 - Appears below lyrics on live projection
 - Shows: Nada (key note), Birama (time signature), Tempo (BPM)
 - Styled with semi-transparent pill badge
@@ -247,10 +262,12 @@ All files passing `npm run lint` (exit code 0).
 - Only displays if metadata exists on slide
 
 **Helper Functions**:
+
 - `generateSlidesForSong(song)` — Auto-extracts metadata from Song object
 - `generateSlidesForPlaylistItem(item)` — Auto-extracts metadata from PlaylistItem
 
 **Database**:
+
 - `getPlaylistItems` query now includes `time_signature` column
 - `PlaylistItem` type updated with `time_signature?: string`
 
@@ -262,42 +279,42 @@ All files passing `npm run lint` (exit code 0).
 
 ## All Tasks Completed ✓
 
-| Task | Status |
-|------|--------|
-| WAL Checkpoint Integration | ✅ |
-| Conflict Resolution UI (Skip/Overwrite/Merge) | ✅ |
-| Excel Safety Limits (10MB/5000rows/50cols) | ✅ |
-| Non-destructive Migrations | ✅ |
-| Key Note & Tempo Validation | ✅ |
-| Bento Grid Dashboard | ✅ |
-| Professional Lyric Studio (3-column) | ✅ |
-| Metadata Overlay in Preview | ✅ |
-| Time Signature Dropdown | ✅ |
-| Dirty State Guard | ✅ |
-| Bulk Actions (multi-select + delete) | ✅ |
-| Projection Output Metadata | ✅ |
+| Task                                          | Status |
+| --------------------------------------------- | ------ |
+| WAL Checkpoint Integration                    | ✅     |
+| Conflict Resolution UI (Skip/Overwrite/Merge) | ✅     |
+| Excel Safety Limits (10MB/5000rows/50cols)    | ✅     |
+| Non-destructive Migrations                    | ✅     |
+| Key Note & Tempo Validation                   | ✅     |
+| Bento Grid Dashboard                          | ✅     |
+| Professional Lyric Studio (3-column)          | ✅     |
+| Metadata Overlay in Preview                   | ✅     |
+| Time Signature Dropdown                       | ✅     |
+| Dirty State Guard                             | ✅     |
+| Bulk Actions (multi-select + delete)          | ✅     |
+| Projection Output Metadata                    | ✅     |
 
 ---
 
 ## Files Modified
 
-| File | Changes |
-|------|---------|
-| `src/main/database.ts` | WAL checkpoint + time_signature in playlist query |
-| `src/renderer/src/types.ts` | SlideData metadata fields + PlaylistItem.time_signature |
-| `src/renderer/src/engine/slideEngine.ts` | Metadata param + helper functions |
-| `src/renderer/src/projection/ProjectionApp.tsx` | Metadata overlay on projection |
-| `src/renderer/src/screens/SongEditorScreen.tsx` | Lyric Studio + Dirty Guard + Time Signature dropdown |
-| `src/renderer/src/screens/modes/ManagementMode.tsx` | Bento Grid + Bulk Actions |
-| `src/renderer/src/screens/Dashboard.tsx` | Use generateSlidesForSong |
-| `src/renderer/src/screens/modes/ProjectionMode.tsx` | Use generateSlidesForSong |
-| `src/renderer/src/components/SongLibraryPanel.tsx` | Use generateSlidesForSong |
-| `src/renderer/src/components/PlaylistPanel.tsx` | Use generateSlidesForPlaylistItem |
-| `src/renderer/src/components/PlaylistItemCard.tsx` | Use generateSlidesForPlaylistItem |
-| `src/renderer/src/components/CommandPalette.tsx` | Use generateSlidesForSong |
-| `src/renderer/src/App.tsx` | Use generateSlidesForSong |
-| `src/renderer/src/screens/ImportExportScreen.tsx` | Conflict Resolution + metadata validation |
-| `src/renderer/src/utils/metadataValidation.ts` | Validation utilities |
+| File                                                | Changes                                                 |
+| --------------------------------------------------- | ------------------------------------------------------- |
+| `src/main/database.ts`                              | WAL checkpoint + time_signature in playlist query       |
+| `src/renderer/src/types.ts`                         | SlideData metadata fields + PlaylistItem.time_signature |
+| `src/renderer/src/engine/slideEngine.ts`            | Metadata param + helper functions                       |
+| `src/renderer/src/projection/ProjectionApp.tsx`     | Metadata overlay on projection                          |
+| `src/renderer/src/screens/SongEditorScreen.tsx`     | Lyric Studio + Dirty Guard + Time Signature dropdown    |
+| `src/renderer/src/screens/modes/ManagementMode.tsx` | Bento Grid + Bulk Actions                               |
+| `src/renderer/src/screens/Dashboard.tsx`            | Use generateSlidesForSong                               |
+| `src/renderer/src/screens/modes/ProjectionMode.tsx` | Use generateSlidesForSong                               |
+| `src/renderer/src/components/SongLibraryPanel.tsx`  | Use generateSlidesForSong                               |
+| `src/renderer/src/components/PlaylistPanel.tsx`     | Use generateSlidesForPlaylistItem                       |
+| `src/renderer/src/components/PlaylistItemCard.tsx`  | Use generateSlidesForPlaylistItem                       |
+| `src/renderer/src/components/CommandPalette.tsx`    | Use generateSlidesForSong                               |
+| `src/renderer/src/App.tsx`                          | Use generateSlidesForSong                               |
+| `src/renderer/src/screens/ImportExportScreen.tsx`   | Conflict Resolution + metadata validation               |
+| `src/renderer/src/utils/metadataValidation.ts`      | Validation utilities                                    |
 
 ---
 

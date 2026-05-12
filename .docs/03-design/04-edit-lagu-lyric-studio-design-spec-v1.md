@@ -50,7 +50,7 @@ Target sistem typography (Tailwind) untuk halaman editor:
 - **Label**
   - size: 11–12px
   - weight: 600
-  - uppercase *hanya untuk badge/indicator kecil*, bukan semua heading
+  - uppercase _hanya untuk badge/indicator kecil_, bukan semua heading
 - **Input Text**
   - size: 14–15px
   - weight: 500
@@ -71,9 +71,9 @@ Target sistem typography (Tailwind) untuk halaman editor:
 
 3 kolom tetap dipertahankan karena sudah sesuai workflow:
 
-1) **Song Details / Metadata + Lyrics Editor**
-2) **Slide Strip**
-3) **Live Preview (16:9) + Info**
+1. **Song Details / Metadata + Lyrics Editor**
+2. **Slide Strip**
+3. **Live Preview (16:9) + Info**
 
 Tujuan: panel terasa lapang, tidak “padat”, dan jelas hierarchy-nya.
 

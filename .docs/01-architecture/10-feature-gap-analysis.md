@@ -6,25 +6,25 @@
 
 ## 2.1 Competitor Comparison Matrix
 
-| Feature | ProPresenter | EasyWorship | vMix | SION Media | Priority |
-|---------|-------------|-------------|------|------------|----------|
-| **Platform** | Mac + Win | Win only | Win only | Cross-platform | ✅ Advantage |
-| **Bible Module** | ✅ (multi-translation) | ✅ | ✅ (CGI titles) | ❌ | 🔴 P1 |
-| **Announcement Loops** | ✅ (Presentations) | ✅ | ✅ (Playlist) | ❌ | 🟠 P1 |
-| **NDI Output** | ✅ | ✅ | ✅ (send+receive) | ❌ (planned) | 🟠 P1 |
-| **Stage Display** | ✅ | ✅ | ✅ (Multi-view) | ✅ | ✅ Parity |
-| **SongSelect/CCLI** | ✅ | ✅ | N/A | ❌ | 🟡 P2 |
-| **Planning Center** | ✅ | ❌ | N/A | ❌ | 🟡 P2 |
-| **Alpha Keying** | ✅ (3 types) | ❌ | ✅ (Chroma) | ❌ | 🟠 P1 |
-| **Layer/Looks System** | ✅ (per-layer) | ❌ | ✅ (8 overlays) | ❌ (state-based) | 🟠 P1 |
-| **Custom Transitions** | ✅ | ❌ | ✅ (Stinger) | Partial (5 built-in) | 🟡 P2 |
-| **Audio Playback** | ✅ (16ch routing) | ✅ | ✅ (VST3) | ❌ | 🟢 P3 |
-| **Presenter Remote** | ❌ | ✅ (USB/BT) | ✅ (MIDI/X-Keys) | ❌ (keyboard only) | 🟡 P2 |
-| **Customizable Hotkeys** | ✅ | ✅ | ✅ | ❌ (hardcoded) | 🟡 P2 |
-| **Countdown Timer** | ✅ | ❌ | ✅ | ❌ | 🟡 P2 |
-| **Lower Thirds/Ticker** | ✅ | ❌ | ✅ (CGI) | ❌ | 🟡 P2 |
-| **Cloud Sync** | ✅ | ❌ | ❌ | ❌ | 🟢 P3 |
-| **Price** | Subscription | Subscription | One-time | Free (OSS) | ✅ Advantage |
+| Feature                  | ProPresenter           | EasyWorship  | vMix              | SION Media           | Priority     |
+| ------------------------ | ---------------------- | ------------ | ----------------- | -------------------- | ------------ |
+| **Platform**             | Mac + Win              | Win only     | Win only          | Cross-platform       | ✅ Advantage |
+| **Bible Module**         | ✅ (multi-translation) | ✅           | ✅ (CGI titles)   | ❌                   | 🔴 P1        |
+| **Announcement Loops**   | ✅ (Presentations)     | ✅           | ✅ (Playlist)     | ❌                   | 🟠 P1        |
+| **NDI Output**           | ✅                     | ✅           | ✅ (send+receive) | ❌ (planned)         | 🟠 P1        |
+| **Stage Display**        | ✅                     | ✅           | ✅ (Multi-view)   | ✅                   | ✅ Parity    |
+| **SongSelect/CCLI**      | ✅                     | ✅           | N/A               | ❌                   | 🟡 P2        |
+| **Planning Center**      | ✅                     | ❌           | N/A               | ❌                   | 🟡 P2        |
+| **Alpha Keying**         | ✅ (3 types)           | ❌           | ✅ (Chroma)       | ❌                   | 🟠 P1        |
+| **Layer/Looks System**   | ✅ (per-layer)         | ❌           | ✅ (8 overlays)   | ❌ (state-based)     | 🟠 P1        |
+| **Custom Transitions**   | ✅                     | ❌           | ✅ (Stinger)      | Partial (5 built-in) | 🟡 P2        |
+| **Audio Playback**       | ✅ (16ch routing)      | ✅           | ✅ (VST3)         | ❌                   | 🟢 P3        |
+| **Presenter Remote**     | ❌                     | ✅ (USB/BT)  | ✅ (MIDI/X-Keys)  | ❌ (keyboard only)   | 🟡 P2        |
+| **Customizable Hotkeys** | ✅                     | ✅           | ✅                | ❌ (hardcoded)       | 🟡 P2        |
+| **Countdown Timer**      | ✅                     | ❌           | ✅                | ❌                   | 🟡 P2        |
+| **Lower Thirds/Ticker**  | ✅                     | ❌           | ✅ (CGI)          | ❌                   | 🟡 P2        |
+| **Cloud Sync**           | ✅                     | ❌           | ❌                | ❌                   | 🟢 P3        |
+| **Price**                | Subscription           | Subscription | One-time          | Free (OSS)           | ✅ Advantage |
 
 ---
 
@@ -122,50 +122,54 @@
 
 ## 2.3 Competitive Advantages
 
-| Advantage | Description |
-|-----------|-------------|
-| **Cross-Platform** | Electron-based — runs on Windows, macOS, Linux |
-| **Free & Open Source** | No subscription fees — competitors charge $400-500/year |
-| **Multi-Hymnal Support** | Built-in support for multiple hymnals (ProPresenter has libraries, not hymnals) |
-| **Offline-First** | Self-hosted fonts via @fontsource, no internet required |
-| **Lightweight** | Electron app but optimized, < 300MB typical memory usage |
-| **Indonesian Localization** | Native Indonesian UI (competitors are English-first) |
+| Advantage                   | Description                                                                     |
+| --------------------------- | ------------------------------------------------------------------------------- |
+| **Cross-Platform**          | Electron-based — runs on Windows, macOS, Linux                                  |
+| **Free & Open Source**      | No subscription fees — competitors charge $400-500/year                         |
+| **Multi-Hymnal Support**    | Built-in support for multiple hymnals (ProPresenter has libraries, not hymnals) |
+| **Offline-First**           | Self-hosted fonts via @fontsource, no internet required                         |
+| **Lightweight**             | Electron app but optimized, < 300MB typical memory usage                        |
+| **Indonesian Localization** | Native Indonesian UI (competitors are English-first)                            |
 
 ---
 
 ## 2.4 Unique Features (Not in Competitors)
 
-| Feature | Description |
-|---------|-------------|
+| Feature                     | Description                                                      |
+| --------------------------- | ---------------------------------------------------------------- |
 | **Hot-Swap Lyrics Editing** | Edit song lyrics live while projecting — changes apply instantly |
-| **Crash Recovery** | Auto-saves session state, restores on restart after crash |
-| **Custom Slide Engine** | Smart line wrapping and slide balancing for optimal readability |
-| **Focus Live Mode** | Minimalist projection-only UI for distraction-free operation |
-| **Command Palette** | Global search overlay (Ctrl+K) for quick navigation |
+| **Crash Recovery**          | Auto-saves session state, restores on restart after crash        |
+| **Custom Slide Engine**     | Smart line wrapping and slide balancing for optimal readability  |
+| **Focus Live Mode**         | Minimalist projection-only UI for distraction-free operation     |
+| **Command Palette**         | Global search overlay (Ctrl+K) for quick navigation              |
 
 ---
 
 ## 2.5 Recommended Feature Prioritization
 
 ### Phase 1 (Sprint 3-4) — Core Parity
+
 1. Bible Module
 2. Announcement Slides
 3. NDI Output
 4. Alpha Key Support
 
 ### Phase 2 (Sprint 5-6) — Broadcast Enhancement
+
 1. Layer-Based Looks
 2. Custom Transitions (Stinger)
 3. Countdown Timer
 4. Lower Thirds
 
 ### Phase 3 (Sprint 7-8) — Integration & UX
+
 1. SongSelect/CCLI
 2. Planning Center
 3. Presenter Remote/MIDI
 4. Customizable Shortcuts
 
 ### Phase 4 (Future) — Advanced
+
 1. Audio Playback
 2. Cloud Sync
 3. Multi-language Bible

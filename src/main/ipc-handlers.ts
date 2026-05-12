@@ -6,20 +6,6 @@
 import { ipcMain } from 'electron'
 import * as xlsx from 'xlsx'
 import { ZodError } from 'zod'
-import { IPC_SCRAPER } from '../shared/ipc-channels'
-import { ScraperStartPayloadSchema } from '../shared/contracts/scraper'
-import {
-  ScraperDryRunResultSchema,
-  ScraperImportFromDryRunSchema,
-  ScraperSavedDryRunStateSchema,
-  ScraperSavedRunningTaskStateSchema
-} from '../shared/contracts/scraper'
-import {
-  ScraperError,
-  formatScraperErrorMessage,
-  isScraperError,
-  type ScraperErrorCode
-} from '../shared/errors/scraperErrors'
 import {
   getHymnals,
   addHymnal,
@@ -29,6 +15,7 @@ import {
   addSong,
   updateSong,
   deleteSong,
+  clearLyrics,
   getSongRelations,
   addSongRelation,
   deleteSongRelation,
@@ -55,8 +42,6 @@ import {
   getRecoveryState,
   reseedDatabase,
   checkMultiHymnalIntegrity,
-  saveAppState,
-  getAppState,
   // Bible operations
   getBibleTranslations,
   addBibleTranslation,
@@ -99,44 +84,6 @@ import {
   updateTitleBarOverlayForTheme
 } from './windows'
 import { getAllDisplays } from './display-monitor'
-import { ScraperTaskManager } from './scraper/task/ScraperTaskManager'
-import type { PerSongResolutionDecision, ScrapedSong, ScraperStartRequest } from './scraper/types'
-
-let lastScraperStartRequest: ScraperStartRequest | null = null
-
-const scraperTaskManager = new ScraperTaskManager(
-  () => getMainWindow()?.webContents ?? null,
-  undefined,
-  (snapshot) => {
-    try {
-      const req = lastScraperStartRequest
-      if (!req) return
-
-      const state = ScraperSavedRunningTaskStateSchema.parse({
-        savedAt: new Date().toISOString(),
-        taskId: snapshot.taskId,
-        request: req,
-        failedNumbers: snapshot.failedNumbers,
-        processed: snapshot.processed,
-        total: snapshot.total,
-        success: snapshot.success,
-        failed: snapshot.failed,
-        skipped: snapshot.skipped,
-        retries: snapshot.retries,
-        state: snapshot.state
-      })
-
-      saveAppState('scraper_saved_running_task_state', JSON.stringify(state))
-
-      if (snapshot.state !== 'RUNNING') {
-        saveAppState('scraper_saved_running_task_state', '')
-        lastScraperStartRequest = null
-      }
-    } catch {
-      // ignore
-    }
-  }
-)
 const RESEED_CONFIRM_TOKEN = 'RESEED_DATABASE'
 
 function auditDestructiveAction(action: string, detail: Record<string, unknown>): void {
@@ -163,22 +110,11 @@ function ensureNonEmptyString(value: unknown, message: string): string {
 function toSafeIpcErrorMessage(channel: string, err: unknown): string {
   if (err instanceof ZodError) {
     const first = err.issues[0]?.message ?? 'Invalid payload'
-    return `[${channel}] ${formatScraperErrorMessage('INVALID_PAYLOAD', first)}`
-  }
-  if (isScraperError(err)) {
-    return `[${channel}] ${formatScraperErrorMessage(err.code, err.message)}`
+    return `[${channel}] ${first}`
   }
   const raw = err instanceof Error ? err.message : 'Internal error'
   const cleaned = raw.replace(/\s+/g, ' ').trim().slice(0, 240)
-  return `[${channel}] ${cleaned || formatScraperErrorMessage('INTERNAL', 'Internal error')}`
-}
-
-function wrapScraperError(
-  code: ScraperErrorCode,
-  message: string,
-  opts?: { retryable?: boolean }
-): never {
-  throw new ScraperError(code, message, opts)
+  return `[${channel}] ${cleaned || 'Internal error'}`
 }
 
 function safeIpcHandle<TArgs extends unknown[], TResult>(
@@ -193,20 +129,6 @@ function safeIpcHandle<TArgs extends unknown[], TResult>(
       throw new Error(toSafeIpcErrorMessage(channel, err))
     }
   })
-}
-
-function parseScraperStartPayload(payload: unknown): ScraperStartRequest {
-  try {
-    return ScraperStartPayloadSchema.parse(payload)
-  } catch (err) {
-    if (err instanceof ZodError) {
-      wrapScraperError(
-        'INVALID_PAYLOAD',
-        err.issues[0]?.message ?? 'Invalid scraper start payload.'
-      )
-    }
-    throw err
-  }
 }
 
 /**
@@ -227,189 +149,6 @@ export function setupIPC(): void {
   ipcMain.handle('system:get-memory', async () => {
     const mem = await process.getProcessMemoryInfo?.()
     return mem ? { private: mem.private, shared: mem.shared } : null
-  })
-
-  ipcMain.handle(IPC_SCRAPER.GET_PROVIDERS, async () => {
-    return scraperTaskManager.getProviders()
-  })
-
-  ipcMain.handle(IPC_SCRAPER.GET_PROVIDER_DEFINITIONS, async () => {
-    const { getAllProviderDefinitions } = await import('./scraper/providerRegistry')
-    return getAllProviderDefinitions()
-  })
-
-  ipcMain.handle(
-    IPC_SCRAPER.VALIDATE_PROVIDER,
-    async (_event, payload: { providerId: string; baseUrl?: string }) => {
-      const { validateProvider } = await import('./scraper/providerRegistry')
-      return validateProvider(payload.providerId, payload.baseUrl)
-    }
-  )
-
-  ipcMain.handle(
-    IPC_SCRAPER.GET_PROVIDER_HEALTH,
-    async (_event, payload: { providerId: string }) => {
-      const { getProviderHealth } = await import('./scraper/providerRegistry')
-      return getProviderHealth(payload.providerId)
-    }
-  )
-
-  ipcMain.handle(
-    IPC_SCRAPER.PREVIEW,
-    async (_event, payload: { providerId: string; input: string; baseUrl?: string }) => {
-      return scraperTaskManager.preview(payload.providerId, payload.input, payload.baseUrl)
-    }
-  )
-
-  safeIpcHandle(IPC_SCRAPER.DRY_RUN, async (payload: unknown) => {
-    const request = parseScraperStartPayload(payload)
-    const res = await scraperTaskManager.dryRun(request)
-    const parsed = ScraperDryRunResultSchema.parse(res)
-
-    // Persist last dry-run state for crash recovery / resume.
-    try {
-      saveAppState(
-        'scraper_saved_dry_run_state',
-        JSON.stringify(
-          ScraperSavedDryRunStateSchema.parse({
-            savedAt: new Date().toISOString(),
-            taskId: parsed.taskId,
-            request,
-            items: parsed.items,
-            conflicts: parsed.conflicts
-          })
-        )
-      )
-    } catch (err) {
-      console.warn('[scraper] failed to persist dry-run state:', err)
-    }
-
-    return parsed
-  })
-
-  safeIpcHandle(IPC_SCRAPER.IMPORT, async (payload: unknown) => {
-    const parsed = ScraperImportFromDryRunSchema.parse(payload)
-
-    const summary = await scraperTaskManager.importFromDryRun({
-      taskId: parsed.taskId,
-      request: parsed.request,
-      items: parsed.items as ScrapedSong[],
-      decisions: parsed.decisions as Record<string, PerSongResolutionDecision>,
-      defaultAction: parsed.defaultAction
-    })
-
-    // Clear persisted dry-run state on successful import.
-    try {
-      saveAppState('scraper_saved_dry_run_state', '')
-    } catch {
-      // ignore
-    }
-
-    return summary
-  })
-
-  safeIpcHandle(IPC_SCRAPER.GET_SAVED_DRY_RUN_STATE, async () => {
-    const raw = getAppState('scraper_saved_dry_run_state')
-    if (!raw) return null
-    const trimmed = raw.trim()
-    if (!trimmed) return null
-    try {
-      return ScraperSavedDryRunStateSchema.parse(JSON.parse(trimmed))
-    } catch {
-      // Corrupted state, clear it.
-      try {
-        saveAppState('scraper_saved_dry_run_state', '')
-      } catch {
-        // ignore
-      }
-      wrapScraperError('INVALID_PAYLOAD', 'Saved dry-run state is invalid or corrupted.')
-    }
-  })
-
-  safeIpcHandle(IPC_SCRAPER.CLEAR_SAVED_DRY_RUN_STATE, async () => {
-    saveAppState('scraper_saved_dry_run_state', '')
-    return true
-  })
-
-  safeIpcHandle(IPC_SCRAPER.START, async (payload: unknown) => {
-    const request = parseScraperStartPayload(payload)
-    lastScraperStartRequest = request
-    const res = scraperTaskManager.start(request)
-    try {
-      saveAppState('scraper_saved_running_task_state', '')
-    } catch {
-      // ignore
-    }
-    return res
-  })
-
-  safeIpcHandle(
-    IPC_SCRAPER.RESUME_FAILED,
-    async (payload: { request: unknown; failedNumbers: unknown }) => {
-      const raw = ensureObject(payload, 'Invalid resume payload.')
-      const request = parseScraperStartPayload(raw.request)
-      lastScraperStartRequest = request
-      if (!Array.isArray(raw.failedNumbers)) {
-        wrapScraperError('INVALID_PAYLOAD', 'Invalid failedNumbers payload.')
-      }
-      const nums = (raw.failedNumbers as unknown[]).map((n) => String(n))
-      const res = scraperTaskManager.startForNumbers(request, nums)
-      try {
-        saveAppState('scraper_saved_running_task_state', '')
-      } catch {
-        // ignore
-      }
-      return res
-    }
-  )
-
-  safeIpcHandle(IPC_SCRAPER.GET_SAVED_RUNNING_TASK_STATE, async () => {
-    const raw = getAppState('scraper_saved_running_task_state')
-    if (!raw) return null
-    const trimmed = raw.trim()
-    if (!trimmed) return null
-    try {
-      return ScraperSavedRunningTaskStateSchema.parse(JSON.parse(trimmed))
-    } catch {
-      try {
-        saveAppState('scraper_saved_running_task_state', '')
-      } catch {
-        // ignore
-      }
-      return null
-    }
-  })
-
-  safeIpcHandle(IPC_SCRAPER.CLEAR_SAVED_RUNNING_TASK_STATE, async () => {
-    saveAppState('scraper_saved_running_task_state', '')
-    return true
-  })
-
-  ipcMain.handle(IPC_SCRAPER.ABORT, async () => {
-    return scraperTaskManager.abort()
-  })
-
-  ipcMain.handle(IPC_SCRAPER.RETRY_FAILED, async () => {
-    return scraperTaskManager.retryFailed()
-  })
-
-  ipcMain.handle(
-    IPC_SCRAPER.GET_AUDIT_HISTORY,
-    async (_event, payload: { hymnalId?: number; limit?: number }) => {
-      const { getRecentScraperAudits, getScraperAuditsByHymnal } = await import('./database')
-      if (payload.hymnalId) {
-        return getScraperAuditsByHymnal(payload.hymnalId, payload.limit)
-      }
-      return getRecentScraperAudits(payload.limit)
-    }
-  )
-
-  ipcMain.handle(IPC_SCRAPER.GET_AUDIT_DETAIL, async (_event, taskId: string) => {
-    const { getScraperAuditByTaskId, getScraperAuditItems } = await import('./database')
-    const audit = getScraperAuditByTaskId(taskId)
-    if (!audit) return null
-    const items = getScraperAuditItems(audit.id)
-    return { audit, items }
   })
 
   // App theme sync
@@ -487,6 +226,9 @@ export function setupIPC(): void {
   ipcMain.handle('db:import-json', (_e, payload) => importSongsFromJson(payload))
   ipcMain.handle('db:update-song', (_e, id, song) => updateSong(id, song))
   ipcMain.handle('db:delete-song', (_e, id) => deleteSong(id))
+  ipcMain.handle('db:clear-lyrics', (_e, hymnalId, songNumbers) =>
+    clearLyrics(hymnalId, songNumbers)
+  )
   ipcMain.handle('db:toggle-favorite', (_e, id) => toggleFavorite(id))
 
   // Song Relations

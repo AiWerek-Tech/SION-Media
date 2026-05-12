@@ -17,35 +17,35 @@ Library Mode telah mengalami evolusi signifikan (v6 immersive player, v9 number 
 
 ### 1.1 Grid Discipline Violations ❌
 
-| File | Location | Issue | Severity |
-|------|----------|-------|----------|
-| `LibraryNumberView.tsx` | Line 235 | `px-6 lg:px-12` = 24px/48px padding. Tidak mengikuti 4px base grid konsisten (seharusnya 16px/24px/32px) | Medium |
-| `LibraryNumberView.tsx` | Line 169 | `pt-4 px-6 lg:px-12 pb-2` = campuran 16px/24px/48px/8px | Medium |
-| `LibraryTitleView.tsx` | Line 118 | Toolbar height 48px. Tidak konsisten dengan top bar 56px | Medium |
-| `LibraryPlaylistWorkspace.tsx` | Line 155 | Toolbar height 54px. Inconsistent dengan standar 56px | Medium |
-| `LibraryLyricsViewer.tsx` | Line 357 | `px-[7%] py-[10%]` = percentage-based padding. Tidak predictable di semua viewport | High |
-| `LibraryModeRedesigned.tsx` | Line 100 | Top bar 56px ✓, namun tidak ada mekanisme validasi/constraint | Low |
+| File                           | Location | Issue                                                                                                    | Severity |
+| ------------------------------ | -------- | -------------------------------------------------------------------------------------------------------- | -------- |
+| `LibraryNumberView.tsx`        | Line 235 | `px-6 lg:px-12` = 24px/48px padding. Tidak mengikuti 4px base grid konsisten (seharusnya 16px/24px/32px) | Medium   |
+| `LibraryNumberView.tsx`        | Line 169 | `pt-4 px-6 lg:px-12 pb-2` = campuran 16px/24px/48px/8px                                                  | Medium   |
+| `LibraryTitleView.tsx`         | Line 118 | Toolbar height 48px. Tidak konsisten dengan top bar 56px                                                 | Medium   |
+| `LibraryPlaylistWorkspace.tsx` | Line 155 | Toolbar height 54px. Inconsistent dengan standar 56px                                                    | Medium   |
+| `LibraryLyricsViewer.tsx`      | Line 357 | `px-[7%] py-[10%]` = percentage-based padding. Tidak predictable di semua viewport                       | High     |
+| `LibraryModeRedesigned.tsx`    | Line 100 | Top bar 56px ✓, namun tidak ada mekanisme validasi/constraint                                            | Low      |
 
 **Recommendation:** Standardisasi semua toolbar height ke 56px atau 48px (pilih satu). Gunakan token spacing CSS (`--spacing-*`) alih-alih arbitrary values.
 
 ### 1.2 Depth Layering (L1-L4) Audit
 
-| Layer | Expected | Current State | Gap |
-|-------|----------|---------------|-----|
-| L1 (Base) | `bg-bg-base` solid | ✓ `bg-[radial-gradient(...)]` di body | - |
-| L2 (Surface) | `bg-bg-surface/70 backdrop-blur-md` | ✓ Top bar | - |
-| L3 (Cards) | Elevated with subtle shadow | ⚠️ Inconsistent - some cards use `shadow-sm`, others custom shadows | Medium |
-| L4 (Overlays) | `backdrop-blur-xl` + high z-index | ⚠️ `LibrarySearchPalette` uses z-[2000], `LibraryLyricsViewer` z-[80] - inconsistent z-scale | High |
+| Layer         | Expected                            | Current State                                                                                | Gap    |
+| ------------- | ----------------------------------- | -------------------------------------------------------------------------------------------- | ------ |
+| L1 (Base)     | `bg-bg-base` solid                  | ✓ `bg-[radial-gradient(...)]` di body                                                        | -      |
+| L2 (Surface)  | `bg-bg-surface/70 backdrop-blur-md` | ✓ Top bar                                                                                    | -      |
+| L3 (Cards)    | Elevated with subtle shadow         | ⚠️ Inconsistent - some cards use `shadow-sm`, others custom shadows                          | Medium |
+| L4 (Overlays) | `backdrop-blur-xl` + high z-index   | ⚠️ `LibrarySearchPalette` uses z-[2000], `LibraryLyricsViewer` z-[80] - inconsistent z-scale | High   |
 
 **Critical Finding:** `LibraryLyricsViewer` (immersive overlay) memiliki `z-[80]` yang lebih rendah dari `LibrarySearchPalette` (`z-[2000]`). Jika search terbuka saat lyrics aktif, search akan tertimpa.
 
 ### 1.3 Glassmorphism Precision
 
-| File | Issue | Severity |
-|------|-------|----------|
-| `LibraryLyricsViewer.tsx` | Glass panels menggunakan `bg-white/[0.06]` hardcoded - tidak responsif terhadap light/dark theme | High |
-| `HymnalTopBar.tsx` | Dropdown menggunakan `bg-bg-surface/95` tanpa `backdrop-blur` di light mode | Medium |
-| `LibraryNumberView.tsx` | Jump overlay `glass-panel-strong` - perlu verifikasi token ada di CSS | Low |
+| File                      | Issue                                                                                            | Severity |
+| ------------------------- | ------------------------------------------------------------------------------------------------ | -------- |
+| `LibraryLyricsViewer.tsx` | Glass panels menggunakan `bg-white/[0.06]` hardcoded - tidak responsif terhadap light/dark theme | High     |
+| `HymnalTopBar.tsx`        | Dropdown menggunakan `bg-bg-surface/95` tanpa `backdrop-blur` di light mode                      | Medium   |
+| `LibraryNumberView.tsx`   | Jump overlay `glass-panel-strong` - perlu verifikasi token ada di CSS                            | Low      |
 
 ---
 
@@ -54,17 +54,20 @@ Library Mode telah mengalami evolusi signifikan (v6 immersive player, v9 number 
 ### 2.1 Song Card Perfection Audit
 
 **`SongCard.tsx` - Management Mode (BUKAN Library Mode, tapi relevan untuk konsistensi):**
+
 - ✓ Metadata chips: key_note, tempo, category ✓
 - ✓ Zebra striping via `rowIndex % 2` ✓
 - ✓ Action affordance 20% → 100% opacity ✓
 - ⚠️ Typography: `font-bold` (700) untuk judul - seharusnya `font-heading` dengan `font-black` (900) untuk hierarchy yang lebih kuat
 
 **`LibraryTitleView.tsx` - Library Mode Title List:**
+
 - ❌ **NO ZEBRA STRIPING** - Baris tidak selang-seling, scanability menurun untuk operator | **Critical**
 - ⚠️ Number badge menggunakan raw `song.number` tanpa normalisasi | **High**
 - ⚠️ Metadata layout: category, author, lyric preview terlalu padat - tidak ada breathing room | **Medium**
 
 **`LibraryNumberView.tsx` - Number Grid:**
+
 - ✓ Normalized number display ✓
 - ✓ Rich hover preview card ✓
 - ⚠️ Cell height 68px (compact 54px) - tidak mengikuti 4px grid (seharusnya 64px/56px) | **Low**
@@ -72,11 +75,11 @@ Library Mode telah mengalami evolusi signifikan (v6 immersive player, v9 number 
 
 ### 2.2 Action Affordance Verification
 
-| Component | Idle Opacity | Hover Opacity | Transition | Status |
-|-----------|-------------|---------------|------------|--------|
-| `SongCard` | 20% (`opacity-20`) | 100% (`group-hover:opacity-100`) | `duration-200` | ✓ Pass |
-| `LibraryTitleView` | 0% (hidden via `AnimatePresence`) | 100% | `duration-0.15` | ⚠️ Too abrupt - actions muncul tiba-tiba |
-| `LibraryNumberView` | N/A (click to open) | N/A | N/A | - |
+| Component           | Idle Opacity                      | Hover Opacity                    | Transition      | Status                                   |
+| ------------------- | --------------------------------- | -------------------------------- | --------------- | ---------------------------------------- |
+| `SongCard`          | 20% (`opacity-20`)                | 100% (`group-hover:opacity-100`) | `duration-200`  | ✓ Pass                                   |
+| `LibraryTitleView`  | 0% (hidden via `AnimatePresence`) | 100%                             | `duration-0.15` | ⚠️ Too abrupt - actions muncul tiba-tiba |
+| `LibraryNumberView` | N/A (click to open)               | N/A                              | N/A             | -                                        |
 
 **Recommendation:** `LibraryTitleView` actions sebaiknya memiliki idle state 20% (seperti SongCard) alih-alih completely hidden.
 
@@ -90,18 +93,19 @@ Library Mode telah mengalami evolusi signifikan (v6 immersive player, v9 number 
 
 Meskipun DB migration v9 telah dijalankan (001→1), beberapa view masih menampilkan raw number:
 
-| File | Line | Code | Severity |
-|------|------|------|----------|
-| `LibraryTitleView.tsx` | 206 | `{song.number \|\| <Music size={16} />}` | **Critical** |
-| `LibrarySearchPalette.tsx` | 305 | `{song.number \|\| '—'}` | **Critical** |
-| `CommandPalette.tsx` | 259 | `<span>{song.number \|\| '—'}</span>` | **Critical** |
-| `HymnalTopBar.tsx` | 265 | `{song.number \|\| '—'}` (recent songs) | **High** |
+| File                       | Line | Code                                     | Severity     |
+| -------------------------- | ---- | ---------------------------------------- | ------------ |
+| `LibraryTitleView.tsx`     | 206  | `{song.number \|\| <Music size={16} />}` | **Critical** |
+| `LibrarySearchPalette.tsx` | 305  | `{song.number \|\| '—'}`                 | **Critical** |
+| `CommandPalette.tsx`       | 259  | `<span>{song.number \|\| '—'}</span>`    | **Critical** |
+| `HymnalTopBar.tsx`         | 265  | `{song.number \|\| '—'}` (recent songs)  | **High**     |
 
 **Note:** `SongCard.tsx` dan `LibraryLyricsViewer.tsx` sudah menggunakan `normalizeDisplayNumber()` ✓
 
 ### 3.2 FTS5 Global Search Audit
 
 **`CommandPalette.tsx`:**
+
 - ✓ Debounced search (180ms) ✓
 - ✓ Grouped by hymnal ✓
 - ✓ Keyword highlighting ✓
@@ -109,6 +113,7 @@ Meskipun DB migration v9 telah dijalankan (001→1), beberapa view masih menampi
 - ⚠️ No search analytics/metrics logging | **Low**
 
 **`LibrarySearchPalette.tsx`:**
+
 - ✓ FTS5 search via `window.api.songs.search()` ✓
 - ✓ Number pad untuk quick number search ✓
 - ✓ Recent searches persistence ✓
@@ -116,10 +121,10 @@ Meskipun DB migration v9 telah dijalankan (001→1), beberapa view masih menampi
 
 ### 3.3 Virtualized Performance
 
-| Component | Library | Estimate Size | Overscan | Status |
-|-----------|---------|---------------|----------|--------|
-| `LibraryNumberView` | `@tanstack/react-virtual` | 74px (cell+gap) | 6 | ✓ |
-| `LibraryTitleView` | `@tanstack/react-virtual` | 72px | 10 | ✓ |
+| Component           | Library                   | Estimate Size   | Overscan | Status |
+| ------------------- | ------------------------- | --------------- | -------- | ------ |
+| `LibraryNumberView` | `@tanstack/react-virtual` | 74px (cell+gap) | 6        | ✓      |
+| `LibraryTitleView`  | `@tanstack/react-virtual` | 72px            | 10       | ✓      |
 
 **Finding:** Virtualization bekerja, namun `LibraryTitleView` memiliki `AnimatePresence` untuk hover actions yang menyebabkan re-render pada setiap mouse enter/leave. Ini bisa menurunkan FPS saat scrolling cepat.
 
@@ -130,6 +135,7 @@ Meskipun DB migration v9 telah dijalankan (001→1), beberapa view masih menampi
 ### 4.1 Full-Width Immersive Audit
 
 **`LibraryLyricsViewer.tsx`:**
+
 - ✓ Full viewport overlay ✓
 - ✓ Background mesh gradient (radial-gradient) ✓
 - ⚠️ Gradient menggunakan hardcoded colors (`rgba(59,130,246,0.18)`) - tidak theme-aware | **Medium**
@@ -169,17 +175,17 @@ Meskipun DB migration v9 telah dijalankan (001→1), beberapa view masih menampi
 
 ### 6.1 Zero Leak Policy
 
-| File | Listener | Cleanup | Status |
-|------|----------|---------|--------|
-| `LibraryModeRedesigned.tsx` | `keydown` (Ctrl+K) | ✓ | Pass |
-| `LibraryModeRedesigned.tsx` | `sion:open-search` | ✓ | Pass |
-| `LibraryModeRedesigned.tsx` | `sion:select-song` | ✓ | Pass |
-| `LibraryNumberView.tsx` | `keydown` (arrows, /) | ✓ | Pass |
-| `LibraryLyricsViewer.tsx` | `keydown` (Escape, Space, arrows) | ✓ | Pass |
-| `LibraryLyricsViewer.tsx` | `body.overflow = hidden` | ✓ (reset to '') | Pass |
-| `LibrarySearchPalette.tsx` | `keydown` (arrows, Enter, Escape) | ✓ | Pass |
-| `CommandPalette.tsx` | `keydown` (internal handler) | N/A (React event) | Pass |
-| `HymnalTopBar.tsx` | `mousedown` (click outside) | ✓ | Pass |
+| File                        | Listener                          | Cleanup           | Status |
+| --------------------------- | --------------------------------- | ----------------- | ------ |
+| `LibraryModeRedesigned.tsx` | `keydown` (Ctrl+K)                | ✓                 | Pass   |
+| `LibraryModeRedesigned.tsx` | `sion:open-search`                | ✓                 | Pass   |
+| `LibraryModeRedesigned.tsx` | `sion:select-song`                | ✓                 | Pass   |
+| `LibraryNumberView.tsx`     | `keydown` (arrows, /)             | ✓                 | Pass   |
+| `LibraryLyricsViewer.tsx`   | `keydown` (Escape, Space, arrows) | ✓                 | Pass   |
+| `LibraryLyricsViewer.tsx`   | `body.overflow = hidden`          | ✓ (reset to '')   | Pass   |
+| `LibrarySearchPalette.tsx`  | `keydown` (arrows, Enter, Escape) | ✓                 | Pass   |
+| `CommandPalette.tsx`        | `keydown` (internal handler)      | N/A (React event) | Pass   |
+| `HymnalTopBar.tsx`          | `mousedown` (click outside)       | ✓                 | Pass   |
 
 **Finding:** Semua listener memiliki cleanup ✓
 
@@ -191,11 +197,11 @@ Meskipun DB migration v9 telah dijalankan (001→1), beberapa view masih menampi
 
 ### 6.3 Type Safety
 
-| Issue | Location | Severity |
-|-------|----------|----------|
+| Issue                                                                | Location                      | Severity     |
+| -------------------------------------------------------------------- | ----------------------------- | ------------ |
 | `title_en` accessed via `(song as unknown as { title_en?: string })` | `LibraryLyricsViewer.tsx:246` | **Critical** |
-| `song.hymnal_code` optional chaining di banyak tempat | Multiple files | **Medium** |
-| `window.api` access tanpa null check | Multiple files | **Low** |
+| `song.hymnal_code` optional chaining di banyak tempat                | Multiple files                | **Medium**   |
+| `window.api` access tanpa null check                                 | Multiple files                | **Low**      |
 
 ---
 
@@ -203,12 +209,12 @@ Meskipun DB migration v9 telah dijalankan (001→1), beberapa view masih menampi
 
 ### 7.1 Active Lint Violations
 
-| File | Line | Violation | Severity |
-|------|------|-----------|----------|
-| `CommandPalette.tsx` | 58-59 | `react-hooks/set-state-in-effect` - `setQuery('')` dalam useEffect | **High** |
-| `LibrarySearchPalette.tsx` | 63-64 | `react-hooks/set-state-in-effect` - `setQuery('')` dalam useEffect | **High** |
-| `LibraryNumberView.tsx` | 72 | `react-hooks/incompatible-library` - useVirtualizer | Low (known) |
-| `LibraryTitleView.tsx` | 58 | `react-hooks/incompatible-library` - useVirtualizer | Low (known) |
+| File                       | Line  | Violation                                                          | Severity    |
+| -------------------------- | ----- | ------------------------------------------------------------------ | ----------- |
+| `CommandPalette.tsx`       | 58-59 | `react-hooks/set-state-in-effect` - `setQuery('')` dalam useEffect | **High**    |
+| `LibrarySearchPalette.tsx` | 63-64 | `react-hooks/set-state-in-effect` - `setQuery('')` dalam useEffect | **High**    |
+| `LibraryNumberView.tsx`    | 72    | `react-hooks/incompatible-library` - useVirtualizer                | Low (known) |
+| `LibraryTitleView.tsx`     | 58    | `react-hooks/incompatible-library` - useVirtualizer                | Low (known) |
 
 ### 7.2 Duplicate Code
 
@@ -221,16 +227,16 @@ Meskipun DB migration v9 telah dijalankan (001→1), beberapa view masih menampi
 
 ### 8.1 Keyboard Navigation
 
-| Shortcut | Expected | Actual | Status |
-|----------|----------|--------|--------|
-| `Ctrl+K` | Open search | ✓ Opens `LibrarySearchPalette` | Pass |
-| `Escape` | Close overlay/modal | ✓ Closes lyrics, search, jump | Pass |
-| `ArrowDown/Up` | Navigate list/grid | ✓ Works in all views | Pass |
-| `Enter` | Select item | ✓ Works in grid, title, search | Pass |
-| `/` | Jump to number | ✓ Works in number view | Pass |
-| `Space` | Play/pause auto-scroll | ✓ Works in lyrics | Pass |
-| `Ctrl+Shift+F` | Focus mode | ⚠️ **NOT IMPLEMENTED** | **Critical** |
-| `F11` | Fullscreen toggle | ⚠️ Not handled (browser default) | **Low** |
+| Shortcut       | Expected               | Actual                           | Status       |
+| -------------- | ---------------------- | -------------------------------- | ------------ |
+| `Ctrl+K`       | Open search            | ✓ Opens `LibrarySearchPalette`   | Pass         |
+| `Escape`       | Close overlay/modal    | ✓ Closes lyrics, search, jump    | Pass         |
+| `ArrowDown/Up` | Navigate list/grid     | ✓ Works in all views             | Pass         |
+| `Enter`        | Select item            | ✓ Works in grid, title, search   | Pass         |
+| `/`            | Jump to number         | ✓ Works in number view           | Pass         |
+| `Space`        | Play/pause auto-scroll | ✓ Works in lyrics                | Pass         |
+| `Ctrl+Shift+F` | Focus mode             | ⚠️ **NOT IMPLEMENTED**           | **Critical** |
+| `F11`          | Fullscreen toggle      | ⚠️ Not handled (browser default) | **Low**      |
 
 ### 8.2 Visual Feedback
 
@@ -244,6 +250,7 @@ Meskipun DB migration v9 telah dijalankan (001→1), beberapa view masih menampi
 ## 9. Recommended Priority Actions
 
 ### Phase 1 (Critical - Must Fix)
+
 1. **Fix number normalization** di `LibraryTitleView`, `LibrarySearchPalette`, `CommandPalette`, `HymnalTopBar`
 2. **Implement `Ctrl+Shift+F` focus mode** untuk Library Mode
 3. **Add zebra striping** ke `LibraryTitleView`
@@ -253,6 +260,7 @@ Meskipun DB migration v9 telah dijalankan (001→1), beberapa view masih menampi
 7. **Fix `react-hooks/set-state-in-effect`** di `CommandPalette` dan `LibrarySearchPalette`
 
 ### Phase 2 (High - Should Fix)
+
 8. Standardisasi toolbar heights (56px)
 9. Extract `normalizeDisplayNumber()` ke shared utility
 10. Add font size viewport-aware clamping di lyrics viewer
@@ -260,6 +268,7 @@ Meskipun DB migration v9 telah dijalankan (001→1), beberapa view masih menampi
 12. Add tempo display ke lyrics viewer header
 
 ### Phase 3 (Medium - Nice to Have)
+
 13. Implement loading skeleton untuk song lists
 14. Add `aria-live` regions untuk screen reader support
 15. Optimize `LibraryTitleView` hover actions (reduce re-renders)
@@ -267,6 +276,7 @@ Meskipun DB migration v9 telah dijalankan (001→1), beberapa view masih menampi
 17. Standardisasi spacing dengan CSS tokens
 
 ### Phase 4 (Low - Polish)
+
 18. Hapus duplicate Bible interfaces di `types.ts`
 19. Add keyboard shortcut untuk number pad focus
 20. Fix Poppins font import
@@ -275,22 +285,22 @@ Meskipun DB migration v9 telah dijalankan (001→1), beberapa view masih menampi
 
 ## Appendix: File Inventory
 
-| File | Lines | Purpose | Audit Status |
-|------|-------|---------|--------------|
-| `LibraryModeRedesigned.tsx` | 198 | Main layout, tab switching, overlay orchestration | ✓ Audited |
-| `LibraryBrowserPanel.tsx` | 105 | Tab content container, song selection | ✓ Audited |
-| `LibraryLyricsViewer.tsx` | 400 | Immersive lyrics overlay | ✓ Audited |
-| `LibraryNumberView.tsx` | 385 | Number grid with virtualization | ✓ Audited |
-| `LibraryTitleView.tsx` | 313 | Title list with virtualization | ✓ Audited |
-| `LibrarySearchPalette.tsx` | 399 | FTS5 search modal with number pad | ✓ Audited |
-| `LibraryPlaylistWorkspace.tsx` | 399 | Playlist management | ✓ Audited |
-| `HymnalTopBar.tsx` | 286 | Hymnal selector dropdown | ✓ Audited |
-| `SongCard.tsx` | 192 | Song card (management mode) | ✓ Audited |
-| `CommandPalette.tsx` | 315 | Global search (Ctrl+K) | ✓ Audited |
-| `useAppStore.ts` | 215 | Zustand store | ✓ Audited |
-| `main.css` | 1490 | Design system tokens | ✓ Audited |
-| `types.ts` | 389 | Shared TypeScript interfaces | ✓ Audited |
+| File                           | Lines | Purpose                                           | Audit Status |
+| ------------------------------ | ----- | ------------------------------------------------- | ------------ |
+| `LibraryModeRedesigned.tsx`    | 198   | Main layout, tab switching, overlay orchestration | ✓ Audited    |
+| `LibraryBrowserPanel.tsx`      | 105   | Tab content container, song selection             | ✓ Audited    |
+| `LibraryLyricsViewer.tsx`      | 400   | Immersive lyrics overlay                          | ✓ Audited    |
+| `LibraryNumberView.tsx`        | 385   | Number grid with virtualization                   | ✓ Audited    |
+| `LibraryTitleView.tsx`         | 313   | Title list with virtualization                    | ✓ Audited    |
+| `LibrarySearchPalette.tsx`     | 399   | FTS5 search modal with number pad                 | ✓ Audited    |
+| `LibraryPlaylistWorkspace.tsx` | 399   | Playlist management                               | ✓ Audited    |
+| `HymnalTopBar.tsx`             | 286   | Hymnal selector dropdown                          | ✓ Audited    |
+| `SongCard.tsx`                 | 192   | Song card (management mode)                       | ✓ Audited    |
+| `CommandPalette.tsx`           | 315   | Global search (Ctrl+K)                            | ✓ Audited    |
+| `useAppStore.ts`               | 215   | Zustand store                                     | ✓ Audited    |
+| `main.css`                     | 1490  | Design system tokens                              | ✓ Audited    |
+| `types.ts`                     | 389   | Shared TypeScript interfaces                      | ✓ Audited    |
 
 ---
 
-*End of Audit Report*
+_End of Audit Report_

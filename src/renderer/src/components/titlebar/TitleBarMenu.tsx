@@ -335,12 +335,6 @@ export function TitleBarMenu(): React.JSX.Element {
                   setScreen('song-editor')
                 }
               },
-              {
-                label: 'Song Scraper (Acquisition)',
-                action: () => {
-                  setScreen('management-song-scraper')
-                }
-              },
               { separator: true },
               {
                 label: 'Reseed Database',

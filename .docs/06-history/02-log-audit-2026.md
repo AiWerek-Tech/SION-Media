@@ -121,6 +121,7 @@ Laporan audit komprehensif ini mengevaluasi status implementasi SION Media terha
 ## **8. Audit Lanjutan Database Multi-Hymnal & IPC (2026-05-08)**
 
 ### **Temuan**
+
 - Crash saat startup main process (`Duplicate handler for...`) akibat pendaftaran ganda IPC channel untuk `Bible`, `Custom Slides`, dan `Slide Groups` di `ipc-handlers.ts`.
 - Mismatch pada channel penarikan display monitor (`display:get-all` vs `display_get-all`).
 - Namespace IPC `bible` dan `slides` belum ter-ekspos ke renderer via `preload/index.ts`.
@@ -129,9 +130,10 @@ Laporan audit komprehensif ini mengevaluasi status implementasi SION Media terha
 - Module `BibleScreen.tsx` gagal saat compile (lint & type errors) akibat import module `toast-service` (tidak standar), deklarasi unused variables, referensi IPC method `search` yang seharusnya `searchVerses`, dan implementasi effect pattern yang salah (`react-hooks/set-state-in-effect`).
 
 ### **Perbaikan**
+
 - **IPC & Crash Fixes:** Registrasi ganda channel `db:get-bible-*` dan `db:get-custom-slides-*` dihapus dari `src/main/ipc-handlers.ts`. Channel nama display disamakan. `BibleAPI` dan `SlidesAPI` dimasukkan lengkap ke `src/preload/index.ts`.
 - **Database & State:** Query pencarian FTS Alkitab disesuaikan dengan struktur JOIN relasional. Method penyimpanan tema (`latestProjectionTheme`) dikembalikan ke pola aslinya. Skema Multi-Hymnal divalidasi dan terkonfirmasi 100% selaras dengan blueprint database.
-- **Renderer Parity (Types & Linters):** Tipe `BibleTranslation`, `BibleBook`, dan `BibleVerse` ditambahkan ke `src/shared/types.ts`. Komponen `BibleScreen.tsx` direfaktor ulang menggunakan pola asynchronous fetching `let mounted = true` untuk menuntaskan *cascading renders errors*.
+- **Renderer Parity (Types & Linters):** Tipe `BibleTranslation`, `BibleBook`, dan `BibleVerse` ditambahkan ke `src/shared/types.ts`. Komponen `BibleScreen.tsx` direfaktor ulang menggunakan pola asynchronous fetching `let mounted = true` untuk menuntaskan _cascading renders errors_.
 - **Validasi Terakhir:**
   - `tsc --noEmit` (Node & Web) lulus dengan `0 errors`.
   - `eslint` lulus dengan `0 errors, 0 warnings`.

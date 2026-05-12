@@ -1,6 +1,7 @@
 # UI Modernization Plan — Premium Visual System (Modern Enterprise Web App)
 
 ## Goals
+
 - Premium, clean, depth-aware “Professional Broadcast Console” aesthetic for Electron renderer
 - Maintain high information density (dense but breathable)
 - Strict 4px base grid spacing discipline
@@ -9,6 +10,7 @@
 - Micro-interactions: 0.2s transitions, premium bezier `[0.22, 1, 0.36, 1]`, staggered list entrance
 
 ## Design System Decisions
+
 - Color tokens are defined in `src/renderer/src/assets/main.css` using `@theme` variables.
 - Depth layering model (L1–L4):
   - L1: Base background
@@ -17,6 +19,7 @@
   - L4: Active/Live states with soft glow
 
 ## Phase 1 — Implementation Milestones
+
 1. Global styling foundations
    - Align tokens to required base/surface/elevated palette
    - Ensure focus rings and borders use subtle rgba whites (0.06 / 0.08 / 0.12)
@@ -41,6 +44,7 @@
    - Transition curves: unify to `[0.22, 1, 0.36, 1]` where applicable
 
 ## Phase 2 — Documentation
+
 - Create `/.docs/log-impl-ui-modernization.md` entries for:
   - Token changes
   - Component refactors (SongCard, PlaylistItemCard, TitleBar/Dropdown, ControlBar Take)

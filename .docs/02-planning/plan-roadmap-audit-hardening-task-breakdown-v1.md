@@ -5,6 +5,7 @@
 Dokumen ini memecah roadmap audit-hardening menjadi checklist task granular per modul agar mudah diubah menjadi tiket sprint.
 
 Referensi utama:
+
 - `02-planning/plan-roadmap-audit-hardening-v1.md`
 
 ## Status Legend
@@ -147,31 +148,37 @@ Referensi utama:
 ## Breakdown Eksekusi Per Sprint
 
 ### Sprint 1
+
 - [ ] Hardening window preferences
 - [ ] IPC payload validator baseline
 - [ ] SQL whitelist fix
 
 ### Sprint 2
+
 - [ ] Scraper task lifecycle fix
 - [ ] Timeout cleanup + retry reliability
 - [ ] Test skenario high-volume scrape
 
 ### Sprint 3
+
 - [ ] Lint error zero
 - [ ] Warning reduction prioritas scraper
 - [ ] Formatter alignment
 
 ### Sprint 4
+
 - [ ] DTO preload contract
 - [ ] Refactor `App.tsx` ke hooks modular
 - [ ] Regression smoke pass
 
 ### Sprint 5
+
 - [ ] Role-based safety mode
 - [ ] Backup scheduler + retention
 - [ ] Guard aksi destruktif
 
 ### Sprint 6
+
 - [ ] Observability dashboard
 - [ ] Import impact preview
 - [ ] Provider plugin baseline

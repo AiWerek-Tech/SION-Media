@@ -94,6 +94,8 @@ const api = {
     update: (id: number, song: unknown): Promise<unknown> =>
       ipcRenderer.invoke('db:update-song', id, song),
     delete: (id: number): Promise<boolean> => ipcRenderer.invoke('db:delete-song', id),
+    clearLyrics: (hymnalId: number, songNumbers: string[]): Promise<number> =>
+      ipcRenderer.invoke('db:clear-lyrics', hymnalId, songNumbers),
     toggleFavorite: (id: number): Promise<unknown> => ipcRenderer.invoke('db:toggle-favorite', id),
     getRelations: (songId: number): Promise<unknown[]> =>
       ipcRenderer.invoke('db:get-song-relations', songId),
@@ -231,43 +233,6 @@ const api = {
         callback(data)
       ipcRenderer.on('health:heartbeat-ack', listener)
       return () => ipcRenderer.removeListener('health:heartbeat-ack', listener)
-    }
-  },
-
-  // Scraper
-  scraper: {
-    getProviders: (): Promise<unknown[]> => ipcRenderer.invoke('scraper:get-providers'),
-    getProviderDefinitions: (): Promise<unknown[]> =>
-      ipcRenderer.invoke('scraper:get-provider-definitions'),
-    validateProvider: (payload: { providerId: string; baseUrl?: string }): Promise<unknown> =>
-      ipcRenderer.invoke('scraper:validate-provider', payload),
-    getProviderHealth: (payload: { providerId: string }): Promise<string> =>
-      ipcRenderer.invoke('scraper:get-provider-health', payload),
-    dryRun: (payload: unknown): Promise<unknown> => ipcRenderer.invoke('scraper:dry-run', payload),
-    importFromDryRun: (payload: unknown): Promise<unknown> =>
-      ipcRenderer.invoke('scraper:import', payload),
-    start: (payload: unknown): Promise<void> => ipcRenderer.invoke('scraper:start', payload),
-    abort: (): Promise<void> => ipcRenderer.invoke('scraper:abort'),
-    retryFailed: (): Promise<void> => ipcRenderer.invoke('scraper:retry-failed'),
-    preview: (payload: unknown): Promise<unknown> => ipcRenderer.invoke('scraper:preview', payload),
-    getAuditHistory: (payload: { hymnalId?: number; limit?: number }): Promise<unknown[]> =>
-      ipcRenderer.invoke('scraper:get-audit-history', payload),
-    getAuditDetail: (taskId: string): Promise<unknown> =>
-      ipcRenderer.invoke('scraper:get-audit-detail', taskId),
-    getSavedDryRunState: (): Promise<unknown> =>
-      ipcRenderer.invoke('scraper:get-saved-dry-run-state'),
-    clearSavedDryRunState: (): Promise<boolean> =>
-      ipcRenderer.invoke('scraper:clear-saved-dry-run-state'),
-    getSavedRunningTaskState: (): Promise<unknown> =>
-      ipcRenderer.invoke('scraper:get-saved-running-task-state'),
-    clearSavedRunningTaskState: (): Promise<boolean> =>
-      ipcRenderer.invoke('scraper:clear-saved-running-task-state'),
-    resumeFailed: (payload: { request: unknown; failedNumbers: unknown }): Promise<unknown> =>
-      ipcRenderer.invoke('scraper:resume-failed', payload),
-    onProgress: (callback: (progress: unknown) => void): (() => void) => {
-      const listener = (_e: IpcRendererEvent, progress: unknown): void => callback(progress)
-      ipcRenderer.on('scraper:progress', listener)
-      return () => ipcRenderer.removeListener('scraper:progress', listener)
     }
   }
 }

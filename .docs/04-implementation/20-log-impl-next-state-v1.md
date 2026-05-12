@@ -109,7 +109,7 @@ Implementasi **NEXT State** sebagai **first-class runtime entity** untuk meningk
 
 /**
  * Next Ready State - Availability state of next content
- * 
+ *
  * EMPTY: No next content at all
  * SLIDE_READY: Next slide exists in current song
  * SONG_QUEUED: Next song is pre-loaded
@@ -119,10 +119,10 @@ export type NextReadyState = 'EMPTY' | 'SLIDE_READY' | 'SONG_QUEUED' | 'BOTH_REA
 
 /**
  * Next State - Manages upcoming content for operator awareness
- * 
+ *
  * The NEXT state is a first-class runtime entity that represents
  * what comes immediately after the current program content.
- * 
+ *
  * Mental model: NOW (PROGRAM) → NEXT → LATER (PREVIEW/CUE)
  */
 export interface NextState {
@@ -132,23 +132,24 @@ export interface NextState {
   nextSlideIndex: number | null
   /** Whether next slide exists */
   hasNextSlide: boolean
-  
+
   /** Next song in playlist (for pre-loading) */
   nextSong: Song | null
   /** Index of next song in playlist */
   nextSongIndex: number | null
   /** Whether next song exists in playlist */
   hasNextSong: boolean
-  
+
   /** Pre-loaded slides for next song */
   queuedSlides: SlideData[]
-  
+
   /** Overall readiness state */
   readyState: NextReadyState
 }
 ```
 
 **Rationale**:
+
 - `NextReadyState` memberikan quick overview availability
 - `NextState` interface lengkap dengan semua info yang dibutuhkan
 - `queuedSlides` memungkinkan pre-loading untuk smooth transition
@@ -164,7 +165,7 @@ export interface NextState {
 ```typescript
 interface ProjectionStore {
   // ... existing fields ...
-  
+
   // ═══════════════════════════════════════════════════════════════
   // NEXT STATE - Upcoming content management
   // ═══════════════════════════════════════════════════════════════
@@ -186,7 +187,7 @@ interface ProjectionStore {
 ```typescript
 interface ProjectionStore {
   // ... existing actions ...
-  
+
   // NEXT State Actions
   computeNextState: () => void
   loadNextSong: (song: Song, slides: SlideData[]) => void
@@ -231,6 +232,7 @@ computeNextState: () => {
 ```
 
 **Key Decisions**:
+
 1. **Automatic computation** - Dipanggil setiap kali `programSlideIndex` berubah
 2. **Ready state calculation** - Memberikan quick overview
 3. **No side effects** - Pure computation dari existing state
@@ -266,6 +268,7 @@ loadNextSong: (song: Song, slides: SlideData[]) => {
 ```
 
 **Key Decisions**:
+
 1. **Guard clause** - Tidak boleh load song yang sama dengan current
 2. **Slides pre-loaded** - `queuedSlides` siap untuk instant TAKE
 3. **Recompute triggered** - Update ready state setelah load
@@ -300,39 +303,42 @@ get().computeNextState()  // ← Added
 #### NEXT Strip Component
 
 ```tsx
-{/* NEXT STRIP - Shows upcoming content */}
-{nextReadyState !== 'EMPTY' && (
-  <div className="mt-2 flex items-center gap-2 rounded-lg bg-next-blue/8 px-3 py-2 text-[11px] font-semibold text-next-blue border border-next-blue/15">
-    <span className="font-black uppercase tracking-[0.1em] text-next-blue/70">NEXT</span>
-    
-    {/* Next Slide */}
-    {hasNextSlide && nextSlideLabel && nextSlideData && (
-      <div className="flex items-center gap-1.5 border-l border-next-blue/20 pl-2">
-        <ChevronRight size={10} />
-        <span className="font-bold">{nextSlideLabel}</span>
-        <span className="text-next-blue/60 truncate max-w-[120px]">
-          {nextSlideData.sectionLabel}
-        </span>
-      </div>
-    )}
+{
+  /* NEXT STRIP - Shows upcoming content */
+}
+{
+  nextReadyState !== 'EMPTY' && (
+    <div className="mt-2 flex items-center gap-2 rounded-lg bg-next-blue/8 px-3 py-2 text-[11px] font-semibold text-next-blue border border-next-blue/15">
+      <span className="font-black uppercase tracking-[0.1em] text-next-blue/70">NEXT</span>
 
-    {/* Separator if both exist */}
-    {hasNextSlide && hasNextSong && (
-      <span className="text-next-blue/30">|</span>
-    )}
+      {/* Next Slide */}
+      {hasNextSlide && nextSlideLabel && nextSlideData && (
+        <div className="flex items-center gap-1.5 border-l border-next-blue/20 pl-2">
+          <ChevronRight size={10} />
+          <span className="font-bold">{nextSlideLabel}</span>
+          <span className="text-next-blue/60 truncate max-w-[120px]">
+            {nextSlideData.sectionLabel}
+          </span>
+        </div>
+      )}
 
-    {/* Next Song */}
-    {hasNextSong && nextSongLabel && (
-      <div className="flex items-center gap-1.5 border-l border-next-blue/20 pl-2">
-        <span className="font-bold">Song:</span>
-        <span className="truncate max-w-[150px]">{nextSongLabel}</span>
-      </div>
-    )}
-  </div>
-)}
+      {/* Separator if both exist */}
+      {hasNextSlide && hasNextSong && <span className="text-next-blue/30">|</span>}
+
+      {/* Next Song */}
+      {hasNextSong && nextSongLabel && (
+        <div className="flex items-center gap-1.5 border-l border-next-blue/20 pl-2">
+          <span className="font-bold">Song:</span>
+          <span className="truncate max-w-[150px]">{nextSongLabel}</span>
+        </div>
+      )}
+    </div>
+  )
+}
 ```
 
 **Visual Design**:
+
 - **Color**: `next-blue` (#38bdf8) - Cyan/sky blue untuk distinction
 - **Position**: Below Program Monitor
 - **Layout**: Horizontal strip dengan sections
@@ -453,15 +459,15 @@ get().computeNextState()  // ← Added
 
 ## Code Metrics
 
-| Metric | Value |
-|--------|-------|
-| Files modified | 4 |
-| Lines added (types) | ~50 |
-| Lines added (store) | ~90 |
-| Lines added (UI) | ~35 |
-| Lines added (CSS) | 1 |
-| Total new code | ~176 lines |
-| Build status | ✅ Success |
+| Metric              | Value      |
+| ------------------- | ---------- |
+| Files modified      | 4          |
+| Lines added (types) | ~50        |
+| Lines added (store) | ~90        |
+| Lines added (UI)    | ~35        |
+| Lines added (CSS)   | 1          |
+| Total new code      | ~176 lines |
+| Build status        | ✅ Success |
 
 ---
 

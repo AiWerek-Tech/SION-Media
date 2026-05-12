@@ -5,6 +5,7 @@
 **Phase:** 3 — Observability UI
 
 > **Update:** Runtime Inspector has evolved into a tabbed Operations Console. See:
+>
 > - `.docs/log-impl-runtime-inspector-v2-tabs-simulator.md`
 
 ---
@@ -59,6 +60,7 @@ Runtime Healthy | Latency: 0.42ms | Blocked: 1.2% | Projection: Connected | Conf
 ```
 
 **Health Indicators:**
+
 - **Runtime Health**: Healthy if blocked < 20%, error < 10%, latency < 50ms
 - **Latency**: Color-coded (green < 5ms, amber < 20ms, red > 20ms)
 - **Blocked Ratio**: Percentage of blocked commands
@@ -78,6 +80,7 @@ The Inspector **never mutates runtime state**. It:
 3. Reads from stable query APIs
 
 This ensures:
+
 - No coupling to internal bus implementation
 - Safe for future remote monitoring
 - No side effects on runtime behavior
@@ -91,6 +94,7 @@ ERROR   → danger (red/danger)
 ```
 
 This vocabulary is shared across:
+
 - Toast notifications
 - Inspector badges
 - Future telemetry
@@ -99,6 +103,7 @@ This vocabulary is shared across:
 ### Toggleable Bottom Panel
 
 Started simple:
+
 - No dock system
 - No floating window
 - No persistence
@@ -146,8 +151,8 @@ All metrics use `useMemo` for performance:
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
+| Shortcut       | Action                   |
+| -------------- | ------------------------ |
 | `Ctrl+Shift+I` | Toggle Runtime Inspector |
 
 ---
