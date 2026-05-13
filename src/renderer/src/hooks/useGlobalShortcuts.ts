@@ -165,7 +165,11 @@ export function useGlobalShortcuts({
               const song = useAppStore.getState().songs.find((s) => s.id === item.song_id)
               if (song) {
                 useAppStore.getState().setSelectedSong(song)
-                useProjectionStore.getState().setSlides(generateSlidesForSong(song))
+                useProjectionStore.getState().setSlides(generateSlidesForSong(song), {
+                  hymnalCode: song.hymnal_code || 'LS',
+                  hymnalName: song.hymnal_name || 'Lagu Sion',
+                  songBackgroundConfig: song.song_background_config || ''
+                })
               }
             }
           }

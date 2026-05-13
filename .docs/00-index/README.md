@@ -37,14 +37,48 @@ Untuk menjaga kerapian, gunakan format penamaan berikut untuk file baru:
 
 ---
 
-_Terakhir diperbarui: 2026-05-11_
+_Terakhir diperbarui: 2026-05-13_
+
+## Current Implementation Snapshot (2026-05-13)
+
+### Media Library Enterprise v11
+
+Projection atmosphere kini sudah masuk ke fase **managed media asset system**:
+
+- **Media Library CRUD**: import, edit metadata, favorite, delete, dan preview asset image/video
+- **Offline-First Storage**: asset yang diimpor disalin ke storage aplikasi agar tidak bergantung pada path eksternal
+- **SQLite Persistence**: tabel `media_assets` menyimpan metadata, kategori, tags, favorite state, thumbnail path, dan usage count
+- **Asset Thumbnails**: image thumbnail nyata disimpan ke disk, sementara video memakai placeholder thumbnail yang stabil dan siap di-upgrade ke frame extraction
+- **Usage Tracking**: setiap apply ke global atmosphere menaikkan `usage_count` untuk ranking asset yang paling sering dipakai
+- **Settings Workspace Upgrade**: panel `Background` berubah menjadi workspace library yang lebih lebar dan lebih cocok untuk operator desktop
+- **Workflow Safety**: menghapus asset aktif sekarang membersihkan referensi atmosphere/legacy fallback agar tidak meninggalkan broken media path
+
+Dokumen rujukan:
+
+- `04-implementation/25-log-impl-media-library-enterprise-v11.md`
+- `03-design/05-projection-atmosphere-system-v1.md`
+
+### Collections & Song Binding v12
+
+Media layer sekarang sudah naik lagi ke fase **collection-aware and song-bindable background workflow**:
+
+- **Media Collections**: asset dapat dikelompokkan menjadi pack/collection dengan cover dan membership terkelola
+- **Bulk Actions**: favorite, kategorisasi, delete, dan assignment collection sekarang bisa dilakukan ke banyak asset sekaligus
+- **Song-Level Binding**: `SongEditor` mendukung binding langsung ke asset library, bukan hanya preset global/preset statis
+- **Management Visibility**: inspector di `ManagementMode` menampilkan status background binding lagu
+- **Referential Cleanup**: delete asset kini membersihkan referensi di global atmosphere, legacy fallback, song overrides, dan cover collection
+
+Dokumen rujukan:
+
+- `04-implementation/26-log-impl-media-library-song-binding-v12.md`
+- `04-implementation/25-log-impl-media-library-enterprise-v11.md`
 
 ## Roadmap Aktif (Audit & Hardening)
 
 - `02-planning/plan-roadmap-audit-hardening-v1.md` - roadmap 90 hari berbasis audit teknis menyeluruh.
 - `02-planning/plan-roadmap-audit-hardening-task-breakdown-v1.md` - checklist eksekusi per modul untuk breakdown ke tiket kerja.
 
-## Current Implementation Snapshot (2026-05-10)
+## Historical Snapshot (2026-05-10)
 
 ### Runtime Infrastructure (Operator-Grade)
 

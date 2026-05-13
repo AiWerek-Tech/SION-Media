@@ -15,9 +15,14 @@ import { buildConfidencePayload } from '../utils/confidencePayloadBuilder'
 
 interface ProjectionStore {
   slides: SlideData[]
-  setSlides: (slides: SlideData[], meta?: { hymnalCode: string; hymnalName: string }) => void
+  setSlides: (
+    slides: SlideData[],
+    meta?: { hymnalCode: string; hymnalName: string; songBackgroundConfig?: string }
+  ) => void
   cuedSongMeta: { hymnalCode: string; hymnalName: string } | null
+  cuedSongBackgroundConfig: string
   programSongMeta: { hymnalCode: string; hymnalName: string } | null
+  programSongBackgroundConfig: string
   programSlide: SlideData | null
   programSlides: SlideData[]
   programSlideIndex: number
@@ -115,11 +120,19 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
   slides: [],
   setSlides: (slides, meta) => {
     const sectionMap = buildSectionIndexMap(slides)
-    set({ slides, currentSlideIndex: 0, cuedSongMeta: meta ?? null, sectionMap })
+    set({
+      slides,
+      currentSlideIndex: 0,
+      cuedSongMeta: meta ? { hymnalCode: meta.hymnalCode, hymnalName: meta.hymnalName } : null,
+      cuedSongBackgroundConfig: meta?.songBackgroundConfig || '',
+      sectionMap
+    })
     logger.info('[Quick Jump] Built section map:', Object.keys(sectionMap).join(', ') || 'none')
   },
   cuedSongMeta: null,
+  cuedSongBackgroundConfig: '',
   programSongMeta: null,
+  programSongBackgroundConfig: '',
   programSlide: null,
   programSlides: [],
   programSlideIndex: -1,
@@ -187,8 +200,11 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
   },
 
   takeCue: () => {
-    const { currentSlideIndex, cuedSongMeta } = get()
-    set({ programSongMeta: cuedSongMeta })
+    const { currentSlideIndex, cuedSongMeta, cuedSongBackgroundConfig } = get()
+    set({
+      programSongMeta: cuedSongMeta,
+      programSongBackgroundConfig: cuedSongBackgroundConfig
+    })
     get().goToSlide(currentSlideIndex)
   },
 
@@ -223,7 +239,7 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
   },
 
   goToSlide: (index) => {
-    const { slides } = get()
+    const { slides, cuedSongBackgroundConfig } = get()
     if (index >= 0 && index < slides.length) {
       const slideData = withNextSlide(slides, index)
 
@@ -231,6 +247,7 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
         currentSlideIndex: index,
         programSlides: slides,
         programSlideIndex: index,
+        programSongBackgroundConfig: cuedSongBackgroundConfig,
         projectionState: 'LIVE',
         programSlide: slideData,
         // ══════════════════════════════════════════════════════════
@@ -240,6 +257,7 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
         pendingChanges: [],
         hasPendingLiveChanges: false
       })
+      window.api.projection.themeUpdate({ song_background_config: cuedSongBackgroundConfig || '' })
       sendLiveSlide(slideData)
       get().computeNextState()
     }

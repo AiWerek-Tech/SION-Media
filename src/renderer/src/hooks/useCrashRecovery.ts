@@ -37,7 +37,11 @@ export function useCrashRecovery(): void {
           const song = songs.find((s) => s.id === recoveryState.songId)
           if (song) {
             useAppStore.getState().setSelectedSong(song)
-            useProjectionStore.getState().setSlides(generateSlidesForSong(song))
+            useProjectionStore.getState().setSlides(generateSlidesForSong(song), {
+              hymnalCode: song.hymnal_code || 'LS',
+              hymnalName: song.hymnal_name || 'Lagu Sion',
+              songBackgroundConfig: song.song_background_config || ''
+            })
 
             if (recoveryState.slideIndex !== undefined) {
               setTimeout(() => {

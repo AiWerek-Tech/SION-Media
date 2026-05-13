@@ -32,6 +32,7 @@ export interface Song {
   is_favorite: number
   created_at: string
   updated_at: string
+  song_background_config?: string
   // Joined from hymnals
   hymnal_code?: string
   hymnal_name?: string

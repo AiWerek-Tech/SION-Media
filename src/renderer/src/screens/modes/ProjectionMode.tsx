@@ -37,7 +37,8 @@ function SongInfoPanel(): React.JSX.Element {
     if (!activeSong) return
     setSlides(generateSlidesForSong(activeSong), {
       hymnalCode: activeSong.hymnal_code || 'LS',
-      hymnalName: activeSong.hymnal_name || 'Lagu Sion'
+      hymnalName: activeSong.hymnal_name || 'Lagu Sion',
+      songBackgroundConfig: activeSong.song_background_config || ''
     })
     showToast(`Cue "${activeSong.title}" masuk ke Preview`, 'success')
   }
@@ -157,7 +158,11 @@ export function ProjectionMode(): React.JSX.Element {
     const song = songs.find((s) => s.id === item.song_id)
     if (song) {
       setSelectedSong(song)
-      setSlides(generateSlidesForSong(song))
+      setSlides(generateSlidesForSong(song), {
+        hymnalCode: song.hymnal_code || 'LS',
+        hymnalName: song.hymnal_name || 'Lagu Sion',
+        songBackgroundConfig: song.song_background_config || ''
+      })
     }
   }
 

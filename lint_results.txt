@@ -1,0 +1,266 @@
+﻿
+D:\my_dev\SION-Media\src\main\database.ts
+  1363:10  warning  Insert `(ÔÅÄ┬À┬À┬À┬À`                       prettier/prettier
+  1364:1   warning  Insert `┬À┬À`                           prettier/prettier
+  1365:1   warning  Replace `┬À┬À┬À┬À` with `┬À┬À┬À┬À┬À┬À`          prettier/prettier
+  1366:5   warning  Insert `┬À┬À`                           prettier/prettier
+  1367:5   warning  Replace `.trim(` with `┬À┬À.trim()ÔÅÄ┬À┬À`  prettier/prettier
+
+D:\my_dev\SION-Media\src\renderer\src\atmosphere\MotionEngine.tsx
+   95:16  error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\my_dev\SION-Media\src\renderer\src\atmosphere\MotionEngine.tsx:95:16
+  93 |     () =>
+  94 |       Array.from({ length: 12 }, () => ({
+> 95 |         x0: `${Math.random() * 100}%`,
+     |                ^^^^^^^^^^^^^ Cannot call impure function
+  96 |         y0: `${Math.random() * 100}%`,
+  97 |         scale0: Math.random() * 0.5 + 0.5,
+  98 |         y1: `${Math.random() * 100}%`,                                                                                                    react-hooks/purity
+   96:16  error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\my_dev\SION-Media\src\renderer\src\atmosphere\MotionEngine.tsx:96:16
+  94 |       Array.from({ length: 12 }, () => ({
+  95 |         x0: `${Math.random() * 100}%`,
+> 96 |         y0: `${Math.random() * 100}%`,
+     |                ^^^^^^^^^^^^^ Cannot call impure function
+  97 |         scale0: Math.random() * 0.5 + 0.5,
+  98 |         y1: `${Math.random() * 100}%`,
+  99 |         y2: `${Math.random() * 100 - 20}%`,                                                                  react-hooks/purity
+   97:17  error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\my_dev\SION-Media\src\renderer\src\atmosphere\MotionEngine.tsx:97:17
+   95 |         x0: `${Math.random() * 100}%`,
+   96 |         y0: `${Math.random() * 100}%`,
+>  97 |         scale0: Math.random() * 0.5 + 0.5,
+      |                 ^^^^^^^^^^^^^ Cannot call impure function
+   98 |         y1: `${Math.random() * 100}%`,
+   99 |         y2: `${Math.random() * 100 - 20}%`,
+  100 |         duration: (Math.random() * 10 + 10) / Math.max(speed, 0.1),                                react-hooks/purity
+   98:16  error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\my_dev\SION-Media\src\renderer\src\atmosphere\MotionEngine.tsx:98:16
+   96 |         y0: `${Math.random() * 100}%`,
+   97 |         scale0: Math.random() * 0.5 + 0.5,
+>  98 |         y1: `${Math.random() * 100}%`,
+      |                ^^^^^^^^^^^^^ Cannot call impure function
+   99 |         y2: `${Math.random() * 100 - 20}%`,
+  100 |         duration: (Math.random() * 10 + 10) / Math.max(speed, 0.1),
+  101 |         delay: Math.random() * 10                                      react-hooks/purity
+   99:16  error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\my_dev\SION-Media\src\renderer\src\atmosphere\MotionEngine.tsx:99:16
+   97 |         scale0: Math.random() * 0.5 + 0.5,
+   98 |         y1: `${Math.random() * 100}%`,
+>  99 |         y2: `${Math.random() * 100 - 20}%`,
+      |                ^^^^^^^^^^^^^ Cannot call impure function
+  100 |         duration: (Math.random() * 10 + 10) / Math.max(speed, 0.1),
+  101 |         delay: Math.random() * 10
+  102 |       })),                                                                  react-hooks/purity
+  100:20  error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\my_dev\SION-Media\src\renderer\src\atmosphere\MotionEngine.tsx:100:20
+   98 |         y1: `${Math.random() * 100}%`,
+   99 |         y2: `${Math.random() * 100 - 20}%`,
+> 100 |         duration: (Math.random() * 10 + 10) / Math.max(speed, 0.1),
+      |                    ^^^^^^^^^^^^^ Cannot call impure function
+  101 |         delay: Math.random() * 10
+  102 |       })),
+  103 |     // speed changes are intentional re-seeds; intensity/tint don't affect positions                   react-hooks/purity
+  101:16  error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\my_dev\SION-Media\src\renderer\src\atmosphere\MotionEngine.tsx:101:16
+   99 |         y2: `${Math.random() * 100 - 20}%`,
+  100 |         duration: (Math.random() * 10 + 10) / Math.max(speed, 0.1),
+> 101 |         delay: Math.random() * 10
+      |                ^^^^^^^^^^^^^ Cannot call impure function
+  102 |       })),
+  103 |     // speed changes are intentional re-seeds; intensity/tint don't affect positions
+  104 |     // eslint-disable-next-line react-hooks/exhaustive-deps  react-hooks/purity
+  104:5   warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+D:\my_dev\SION-Media\src\renderer\src\components\library\LibraryLyricsViewer.tsx
+  240:10  error  '_isMaximizedLocal' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  287:57  error  Missing return type on function                         @typescript-eslint/explicit-function-return-type
+  326:39  error  Missing return type on function                         @typescript-eslint/explicit-function-return-type
+  333:37  error  Missing return type on function                         @typescript-eslint/explicit-function-return-type
+  350:30  error  Missing return type on function                         @typescript-eslint/explicit-function-return-type
+  408:49  error  Missing return type on function                         @typescript-eslint/explicit-function-return-type
+  437:49  error  Missing return type on function                         @typescript-eslint/explicit-function-return-type
+
+D:\my_dev\SION-Media\src\renderer\src\components\library\LibrarySearchPalette.tsx
+  289:65  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  289:73  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+D:\my_dev\SION-Media\src\renderer\src\screens\SongEditorScreen.tsx
+  303:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\my_dev\SION-Media\src\renderer\src\screens\SongEditorScreen.tsx:303:5
+  301 |     if (!songAtmosphereCollectionId) return
+  302 |     if (orderedMediaAssets.some((asset) => asset.id === songAtmosphereAssetId)) return
+> 303 |     setSongAtmosphereAssetId(orderedMediaAssets[0]?.id || '')
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  304 |   }, [orderedMediaAssets, songAtmosphereAssetId, songAtmosphereCollectionId])
+  305 |
+  306 |   useEffect(() => {  react-hooks/set-state-in-effect
+  349:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\my_dev\SION-Media\src\renderer\src\screens\SongEditorScreen.tsx:349:5
+  347 |
+  348 |   useEffect(() => {
+> 349 |     setDuplicateWarning(checkDuplicate())
+      |     ^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  350 |   }, [checkDuplicate])
+  351 |
+  352 |   useEffect(() => {                                                                                                                                                                                                 react-hooks/set-state-in-effect
+  354:33  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\my_dev\SION-Media\src\renderer\src\screens\SongEditorScreen.tsx:354:33
+  352 |   useEffect(() => {
+  353 |     if (previewSlides.length === 0) {
+> 354 |       if (activeSlideIdx !== 0) setActiveSlideIdx(0)
+      |                                 ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  355 |       return
+  356 |     }
+  357 |                                                                                                                                             react-hooks/set-state-in-effect
+  460:5   warning  React Hook useCallback has missing dependencies: 'isCurrentSongLive' and 'songBackgroundConfig'. Either include them or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     react-hooks/exhaustive-deps
+
+D:\my_dev\SION-Media\src\renderer\src\screens\modes\ManagementMode.tsx
+  294:5   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\my_dev\SION-Media\src\renderer\src\screens\modes\ManagementMode.tsx:294:5
+  292 |
+  293 |   useEffect(() => {
+> 294 |     setSelectedSongIds(new Set())
+      |     ^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  295 |   }, [selectedHymnalId])
+  296 |
+  297 |   const selectedHymnal = useMemo(                                                                                                                       react-hooks/set-state-in-effect
+  333:28  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\my_dev\SION-Media\src\renderer\src\screens\modes\ManagementMode.tsx:333:28
+  331 |     if (bulkAssetId) return
+  332 |     const candidates = bulkCollectionId ? bulkOrderedAssets : mediaAssets
+> 333 |     if (candidates[0]?.id) setBulkAssetId(candidates[0].id)
+      |                            ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  334 |   }, [
+  335 |     bulkAssetId,
+  336 |     bulkBackgroundMode,  react-hooks/set-state-in-effect
+  408:42  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\my_dev\SION-Media\src\renderer\src\screens\modes\ManagementMode.tsx:408:42
+  406 |
+  407 |   useEffect(() => {
+> 408 |     if (!selectedSong && selectedSongId) setSelectedSongId(null)
+      |                                          ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  409 |   }, [selectedSong, selectedSongId])
+  410 |
+  411 |   const metrics: MetricCard[] = useMemo(                                react-hooks/set-state-in-effect
+
+D:\my_dev\SION-Media\src\renderer\src\screens\settings\AboutSettings.tsx
+  148:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\my_dev\SION-Media\src\renderer\src\screens\settings\AboutSettings.tsx:148:5
+  146 |         process?.versions?.chrome || navigator.userAgent.match(/Chrome\/([\d.]+)/)?.[1] || 'ÔÇö'
+  147 |     }
+> 148 |     setSysInfo(info)
+      |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  149 |   }, [])
+  150 |
+  151 |   const handleCheckUpdate = async (): Promise<void> => {  react-hooks/set-state-in-effect
+
+D:\my_dev\SION-Media\src\renderer\src\screens\settings\AppThemeSettings.tsx
+  59:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\my_dev\SION-Media\src\renderer\src\screens\settings\AppThemeSettings.tsx:59:5
+  57 |     const raw = settings.app_theme_mode
+  58 |     const mode: AppThemeMode = isAppThemeMode(raw) ? raw : 'system'
+> 59 |     setActiveMode(mode)
+     |     ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  60 |   }, [settings.app_theme_mode])
+  61 |
+  62 |   const applyMode = (mode: AppThemeMode): void => {  react-hooks/set-state-in-effect
+
+D:\my_dev\SION-Media\src\renderer\src\screens\settings\BackgroundSettings.tsx
+  194:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\my_dev\SION-Media\src\renderer\src\screens\settings\BackgroundSettings.tsx:194:5
+  192 |   useEffect(() => {
+  193 |     if (!selectedAsset) return
+> 194 |     setAssetNameDraft(selectedAsset.name)
+      |     ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  195 |     setAssetCategoryDraft(selectedAsset.category || '')
+  196 |     setAssetTagsDraft((selectedAsset.tags || []).join(', '))
+  197 |   }, [selectedAsset])  react-hooks/set-state-in-effect
+
+Ô£û 32 problems (25 errors, 7 warnings)
+  0 errors and 6 warnings potentially fixable with the `--fix` option.
+

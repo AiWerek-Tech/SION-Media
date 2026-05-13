@@ -52,6 +52,7 @@ interface SongDto {
   is_favorite: number
   created_at: string
   updated_at: string
+  song_background_config?: string
   hymnal_code?: string
   hymnal_name?: string
   last_played?: string
@@ -75,6 +76,7 @@ interface SongMutationPayload {
   title_en?: string
   theme?: string
   scripture_reference?: string
+  song_background_config?: string
 }
 
 interface SongRelationDto {
@@ -196,6 +198,11 @@ interface SongsAPI {
   update: (id: number, song: SongMutationPayload) => Promise<SongDto | boolean | void>
   delete: (id: number) => Promise<boolean>
   clearLyrics: (hymnalId: number, songNumbers: string[]) => Promise<number>
+  bulkAssignBackground: (payload: {
+    songIds: number[]
+    songBackgroundConfig: string
+    assetId?: string
+  }) => Promise<number>
   toggleFavorite: (id: number) => Promise<SongDto | boolean | void>
   getRelations: (songId: number) => Promise<SongRelationDto[]>
   addRelation: (relation: SongRelationCreatePayload) => Promise<SongRelationDto>
@@ -265,6 +272,85 @@ interface FileAPI {
   writeJson: (filePath: string, data: unknown) => Promise<unknown>
 }
 
+interface MediaAssetDto {
+  id: string
+  type: 'image' | 'video'
+  name: string
+  originalPath: string
+  localPath: string
+  thumbnailPath?: string
+  category?: string
+  tags?: string[]
+  isFavorite?: boolean
+  usageCount?: number
+  collectionIds?: string[]
+  createdAt?: string
+  updatedAt?: string
+}
+
+interface MediaCollectionDto {
+  id: string
+  name: string
+  description?: string
+  coverAssetId?: string
+  coverThumbnailPath?: string
+  assetCount: number
+  assetIds: string[]
+  createdAt?: string
+  updatedAt?: string
+}
+
+interface MediaAPI {
+  getAll: (filters?: {
+    type?: 'image' | 'video'
+    search?: string
+    favoriteOnly?: boolean
+    category?: string
+    collectionId?: string
+  }) => Promise<MediaAssetDto[]>
+  getCollections: () => Promise<MediaCollectionDto[]>
+  importAssets: (payload: {
+    filePaths: string[]
+    category?: string
+    tags?: string[]
+  }) => Promise<MediaAssetDto[]>
+  update: (
+    id: string,
+    updates: { name?: string; category?: string; tags?: string[]; isFavorite?: boolean }
+  ) => Promise<MediaAssetDto | null>
+  delete: (id: string) => Promise<boolean>
+  incrementUsage: (id: string) => Promise<void>
+  addCollection: (payload: {
+    name: string
+    description?: string
+    assetIds?: string[]
+  }) => Promise<MediaCollectionDto | null>
+  updateCollection: (
+    id: string,
+    updates: { name?: string; description?: string; coverAssetId?: string }
+  ) => Promise<MediaCollectionDto | null>
+  deleteCollection: (id: string) => Promise<boolean>
+  addAssetsToCollection: (
+    collectionId: string,
+    assetIds: string[]
+  ) => Promise<MediaCollectionDto | null>
+  removeAssetsFromCollection: (
+    collectionId: string,
+    assetIds: string[]
+  ) => Promise<MediaCollectionDto | null>
+  reorderCollectionItems: (
+    collectionId: string,
+    assetIds: string[]
+  ) => Promise<MediaCollectionDto | null>
+  bulkUpdate: (payload: {
+    ids: string[]
+    category?: string
+    tags?: string[]
+    isFavorite?: boolean
+  }) => Promise<number>
+  bulkDelete: (ids: string[]) => Promise<number>
+}
+
 interface BibleAPI {
   getTranslations: () => Promise<unknown[]>
   addTranslation: (translation: unknown) => Promise<unknown>
@@ -322,6 +408,7 @@ interface API {
   settings: SettingsAPI
   system: SystemAPI
   file: FileAPI
+  media: MediaAPI
   bible: BibleAPI
   slides: SlidesAPI
   health: HealthAPI

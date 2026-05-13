@@ -53,9 +53,7 @@ export function TitleBar(): React.JSX.Element {
         {!isFirstInstall && <TitleBarMenu />}
       </div>
 
-      <div className="title-bar-center">
-        {!isFirstInstall && <TitleBarModeSwitcher />}
-      </div>
+      <div className="title-bar-center">{!isFirstInstall && <TitleBarModeSwitcher />}</div>
 
       <div className="title-bar-right">
         {!isFirstInstall && <TitleBarStatus />}

@@ -8,12 +8,14 @@ import {
   Database,
   Download,
   Edit3,
+  Film,
   FileJson,
   FileText,
   Filter,
   FolderPlus,
   Grid2X2,
   History,
+  Image as ImageIcon,
   Import,
   Layers3,
   Maximize2,
@@ -32,6 +34,12 @@ import {
 import { useAppStore } from '../../store/useAppStore'
 import type { Hymnal, Song } from '../../types'
 import { logger } from '../../utils/logger'
+import { DEFAULT_SCENE_PRESETS } from '../../atmosphere/presets'
+import type {
+  AtmosphereConfig,
+  MediaAssetRecord,
+  MediaCollectionRecord
+} from '../../atmosphere/types'
 
 type StatusTone = 'published' | 'draft' | 'review' | 'archived'
 
@@ -61,20 +69,83 @@ const getSongStatus = (song: Song): StatusTone => {
   return 'published'
 }
 
+const getSongAtmosphereSummary = (
+  song: Song
+): { mode: 'global' | 'preset' | 'asset'; label: string; detail: string } => {
+  if (!song.song_background_config) {
+    return {
+      mode: 'global',
+      label: 'Global',
+      detail: 'Mengikuti default atmosphere service'
+    }
+  }
+
+  try {
+    const parsed = JSON.parse(song.song_background_config) as {
+      name?: string
+      media?: { assetId?: string; path?: string }
+    }
+
+    if (parsed.media?.assetId || parsed.media?.path) {
+      return {
+        mode: 'asset',
+        label: 'Asset Library',
+        detail: parsed.name || 'Background asset terikat ke lagu ini'
+      }
+    }
+
+    return {
+      mode: 'preset',
+      label: 'Preset Lagu',
+      detail: parsed.name || 'Preset atmosphere custom'
+    }
+  } catch {
+    return {
+      mode: 'preset',
+      label: 'Config Manual',
+      detail: 'Konfigurasi atmosphere tersimpan sebagai JSON'
+    }
+  }
+}
+
+function toFileUrl(path?: string): string {
+  if (!path) return ''
+  if (path.startsWith('http')) return path
+  return `file://${path.replace(/\\/g, '/')}`
+}
+
+function buildSongAssetAtmosphere(asset: MediaAssetRecord): AtmosphereConfig {
+  return {
+    id: `song-asset-${asset.id}`,
+    name: asset.name,
+    mode: asset.type === 'video' ? 'video' : 'image',
+    media: {
+      assetId: asset.id,
+      path: asset.localPath,
+      fit: 'cover',
+      loop: true,
+      muted: true
+    }
+  }
+}
+
 const statusConfig: Record<StatusTone, { label: string; className: string; dot: string }> = {
   published: {
     label: 'Diterbitkan',
-    className: 'border-emerald-400/15 bg-emerald-400/10 text-emerald-300 shadow-[0_0_18px_rgba(16,185,129,0.08)]',
+    className:
+      'border-emerald-400/15 bg-emerald-400/10 text-emerald-300 shadow-[0_0_18px_rgba(16,185,129,0.08)]',
     dot: 'bg-emerald-400'
   },
   draft: {
     label: 'Draft',
-    className: 'border-sky-400/15 bg-sky-400/10 text-sky-300 shadow-[0_0_18px_rgba(56,189,248,0.08)]',
+    className:
+      'border-sky-400/15 bg-sky-400/10 text-sky-300 shadow-[0_0_18px_rgba(56,189,248,0.08)]',
     dot: 'bg-sky-400'
   },
   review: {
     label: 'Perlu Review',
-    className: 'border-orange-400/15 bg-orange-400/10 text-orange-300 shadow-[0_0_18px_rgba(245,158,11,0.08)]',
+    className:
+      'border-orange-400/15 bg-orange-400/10 text-orange-300 shadow-[0_0_18px_rgba(245,158,11,0.08)]',
     dot: 'bg-orange-400'
   },
   archived: {
@@ -172,6 +243,17 @@ export function ManagementMode(): React.JSX.Element {
   const [sortMode, setSortMode] = useState<'number' | 'title' | 'updated'>('number')
   const [selectedSongId, setSelectedSongId] = useState<number | null>(null)
   const [selectedSongIds, setSelectedSongIds] = useState<Set<number>>(new Set())
+  const [isBulkBackgroundDialogOpen, setIsBulkBackgroundDialogOpen] = useState(false)
+  const [bulkBackgroundMode, setBulkBackgroundMode] = useState<
+    'global' | 'scene-preset' | 'library-asset'
+  >('library-asset')
+  const [bulkPresetId, setBulkPresetId] = useState(DEFAULT_SCENE_PRESETS[0]?.id || 'worship')
+  const [bulkCollectionId, setBulkCollectionId] = useState<string>('')
+  const [bulkAssetId, setBulkAssetId] = useState<string>('')
+  const [bulkAssetSearch, setBulkAssetSearch] = useState('')
+  const [isApplyingBulkBackground, setIsApplyingBulkBackground] = useState(false)
+  const [mediaAssets, setMediaAssets] = useState<MediaAssetRecord[]>([])
+  const [mediaCollections, setMediaCollections] = useState<MediaCollectionRecord[]>([])
   const [showNewHymnalDialog, setShowNewHymnalDialog] = useState(false)
   const [isImportingJson, setIsImportingJson] = useState(false)
   const [isFocusWorkspace, setIsFocusWorkspace] = useState(false)
@@ -188,6 +270,15 @@ export function ManagementMode(): React.JSX.Element {
   }, [loadHymnals])
 
   useEffect(() => {
+    Promise.all([window.api.media.getAll(), window.api.media.getCollections()])
+      .then(([assets, collections]) => {
+        setMediaAssets(assets as MediaAssetRecord[])
+        setMediaCollections(collections as MediaCollectionRecord[])
+      })
+      .catch((err) => logger.error('Failed to load media library for management mode:', err))
+  }, [])
+
+  useEffect(() => {
     if (selectedHymnalId) {
       loadSongs(selectedHymnalId)
     }
@@ -200,6 +291,7 @@ export function ManagementMode(): React.JSX.Element {
   }, [hymnals, selectedHymnalId, setSelectedHymnalId])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedSongIds(new Set())
   }, [selectedHymnalId])
 
@@ -207,6 +299,50 @@ export function ManagementMode(): React.JSX.Element {
     () => hymnals.find((h) => h.id === selectedHymnalId) || null,
     [hymnals, selectedHymnalId]
   )
+
+  const bulkOrderedAssets = useMemo(() => {
+    if (!bulkCollectionId) return mediaAssets
+    const collection = mediaCollections.find((item) => item.id === bulkCollectionId)
+    if (!collection) {
+      return mediaAssets.filter((asset) => (asset.collectionIds || []).includes(bulkCollectionId))
+    }
+    const byId = new Map(mediaAssets.map((asset) => [asset.id, asset]))
+    const ordered: MediaAssetRecord[] = []
+    for (const assetId of collection.assetIds) {
+      const asset = byId.get(assetId)
+      if (asset) ordered.push(asset)
+    }
+    return ordered
+  }, [bulkCollectionId, mediaAssets, mediaCollections])
+
+  const bulkFilteredAssets = useMemo(() => {
+    const base = bulkCollectionId ? bulkOrderedAssets : mediaAssets
+    const query = bulkAssetSearch.trim().toLowerCase()
+    if (!query) return base
+    return base.filter((asset) => {
+      const haystack =
+        `${asset.name} ${asset.category || ''} ${(asset.tags || []).join(' ')}`.toLowerCase()
+      return haystack.includes(query)
+    })
+  }, [bulkAssetSearch, bulkCollectionId, bulkOrderedAssets, mediaAssets])
+
+  useEffect(() => {
+    if (!isBulkBackgroundDialogOpen) return
+    if (bulkBackgroundMode !== 'library-asset') return
+    if (bulkAssetId) return
+    const candidates = bulkCollectionId ? bulkOrderedAssets : mediaAssets
+    if (candidates[0]?.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setBulkAssetId(candidates[0].id)
+    }
+  }, [
+    bulkAssetId,
+    bulkBackgroundMode,
+    bulkCollectionId,
+    bulkOrderedAssets,
+    isBulkBackgroundDialogOpen,
+    mediaAssets
+  ])
 
   const songStats = useMemo(() => {
     const statuses = songs.reduce(
@@ -225,7 +361,10 @@ export function ManagementMode(): React.JSX.Element {
       0
     )
     const coverage = songs.length > 0 ? Math.round((statuses.published / songs.length) * 100) : 0
-    const latestImport = songs.reduce((latest, song) => Math.max(latest, parseDate(song.updated_at)), 0)
+    const latestImport = songs.reduce(
+      (latest, song) => Math.max(latest, parseDate(song.updated_at)),
+      0
+    )
     return { statuses, authors, categories, lyricLines, coverage, latestImport }
   }, [songs])
 
@@ -270,6 +409,7 @@ export function ManagementMode(): React.JSX.Element {
   }, [filteredSongs, selectedSongId, songs])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!selectedSong && selectedSongId) setSelectedSongId(null)
   }, [selectedSong, selectedSongId])
 
@@ -388,6 +528,59 @@ export function ManagementMode(): React.JSX.Element {
     }
   }, [loadSongs, selectedHymnalId, selectedSongIds, showToast])
 
+  const handleApplyBulkBackground = useCallback(async (): Promise<void> => {
+    const songIds = Array.from(selectedSongIds)
+    if (songIds.length === 0) return
+
+    let songBackgroundConfig = ''
+    let assetId: string | undefined
+
+    if (bulkBackgroundMode === 'scene-preset') {
+      const preset = DEFAULT_SCENE_PRESETS.find((item) => item.id === bulkPresetId)
+      if (!preset) {
+        showToast('Preset tidak ditemukan', 'error')
+        return
+      }
+      songBackgroundConfig = JSON.stringify(preset.config)
+    } else if (bulkBackgroundMode === 'library-asset') {
+      const asset = mediaAssets.find((item) => item.id === bulkAssetId) || null
+      if (!asset) {
+        showToast('Pilih asset background terlebih dahulu', 'error')
+        return
+      }
+      songBackgroundConfig = JSON.stringify(buildSongAssetAtmosphere(asset))
+      assetId = asset.id
+    } else {
+      songBackgroundConfig = ''
+    }
+
+    setIsApplyingBulkBackground(true)
+    try {
+      const changed = await window.api.songs.bulkAssignBackground({
+        songIds,
+        songBackgroundConfig,
+        assetId
+      })
+      await loadSongs(selectedHymnalId || undefined)
+      showToast(`Background diterapkan: ${changed}/${songIds.length} lagu`, 'success')
+      setIsBulkBackgroundDialogOpen(false)
+    } catch (err) {
+      logger.error('Bulk background assignment failed:', err)
+      showToast('Gagal menerapkan background bulk', 'error')
+    } finally {
+      setIsApplyingBulkBackground(false)
+    }
+  }, [
+    bulkAssetId,
+    bulkBackgroundMode,
+    bulkPresetId,
+    loadSongs,
+    mediaAssets,
+    selectedHymnalId,
+    selectedSongIds,
+    showToast
+  ])
+
   const handleCreateHymnal = useCallback(async (): Promise<void> => {
     if (!newHymnalData.code.trim() || !newHymnalData.name.trim()) {
       showToast('Kode dan nama buku lagu wajib diisi', 'error')
@@ -433,7 +626,9 @@ export function ManagementMode(): React.JSX.Element {
         const parsed = JSON.parse(raw) as unknown
         const items = Array.isArray(parsed)
           ? parsed
-          : parsed && typeof parsed === 'object' && Array.isArray((parsed as { songs?: unknown[] }).songs)
+          : parsed &&
+              typeof parsed === 'object' &&
+              Array.isArray((parsed as { songs?: unknown[] }).songs)
             ? (parsed as { songs: unknown[] }).songs
             : []
         if (items.length === 0) {
@@ -494,10 +689,17 @@ export function ManagementMode(): React.JSX.Element {
   const lyricLineCount = selectedSong
     ? (selectedSong.lyrics_raw || '').split('\n').filter((line) => line.trim()).length
     : 0
+  const selectedSongAtmosphere = selectedSong ? getSongAtmosphereSummary(selectedSong) : null
 
   return (
     <div className={`management-studio ${isFocusWorkspace ? 'management-studio--focus' : ''}`}>
-      <input ref={jsonInputRef} type="file" accept=".json" className="hidden" onChange={handleJsonImport} />
+      <input
+        ref={jsonInputRef}
+        type="file"
+        accept=".json"
+        className="hidden"
+        onChange={handleJsonImport}
+      />
 
       <div className="management-studio__shell">
         <header className="management-studio__header">
@@ -507,9 +709,7 @@ export function ManagementMode(): React.JSX.Element {
               Worship Content Operations Studio
             </div>
             <h1>Dashboard</h1>
-            <p>
-              Kelola lagu, lirik, hymnals, metadata, review, publishing, dan operasi konten.
-            </p>
+            <p>Kelola lagu, lirik, hymnals, metadata, review, publishing, dan operasi konten.</p>
           </div>
 
           <div className="management-studio__actions">
@@ -539,11 +739,7 @@ export function ManagementMode(): React.JSX.Element {
               <FileJson size={16} />
               Import JSON
             </button>
-            <button
-              type="button"
-              onClick={handleExportData}
-              className="management-action"
-            >
+            <button type="button" onClick={handleExportData} className="management-action">
               <Download size={16} />
               Export Data
             </button>
@@ -563,14 +759,9 @@ export function ManagementMode(): React.JSX.Element {
 
         <section className="management-summary-grid">
           {metrics.slice(0, 6).map((metric) => (
-            <Surface
-              key={metric.label}
-              className="management-summary-card"
-            >
+            <Surface key={metric.label} className="management-summary-card">
               <div className="management-summary-card__top">
-                <div
-                  className={`management-summary-card__icon bg-gradient-to-br ${metric.tone}`}
-                >
+                <div className={`management-summary-card__icon bg-gradient-to-br ${metric.tone}`}>
                   {metric.icon}
                 </div>
                 <MiniBars values={metric.bars} tone={metric.tone} />
@@ -578,9 +769,7 @@ export function ManagementMode(): React.JSX.Element {
               <div className="management-summary-card__label">{metric.label}</div>
               <div className="management-summary-card__value-row">
                 <div className="management-summary-card__value">{metric.value}</div>
-                <span>
-                  {metric.trend}
-                </span>
+                <span>{metric.trend}</span>
               </div>
               <div className="management-summary-card__meta">{metric.meta}</div>
             </Surface>
@@ -593,16 +782,18 @@ export function ManagementMode(): React.JSX.Element {
               <div className="management-command-bar__inner">
                 <div className="flex min-w-0 items-center gap-2">
                   <div className="management-segmented">
-                    {(['all', 'draft', 'review', 'published'] as Array<'all' | StatusTone>).map((status) => (
-                      <button
-                        key={status}
-                        type="button"
-                        onClick={() => setStatusFilter(status)}
-                        className={statusFilter === status ? 'is-active' : ''}
-                      >
-                        {status === 'all' ? 'Semua' : statusConfig[status].label}
-                      </button>
-                    ))}
+                    {(['all', 'draft', 'review', 'published'] as Array<'all' | StatusTone>).map(
+                      (status) => (
+                        <button
+                          key={status}
+                          type="button"
+                          onClick={() => setStatusFilter(status)}
+                          className={statusFilter === status ? 'is-active' : ''}
+                        >
+                          {status === 'all' ? 'Semua' : statusConfig[status].label}
+                        </button>
+                      )
+                    )}
                   </div>
 
                   <IconButton title="Buku Lagu Baru" onClick={() => setShowNewHymnalDialog(true)}>
@@ -630,7 +821,10 @@ export function ManagementMode(): React.JSX.Element {
                     Filter
                   </button>
                   <div className="management-search">
-                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <Search
+                      size={15}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+                    />
                     <input
                       id="song-search-input"
                       value={searchQuery}
@@ -650,7 +844,9 @@ export function ManagementMode(): React.JSX.Element {
                   </div>
                   <select
                     value={sortMode}
-                    onChange={(event) => setSortMode(event.target.value as 'number' | 'title' | 'updated')}
+                    onChange={(event) =>
+                      setSortMode(event.target.value as 'number' | 'title' | 'updated')
+                    }
                     className="management-select"
                   >
                     <option value="number">Sort: Nomor</option>
@@ -669,7 +865,8 @@ export function ManagementMode(): React.JSX.Element {
                 <div>
                   <h2>Daftar Lagu</h2>
                   <p>
-                    Menampilkan {formatNumber(filteredSongs.length)} dari {formatNumber(songs.length)} lagu
+                    Menampilkan {formatNumber(filteredSongs.length)} dari{' '}
+                    {formatNumber(songs.length)} lagu
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -682,6 +879,15 @@ export function ManagementMode(): React.JSX.Element {
                       >
                         Clear {selectedSongIds.size}
                       </button>
+                      <IconButton
+                        title="Bulk background assignment"
+                        onClick={() => {
+                          setBulkAssetSearch('')
+                          setIsBulkBackgroundDialogOpen(true)
+                        }}
+                      >
+                        <Layers3 size={15} />
+                      </IconButton>
                       <IconButton title="Delete selected" onClick={handleBulkDelete} danger>
                         <Trash2 size={15} />
                       </IconButton>
@@ -754,9 +960,13 @@ export function ManagementMode(): React.JSX.Element {
                           >
                             <Check size={12} />
                           </span>
-                          <span className="text-sm font-semibold text-slate-200">{song.number}</span>
+                          <span className="text-sm font-semibold text-slate-200">
+                            {song.number}
+                          </span>
                           <span className="min-w-0">
-                            <span className="block truncate text-sm font-semibold text-white">{song.title}</span>
+                            <span className="block truncate text-sm font-semibold text-white">
+                              {song.title}
+                            </span>
                             <span className="mt-0.5 block truncate text-xs text-slate-500">
                               {song.alternate_title || song.title_en || 'Tanpa subtitle'}
                             </span>
@@ -784,7 +994,11 @@ export function ManagementMode(): React.JSX.Element {
                             <IconButton title="Duplicate">
                               <Copy size={14} />
                             </IconButton>
-                            <IconButton title="Delete" onClick={() => handleDeleteSong(song)} danger>
+                            <IconButton
+                              title="Delete"
+                              onClick={() => handleDeleteSong(song)}
+                              danger
+                            >
                               <Trash2 size={14} />
                             </IconButton>
                           </span>
@@ -796,7 +1010,8 @@ export function ManagementMode(): React.JSX.Element {
               </div>
               <div className="management-browser__footer">
                 <span>
-                  Menampilkan 1-{Math.min(filteredSongs.length, 25)} dari {formatNumber(filteredSongs.length)} lagu
+                  Menampilkan 1-{Math.min(filteredSongs.length, 25)} dari{' '}
+                  {formatNumber(filteredSongs.length)} lagu
                 </span>
                 <div className="flex items-center gap-2">
                   <button className="h-8 rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 text-slate-400 transition-all hover:bg-white/[0.06] hover:text-white">
@@ -836,16 +1051,16 @@ export function ManagementMode(): React.JSX.Element {
                   <div className="management-inspector__hero">
                     <div className="management-inspector__artwork">
                       <div className="management-inspector__artwork-flare" />
-                      <div>
-                        {selectedSong.title}
-                      </div>
+                      <div>{selectedSong.title}</div>
                     </div>
                     <div className="management-inspector__title-block">
                       <h3>
                         {selectedSong.number} - {selectedSong.title}
                       </h3>
                       <p>
-                        {selectedSong.alternate_title || selectedSong.title_en || 'No alternate title'}
+                        {selectedSong.alternate_title ||
+                          selectedSong.title_en ||
+                          'No alternate title'}
                       </p>
                       <div className="management-inspector__badges">
                         <StatusBadge status={getSongStatus(selectedSong)} />
@@ -861,10 +1076,7 @@ export function ManagementMode(): React.JSX.Element {
                       <Play size={15} />
                       Pratinjau
                     </button>
-                    <button
-                      onClick={() => handleEditSong(selectedSong)}
-                      className="is-primary"
-                    >
+                    <button onClick={() => handleEditSong(selectedSong)} className="is-primary">
                       <Edit3 size={15} />
                       Edit Lagu
                     </button>
@@ -911,8 +1123,36 @@ export function ManagementMode(): React.JSX.Element {
                       {[
                         ['Bahasa', selectedSong.language || 'Indonesia'],
                         ['Hak Cipta', selectedSong.scripture_reference || 'Public Domain'],
-                        ['Dibuat', selectedSong.created_at ? new Date(selectedSong.created_at).toLocaleString('id-ID') : '-'],
-                        ['Diubah', selectedSong.updated_at ? new Date(selectedSong.updated_at).toLocaleString('id-ID') : '-']
+                        [
+                          'Dibuat',
+                          selectedSong.created_at
+                            ? new Date(selectedSong.created_at).toLocaleString('id-ID')
+                            : '-'
+                        ],
+                        [
+                          'Diubah',
+                          selectedSong.updated_at
+                            ? new Date(selectedSong.updated_at).toLocaleString('id-ID')
+                            : '-'
+                        ]
+                      ].map(([label, value]) => (
+                        <React.Fragment key={label}>
+                          <dt>{label}</dt>
+                          <dd>{value}</dd>
+                        </React.Fragment>
+                      ))}
+                    </dl>
+                  </div>
+
+                  <div className="management-inspector__section">
+                    <div className="management-inspector__section-title">Background Binding</div>
+                    <dl>
+                      {[
+                        ['Mode', selectedSongAtmosphere?.label || 'Global'],
+                        [
+                          'Detail',
+                          selectedSongAtmosphere?.detail || 'Mengikuti default atmosphere service'
+                        ]
                       ].map(([label, value]) => (
                         <React.Fragment key={label}>
                           <dt>{label}</dt>
@@ -928,8 +1168,14 @@ export function ManagementMode(): React.JSX.Element {
                       {[
                         ['Baris', lyricLineCount],
                         ['Verse', Math.max(1, Math.round(lyricLineCount / 5))],
-                        ['Chorus', (selectedSong.lyrics_raw || '').toLowerCase().includes('chorus') ? 1 : 0],
-                        ['Bridge', (selectedSong.lyrics_raw || '').toLowerCase().includes('bridge') ? 1 : 0]
+                        [
+                          'Chorus',
+                          (selectedSong.lyrics_raw || '').toLowerCase().includes('chorus') ? 1 : 0
+                        ],
+                        [
+                          'Bridge',
+                          (selectedSong.lyrics_raw || '').toLowerCase().includes('bridge') ? 1 : 0
+                        ]
                       ].map(([label, value]) => (
                         <div key={label}>
                           <strong>{value}</strong>
@@ -1017,6 +1263,210 @@ export function ManagementMode(): React.JSX.Element {
                 className="h-10 rounded-xl border border-blue-300/20 bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_0_28px_rgba(37,99,235,0.24)] transition-all hover:bg-blue-500"
               >
                 Buat Buku Lagu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isBulkBackgroundDialogOpen && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 p-8 backdrop-blur-md">
+          <div className="w-full max-w-3xl rounded-2xl border border-white/[0.08] bg-[#0c1422] p-6 shadow-[0_35px_100px_rgba(0,0,0,0.55)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-200/70">
+                  Workflow Operator
+                </div>
+                <h2 className="mt-2 text-xl font-semibold text-white">
+                  Bulk Song Background Assignment
+                </h2>
+                <p className="mt-2 text-sm text-slate-500">
+                  Terapkan background binding ke {selectedSongIds.size} lagu yang dipilih.
+                </p>
+              </div>
+              <IconButton
+                title="Close"
+                onClick={() => {
+                  if (!isApplyingBulkBackground) setIsBulkBackgroundDialogOpen(false)
+                }}
+                disabled={isApplyingBulkBackground}
+              >
+                <X size={16} />
+              </IconButton>
+            </div>
+
+            <div className="mt-6 grid gap-4">
+              <label className="grid gap-2">
+                <span className="text-xs font-semibold text-slate-400">Mode</span>
+                <div className="relative">
+                  <select
+                    value={bulkBackgroundMode}
+                    onChange={(event) =>
+                      setBulkBackgroundMode(
+                        event.target.value as 'global' | 'scene-preset' | 'library-asset'
+                      )
+                    }
+                    className="h-11 w-full appearance-none rounded-xl border border-white/[0.08] bg-black/20 px-3 pr-10 text-sm text-white outline-none transition-all focus:border-blue-400/40 focus:shadow-[0_0_0_3px_rgba(59,130,246,0.12)]"
+                  >
+                    <option value="global">Reset ke Global (hapus binding)</option>
+                    <option value="scene-preset">Preset Atmosphere</option>
+                    <option value="library-asset">Asset Media Library</option>
+                  </select>
+                  <ChevronDown
+                    size={16}
+                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+                  />
+                </div>
+              </label>
+
+              {bulkBackgroundMode === 'scene-preset' && (
+                <label className="grid gap-2">
+                  <span className="text-xs font-semibold text-slate-400">Preset</span>
+                  <div className="relative">
+                    <select
+                      value={bulkPresetId}
+                      onChange={(event) => setBulkPresetId(event.target.value)}
+                      className="h-11 w-full appearance-none rounded-xl border border-white/[0.08] bg-black/20 px-3 pr-10 text-sm text-white outline-none transition-all focus:border-blue-400/40 focus:shadow-[0_0_0_3px_rgba(59,130,246,0.12)]"
+                    >
+                      {DEFAULT_SCENE_PRESETS.map((preset) => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      size={16}
+                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+                    />
+                  </div>
+                </label>
+              )}
+
+              {bulkBackgroundMode === 'library-asset' && (
+                <div className="grid gap-4">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <label className="grid gap-2">
+                      <span className="text-xs font-semibold text-slate-400">Koleksi</span>
+                      <div className="relative">
+                        <select
+                          value={bulkCollectionId}
+                          onChange={(event) => {
+                            setBulkCollectionId(event.target.value)
+                            setBulkAssetSearch('')
+                          }}
+                          className="h-11 w-full appearance-none rounded-xl border border-white/[0.08] bg-black/20 px-3 pr-10 text-sm text-white outline-none transition-all focus:border-blue-400/40 focus:shadow-[0_0_0_3px_rgba(59,130,246,0.12)]"
+                        >
+                          <option value="">Semua Asset</option>
+                          {mediaCollections.map((collection) => (
+                            <option key={collection.id} value={collection.id}>
+                              {collection.name}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown
+                          size={16}
+                          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+                        />
+                      </div>
+                    </label>
+
+                    <label className="grid gap-2">
+                      <span className="text-xs font-semibold text-slate-400">Cari Asset</span>
+                      <input
+                        value={bulkAssetSearch}
+                        onChange={(event) => setBulkAssetSearch(event.target.value)}
+                        placeholder="Cari nama, kategori, tag..."
+                        className="h-11 rounded-xl border border-white/[0.08] bg-black/20 px-3 text-sm text-white outline-none transition-all placeholder:text-slate-600 focus:border-blue-400/40 focus:shadow-[0_0_0_3px_rgba(59,130,246,0.12)]"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid max-h-[340px] grid-cols-2 gap-3 overflow-y-auto pr-1 md:grid-cols-3">
+                    {bulkFilteredAssets.length === 0 ? (
+                      <div className="col-span-full rounded-xl border border-white/[0.06] bg-black/20 px-4 py-5 text-sm text-slate-400">
+                        Tidak ada asset pada filter ini.
+                      </div>
+                    ) : (
+                      bulkFilteredAssets.map((asset) => {
+                        const isSelected = asset.id === bulkAssetId
+                        const thumbUrl = asset.thumbnailPath ? toFileUrl(asset.thumbnailPath) : ''
+                        return (
+                          <button
+                            key={asset.id}
+                            type="button"
+                            onClick={() => setBulkAssetId(asset.id)}
+                            className={`group overflow-hidden rounded-xl border text-left transition-all ${
+                              isSelected
+                                ? 'border-blue-400/40 bg-blue-500/10 shadow-[0_0_0_3px_rgba(59,130,246,0.12)]'
+                                : 'border-white/[0.06] bg-white/[0.02] hover:border-blue-400/25 hover:bg-blue-500/5'
+                            }`}
+                          >
+                            <div className="relative aspect-video bg-black/30">
+                              {thumbUrl ? (
+                                <img
+                                  src={thumbUrl}
+                                  alt={asset.name}
+                                  className="h-full w-full object-cover"
+                                  draggable={false}
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-slate-400">
+                                  {asset.type === 'video' ? (
+                                    <Film size={18} />
+                                  ) : (
+                                    <ImageIcon size={18} />
+                                  )}
+                                </div>
+                              )}
+                              {isSelected && (
+                                <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-blue-500/20 px-2 py-1 text-[10px] font-bold text-blue-200">
+                                  Selected
+                                </div>
+                              )}
+                            </div>
+                            <div className="px-3 py-2">
+                              <div className="truncate text-sm font-semibold text-white">
+                                {asset.name}
+                              </div>
+                              <div className="mt-0.5 flex items-center gap-2 text-[11px] text-slate-400">
+                                <span className="truncate">
+                                  {asset.category || 'Uncategorized'}
+                                </span>
+                                <span className="opacity-60">·</span>
+                                <span className="whitespace-nowrap">
+                                  {asset.type === 'video' ? 'Video' : 'Image'}
+                                </span>
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsBulkBackgroundDialogOpen(false)}
+                disabled={isApplyingBulkBackground}
+                className="h-10 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-semibold text-slate-300 transition-all hover:bg-white/[0.06] disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyBulkBackground}
+                disabled={
+                  isApplyingBulkBackground ||
+                  selectedSongIds.size === 0 ||
+                  (bulkBackgroundMode === 'library-asset' && !bulkAssetId)
+                }
+                className="h-10 rounded-xl border border-blue-300/20 bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_0_28px_rgba(37,99,235,0.24)] transition-all hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Terapkan Ke {selectedSongIds.size} Lagu
               </button>
             </div>
           </div>

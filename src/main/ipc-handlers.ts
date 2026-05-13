@@ -16,9 +16,24 @@ import {
   updateSong,
   deleteSong,
   clearLyrics,
+  bulkAssignSongBackground,
   getSongRelations,
   addSongRelation,
   deleteSongRelation,
+  getMediaAssets,
+  getMediaCollections,
+  importMediaAssets,
+  updateMediaAsset,
+  deleteMediaAsset,
+  incrementMediaAssetUsage,
+  addMediaCollection,
+  updateMediaCollection,
+  deleteMediaCollection,
+  addAssetsToMediaCollection,
+  removeAssetsFromMediaCollection,
+  reorderMediaCollectionItems,
+  bulkUpdateMediaAssets,
+  bulkDeleteMediaAssets,
   getPlaylists,
   addPlaylist,
   updatePlaylist,
@@ -229,7 +244,136 @@ export function setupIPC(): void {
   ipcMain.handle('db:clear-lyrics', (_e, hymnalId, songNumbers) =>
     clearLyrics(hymnalId, songNumbers)
   )
+  safeIpcHandle('db:bulk-assign-song-background', (payload: unknown) => {
+    const raw = ensureObject(payload, 'Invalid bulk song background payload.')
+    if (!Array.isArray(raw.songIds)) throw new Error('songIds must be an array.')
+    if (typeof raw.songBackgroundConfig !== 'string') {
+      throw new Error('songBackgroundConfig must be a string.')
+    }
+    return bulkAssignSongBackground({
+      songIds: raw.songIds.filter((item): item is number => Number.isInteger(item)),
+      songBackgroundConfig: raw.songBackgroundConfig,
+      assetId: typeof raw.assetId === 'string' ? raw.assetId : undefined
+    })
+  })
   ipcMain.handle('db:toggle-favorite', (_e, id) => toggleFavorite(id))
+
+  // Media Library
+  safeIpcHandle('db:get-media-assets', (filters: unknown) => {
+    if (filters === undefined || filters === null) return getMediaAssets()
+    const raw = ensureObject(filters, 'Invalid media asset filters.')
+    return getMediaAssets({
+      type: raw.type as 'image' | 'video' | undefined,
+      search: typeof raw.search === 'string' ? raw.search : undefined,
+      favoriteOnly: raw.favoriteOnly === true,
+      category: typeof raw.category === 'string' ? raw.category : undefined,
+      collectionId: typeof raw.collectionId === 'string' ? raw.collectionId : undefined
+    })
+  })
+  safeIpcHandle('db:get-media-collections', () => getMediaCollections())
+  safeIpcHandle('db:import-media-assets', (payload: unknown) => {
+    const raw = ensureObject(payload, 'Invalid media import payload.')
+    if (!Array.isArray(raw.filePaths)) throw new Error('filePaths must be an array.')
+    return importMediaAssets({
+      filePaths: raw.filePaths.filter((item): item is string => typeof item === 'string'),
+      category: typeof raw.category === 'string' ? raw.category : undefined,
+      tags: Array.isArray(raw.tags)
+        ? raw.tags.filter((item): item is string => typeof item === 'string')
+        : undefined
+    })
+  })
+  safeIpcHandle('db:update-media-asset', (id: unknown, updates: unknown) => {
+    const mediaId = ensureNonEmptyString(id, 'Invalid media asset id.')
+    const raw = ensureObject(updates, 'Invalid media asset update payload.')
+    return updateMediaAsset(mediaId, {
+      name: typeof raw.name === 'string' ? raw.name : undefined,
+      category: typeof raw.category === 'string' ? raw.category : undefined,
+      tags: Array.isArray(raw.tags)
+        ? raw.tags.filter((item): item is string => typeof item === 'string')
+        : undefined,
+      isFavorite: typeof raw.isFavorite === 'boolean' ? raw.isFavorite : undefined
+    })
+  })
+  safeIpcHandle('db:delete-media-asset', (id: unknown) => {
+    const mediaId = ensureNonEmptyString(id, 'Invalid media asset id.')
+    auditDestructiveAction('db:delete-media-asset', { id: mediaId })
+    return deleteMediaAsset(mediaId)
+  })
+  safeIpcHandle('db:increment-media-asset-usage', (id: unknown) => {
+    const mediaId = ensureNonEmptyString(id, 'Invalid media asset id.')
+    incrementMediaAssetUsage(mediaId)
+  })
+  safeIpcHandle('db:add-media-collection', (payload: unknown) => {
+    const raw = ensureObject(payload, 'Invalid media collection payload.')
+    return addMediaCollection({
+      name: ensureNonEmptyString(raw.name, 'Collection name is required.'),
+      description: typeof raw.description === 'string' ? raw.description : undefined,
+      assetIds: Array.isArray(raw.assetIds)
+        ? raw.assetIds.filter((item): item is string => typeof item === 'string')
+        : undefined
+    })
+  })
+  safeIpcHandle('db:update-media-collection', (id: unknown, updates: unknown) => {
+    const collectionId = ensureNonEmptyString(id, 'Invalid media collection id.')
+    const raw = ensureObject(updates, 'Invalid media collection update payload.')
+    return updateMediaCollection(collectionId, {
+      name: typeof raw.name === 'string' ? raw.name : undefined,
+      description: typeof raw.description === 'string' ? raw.description : undefined,
+      coverAssetId: typeof raw.coverAssetId === 'string' ? raw.coverAssetId : undefined
+    })
+  })
+  safeIpcHandle('db:delete-media-collection', (id: unknown) => {
+    const collectionId = ensureNonEmptyString(id, 'Invalid media collection id.')
+    auditDestructiveAction('db:delete-media-collection', { id: collectionId })
+    return deleteMediaCollection(collectionId)
+  })
+  safeIpcHandle('db:add-assets-to-media-collection', (collectionId: unknown, assetIds: unknown) => {
+    const safeCollectionId = ensureNonEmptyString(collectionId, 'Invalid media collection id.')
+    if (!Array.isArray(assetIds)) throw new Error('assetIds must be an array.')
+    return addAssetsToMediaCollection(
+      safeCollectionId,
+      assetIds.filter((item): item is string => typeof item === 'string')
+    )
+  })
+  safeIpcHandle(
+    'db:remove-assets-from-media-collection',
+    (collectionId: unknown, assetIds: unknown) => {
+      const safeCollectionId = ensureNonEmptyString(collectionId, 'Invalid media collection id.')
+      if (!Array.isArray(assetIds)) throw new Error('assetIds must be an array.')
+      return removeAssetsFromMediaCollection(
+        safeCollectionId,
+        assetIds.filter((item): item is string => typeof item === 'string')
+      )
+    }
+  )
+  safeIpcHandle('db:reorder-media-collection-items', (collectionId: unknown, assetIds: unknown) => {
+    const safeCollectionId = ensureNonEmptyString(collectionId, 'Invalid media collection id.')
+    if (!Array.isArray(assetIds)) throw new Error('assetIds must be an array.')
+    return reorderMediaCollectionItems(
+      safeCollectionId,
+      assetIds.filter((item): item is string => typeof item === 'string')
+    )
+  })
+  safeIpcHandle('db:bulk-update-media-assets', (payload: unknown) => {
+    const raw = ensureObject(payload, 'Invalid bulk media update payload.')
+    if (!Array.isArray(raw.ids)) throw new Error('ids must be an array.')
+    return bulkUpdateMediaAssets(
+      raw.ids.filter((item): item is string => typeof item === 'string'),
+      {
+        category: typeof raw.category === 'string' ? raw.category : undefined,
+        tags: Array.isArray(raw.tags)
+          ? raw.tags.filter((item): item is string => typeof item === 'string')
+          : undefined,
+        isFavorite: typeof raw.isFavorite === 'boolean' ? raw.isFavorite : undefined
+      }
+    )
+  })
+  safeIpcHandle('db:bulk-delete-media-assets', (ids: unknown) => {
+    if (!Array.isArray(ids)) throw new Error('ids must be an array.')
+    const safeIds = ids.filter((item): item is string => typeof item === 'string')
+    auditDestructiveAction('db:bulk-delete-media-assets', { count: safeIds.length })
+    return bulkDeleteMediaAssets(safeIds)
+  })
 
   // Song Relations
   ipcMain.handle('db:get-song-relations', (_e, songId) => getSongRelations(songId))

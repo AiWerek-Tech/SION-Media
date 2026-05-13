@@ -217,7 +217,11 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps): React.
         const song = item.data
         useAppStore.getState().setSelectedSong(song)
         const slides = generateSlidesForSong(song)
-        setSlides(slides)
+        setSlides(slides, {
+          hymnalCode: song.hymnal_code || 'LS',
+          hymnalName: song.hymnal_name || 'Lagu Sion',
+          songBackgroundConfig: song.song_background_config || ''
+        })
         showToast(`Cue "${song.title}" masuk ke Preview`, 'success')
       } else {
         const cmd = item.data

@@ -1,20 +1,35 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { MonitorPlay, Library, LayoutDashboard, Settings, ChevronDown, Check } from 'lucide-react'
+import { MonitorPlay, Library, LayoutDashboard, Settings, ChevronDown } from 'lucide-react'
 import { useModeStore, AppMode } from '../../store/useModeStore'
 
-const MODE_CONFIG: Record<AppMode, { label: string; icon: React.ReactNode; colorClass: string }> = {
+const MODE_CONFIG: Record<
+  AppMode,
+  { label: string; sub: string; icon: React.ReactNode; colorClass: string }
+> = {
   PROJECTION: {
     label: 'Projection',
-    icon: <MonitorPlay size={14} />,
+    sub: 'Live Scene & Output',
+    icon: <MonitorPlay size={16} strokeWidth={1.5} />,
     colorClass: 'text-brand-primary'
   },
-  LIBRARY: { label: 'Library', icon: <Library size={14} />, colorClass: 'text-brand-secondary' },
+  LIBRARY: {
+    label: 'Library',
+    sub: 'Media & Song Assets',
+    icon: <Library size={16} strokeWidth={1.5} />,
+    colorClass: 'text-brand-secondary'
+  },
   BROADCAST: {
     label: 'Broadcast',
-    icon: <LayoutDashboard size={14} />,
+    sub: 'Streaming & Distribution',
+    icon: <LayoutDashboard size={16} strokeWidth={1.5} />,
     colorClass: 'text-status-warning'
   },
-  MANAGEMENT: { label: 'Management', icon: <Settings size={14} />, colorClass: 'text-text-primary' }
+  MANAGEMENT: {
+    label: 'Management',
+    sub: 'System Configuration',
+    icon: <Settings size={16} strokeWidth={1.5} />,
+    colorClass: 'text-text-primary'
+  }
 }
 
 export function TitleBarModeSwitcher(): React.JSX.Element {
@@ -49,13 +64,14 @@ export function TitleBarModeSwitcher(): React.JSX.Element {
         </span>
         <span className="title-bar-mode-trigger__text">{config.label}</span>
         <ChevronDown
-          size={13}
+          size={14}
+          strokeWidth={1.5}
           className={`title-bar-mode-trigger__chevron ${isOpen ? 'is-open' : ''}`}
         />
       </button>
 
       {isOpen && (
-        <div className="title-bar-mode-dropdown animate-in fade-in zoom-in-[0.98] duration-150">
+        <div className="title-bar-mode-dropdown animate-in fade-in zoom-in-[0.98] duration-200">
           {(Object.keys(MODE_CONFIG) as AppMode[]).map((mode) => {
             const item = MODE_CONFIG[mode]
             const isActive = currentMode === mode
@@ -72,12 +88,12 @@ export function TitleBarModeSwitcher(): React.JSX.Element {
                   <span className={`title-bar-mode-option__icon ${item.colorClass}`}>
                     {item.icon}
                   </span>
-                  <div>
-                    <span>{item.label}</span>
-                    <small>{mode.toLowerCase()}</small>
+                  <div className="title-bar-mode-option__content">
+                    <span className="title-bar-mode-option__label">{item.label}</span>
+                    <span className="title-bar-mode-option__sub">{item.sub}</span>
                   </div>
                 </div>
-                {isActive && <Check size={14} className="title-bar-mode-option__check" />}
+                {isActive && <div className="title-bar-mode-option__indicator" />}
               </button>
             )
           })}

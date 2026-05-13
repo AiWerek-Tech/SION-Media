@@ -1,7 +1,8 @@
 import Database from 'better-sqlite3'
-import { join } from 'path'
-import { app } from 'electron'
-import { copyFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from 'fs'
+import { join, basename, extname } from 'path'
+import { app, nativeImage } from 'electron'
+import { copyFileSync, existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from 'fs'
+import { randomUUID } from 'crypto'
 import { initialSongs } from './seed-data'
 import { runMigrations } from './migrations'
 
@@ -529,7 +530,9 @@ function seedDatabase(): void {
      VALUES ('LS', 'Lagu Sion Edisi Lengkap', 'Indonesia', 'Indonesia', 'GMAHK', 1)`
     )
     .run()
-  const existingHymnal = db.prepare("SELECT id FROM hymnals WHERE code = 'LS'").get() as { id: number }
+  const existingHymnal = db.prepare("SELECT id FROM hymnals WHERE code = 'LS'").get() as {
+    id: number
+  }
   const lsId = hymnalResult.lastInsertRowid || existingHymnal.id
 
   const insert = db.prepare(`
@@ -988,6 +991,7 @@ export function addSong(song: {
   tags?: string
   theme?: string
   scripture_reference?: string
+  song_background_config?: string
 }): unknown {
   const normalizedSong = {
     ...song,
@@ -1004,8 +1008,12 @@ export function addSong(song: {
 
   const result = db
     .prepare(
-      `INSERT INTO songs (hymnal_id, number, title, alternate_title, lyrics_raw, category, language, author, composer, key_note, time_signature, tempo, tags, theme, scripture_reference)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO songs (
+        hymnal_id, number, title, alternate_title, lyrics_raw, category, language, author,
+        composer, key_note, time_signature, tempo, tags, theme, scripture_reference,
+        song_background_config
+      )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       normalizedSong.hymnal_id,
@@ -1022,7 +1030,8 @@ export function addSong(song: {
       normalizedSong.tempo || '',
       normalizedSong.tags || '',
       normalizedSong.theme || '',
-      normalizedSong.scripture_reference || ''
+      normalizedSong.scripture_reference || '',
+      normalizedSong.song_background_config || ''
     )
   checkpointWal()
   return { id: result.lastInsertRowid, ...normalizedSong }
@@ -1046,6 +1055,7 @@ export function updateSong(
     tags?: string
     theme?: string
     scripture_reference?: string
+    song_background_config?: string
   }
 ): unknown {
   const existing = db.prepare('SELECT * FROM songs WHERE id = ?').get(id) as Record<string, unknown>
@@ -1058,7 +1068,7 @@ export function updateSong(
     `UPDATE songs SET
       hymnal_id = ?, number = ?, title = ?, alternate_title = ?, lyrics_raw = ?, category = ?,
       language = ?, author = ?, composer = ?, key_note = ?, time_signature = ?, tempo = ?, tags = ?,
-      theme = ?, scripture_reference = ?, updated_at = datetime('now')
+      theme = ?, scripture_reference = ?, song_background_config = ?, updated_at = datetime('now')
     WHERE id = ?`
   ).run(
     song.hymnal_id ?? existing.hymnal_id,
@@ -1076,6 +1086,7 @@ export function updateSong(
     song.tags ?? existing.tags,
     song.theme ?? existing.theme,
     song.scripture_reference ?? existing.scripture_reference,
+    song.song_background_config ?? existing.song_background_config,
     id
   )
   checkpointWal()
@@ -1094,6 +1105,45 @@ export function clearLyrics(hymnalId: number, songNumbers: string[]): number {
   const result = db.prepare(sql).run(hymnalId, ...songNumbers)
   if (result.changes > 0) checkpointWal()
   return result.changes
+}
+
+export function bulkAssignSongBackground(payload: {
+  songIds: number[]
+  songBackgroundConfig: string
+  assetId?: string
+}): number {
+  const songIds = payload.songIds.filter(
+    (item): item is number => Number.isInteger(item) && item > 0
+  )
+  if (songIds.length === 0) return 0
+
+  const updateSongBackground = db.prepare(
+    `UPDATE songs
+     SET song_background_config = ?, updated_at = datetime('now')
+     WHERE id = ?`
+  )
+  const incrementAssetUsage = payload.assetId
+    ? db.prepare(
+        `UPDATE media_assets
+         SET usage_count = usage_count + ?, updated_at = datetime('now')
+         WHERE id = ?`
+      )
+    : null
+
+  let changed = 0
+  const transaction = db.transaction(() => {
+    for (const songId of songIds) {
+      const result = updateSongBackground.run(payload.songBackgroundConfig, songId)
+      changed += result.changes
+    }
+    if (incrementAssetUsage && changed > 0) {
+      incrementAssetUsage.run(changed, payload.assetId)
+    }
+  })
+
+  transaction()
+  if (changed > 0) checkpointWal()
+  return changed
 }
 
 // ========== Song Relation Operations ==========
@@ -1247,6 +1297,695 @@ export function reorderPlaylistItems(items: { id: number; sort_order: number }[]
   })
   transaction()
   checkpointWal()
+}
+
+// ========== Media Assets ==========
+
+type MediaAssetType = 'image' | 'video'
+
+type MediaAssetRow = {
+  id: string
+  type: MediaAssetType
+  name: string
+  original_path: string
+  local_path: string
+  thumbnail_path: string
+  category: string
+  tags: string
+  is_favorite: number
+  usage_count: number
+  created_at: string
+  updated_at: string
+}
+
+type MediaCollectionRow = {
+  id: string
+  name: string
+  description: string
+  cover_asset_id: string
+  created_at: string
+  updated_at: string
+  asset_count?: number
+  cover_thumbnail_path?: string
+}
+
+function getMediaLibraryPaths(): {
+  rootDir: string
+  imageDir: string
+  videoDir: string
+  thumbnailDir: string
+} {
+  const rootDir = join(app.getPath('userData'), 'media-library')
+  return {
+    rootDir,
+    imageDir: join(rootDir, 'images'),
+    videoDir: join(rootDir, 'videos'),
+    thumbnailDir: join(rootDir, 'thumbnails')
+  }
+}
+
+function ensureMediaLibraryDirs(): ReturnType<typeof getMediaLibraryPaths> {
+  const paths = getMediaLibraryPaths()
+  for (const dir of [paths.rootDir, paths.imageDir, paths.videoDir, paths.thumbnailDir]) {
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  }
+  return paths
+}
+
+function normalizeMediaAssetType(filePath: string): MediaAssetType {
+  const ext = extname(filePath).toLowerCase()
+  if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) return 'image'
+  if (['.mp4', '.webm'].includes(ext)) return 'video'
+  throw new Error(`Unsupported media format: ${ext || 'unknown'}`)
+}
+
+function sanitizeMediaName(input: string): string {
+  return (
+    input
+      // eslint-disable-next-line no-control-regex
+      .replace(/[<>:"/\\|?*\u0000-\u001F]/g, ' ') // NOSONAR
+      .replace(/\s+/g, ' ')
+      .trim()
+  )
+}
+
+function buildVideoPlaceholderThumbnail(name: string): Electron.NativeImage {
+  const safeName = sanitizeMediaName(name).slice(0, 42) || 'Video Asset'
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="480" height="270" viewBox="0 0 480 270">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#0f172a"/>
+          <stop offset="100%" stop-color="#1e293b"/>
+        </linearGradient>
+      </defs>
+      <rect width="480" height="270" rx="28" fill="url(#bg)"/>
+      <circle cx="240" cy="120" r="54" fill="rgba(255,255,255,0.08)"/>
+      <polygon points="228,92 228,148 274,120" fill="#f8fafc"/>
+      <text x="240" y="198" text-anchor="middle" fill="#e2e8f0" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">VIDEO BACKGROUND</text>
+      <text x="240" y="228" text-anchor="middle" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="14">${safeName}</text>
+    </svg>
+  `
+  return nativeImage.createFromDataURL(
+    `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+  )
+}
+
+function writeThumbnail(
+  localPath: string,
+  thumbnailPath: string,
+  type: MediaAssetType,
+  name: string
+): void {
+  let image = nativeImage.createFromPath(localPath)
+  if (type === 'video' || image.isEmpty()) {
+    image = buildVideoPlaceholderThumbnail(name)
+  }
+  const thumbnail = image.resize({
+    width: 480,
+    height: 270,
+    quality: 'good'
+  })
+  writeFileSync(thumbnailPath, thumbnail.toPNG())
+}
+
+function getCollectionIdsForAsset(assetId: string): string[] {
+  return (
+    db
+      .prepare(
+        'SELECT collection_id FROM media_collection_items WHERE asset_id = ? ORDER BY collection_id ASC'
+      )
+      .all(assetId) as Array<{ collection_id: string }>
+  ).map((row) => row.collection_id)
+}
+
+function getAssetIdsForCollection(collectionId: string): string[] {
+  return (
+    db
+      .prepare(
+        `SELECT asset_id
+         FROM media_collection_items
+         WHERE collection_id = ?
+         ORDER BY sort_order ASC, created_at ASC`
+      )
+      .all(collectionId) as Array<{ asset_id: string }>
+  ).map((row) => row.asset_id)
+}
+
+function getNextCollectionSortOrder(collectionId: string): number {
+  const row = db
+    .prepare(
+      'SELECT COALESCE(MAX(sort_order), -1) as max_sort_order FROM media_collection_items WHERE collection_id = ?'
+    )
+    .get(collectionId) as { max_sort_order: number } | undefined
+  return (row?.max_sort_order ?? -1) + 1
+}
+
+function getMediaCollectionById(collectionId: string): unknown {
+  const row = db
+    .prepare(
+      `SELECT mc.*, COUNT(mci.asset_id) as asset_count, cover.thumbnail_path as cover_thumbnail_path
+       FROM media_collections mc
+       LEFT JOIN media_collection_items mci ON mc.id = mci.collection_id
+       LEFT JOIN media_assets cover ON mc.cover_asset_id = cover.id
+       WHERE mc.id = ?
+       GROUP BY mc.id`
+    )
+    .get(collectionId) as MediaCollectionRow | undefined
+  return row ? mapMediaCollectionRow(row) : null
+}
+
+function buildAtmosphereWithoutMedia(config: AtmosphereConfigLike): AtmosphereConfigLike {
+  const nextConfig: AtmosphereConfigLike = {
+    ...config,
+    media: undefined
+  }
+
+  if (nextConfig.mode === 'image' || nextConfig.mode === 'video') {
+    if (Array.isArray(nextConfig.gradient?.stops) && nextConfig.gradient.stops.length > 0) {
+      nextConfig.mode = 'gradient'
+    } else if (nextConfig.motion) {
+      nextConfig.mode = 'motion'
+    } else {
+      nextConfig.mode = 'solid'
+      nextConfig.solidColor = nextConfig.solidColor || '#090b14'
+    }
+  }
+
+  return nextConfig
+}
+
+type AtmosphereConfigLike = {
+  mode?: string
+  solidColor?: string
+  gradient?: { stops?: unknown[] }
+  motion?: unknown
+  media?: { assetId?: string; path?: string }
+}
+
+function scrubAtmosphereMediaReference(raw: string, assetId: string, localPath: string): string {
+  if (!raw) return raw
+  try {
+    const parsed = JSON.parse(raw) as AtmosphereConfigLike
+    const media = parsed.media
+    const matchesAsset =
+      media?.assetId === assetId || (typeof media?.path === 'string' && media.path === localPath)
+    if (!matchesAsset) return raw
+    return JSON.stringify(buildAtmosphereWithoutMedia(parsed))
+  } catch {
+    return raw
+  }
+}
+
+function mapMediaAssetRow(row: MediaAssetRow): {
+  id: string
+  type: MediaAssetType
+  name: string
+  originalPath: string
+  localPath: string
+  thumbnailPath?: string
+  category?: string
+  tags?: string[]
+  isFavorite?: boolean
+  usageCount?: number
+  collectionIds?: string[]
+  createdAt?: string
+  updatedAt?: string
+} {
+  let tags: string[] = []
+  try {
+    const parsed = JSON.parse(row.tags) as unknown
+    if (Array.isArray(parsed)) {
+      tags = parsed.filter((item): item is string => typeof item === 'string')
+    }
+  } catch {
+    tags = []
+  }
+
+  return {
+    id: row.id,
+    type: row.type,
+    name: row.name,
+    originalPath: row.original_path,
+    localPath: row.local_path,
+    thumbnailPath: row.thumbnail_path || undefined,
+    category: row.category || undefined,
+    tags,
+    isFavorite: row.is_favorite === 1,
+    usageCount: row.usage_count,
+    collectionIds: getCollectionIdsForAsset(row.id),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }
+}
+
+function mapMediaCollectionRow(row: MediaCollectionRow): {
+  id: string
+  name: string
+  description?: string
+  coverAssetId?: string
+  coverThumbnailPath?: string
+  assetCount: number
+  assetIds: string[]
+  createdAt?: string
+  updatedAt?: string
+} {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description || undefined,
+    coverAssetId: row.cover_asset_id || undefined,
+    coverThumbnailPath: row.cover_thumbnail_path || undefined,
+    assetCount: row.asset_count || 0,
+    assetIds: getAssetIdsForCollection(row.id),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }
+}
+
+export function getMediaAssets(filters?: {
+  type?: MediaAssetType
+  search?: string
+  favoriteOnly?: boolean
+  category?: string
+  collectionId?: string
+}): unknown[] {
+  let sql = 'SELECT * FROM media_assets WHERE 1=1'
+  const params: Array<string | number> = []
+
+  if (filters?.type) {
+    sql += ' AND type = ?'
+    params.push(filters.type)
+  }
+  if (filters?.favoriteOnly) {
+    sql += ' AND is_favorite = 1'
+  }
+  if (filters?.category) {
+    sql += ' AND category = ?'
+    params.push(filters.category)
+  }
+  if (filters?.search) {
+    sql += ' AND (name LIKE ? OR category LIKE ? OR tags LIKE ?)'
+    const like = `%${filters.search}%`
+    params.push(like, like, like)
+  }
+  if (filters?.collectionId) {
+    sql += ' AND id IN (SELECT asset_id FROM media_collection_items WHERE collection_id = ?)'
+    params.push(filters.collectionId)
+  }
+
+  sql += ' ORDER BY is_favorite DESC, usage_count DESC, updated_at DESC'
+  return (db.prepare(sql).all(...params) as MediaAssetRow[]).map(mapMediaAssetRow)
+}
+
+export function getMediaCollections(): unknown[] {
+  return (
+    db
+      .prepare(
+        `SELECT mc.*,
+              COUNT(mci.asset_id) as asset_count,
+              cover.thumbnail_path as cover_thumbnail_path
+       FROM media_collections mc
+       LEFT JOIN media_collection_items mci ON mc.id = mci.collection_id
+       LEFT JOIN media_assets cover ON mc.cover_asset_id = cover.id
+       GROUP BY mc.id
+       ORDER BY mc.updated_at DESC, mc.name ASC`
+      )
+      .all() as MediaCollectionRow[]
+  ).map(mapMediaCollectionRow)
+}
+
+export function addMediaCollection(payload: {
+  name: string
+  description?: string
+  assetIds?: string[]
+}): unknown {
+  const name = String(payload.name || '').trim()
+  if (!name) throw new Error('Collection name is required.')
+
+  const id = randomUUID()
+  const assetIds = Array.isArray(payload.assetIds)
+    ? payload.assetIds.filter(
+        (item): item is string => typeof item === 'string' && item.trim().length > 0
+      )
+    : []
+  const coverAssetId = assetIds[0] || ''
+  const insertCollection = db.prepare(
+    `INSERT INTO media_collections (
+      id, name, description, cover_asset_id, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`
+  )
+  const insertItem = db.prepare(
+    `INSERT OR IGNORE INTO media_collection_items (collection_id, asset_id, sort_order, created_at)
+     VALUES (?, ?, ?, datetime('now'))`
+  )
+
+  const transaction = db.transaction(() => {
+    insertCollection.run(id, name, String(payload.description || '').trim(), coverAssetId)
+    assetIds.forEach((assetId, index) => {
+      insertItem.run(id, assetId, index)
+    })
+  })
+
+  transaction()
+  checkpointWal()
+  return getMediaCollectionById(id)
+}
+
+export function updateMediaCollection(
+  id: string,
+  updates: { name?: string; description?: string; coverAssetId?: string }
+): unknown {
+  const existing = db.prepare('SELECT * FROM media_collections WHERE id = ?').get(id) as
+    | MediaCollectionRow
+    | undefined
+  if (!existing) return null
+
+  db.prepare(
+    `UPDATE media_collections SET
+      name = ?, description = ?, cover_asset_id = ?, updated_at = datetime('now')
+     WHERE id = ?`
+  ).run(
+    updates.name?.trim() || existing.name,
+    updates.description?.trim() ?? existing.description,
+    updates.coverAssetId === undefined ? existing.cover_asset_id : updates.coverAssetId,
+    id
+  )
+  checkpointWal()
+  return getMediaCollectionById(id)
+}
+
+export function deleteMediaCollection(id: string): boolean {
+  const result = db.prepare('DELETE FROM media_collections WHERE id = ?').run(id)
+  if (result.changes > 0) checkpointWal()
+  return result.changes > 0
+}
+
+export function addAssetsToMediaCollection(collectionId: string, assetIds: string[]): unknown {
+  const insertItem = db.prepare(
+    `INSERT OR IGNORE INTO media_collection_items (collection_id, asset_id, sort_order, created_at)
+     VALUES (?, ?, ?, datetime('now'))`
+  )
+  const touchCollection = db.prepare(
+    `UPDATE media_collections
+     SET cover_asset_id = CASE
+       WHEN (cover_asset_id IS NULL OR cover_asset_id = '') THEN ?
+       ELSE cover_asset_id
+     END,
+     updated_at = datetime('now')
+     WHERE id = ?`
+  )
+  const safeAssetIds = assetIds.filter((item) => typeof item === 'string' && item.trim().length > 0)
+  const transaction = db.transaction(() => {
+    let sortOrder = getNextCollectionSortOrder(collectionId)
+    for (const assetId of safeAssetIds) {
+      insertItem.run(collectionId, assetId, sortOrder)
+      sortOrder += 1
+    }
+    touchCollection.run(safeAssetIds[0] || '', collectionId)
+  })
+  transaction()
+  checkpointWal()
+  return getMediaCollectionById(collectionId)
+}
+
+export function removeAssetsFromMediaCollection(collectionId: string, assetIds: string[]): unknown {
+  const safeAssetIds = assetIds.filter((item) => typeof item === 'string' && item.trim().length > 0)
+  const placeholders = safeAssetIds.map(() => '?').join(',')
+  if (safeAssetIds.length === 0) return null
+
+  const transaction = db.transaction(() => {
+    db.prepare(
+      `DELETE FROM media_collection_items
+       WHERE collection_id = ? AND asset_id IN (${placeholders})`
+    ).run(collectionId, ...safeAssetIds)
+
+    const currentCover = db
+      .prepare('SELECT cover_asset_id FROM media_collections WHERE id = ?')
+      .get(collectionId) as { cover_asset_id: string } | undefined
+
+    if (currentCover?.cover_asset_id && safeAssetIds.includes(currentCover.cover_asset_id)) {
+      const nextCover = db
+        .prepare(
+          `SELECT asset_id
+         FROM media_collection_items
+         WHERE collection_id = ?
+         ORDER BY created_at ASC
+         LIMIT 1`
+        )
+        .get(collectionId) as { asset_id: string } | undefined
+      db.prepare(
+        `UPDATE media_collections
+         SET cover_asset_id = ?, updated_at = datetime('now')
+         WHERE id = ?`
+      ).run(nextCover?.asset_id || '', collectionId)
+    } else {
+      db.prepare(`UPDATE media_collections SET updated_at = datetime('now') WHERE id = ?`).run(
+        collectionId
+      )
+    }
+  })
+
+  transaction()
+  checkpointWal()
+  return getMediaCollectionById(collectionId)
+}
+
+export function reorderMediaCollectionItems(collectionId: string, assetIds: string[]): unknown {
+  const safeAssetIds = assetIds.filter((item) => typeof item === 'string' && item.trim().length > 0)
+  if (safeAssetIds.length === 0) return null
+
+  const updateItem = db.prepare(
+    `UPDATE media_collection_items
+     SET sort_order = ?
+     WHERE collection_id = ? AND asset_id = ?`
+  )
+  const touchCollection = db.prepare(
+    `UPDATE media_collections SET updated_at = datetime('now') WHERE id = ?`
+  )
+
+  const transaction = db.transaction(() => {
+    safeAssetIds.forEach((assetId, index) => {
+      updateItem.run(index, collectionId, assetId)
+    })
+    touchCollection.run(collectionId)
+  })
+
+  transaction()
+  checkpointWal()
+  return getMediaCollectionById(collectionId)
+}
+
+export function bulkUpdateMediaAssets(
+  ids: string[],
+  updates: { category?: string; tags?: string[]; isFavorite?: boolean }
+): number {
+  const safeIds = ids.filter((item) => typeof item === 'string' && item.trim().length > 0)
+  if (safeIds.length === 0) return 0
+
+  const selectExisting = db
+    .prepare('SELECT * FROM media_assets WHERE id = ?')
+    .get.bind(db.prepare('SELECT * FROM media_assets WHERE id = ?')) as (
+    id: string
+  ) => MediaAssetRow | undefined
+  const updateStmt = db.prepare(
+    `UPDATE media_assets
+     SET category = ?, tags = ?, is_favorite = ?, updated_at = datetime('now')
+     WHERE id = ?`
+  )
+
+  let changed = 0
+  const transaction = db.transaction(() => {
+    for (const id of safeIds) {
+      const existing = selectExisting(id)
+      if (!existing) continue
+      const result = updateStmt.run(
+        updates.category?.trim() ?? existing.category,
+        updates.tags ? JSON.stringify(updates.tags) : existing.tags,
+        updates.isFavorite === undefined ? existing.is_favorite : updates.isFavorite ? 1 : 0,
+        id
+      )
+      changed += result.changes
+    }
+  })
+  transaction()
+  if (changed > 0) checkpointWal()
+  return changed
+}
+
+function cleanupMediaReferences(assetId: string, localPath: string): void {
+  const settingsRow = db
+    .prepare('SELECT value FROM settings WHERE key = ?')
+    .get('projection_default_atmosphere') as { value: string } | undefined
+  if (settingsRow?.value) {
+    const nextValue = scrubAtmosphereMediaReference(settingsRow.value, assetId, localPath)
+    if (nextValue !== settingsRow.value) {
+      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(
+        nextValue,
+        'projection_default_atmosphere'
+      )
+    }
+  }
+
+  const legacyBgImage = db
+    .prepare('SELECT value FROM settings WHERE key = ?')
+    .get('projection_bg_image') as { value: string } | undefined
+  if (legacyBgImage?.value === localPath) {
+    db.prepare('UPDATE settings SET value = ? WHERE key = ?').run('', 'projection_bg_image')
+  }
+
+  const songs = db
+    .prepare(
+      "SELECT id, song_background_config FROM songs WHERE song_background_config IS NOT NULL AND TRIM(song_background_config) <> ''"
+    )
+    .all() as Array<{ id: number; song_background_config: string }>
+  const updateSongConfig = db.prepare(
+    `UPDATE songs SET song_background_config = ?, updated_at = datetime('now') WHERE id = ?`
+  )
+  for (const song of songs) {
+    const nextConfig = scrubAtmosphereMediaReference(
+      song.song_background_config,
+      assetId,
+      localPath
+    )
+    if (nextConfig !== song.song_background_config) {
+      updateSongConfig.run(nextConfig, song.id)
+    }
+  }
+
+  db.prepare(
+    `UPDATE media_collections
+     SET cover_asset_id = ''
+     WHERE cover_asset_id = ?`
+  ).run(assetId)
+}
+
+export function importMediaAssets(payload: {
+  filePaths: string[]
+  category?: string
+  tags?: string[]
+}): unknown[] {
+  if (!Array.isArray(payload.filePaths) || payload.filePaths.length === 0) {
+    throw new Error('No media files selected.')
+  }
+
+  const dirs = ensureMediaLibraryDirs()
+  const selectExisting = db.prepare('SELECT * FROM media_assets WHERE original_path = ? LIMIT 1')
+  const insertAsset = db.prepare(`
+    INSERT INTO media_assets (
+      id, type, name, original_path, local_path, thumbnail_path, category, tags,
+      is_favorite, usage_count, metadata_json, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, '{}', datetime('now'), datetime('now'))
+  `)
+
+  const imported: ReturnType<typeof mapMediaAssetRow>[] = []
+  const tagsJson = JSON.stringify(payload.tags || [])
+  const category = String(payload.category || '').trim()
+
+  const transaction = db.transaction(() => {
+    for (const rawPath of payload.filePaths) {
+      if (typeof rawPath !== 'string' || !rawPath.trim()) continue
+      if (!existsSync(rawPath)) throw new Error(`Media file not found: ${rawPath}`)
+
+      const existing = selectExisting.get(rawPath) as MediaAssetRow | undefined
+      if (existing) {
+        imported.push(mapMediaAssetRow(existing))
+        continue
+      }
+
+      const type = normalizeMediaAssetType(rawPath)
+      const ext = extname(rawPath).toLowerCase()
+      const id = randomUUID()
+      const displayName = sanitizeMediaName(basename(rawPath, ext)) || `Asset ${id.slice(0, 8)}`
+      const targetDir = type === 'image' ? dirs.imageDir : dirs.videoDir
+      const localPath = join(targetDir, `${id}${ext}`)
+      const thumbnailPath = join(dirs.thumbnailDir, `${id}.png`)
+
+      copyFileSync(rawPath, localPath)
+      writeThumbnail(localPath, thumbnailPath, type, displayName)
+
+      insertAsset.run(id, type, displayName, rawPath, localPath, thumbnailPath, category, tagsJson)
+
+      const inserted = db
+        .prepare('SELECT * FROM media_assets WHERE id = ?')
+        .get(id) as MediaAssetRow
+      imported.push(mapMediaAssetRow(inserted))
+    }
+  })
+
+  transaction()
+  checkpointWal()
+  return imported
+}
+
+export function updateMediaAsset(
+  id: string,
+  updates: { name?: string; category?: string; tags?: string[]; isFavorite?: boolean }
+): unknown {
+  const existing = db.prepare('SELECT * FROM media_assets WHERE id = ?').get(id) as
+    | MediaAssetRow
+    | undefined
+  if (!existing) return null
+
+  db.prepare(
+    `UPDATE media_assets SET
+      name = ?, category = ?, tags = ?, is_favorite = ?, updated_at = datetime('now')
+    WHERE id = ?`
+  ).run(
+    updates.name?.trim() || existing.name,
+    updates.category?.trim() ?? existing.category,
+    updates.tags ? JSON.stringify(updates.tags) : existing.tags,
+    updates.isFavorite === undefined ? existing.is_favorite : updates.isFavorite ? 1 : 0,
+    id
+  )
+  checkpointWal()
+  return mapMediaAssetRow(
+    db.prepare('SELECT * FROM media_assets WHERE id = ?').get(id) as MediaAssetRow
+  )
+}
+
+export function deleteMediaAsset(id: string): boolean {
+  const existing = db.prepare('SELECT * FROM media_assets WHERE id = ?').get(id) as
+    | MediaAssetRow
+    | undefined
+  if (!existing) return false
+
+  cleanupMediaReferences(existing.id, existing.local_path)
+  const result = db.prepare('DELETE FROM media_assets WHERE id = ?').run(id)
+  if (result.changes > 0) {
+    for (const filePath of [existing.local_path, existing.thumbnail_path]) {
+      if (filePath && existsSync(filePath)) {
+        try {
+          unlinkSync(filePath)
+        } catch {
+          // ignore cleanup failures
+        }
+      }
+    }
+    checkpointWal()
+  }
+  return result.changes > 0
+}
+
+export function bulkDeleteMediaAssets(ids: string[]): number {
+  const safeIds = ids.filter((item) => typeof item === 'string' && item.trim().length > 0)
+  let deleted = 0
+  for (const id of safeIds) {
+    if (deleteMediaAsset(id)) deleted++
+  }
+  return deleted
+}
+
+export function incrementMediaAssetUsage(id: string): void {
+  const result = db
+    .prepare(
+      `UPDATE media_assets SET
+        usage_count = usage_count + 1,
+        updated_at = datetime('now')
+      WHERE id = ?`
+    )
+    .run(id)
+  if (result.changes > 0) checkpointWal()
 }
 
 // ========== Settings ==========

@@ -4,7 +4,7 @@
  */
 
 import React, { useRef, useState } from 'react'
-import { Plus, Trash2, Edit2, Download, Upload } from 'lucide-react'
+import { Plus, Trash2, Edit2, Download, Upload, BookOpen } from 'lucide-react'
 import type { Hymnal } from '../../types'
 import type { Song } from '../../types'
 import { useAppStore } from '../../store/useAppStore'
@@ -631,13 +631,16 @@ export function HymnalSettings({
 
   return (
     <>
-      <div className="space-y-6 animate-slide-up">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-h2">Koleksi Buku Lagu</h2>
-            <p className="text-caption">Kelola daftar buku lagu (Hymnals) dalam library.</p>
+      <div className="sp-root">
+        {/* Page Header */}
+        <div className="sp-page-header">
+          <div>
+            <h2 className="sp-page-title">Koleksi Buku Lagu</h2>
+            <p className="sp-page-subtitle">
+              Kelola daftar buku lagu (Hymnals) dalam library SION Media.
+            </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="sp-page-header__actions">
             <input
               ref={importInputRef}
               type="file"
@@ -651,81 +654,99 @@ export function HymnalSettings({
             />
             <button
               onClick={() => importInputRef.current?.click()}
-              className="btn-premium btn-premium-ghost h-9 px-4"
+              className="sp-btn sp-btn--ghost"
             >
-              <Upload size={16} />
+              <Upload size={15} />
               Import Paket
             </button>
-            <button
-              onClick={() => openModal()}
-              className="btn-premium btn-premium-primary h-9 px-4"
-            >
-              <Plus size={16} />
+            <button onClick={() => openModal()} className="sp-btn sp-btn--primary">
+              <Plus size={15} />
               Buku Baru
             </button>
           </div>
         </div>
 
-        <div className="grid gap-4">
-          {hymnals.map((h) => (
-            <div
-              key={h.id}
-              className="p-4 rounded-2xl border border-border-default bg-bg-surface flex items-center justify-between group hover:border-brand-primary/30 transition-all shadow-sm"
-            >
-              <div className="flex items-center gap-4">
+        {/* Stats */}
+        <section className="sp-section">
+          <div className="sp-metric-grid sp-metric-grid--3">
+            <div className="sp-metric-card sp-metric-card--blue">
+              <div className="sp-metric-card__value">{hymnals.length}</div>
+              <div className="sp-metric-card__label">Total Buku Lagu</div>
+            </div>
+            <div className="sp-metric-card sp-metric-card--violet">
+              <div className="sp-metric-card__value">
+                {hymnals.filter((h) => h.is_official === 1).length}
+              </div>
+              <div className="sp-metric-card__label">Koleksi Resmi</div>
+            </div>
+            <div className="sp-metric-card sp-metric-card--emerald">
+              <div className="sp-metric-card__value">
+                {hymnals.filter((h) => h.is_official === 0).length}
+              </div>
+              <div className="sp-metric-card__label">Koleksi Kustom</div>
+            </div>
+          </div>
+        </section>
+
+        {/* Hymnal List */}
+        <section className="sp-section">
+          <div className="sp-hymnal-list">
+            {hymnals.length === 0 && (
+              <div className="sp-empty-state">
+                <BookOpen size={28} />
+                <strong>Belum ada buku lagu</strong>
+                <p>Tambahkan buku lagu pertama Anda untuk memulai.</p>
+              </div>
+            )}
+            {hymnals.map((h) => (
+              <div key={h.id} className="sp-hymnal-row group">
                 <div
-                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl font-black text-sm ${
-                    h.is_official
-                      ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20'
-                      : 'bg-brand-secondary/10 text-brand-secondary border border-brand-secondary/20'
-                  }`}
+                  className={`sp-hymnal-row__code ${h.is_official ? 'is-official' : 'is-custom'}`}
                 >
                   {h.code}
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-bold text-text-primary">{h.name}</p>
+                <div className="sp-hymnal-row__info">
+                  <div className="sp-hymnal-row__name-row">
+                    <span className="sp-hymnal-row__name">{h.name}</span>
                     {h.is_official === 1 && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-bg-elevated border border-border-subtle text-[9px] font-black text-text-disabled uppercase">
-                        Official
-                      </span>
+                      <span className="sp-badge sp-badge--emerald">Official</span>
                     )}
                   </div>
-                  <p className="text-xs text-text-muted mt-1">
+                  <span className="sp-hymnal-row__meta">
                     {h.language} · {h.publisher || 'Tanpa Penerbit'}
-                  </p>
+                  </span>
+                </div>
+                <div className="sp-hymnal-row__actions">
+                  {h.is_official === 0 && (
+                    <>
+                      <button
+                        onClick={() => exportHymnalPackage(h)}
+                        className="sp-icon-btn"
+                        title="Export Paket Hymnal"
+                      >
+                        <Download size={15} />
+                      </button>
+                      <button
+                        onClick={() => openModal(h)}
+                        className="sp-icon-btn"
+                        title="Edit Metadata"
+                      >
+                        <Edit2 size={15} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(h.id)}
+                        className="sp-icon-btn sp-icon-btn--danger"
+                        title="Hapus Buku"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {h.is_official === 0 && (
-                  <>
-                    <button
-                      onClick={() => exportHymnalPackage(h)}
-                      className="p-2 rounded-lg text-text-muted hover:bg-bg-active hover:text-text-primary"
-                      title="Export Paket Hymnal"
-                    >
-                      <Download size={16} />
-                    </button>
-                    <button
-                      onClick={() => openModal(h)}
-                      className="p-2 rounded-lg text-text-muted hover:bg-bg-active hover:text-text-primary"
-                      title="Edit Metadata"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(h.id)}
-                      className="p-2 rounded-lg text-text-muted hover:bg-status-error/10 hover:text-status-error"
-                      title="Hapus Buku"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </section>
       </div>
 
       {showImportWizard && importPackage && (
@@ -1037,75 +1058,70 @@ export function HymnalSettings({
 
       {/* Hymnal Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 modal-overlay animate-fade-in">
-          <div className="w-full max-w-md bg-bg-surface border border-border-strong rounded-2xl shadow-2xl overflow-hidden animate-zoom-in">
-            <div className="px-6 py-4 border-b border-border-default flex items-center justify-between bg-bg-elevated/50">
-              <h3 className="font-bold text-text-primary">
-                {editingHymnal ? 'Edit Buku Lagu' : 'Tambah Buku Lagu Baru'}
-              </h3>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-1 rounded-md hover:bg-bg-active text-text-muted"
-              >
+        <div className="sp-modal-overlay">
+          <div className="sp-modal">
+            <div className="sp-modal__header">
+              <div>
+                <div className="sp-modal__eyebrow">Hymnal Management</div>
+                <h3 className="sp-modal__title">
+                  {editingHymnal ? 'Edit Buku Lagu' : 'Tambah Buku Lagu Baru'}
+                </h3>
+              </div>
+              <button onClick={() => setShowModal(false)} className="sp-icon-btn">
                 ✕
               </button>
             </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="text-micro text-text-muted mb-1.5 block">
-                  Kode Buku (Singkat)
-                </label>
+            <div className="sp-modal__body">
+              <div className="sp-field">
+                <label className="sp-field__label">Kode Buku (Singkat)</label>
                 <input
                   type="text"
                   maxLength={5}
                   value={form.code}
                   onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
                   placeholder="E.g. LS, SDAH, PK"
-                  className="w-full bg-bg-base border border-border-default rounded-xl px-4 py-2.5 text-sm focus:border-brand-primary outline-none"
+                  className="sp-input"
                 />
               </div>
-              <div>
-                <label className="text-micro text-text-muted mb-1.5 block">Nama Lengkap Buku</label>
+              <div className="sp-field">
+                <label className="sp-field__label">Nama Lengkap Buku</label>
                 <input
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="E.g. Lagu Sion Edisi Lengkap"
-                  className="w-full bg-bg-base border border-border-default rounded-xl px-4 py-2.5 text-sm focus:border-brand-primary outline-none"
+                  className="sp-input"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-micro text-text-muted mb-1.5 block">Bahasa</label>
+              <div className="sp-form-grid sp-form-grid--2">
+                <div className="sp-field">
+                  <label className="sp-field__label">Bahasa</label>
                   <input
                     type="text"
                     value={form.language}
                     onChange={(e) => setForm({ ...form, language: e.target.value })}
-                    className="w-full bg-bg-base border border-border-default rounded-xl px-4 py-2.5 text-sm focus:border-brand-primary outline-none"
+                    className="sp-input"
                   />
                 </div>
-                <div>
-                  <label className="text-micro text-text-muted mb-1.5 block">Penerbit</label>
+                <div className="sp-field">
+                  <label className="sp-field__label">Penerbit</label>
                   <input
                     type="text"
                     value={form.publisher}
                     onChange={(e) => setForm({ ...form, publisher: e.target.value })}
-                    className="w-full bg-bg-base border border-border-default rounded-xl px-4 py-2.5 text-sm focus:border-brand-primary outline-none"
+                    className="sp-input"
                   />
                 </div>
               </div>
             </div>
-            <div className="px-6 py-4 bg-bg-elevated/50 border-t border-border-default flex gap-3">
-              <button
-                onClick={() => setShowModal(false)}
-                className="flex-1 py-2.5 rounded-xl border border-border-strong text-sm font-bold text-text-secondary hover:bg-bg-active"
-              >
+            <div className="sp-modal__footer">
+              <button onClick={() => setShowModal(false)} className="sp-btn sp-btn--ghost">
                 Batal
               </button>
               <button
                 onClick={handleSave}
                 disabled={!form.code || !form.name}
-                className="flex-1 py-2.5 rounded-xl bg-brand-primary text-sm font-bold text-white shadow-lg shadow-brand-primary/20 disabled:opacity-50"
+                className="sp-btn sp-btn--primary"
               >
                 Simpan
               </button>

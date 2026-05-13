@@ -97,22 +97,51 @@ Catatan performance:
 
 Ubah menjadi komponen **Immersive Fullscreen Player**:
 
+#### Component Props
+
+```typescript
+{
+  song: Song
+  onClose: () => void
+  onNextSong?: () => void  // Optional: navigate to next song
+  onPrevSong?: () => void  // Optional: navigate to previous song
+}
+```
+
 #### Layout hierarchy
 
 - **Background layer**
   - gradient abstrak + blur / noise halus.
   - optionally: jika ada art/cover di masa depan, fallback ke gradient.
-- **Header (top)**
-  - tombol Back (kiri atas)
-  - metadata: nomor lagu, title ID, subtitle EN, key/nada dasar, time signature.
-  - controls kecil: font-size slider, play/pause auto-scroll.
+- **Title Bar (Library Mode) - Shows on hover at top edge**
+  - Logo "S" dengan gradient
+  - Label "SION Media Enterprise • Library Mode"
+  - Window controls (minimize, maximize, close)
+  - Height: 48px
+  - Hover zone: 30px from top edge
+  - Animation: slide from -20px to 0px with fade
+  - Pointer events controlled for proper interaction
+- **Top Bar (Lyric Display) - Always visible**
+  - Left: Back button (arrow icon), divider, song number (angka saja)
+  - Center: Song title + English title (alternate_title/title_en/hymnal_name)
+  - Right: Key, Tempo, Composer, Category metadata
+  - Height: 64px
+  - Position: top-[48px] (below title bar)
 - **Center**
   - stanza page (satu bait per layar)
   - tipografi besar + line-height nyaman.
+  - Max width: 1200px
+  - Top padding: 13vh (adjusted for title + top bar)
 - **Right navigation**
   - vertical dot navigation sesuai jumlah pages.
-- **Footer**
-  - hymnal relations (linked songs indicator)
+  - Fraction labels (1/4, 2/4, etc.)
+  - Auto-hide with idle timer
+- **Bottom Footer Bar - Song Navigation**
+  - Previous Song button (arrow up icon)
+  - Play/Pause Auto Slide button (music/square icon)
+  - Next Song button (arrow right icon)
+  - Floating at bottom-8 with auto-hide
+  - Glassmorphism styling with backdrop blur
 
 #### Animation spec (Framer Motion)
 
@@ -146,8 +175,10 @@ Ubah menjadi komponen **Immersive Fullscreen Player**:
 
 #### Auto-scroll
 
-- Reuse interval pattern dari `LyricStudioLite`, tetapi diarahkan ke container `ref` di center stanza.
-- Ketika index berubah, scroll container di-reset ke atas.
+- Menggunakan `requestAnimationFrame` untuk smooth scrolling (bukan `setInterval`)
+- Scroll container di-reset ke atas ketika index berubah
+- Toggle dengan keyboard `Space` atau tombol Play di bottom footer bar
+- State `autoScroll` disimpan di component state
 
 #### Empty lyrics state
 
@@ -158,9 +189,37 @@ Ubah menjadi komponen **Immersive Fullscreen Player**:
 
 Kebutuhan: “mengunci/menyembunyikan Menu Title Bar kecuali window controls”.
 
+**Implementasi Terkini (v6.1):**
+
+- **Title Bar (Library Mode)** - Bar terpisah yang hanya muncul saat hover di area atas (30px dari edge)
+  - Menampilkan logo "S" dengan gradient
+  - Label "SION Media Enterprise • Library Mode"
+  - Window controls (minimize, maximize, close)
+  - Height: 48px
+  - Animasi slide dari -20px ke 0px dengan fade
+  - Pointer events dikontrol untuk interaksi yang proper
+  - Z-index: 30 (di atas semua elemen lain)
+
+- **Top Bar (Penampil Lirik)** - Bar khusus konten lirik yang selalu tampil
+  - Left: Tombol back (icon panah kiri), divider, nomor lagu (angka saja)
+  - Center: Judul lagu + judul bahasa Inggris
+  - Right: Key, Tempo, Composer, Category metadata
+  - Height: 64px
+  - Position: top-[48px] (di bawah title bar)
+  - Z-index: 20
+
+- **Bottom Footer Bar** - Bar navigasi lagu yang floating di bawah
+  - Previous Song button (icon panah kiri atas)
+  - Play/Pause Auto Slide button (icon musik/kotak)
+  - Next Song button (icon panah kanan)
+  - Floating di bottom-8 dengan auto-hide
+  - Glassmorphism styling dengan backdrop blur
+  - Z-index: 20
+
 Plan implementasi (bertahap):
 
-- **Phase v6**: buat overlay menutup seluruh viewport renderer (`fixed inset-0`) sehingga secara visual _clean_.
+- **Phase v6**: overlay menutup seluruh viewport renderer (`fixed inset-0`) sehingga secara visual _clean_.
+- **Phase v6.1**: implementasi title bar terpisah yang show/hide pada hover, top bar selalu tampil, dan bottom footer bar untuk navigasi lagu.
 - Jika aplikasi punya IPC untuk toggle menu/titlebar, tambahkan hook di overlay open/close:
   - on open: `window.api?.window?.setImmersiveMode?.(true)`
   - on close: `...false`
@@ -183,6 +242,23 @@ Catatan: langkah IPC ini hanya dilakukan jika API sudah tersedia. Jika belum ada
 - `LibraryModeRedesigned`: render `LibraryLyricsViewer` via AnimatePresence.
 - Refactor `LibraryLyricsViewer` jadi overlay immersive player.
 - Pastikan keyboard nav stabil & tidak konflik dengan search palette.
+
+# Implementation Checklist (Phase 1.1 - UI Refinements)
+
+- Implementasi Title Bar (Library Mode) yang show/hide pada hover di area atas (30px dari edge)
+- Implementasi Top Bar (Penampil Lirik) yang selalu tampil dengan:
+  - Left: Back button, divider, song number
+  - Center: Song title + English title
+  - Right: Key, Tempo, Composer, Category metadata
+- Implementasi Bottom Footer Bar untuk navigasi lagu:
+  - Previous Song button
+  - Play/Pause Auto Slide button
+  - Next Song button
+- Tambahkan props `onNextSong` dan `onPrevSong` untuk navigasi lagu
+- Perbaiki auto-scroll dengan `requestAnimationFrame` (bukan `setInterval`)
+- Tambahkan `isMounted` check untuk cleanup yang proper
+- Perbaiki font size parsing dengan NaN check
+- Adjust lyric area padding untuk mengakomodasi title bar + top bar (13vh)
 
 # Acceptance Mapping
 

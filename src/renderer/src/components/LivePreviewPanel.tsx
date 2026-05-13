@@ -19,7 +19,9 @@ import {
   Zap
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
+import { DEFAULT_SCENE_PRESETS } from '../atmosphere/presets'
 import { useProjectionStore } from '../store/useProjectionStore'
+import { useAtmosphereStore } from '../store/useAtmosphereStore'
 import type { SlideData } from '../types'
 import { PresentationCanvas } from './PresentationCanvas'
 import { executeRuntimeCommand } from '../utils/runtimeCommandBus'
@@ -41,6 +43,7 @@ interface MonitorFrameProps {
   isClear?: boolean
   isProjectorLost?: boolean
   theme: Record<string, string>
+  songBackgroundConfig?: string
   programLockState?: 'UNLOCKED' | 'LIVE_LOCK' | 'LIVE_DIRTY'
   onExpand: () => void
   onSettings: () => void
@@ -55,6 +58,7 @@ function MonitorFrame({
   isClear = false,
   isProjectorLost = false,
   theme,
+  songBackgroundConfig = '',
   programLockState = 'UNLOCKED',
   onExpand,
   onSettings
@@ -112,7 +116,7 @@ function MonitorFrame({
           <PresentationCanvas
             slide={slide}
             projectionState={canvasState}
-            theme={theme}
+            theme={{ ...theme, song_background_config: songBackgroundConfig }}
             animated={false}
             showMetadata={false}
             fit
@@ -328,7 +332,9 @@ export function LivePreviewPanel(): React.JSX.Element {
     hasNextSlide,
     nextSong,
     hasNextSong,
-    nextReadyState
+    nextReadyState,
+    cuedSongBackgroundConfig,
+    programSongBackgroundConfig
   } = useProjectionStore()
   const {
     displayCount,
@@ -340,7 +346,7 @@ export function LivePreviewPanel(): React.JSX.Element {
     showToast
   } = useAppStore()
   const [theme, setTheme] = useState<Record<string, string>>({})
-  const [selectedScene, setSelectedScene] = useState('1')
+  const { liveOverride, applyScenePreset, clearLiveOverride } = useAtmosphereStore()
 
   useEffect(() => {
     let mounted = true
@@ -400,17 +406,30 @@ export function LivePreviewPanel(): React.JSX.Element {
     }
   }
 
-  const handleSceneSelect = (scene: string): void => {
-    setSelectedScene(scene)
-    window.dispatchEvent(new CustomEvent('projection-scene-change', { detail: scene }))
-    const labels: Record<string, string> = {
-      '1': 'All Workspace',
-      '2': 'Library Focus',
-      '3': 'Rundown Focus',
-      '4': 'Song Info Focus'
-    }
-    showToast(`Scene ${scene}: ${labels[scene]}`, 'success')
+  const handleSceneSelect = (presetId: string): void => {
+    const preset = DEFAULT_SCENE_PRESETS.find((item) => item.id === presetId)
+    if (!preset) return
+
+    applyScenePreset(presetId)
+    window.api.projection.themeUpdate({
+      projection_atmosphere_live_override: JSON.stringify(preset.config)
+    })
+    showToast(`Atmosfer live: ${preset.name}`, 'success')
   }
+
+  const handleClearAtmosphereOverride = (): void => {
+    clearLiveOverride()
+    window.api.projection.themeUpdate({ projection_atmosphere_live_override: '' })
+    showToast('Live override atmosphere dibersihkan', 'info')
+  }
+
+  const activeSceneId =
+    DEFAULT_SCENE_PRESETS.find(
+      (preset) =>
+        preset.id === liveOverride?.config.id ||
+        preset.config.id === liveOverride?.config.id ||
+        preset.name === liveOverride?.config.name
+    )?.id || ''
 
   return (
     <div className="projection-command-center">
@@ -420,6 +439,7 @@ export function LivePreviewPanel(): React.JSX.Element {
           slide={previewSlide}
           stateLabel={previewState}
           theme={theme}
+          songBackgroundConfig={cuedSongBackgroundConfig}
           onExpand={toggleFocusMode}
           onSettings={() => setScreen('settings')}
         />
@@ -435,6 +455,7 @@ export function LivePreviewPanel(): React.JSX.Element {
           isClear={isClear}
           isProjectorLost={isProjectorLost}
           theme={theme}
+          songBackgroundConfig={programSongBackgroundConfig}
           programLockState={programLockState}
           onExpand={toggleFocusMode}
           onSettings={() => setScreen('settings')}
@@ -446,24 +467,20 @@ export function LivePreviewPanel(): React.JSX.Element {
       <div className="projection-scene-strip">
         <div className="flex items-center gap-3">
           <span className="text-[11px] font-black uppercase tracking-[0.14em] text-text-muted">
-            Scene
+            Atmosphere
           </span>
-          {[
-            ['1', 'VERSE'],
-            ['2', 'CHORUS'],
-            ['3', 'BRIDGE'],
-            ['4', 'ENDING']
-          ].map(([scene, label]) => (
+          {DEFAULT_SCENE_PRESETS.map((preset) => (
             <button
-              key={scene}
-              className={selectedScene === scene ? 'is-active' : ''}
-              onClick={() => handleSceneSelect(scene)}
+              key={preset.id}
+              className={activeSceneId === preset.id ? 'is-active' : ''}
+              onClick={() => handleSceneSelect(preset.id)}
+              title={preset.description}
             >
-              <strong>{label}</strong>
-              <small>{scene}</small>
+              <strong>{preset.name}</strong>
+              <small>{preset.id}</small>
             </button>
           ))}
-          <button onClick={() => showToast('Scene baru siap ditambahkan', 'info')}>+</button>
+          <button onClick={handleClearAtmosphereOverride}>Clear</button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -487,6 +504,9 @@ export function LivePreviewPanel(): React.JSX.Element {
         </div>
 
         <div className="flex items-center gap-2">
+          <button onClick={() => handleSceneSelect('sermon')} title="Emergency safe mode">
+            Safe Mode
+          </button>
           <button
             onClick={() => executeRuntimeCommand('PROJ_BLACK', undefined, 'UI_BUTTON')}
             className={projectionState === 'BLACK' ? 'is-danger-active' : ''}

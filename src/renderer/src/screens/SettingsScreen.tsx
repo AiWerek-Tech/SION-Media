@@ -1,6 +1,6 @@
 /**
- * Settings Screen
- * Main settings container that orchestrates all settings sections
+ * Settings Screen — Premium Enterprise Redesign
+ * Consistent with Library Pro & Management Studio design language
  */
 
 import React, { useState, useEffect } from 'react'
@@ -13,7 +13,8 @@ import {
   Database,
   Info,
   Image,
-  BookOpen
+  BookOpen,
+  Search
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { mediaEngine } from '../engine/mediaEngine'
@@ -41,15 +42,22 @@ type SettingsSection =
   | 'backup'
   | 'about'
 
-const SECTIONS: { key: SettingsSection; label: string; icon: React.JSX.Element }[] = [
-  { key: 'display', label: 'Display', icon: <Monitor size={15} /> },
-  { key: 'hymnals', label: 'Buku Lagu', icon: <BookOpen size={15} /> },
-  { key: 'appearance', label: 'Tampilan', icon: <SunMoon size={15} /> },
-  { key: 'theme', label: 'Tema & Font', icon: <Palette size={15} /> },
-  { key: 'background', label: 'Background', icon: <Image size={15} /> },
-  { key: 'shortcuts', label: 'Keyboard', icon: <Keyboard size={15} /> },
-  { key: 'backup', label: 'Backup', icon: <Database size={15} /> },
-  { key: 'about', label: 'Tentang', icon: <Info size={15} /> }
+interface SectionDef {
+  key: SettingsSection
+  label: string
+  subtitle: string
+  icon: React.ElementType
+}
+
+const SECTIONS: SectionDef[] = [
+  { key: 'display', label: 'Display', subtitle: 'Monitor & Proyektor', icon: Monitor },
+  { key: 'hymnals', label: 'Buku Lagu', subtitle: 'Kategori & Koleksi', icon: BookOpen },
+  { key: 'appearance', label: 'Tampilan', subtitle: 'UI/UX & Layout', icon: SunMoon },
+  { key: 'theme', label: 'Tema & Font', subtitle: 'Warna & Tipografi', icon: Palette },
+  { key: 'background', label: 'Background', subtitle: 'Wallpaper & Visual', icon: Image },
+  { key: 'shortcuts', label: 'Keyboard', subtitle: 'Shortcut & Hotkey', icon: Keyboard },
+  { key: 'backup', label: 'Backup', subtitle: 'Cadangan & Restore', icon: Database },
+  { key: 'about', label: 'Tentang', subtitle: 'Informasi Aplikasi', icon: Info }
 ]
 
 export function SettingsScreen(): React.JSX.Element {
@@ -57,6 +65,7 @@ export function SettingsScreen(): React.JSX.Element {
   const [activeSection, setActiveSection] = useState<SettingsSection>('display')
   const [settings, setSettings] = useState<Record<string, string>>({})
   const [displays, setDisplays] = useState<DisplayInfo[]>([])
+  const [sidebarSearch, setSidebarSearch] = useState('')
 
   // Load initial data
   useEffect(() => {
@@ -94,12 +103,29 @@ export function SettingsScreen(): React.JSX.Element {
     setSettings(newSettings)
     window.api.projection.themeUpdate(newSettings)
 
-    // Preload if it's a background image
     if (key === 'projection_bg_image' && value) {
       if (value.match(/\.(mp4|webm)$/i)) {
         mediaEngine.preloadVideo(value).catch((err) => logger.error('Video preload error:', err))
       } else {
         mediaEngine.preloadImage(value).catch((err) => logger.error('Image preload error:', err))
+      }
+    }
+
+    if (key === 'projection_default_atmosphere' && value) {
+      try {
+        const config = JSON.parse(value) as { media?: { path?: string } }
+        const mediaPath = config.media?.path
+        if (mediaPath?.match(/\.(mp4|webm)$/i)) {
+          mediaEngine
+            .preloadVideo(mediaPath)
+            .catch((err) => logger.error('Video preload error:', err))
+        } else if (mediaPath) {
+          mediaEngine
+            .preloadImage(mediaPath)
+            .catch((err) => logger.error('Image preload error:', err))
+        }
+      } catch (err) {
+        logger.error('Invalid projection_default_atmosphere payload:', err)
       }
     }
   }
@@ -138,7 +164,6 @@ export function SettingsScreen(): React.JSX.Element {
     }
   }
 
-  // Backup handlers
   const handleBackup = async (): Promise<void> => {
     const path = (await window.api.system.createBackup()) as string
     showToast('Backup berhasil: ' + path, 'success')
@@ -155,52 +180,113 @@ export function SettingsScreen(): React.JSX.Element {
     showToast('Database lagu berhasil diatur ulang', 'success')
   }
 
+  const filteredSections = SECTIONS.filter(
+    (s) =>
+      !sidebarSearch.trim() ||
+      s.label.toLowerCase().includes(sidebarSearch.toLowerCase()) ||
+      s.subtitle.toLowerCase().includes(sidebarSearch.toLowerCase())
+  )
+
+  const activeSection_ = SECTIONS.find((s) => s.key === activeSection)
+
   return (
-    <div className="h-full w-full flex flex-col bg-bg-base overflow-hidden animate-fade-in">
-      {/* Header */}
-      <div className="h-14 flex items-center px-6 border-b border-border-default bg-bg-surface/50 backdrop-blur-md shrink-0 gap-4">
-        <button
-          onClick={() => setScreen('dashboard')}
-          className="p-2 rounded-lg text-text-secondary hover:bg-bg-elevated hover:text-text-primary transition-all active:scale-95"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <div className="flex flex-col">
-          <h1 className="text-h3 text-text-primary leading-tight">Pengaturan Sistem</h1>
-          <p className="text-[10px] text-text-muted font-medium uppercase tracking-widest">
-            Konfigurasi Tampilan & Database
-          </p>
-        </div>
-      </div>
+    <div className="settings-shell">
+      {/* ── Ambient background ── */}
+      <div className="settings-shell__ambient" />
 
-      {/* Content */}
-      <div className="flex-1 flex min-h-0">
-        {/* Sidebar */}
-        <div className="w-[240px] border-r border-border-default bg-bg-surface/30 p-4 space-y-1">
-          {SECTIONS.map((section) => (
-            <button
-              key={section.key}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                activeSection === section.key
-                  ? 'bg-brand-primary/10 text-brand-primary shadow-sm border border-brand-primary/20'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-bg-elevated'
-              }`}
-              onClick={() => setActiveSection(section.key)}
+      {/* ── Header ── */}
+      <header className="settings-header drag-area">
+        <div className="settings-header__left no-drag-area">
+          <button
+            onClick={() => setScreen('dashboard')}
+            className="settings-header__back"
+            title="Kembali"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div className="settings-header__title-block">
+            <h1>Pengaturan Sistem</h1>
+            <p>Konfigurasi Tampilan &amp; Database</p>
+          </div>
+        </div>
+
+        {/* Breadcrumb */}
+        {activeSection_ && (
+          <div className="settings-header__breadcrumb no-drag-area">
+            <span>Pengaturan Sistem</span>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <div
-                className={`${activeSection === section.key ? 'text-brand-primary' : 'text-text-muted'}`}
-              >
-                {section.icon}
-              </div>
-              {section.label}
-            </button>
-          ))}
-        </div>
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+            <span className="settings-header__breadcrumb-active">{activeSection_.label}</span>
+          </div>
+        )}
+      </header>
 
-        {/* Content area */}
-        <div className="flex-1 overflow-y-auto p-8 no-scrollbar bg-bg-base/20">
-          <div className="max-w-2xl mx-auto space-y-10">
-            {activeSection === 'display' && <DisplaySettings displays={displays} />}
+      {/* ── Body ── */}
+      <div className="settings-body">
+        {/* ── Sidebar ── */}
+        <aside className="settings-sidebar">
+          {/* Search */}
+          <div className="settings-sidebar__search-wrap">
+            <Search size={14} className="settings-sidebar__search-icon" />
+            <input
+              type="text"
+              placeholder="Cari pengaturan..."
+              value={sidebarSearch}
+              onChange={(e) => setSidebarSearch(e.target.value)}
+              className="settings-sidebar__search"
+            />
+            {sidebarSearch && <kbd className="settings-sidebar__search-kbd">Ctrl K</kbd>}
+          </div>
+
+          {/* Nav items */}
+          <nav className="settings-sidebar__nav">
+            {filteredSections.map((section) => {
+              const Icon = section.icon
+              const isActive = activeSection === section.key
+              return (
+                <button
+                  key={section.key}
+                  className={`settings-sidebar__item ${isActive ? 'is-active' : ''}`}
+                  onClick={() => setActiveSection(section.key)}
+                >
+                  <div className="settings-sidebar__item-icon">
+                    <Icon size={18} />
+                  </div>
+                  <div className="settings-sidebar__item-text">
+                    <span className="settings-sidebar__item-label">{section.label}</span>
+                    <span className="settings-sidebar__item-subtitle">{section.subtitle}</span>
+                  </div>
+                  {isActive && <div className="settings-sidebar__item-indicator" />}
+                </button>
+              )
+            })}
+          </nav>
+        </aside>
+
+        {/* ── Content ── */}
+        <main className="settings-content">
+          <div
+            className={`settings-content__inner ${
+              activeSection === 'background' ? 'settings-content__inner--wide' : ''
+            }`}
+          >
+            {activeSection === 'display' && (
+              <DisplaySettings
+                displays={displays}
+                settings={settings}
+                updateSetting={updateSetting}
+              />
+            )}
             {activeSection === 'hymnals' && (
               <HymnalSettings
                 hymnals={hymnals}
@@ -228,7 +314,7 @@ export function SettingsScreen(): React.JSX.Element {
             )}
             {activeSection === 'about' && <AboutSettings />}
           </div>
-        </div>
+        </main>
       </div>
     </div>
   )

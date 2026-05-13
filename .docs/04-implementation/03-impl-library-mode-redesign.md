@@ -154,6 +154,70 @@ const HYMNAL_COLORS: Record<string, string> = {
 - Search Palette overlay
 - Lyric Studio Lite overlay
 
+### 9. LibraryLyricsViewer (Fullscreen Immersive Player)
+
+**File:** `src/renderer/src/components/library/LibraryLyricsViewer.tsx`
+
+**Features:**
+
+- Fullscreen immersive lyric viewer overlay
+- **Title Bar (Library Mode)** - Shows on hover at top edge (30px from edge)
+  - Logo "S" dengan gradient
+  - Label "SION Media Enterprise • Library Mode"
+  - Window controls (minimize, maximize, close)
+  - Height: 48px
+  - Animasi slide dari -20px ke 0px dengan fade
+  - Pointer events dikontrol untuk interaksi yang proper
+  - Z-index: 30
+- **Top Bar (Penampil Lirik)** - Always visible
+  - Left: Back button (arrow icon), divider, song number (angka saja)
+  - Center: Song title + English title (alternate_title/title_en/hymnal_name)
+  - Right: Key, Tempo, Composer, Category metadata
+  - Height: 64px
+  - Position: top-[48px] (di bawah title bar)
+  - Z-index: 20
+- **Bottom Footer Bar** - Song navigation
+  - Previous Song button (arrow up icon)
+  - Play/Pause Auto Slide button (music/square icon)
+  - Next Song button (arrow right icon)
+  - Floating di bottom-8 dengan auto-hide
+  - Glassmorphism styling dengan backdrop blur
+  - Z-index: 20
+- **Lyric Area**
+  - Stanza-based pagination (satu bait per layar)
+  - Tipografi besar dengan line-height nyaman
+  - Max width: 1200px
+  - Top padding: 13vh (adjusted for title + top bar)
+- **Right Navigation**
+  - Vertical dot navigation sesuai jumlah pages
+  - Fraction labels (1/4, 2/4, etc.)
+  - Auto-hide dengan idle timer
+- **Auto-scroll**
+  - Menggunakan `requestAnimationFrame` untuk smooth scrolling
+  - Toggle dengan keyboard `Space` atau tombol Play di bottom footer bar
+- **Keyboard Navigation**
+  - Escape: close overlay
+  - ArrowDown / PageDown: next stanza
+  - ArrowUp / PageUp: prev stanza
+  - Space: toggle auto-scroll
+  - Home: first stanza
+  - End: last stanza
+  - +/-: adjust font size
+- **Component Props**
+  - `song: Song` - lagu yang ditampilkan
+  - `onClose: () => void` - callback untuk menutup viewer
+  - `onNextSong?: () => void` - optional callback untuk navigasi ke lagu berikutnya
+  - `onPrevSong?: () => void` - optional callback untuk navigasi ke lagu sebelumnya
+
+**Implementation Details:**
+
+- Font size parsing dengan NaN check untuk robustness
+- `isMounted` check untuk cleanup yang proper di useEffect
+- Hover zone untuk title bar: 30px dari top edge
+- Idle timer untuk auto-hide UI elements (2.5 seconds)
+- Cinematic background dengan volumetric light effects dan particle motion
+- Verse fraction labels di slide indicators dan floating verse label di atas lirik
+
 ## Keyboard Navigation
 
 | Shortcut | Action                               |

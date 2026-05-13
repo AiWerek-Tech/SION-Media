@@ -384,6 +384,106 @@ export const migrations: Migration[] = [
         // ignore (FTS5 might not be available in some environments)
       }
     }
+  },
+  {
+    version: 10,
+    name: 'projection_atmosphere_system_v1',
+    up: (db) => {
+      const songColumns = db.prepare("PRAGMA table_info('songs')").all() as Array<{ name: string }>
+      const hasSongBackgroundConfig = songColumns.some((c) => c.name === 'song_background_config')
+      if (!hasSongBackgroundConfig) {
+        db.exec("ALTER TABLE songs ADD COLUMN song_background_config TEXT DEFAULT ''")
+      }
+
+      const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
+      insertSetting.run('projection_default_atmosphere', '')
+      insertSetting.run('projection_scene_presets', '')
+      insertSetting.run('projection_atmosphere_favorites', '')
+      insertSetting.run('projection_atmosphere_live_override', '')
+    }
+  },
+  {
+    version: 11,
+    name: 'projection_atmosphere_media_library_v1',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS media_assets (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL,
+          name TEXT NOT NULL,
+          original_path TEXT NOT NULL,
+          local_path TEXT NOT NULL,
+          thumbnail_path TEXT DEFAULT '',
+          category TEXT DEFAULT '',
+          tags TEXT DEFAULT '[]',
+          is_favorite INTEGER DEFAULT 0,
+          usage_count INTEGER DEFAULT 0,
+          metadata_json TEXT DEFAULT '{}',
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_media_assets_type ON media_assets(type);
+        CREATE INDEX IF NOT EXISTS idx_media_assets_category ON media_assets(category);
+        CREATE INDEX IF NOT EXISTS idx_media_assets_favorite ON media_assets(is_favorite);
+        CREATE INDEX IF NOT EXISTS idx_media_assets_usage ON media_assets(usage_count DESC);
+      `)
+    }
+  },
+  {
+    version: 12,
+    name: 'projection_atmosphere_media_collections_v1',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS media_collections (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT DEFAULT '',
+          cover_asset_id TEXT DEFAULT '',
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (cover_asset_id) REFERENCES media_assets(id) ON DELETE SET DEFAULT
+        );
+
+        CREATE TABLE IF NOT EXISTS media_collection_items (
+          collection_id TEXT NOT NULL,
+          asset_id TEXT NOT NULL,
+          created_at TEXT DEFAULT (datetime('now')),
+          PRIMARY KEY (collection_id, asset_id),
+          FOREIGN KEY (collection_id) REFERENCES media_collections(id) ON DELETE CASCADE,
+          FOREIGN KEY (asset_id) REFERENCES media_assets(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_media_collection_items_collection
+          ON media_collection_items(collection_id);
+        CREATE INDEX IF NOT EXISTS idx_media_collection_items_asset
+          ON media_collection_items(asset_id);
+      `)
+    }
+  },
+  {
+    version: 13,
+    name: 'projection_atmosphere_collection_ordering_and_song_bulk_background_v1',
+    up: (db) => {
+      db.exec(`
+        ALTER TABLE media_collection_items ADD COLUMN sort_order INTEGER DEFAULT 0;
+
+        UPDATE media_collection_items
+        SET sort_order = (
+          SELECT COUNT(*)
+          FROM media_collection_items mci2
+          WHERE mci2.collection_id = media_collection_items.collection_id
+            AND (
+              mci2.created_at < media_collection_items.created_at OR
+              (mci2.created_at = media_collection_items.created_at AND mci2.asset_id <= media_collection_items.asset_id)
+            )
+        ) - 1
+        WHERE sort_order = 0;
+
+        CREATE INDEX IF NOT EXISTS idx_media_collection_items_collection_order
+          ON media_collection_items(collection_id, sort_order);
+      `)
+    }
   }
 ]
 

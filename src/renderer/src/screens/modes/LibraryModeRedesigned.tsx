@@ -133,7 +133,7 @@ function songVerseCount(song: Song): number {
 
 function tempoLabel(song: Song): string {
   const raw = song.tempo?.trim()
-  if (!raw) return '72 BPM'
+  if (!raw) return '-'
   return /\d/.test(raw) && !raw.toLowerCase().includes('bpm') ? `${raw} BPM` : raw
 }
 
@@ -364,14 +364,14 @@ function RightInspector({
   }
 
   const meta = [
-    ['Buku Lagu', song.hymnal_name || song.hymnal_code || 'Lagu Sion'],
-    ['Kategori', song.category || 'Penyembahan'],
-    ['Penulis', song.author || 'Unknown'],
-    ['Komposer', song.composer || 'Unknown'],
-    ['Tema', song.theme || song.tags || 'Worship'],
-    ['Key', song.key_note || 'G'],
+    ['Buku Lagu', song.hymnal_name || song.hymnal_code || '-'],
+    ['Kategori', song.category || '-'],
+    ['Penulis', song.author || '-'],
+    ['Komposer', song.composer || '-'],
+    ['Tema', song.theme || song.tags || '-'],
+    ['Key', song.key_note || '-'],
     ['Tempo', tempoLabel(song)],
-    ['Birama', song.time_signature || '4/4'],
+    ['Birama', song.time_signature || '-'],
     ['Copyright', 'SION Media']
   ]
 
@@ -592,6 +592,40 @@ export function LibraryMode(): React.JSX.Element {
     },
     [selectedSong, setLyricsFullscreen, setSelectedSong]
   )
+
+  const handlePrevSong = useCallback(() => {
+    if (!selectedSong) return
+    if (activeTab === 'playlist') {
+      const index = playlistItems.findIndex((item) => item.song_id === selectedSong.id)
+      if (index > 0) {
+        const prevId = playlistItems[index - 1].song_id
+        const song = songs.find((s) => s.id === prevId)
+        if (song) setSelectedSong(song)
+      }
+      return
+    }
+    const index = visibleSongs.findIndex((s) => s.id === selectedSong.id)
+    if (index > 0) {
+      setSelectedSong(visibleSongs[index - 1])
+    }
+  }, [activeTab, playlistItems, selectedSong, setSelectedSong, songs, visibleSongs])
+
+  const handleNextSong = useCallback(() => {
+    if (!selectedSong) return
+    if (activeTab === 'playlist') {
+      const index = playlistItems.findIndex((item) => item.song_id === selectedSong.id)
+      if (index >= 0 && index < playlistItems.length - 1) {
+        const nextId = playlistItems[index + 1].song_id
+        const song = songs.find((s) => s.id === nextId)
+        if (song) setSelectedSong(song)
+      }
+      return
+    }
+    const index = visibleSongs.findIndex((s) => s.id === selectedSong.id)
+    if (index >= 0 && index < visibleSongs.length - 1) {
+      setSelectedSong(visibleSongs[index + 1])
+    }
+  }, [activeTab, playlistItems, selectedSong, setSelectedSong, songs, visibleSongs])
 
   const handleAddToPlaylist = useCallback(
     (song: Song): void => {
@@ -916,6 +950,8 @@ export function LibraryMode(): React.JSX.Element {
                 setLyricsFullscreen(false)
                 if (!fullscreenLibrary) setSelectedSong(selectedSong)
               }}
+              onPrevSong={handlePrevSong}
+              onNextSong={handleNextSong}
             />
           </motion.div>
         )}

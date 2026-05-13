@@ -96,6 +96,8 @@ const api = {
     delete: (id: number): Promise<boolean> => ipcRenderer.invoke('db:delete-song', id),
     clearLyrics: (hymnalId: number, songNumbers: string[]): Promise<number> =>
       ipcRenderer.invoke('db:clear-lyrics', hymnalId, songNumbers),
+    bulkAssignBackground: (payload: unknown): Promise<number> =>
+      ipcRenderer.invoke('db:bulk-assign-song-background', payload),
     toggleFavorite: (id: number): Promise<unknown> => ipcRenderer.invoke('db:toggle-favorite', id),
     getRelations: (songId: number): Promise<unknown[]> =>
       ipcRenderer.invoke('db:get-song-relations', songId),
@@ -157,6 +159,36 @@ const api = {
       ipcRenderer.invoke('file:show-save-dialog', options),
     writeJson: (filePath: string, data: unknown): Promise<unknown> =>
       ipcRenderer.invoke('file:write-json', filePath, data)
+  },
+
+  // Media Library
+  media: {
+    getAll: (filters?: unknown): Promise<unknown[]> =>
+      ipcRenderer.invoke('db:get-media-assets', filters),
+    getCollections: (): Promise<unknown[]> => ipcRenderer.invoke('db:get-media-collections'),
+    importAssets: (payload: unknown): Promise<unknown[]> =>
+      ipcRenderer.invoke('db:import-media-assets', payload),
+    update: (id: string, updates: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('db:update-media-asset', id, updates),
+    delete: (id: string): Promise<boolean> => ipcRenderer.invoke('db:delete-media-asset', id),
+    incrementUsage: (id: string): Promise<void> =>
+      ipcRenderer.invoke('db:increment-media-asset-usage', id),
+    addCollection: (payload: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('db:add-media-collection', payload),
+    updateCollection: (id: string, updates: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('db:update-media-collection', id, updates),
+    deleteCollection: (id: string): Promise<boolean> =>
+      ipcRenderer.invoke('db:delete-media-collection', id),
+    addAssetsToCollection: (collectionId: string, assetIds: string[]): Promise<unknown> =>
+      ipcRenderer.invoke('db:add-assets-to-media-collection', collectionId, assetIds),
+    removeAssetsFromCollection: (collectionId: string, assetIds: string[]): Promise<unknown> =>
+      ipcRenderer.invoke('db:remove-assets-from-media-collection', collectionId, assetIds),
+    reorderCollectionItems: (collectionId: string, assetIds: string[]): Promise<unknown> =>
+      ipcRenderer.invoke('db:reorder-media-collection-items', collectionId, assetIds),
+    bulkUpdate: (payload: unknown): Promise<number> =>
+      ipcRenderer.invoke('db:bulk-update-media-assets', payload),
+    bulkDelete: (ids: string[]): Promise<number> =>
+      ipcRenderer.invoke('db:bulk-delete-media-assets', ids)
   },
 
   // Bible

@@ -107,7 +107,8 @@ export function SongLibraryPanel(): React.JSX.Element {
     useAppStore.getState().setSelectedSong(song)
     setSlides(generateSlidesForSong(song), {
       hymnalCode: song.hymnal_code || 'LS',
-      hymnalName: song.hymnal_name || selectedHymnal?.name || 'Lagu Sion'
+      hymnalName: song.hymnal_name || selectedHymnal?.name || 'Lagu Sion',
+      songBackgroundConfig: song.song_background_config || ''
     })
   }
 

@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, X, Music, Clock, Delete } from 'lucide-react'
+import { Search, X, Music, Clock, Delete, Plus } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import { getHymnalColor } from '../../utils/hymnal-colors'
 import type { Song } from '../../types'
@@ -186,61 +186,68 @@ export function LibrarySearchPalette({
           onClick={onClose}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.94 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.94 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-[760px] bg-bg-surface/95 backdrop-blur-2xl border border-border-default rounded-2xl overflow-hidden shadow-[0_32px_64px_rgba(0,0,0,0.6)] flex flex-col"
+            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 10 }}
+            transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+            className="w-full max-w-[800px] bg-[#0c1220]/95 backdrop-blur-3xl border border-white/[0.08] rounded-3xl overflow-hidden shadow-[0_48px_96px_rgba(0,0,0,0.72)] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Premium Search Input */}
-            <div className="relative flex items-center px-6 py-5 border-b border-border-subtle bg-bg-elevated/50">
-              <Search size={24} className="text-brand-primary shrink-0 mr-4" />
+            {/* Premium Search Input Section */}
+            <div className="relative flex items-center px-8 py-6 border-b border-white/[0.06] bg-white/[0.02]">
+              <div className="h-12 w-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center shrink-0 mr-5 shadow-[0_0_20px_rgba(var(--brand-primary-rgb),0.1)]">
+                <Search size={22} className="text-brand-primary" />
+              </div>
               <input
                 ref={inputRef}
                 type="text"
                 value={query}
                 onChange={(e) => handleQueryChange(e.target.value)}
                 placeholder="Cari nomor, judul, lirik, atau tag..."
-                className="flex-1 bg-transparent text-[22px] font-medium text-text-primary placeholder:text-text-muted/60 outline-none"
+                className="flex-1 bg-transparent text-[24px] font-bold text-white placeholder:text-white/20 outline-none"
               />
-              {query && (
-                <button
-                  onClick={() => {
-                    setQuery('')
-                    setResults([])
-                  }}
-                  className="p-1.5 rounded-full hover:bg-white/10 text-text-muted hover:text-text-primary transition-colors mr-3"
-                >
-                  <X size={18} />
-                </button>
-              )}
-              <kbd className="px-2 py-1 rounded-md border border-white/10 bg-white/5 text-[10px] font-bold text-text-muted shadow-sm">
-                ESC
-              </kbd>
-              {/* Bottom Glow */}
-              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-brand-primary/50 to-transparent opacity-50" />
+              <div className="flex items-center gap-3">
+                {query && (
+                  <button
+                    onClick={() => {
+                      setQuery('')
+                      setResults([])
+                    }}
+                    className="p-2 rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-all"
+                  >
+                    <X size={20} />
+                  </button>
+                )}
+                <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] text-[10px] font-black text-white/30 tracking-widest shadow-sm">
+                  <kbd className="font-sans">ESC</kbd>
+                </div>
+              </div>
+              {/* Bottom Decorative Glow */}
+              <div className="absolute bottom-[-1px] left-8 right-8 h-[1px] bg-gradient-to-r from-transparent via-brand-primary/40 to-transparent" />
             </div>
 
-            {/* Main Content */}
-            <div className="flex min-h-[320px] max-h-[50vh]">
-              {/* Results List */}
-              <div ref={listRef} className="flex-1 overflow-y-auto">
+            {/* Main Content Area */}
+            <div className="flex min-h-[400px] max-h-[60vh]">
+              {/* Results List Section */}
+              <div
+                ref={listRef}
+                className="flex-1 overflow-y-auto custom-scrollbar border-r border-white/[0.04]"
+              >
                 {!query.trim() ? (
                   // Initial state: recent searches
-                  <div className="p-5">
+                  <div className="p-8">
                     {recentSearches.length > 0 ? (
                       <div>
-                        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-text-muted mb-3">
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-5">
                           <Clock size={12} />
                           Pencarian Terakhir
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2.5">
                           {recentSearches.map((s, i) => (
                             <button
                               key={i}
                               onClick={() => handleQueryChange(s)}
-                              className="px-3 py-1.5 rounded-lg bg-surface-2/60 border border-border-default/30 text-[12px] text-text-secondary hover:text-text-primary hover:bg-surface-3/60 transition-all"
+                              className="px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[13px] font-medium text-white/60 hover:text-white hover:bg-white/[0.08] hover:border-white/[0.12] transition-all"
                             >
                               {s}
                             </button>
@@ -248,35 +255,44 @@ export function LibrarySearchPalette({
                         </div>
                       </div>
                     ) : (
-                      <div className="text-center py-8">
-                        <Search size={32} className="mx-auto mb-3 text-text-disabled opacity-50" />
-                        <div className="text-text-muted text-sm mb-1">
+                      <div className="flex flex-col items-center justify-center py-16 opacity-40">
+                        <div className="h-20 w-20 rounded-3xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-center mb-5">
+                          <Search size={36} className="text-white/20" />
+                        </div>
+                        <div className="text-white/40 text-sm font-semibold mb-1">
                           Ketik untuk mulai mencari
                         </div>
-                        <div className="text-text-disabled text-[11px]">
-                          Gunakan number pad di kanan untuk pencarian cepat berdasarkan nomor
+                        <div className="text-white/20 text-[11px] max-w-[240px] text-center leading-relaxed">
+                          Gunakan angka untuk navigasi cepat melalui number pad di sebelah kanan
                         </div>
                       </div>
                     )}
                   </div>
                 ) : isSearching ? (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-text-muted text-sm">Mencari...</div>
+                  <div className="flex flex-col items-center justify-center h-full gap-4">
+                    <div className="h-8 w-8 rounded-full border-2 border-brand-primary/20 border-t-brand-primary animate-spin" />
+                    <div className="text-white/40 text-[13px] font-medium tracking-wide">
+                      Mencari hasil terbaik...
+                    </div>
                   </div>
                 ) : filteredResults.length === 0 ? (
                   // Empty state
-                  <div className="flex flex-col items-center justify-center h-full p-5">
-                    <div className="h-16 w-16 rounded-2xl bg-surface-2/60 border border-border-default/30 flex items-center justify-center mb-4">
-                      <Music size={28} className="text-text-disabled" />
+                  <div className="flex flex-col items-center justify-center h-full p-8 opacity-60">
+                    <div className="h-20 w-20 rounded-3xl bg-red-500/5 border border-red-500/10 flex items-center justify-center mb-5">
+                      <Music size={36} className="text-red-500/40" />
                     </div>
-                    <div className="text-text-muted text-sm mb-1">Tidak ada hasil</div>
-                    <div className="text-text-disabled text-[11px] text-center max-w-[280px]">
-                      Coba kata kunci lain atau ubah filter pencarian
+                    <div className="text-white/60 text-base font-bold mb-2 text-center">
+                      Hasil tidak ditemukan
+                    </div>
+                    <div className="text-white/30 text-[12px] text-center max-w-[320px] leading-relaxed">
+                      Kami tidak menemukan lagu untuk kata kunci{' '}
+                      <span className="text-white/80 font-bold">&ldquo;{query}&rdquo;</span>. Coba
+                      periksa ejaan atau cari menggunakan nomor lagu.
                     </div>
                   </div>
                 ) : (
-                  // Results
-                  <div className="py-2">
+                  // Results List
+                  <div className="py-3">
                     {filteredResults.map((song, index) => {
                       const isSelected = index === selectedIndex
                       const accentColor = getHymnalColor(song.hymnal_code || 'LS')
@@ -286,31 +302,33 @@ export function LibrarySearchPalette({
                           key={song.id}
                           data-index={index}
                           onClick={() => handleSelect(song)}
-                          className={`w-full flex items-center gap-3 px-5 py-3 text-left transition-all ${
-                            isSelected
-                              ? 'bg-brand-primary/8 border-l-2 border-brand-primary'
-                              : 'hover:bg-surface-2/40 border-l-2 border-transparent'
+                          className={`group w-full flex items-center gap-5 px-8 py-4 text-left transition-all relative ${
+                            isSelected ? 'bg-brand-primary/5' : 'hover:bg-white/[0.02]'
                           }`}
                         >
-                          {/* Number badge */}
+                          {/* Selected Indicator */}
+                          {isSelected && (
+                            <div className="absolute left-0 top-1 bottom-1 w-[3px] bg-brand-primary rounded-r-full shadow-[0_0_12px_rgba(var(--brand-primary-rgb),0.5)]" />
+                          )}
+
+                          {/* Number badge (Naked Style) */}
                           <div
-                            className="h-10 w-12 shrink-0 rounded-lg flex flex-col items-center justify-center border font-mono"
+                            className="h-12 w-14 shrink-0 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 group-hover:scale-105"
                             style={{
-                              borderColor: isSelected ? accentColor : 'rgba(255,255,255,0.08)',
                               backgroundColor: isSelected
-                                ? accentColor.replace('hsl', 'hsla').replace(')', ', 0.12)')
-                                : 'transparent'
+                                ? accentColor.replace('hsl', 'hsla').replace(')', ', 0.15)')
+                                : 'rgba(255,255,255,0.03)'
                             }}
                           >
                             <span
-                              className="text-[9px] uppercase opacity-60"
-                              style={{ color: isSelected ? accentColor : undefined }}
+                              className="text-[10px] font-black tracking-widest"
+                              style={{ color: isSelected ? accentColor : 'rgba(255,255,255,0.3)' }}
                             >
                               {song.hymnal_code || 'LS'}
                             </span>
                             <span
-                              className="text-[13px] font-bold"
-                              style={{ color: isSelected ? accentColor : undefined }}
+                              className="text-[16px] font-black font-mono leading-none mt-0.5"
+                              style={{ color: isSelected ? 'white' : 'rgba(255,255,255,0.8)' }}
                             >
                               {normalizeDisplayNumber(song.number)}
                             </span>
@@ -318,30 +336,41 @@ export function LibrarySearchPalette({
 
                           {/* Info */}
                           <div className="flex-1 min-w-0">
-                            <div className="text-[13px] font-semibold text-text-primary truncate">
+                            <div
+                              className={`text-[15px] font-bold truncate transition-colors ${isSelected ? 'text-white' : 'text-white/90 group-hover:text-white'}`}
+                            >
                               {highlightMatch(song.title, query)}
                             </div>
-                            {song.alternate_title && (
-                              <div className="text-[11px] text-text-muted italic truncate">
-                                {highlightMatch(song.alternate_title, query)}
+                            {(song.alternate_title || song.title_en) && (
+                              <div className="text-[12px] text-white/40 italic truncate mt-0.5">
+                                {highlightMatch(song.alternate_title || song.title_en || '', query)}
                               </div>
                             )}
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-3 mt-2">
                               {song.key_note && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-3/60 text-text-muted">
-                                  {song.key_note}
+                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-white/[0.04] text-white/40">
+                                  Key {song.key_note}
                                 </span>
                               )}
                               {song.tempo && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-3/60 text-text-muted">
+                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-white/[0.04] text-white/40">
                                   {song.tempo}
                                 </span>
                               )}
                               {!song.lyrics_raw && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-status-error/15 text-status-error font-bold">
-                                  LIRIK KOSONG
+                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-red-500/10 text-red-400">
+                                  MISSING LYRICS
                                 </span>
                               )}
+                            </div>
+                          </div>
+
+                          {/* Quick Select Arrow */}
+                          <div
+                            className={`opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0 ${isSelected ? 'text-brand-primary' : 'text-white/20'}`}
+                          >
+                            <div className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center">
+                              <Plus size={14} />
                             </div>
                           </div>
                         </button>
@@ -351,52 +380,61 @@ export function LibrarySearchPalette({
                 )}
               </div>
 
-              {/* Premium Stream Deck Number Pad */}
-              <div className="w-[180px] border-l border-border-subtle bg-bg-base/40 p-4 flex flex-col">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-text-muted/60 mb-4 text-center">
-                  Number Pad
+              {/* Minimal Glass Number Pad */}
+              <div className="w-[200px] bg-black/20 p-6 flex flex-col">
+                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-6 text-center">
+                  Keypad
                 </div>
-                <div className="grid grid-cols-3 gap-2.5 flex-1">
+                <div className="grid grid-cols-3 gap-3">
                   {NUMBER_PAD.map((digit) => (
                     <button
                       key={digit}
                       onClick={() => handleNumberPad(digit)}
-                      className={`relative flex items-center justify-center rounded-xl font-mono text-[16px] font-bold transition-all overflow-hidden ${
+                      className={`h-11 flex items-center justify-center rounded-xl font-mono text-[16px] font-bold transition-all border ${
                         digit === 'C'
-                          ? 'text-white shadow-[inset_0_2px_4px_rgba(255,255,255,0.2),inset_0_-4px_12px_rgba(0,0,0,0.4),0_2px_4px_rgba(0,0,0,0.3)] bg-gradient-to-b from-red-500/80 to-red-700/80 hover:brightness-110 active:scale-95 border border-red-500/50'
+                          ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'
                           : digit === '⌫'
-                            ? 'text-text-muted shadow-[inset_0_2px_4px_rgba(255,255,255,0.05),inset_0_-4px_12px_rgba(0,0,0,0.3),0_2px_4px_rgba(0,0,0,0.2)] bg-gradient-to-b from-white/[0.08] to-white/[0.02] hover:text-text-primary active:scale-95 border border-white/10'
-                            : 'text-text-primary shadow-[inset_0_2px_4px_rgba(255,255,255,0.1),inset_0_-6px_12px_rgba(0,0,0,0.4),0_2px_6px_rgba(0,0,0,0.3)] bg-gradient-to-b from-white/[0.12] to-white/[0.02] hover:bg-white/[0.15] active:scale-95 border border-white/10'
+                            ? 'bg-white/[0.04] border-white/[0.06] text-white/40 hover:text-white hover:bg-white/[0.08]'
+                            : 'bg-white/[0.06] border-white/[0.08] text-white/80 hover:bg-white/[0.12] hover:border-white/[0.15] active:scale-95'
                       }`}
-                      style={{ aspectRatio: '1/1' }}
                     >
-                      {digit === '⌫' ? <Delete size={20} /> : digit}
+                      {digit === '⌫' ? <Delete size={18} /> : digit}
                     </button>
                   ))}
                 </div>
-                <div className="mt-4 pt-4 border-t border-border-subtle text-[10px] font-medium text-text-muted/60 text-center">
-                  {filteredResults.length} HASIL
+                <div className="mt-auto pt-6 flex flex-col items-center gap-1 opacity-20">
+                  <div className="text-[10px] font-black">{filteredResults.length}</div>
+                  <div className="text-[8px] font-bold uppercase tracking-widest text-center leading-none">
+                    Matches Found
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Footer */}
+            {/* Premium Footer */}
             {filteredResults.length > 0 && (
-              <div className="flex items-center justify-between px-6 py-3 border-t border-border-subtle bg-bg-base/40 text-[10px] text-text-muted">
-                <span className="font-medium">{filteredResults.length} lagu ditemukan</span>
-                <div className="flex items-center gap-4 font-medium">
-                  <span className="flex items-center gap-1.5">
-                    <kbd className="px-1.5 py-0.5 rounded border border-white/10 bg-white/5 shadow-sm text-[9px] font-mono">
+              <div className="flex items-center justify-between px-8 py-4 border-t border-white/[0.04] bg-white/[0.01]">
+                <div className="flex items-center gap-2 text-[11px] font-medium text-white/40">
+                  <div className="h-1.5 w-1.5 rounded-full bg-brand-primary animate-pulse" />
+                  {filteredResults.length} lagu ditemukan
+                </div>
+                <div className="flex items-center gap-5">
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-[9px] font-mono text-white/40">
                       ↑↓
-                    </kbd>{' '}
-                    navigasi
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <kbd className="px-1.5 py-0.5 rounded border border-white/10 bg-white/5 shadow-sm text-[9px] font-mono">
+                    </kbd>
+                    <span className="text-[10px] font-bold uppercase tracking-tighter text-white/20">
+                      Navigasi
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-[9px] font-mono text-white/40">
                       Enter
-                    </kbd>{' '}
-                    buka
-                  </span>
+                    </kbd>
+                    <span className="text-[10px] font-bold uppercase tracking-tighter text-white/20">
+                      Buka
+                    </span>
+                  </div>
                 </div>
               </div>
             )}

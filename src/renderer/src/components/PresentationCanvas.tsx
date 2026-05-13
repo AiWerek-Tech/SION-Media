@@ -1,6 +1,8 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { ProjectionState, SlideData } from '../types'
+import { AtmosphereRenderer } from '../atmosphere/AtmosphereRenderer'
+import type { AtmosphereConfig } from '../atmosphere/types'
 
 interface PresentationCanvasProps {
   slide: SlideData | null
@@ -78,6 +80,57 @@ function toFileUrl(path: string): string {
   return `file://${path.replace(/\\/g, '/')}`
 }
 
+function parseAtmosphereConfig(raw?: string): AtmosphereConfig | null {
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as AtmosphereConfig
+  } catch {
+    return null
+  }
+}
+
+function buildLegacyAtmosphere(theme: Record<string, string>): AtmosphereConfig {
+  const bgImage = theme.projection_bg_image || ''
+  const isVideo = Boolean(bgImage.match(/\.(mp4|webm)$/i))
+
+  return {
+    id: 'legacy-theme-fallback',
+    name: 'Legacy Theme Fallback',
+    mode: bgImage ? (isVideo ? 'video' : 'image') : 'solid',
+    solidColor: theme.projection_bg_color || '#090b14',
+    media: bgImage
+      ? {
+          path: bgImage,
+          fit: 'cover',
+          loop: true,
+          muted: true
+        }
+      : undefined,
+    overlay: {
+      dim: Number(theme.projection_bg_opacity || 0.48),
+      blur: Number(theme.projection_bg_blur || 0),
+      vignette: 0.24,
+      glow: 0.1,
+      textShieldOpacity: 0.22
+    },
+    readability: {
+      smartDimming: true,
+      contrastBoost: 0.18,
+      blurBehindLyrics: true,
+      lyricSafeMode: true
+    }
+  }
+}
+
+function resolveAtmosphere(theme: Record<string, string>): AtmosphereConfig {
+  return (
+    parseAtmosphereConfig(theme.projection_atmosphere_live_override) ||
+    parseAtmosphereConfig(theme.song_background_config) ||
+    parseAtmosphereConfig(theme.projection_default_atmosphere) ||
+    buildLegacyAtmosphere(theme)
+  )
+}
+
 export function PresentationCanvas({
   slide,
   projectionState,
@@ -105,12 +158,9 @@ export function PresentationCanvas({
 
   const showBlack = projectionState === 'BLACK'
   const showLive = projectionState === 'LIVE' || projectionState === 'FREEZE'
-  const showLogo =
+  const showLogo = Boolean(
     projectionState === 'LOGO' || (projectionState === 'CLEAR' && theme.projection_logo)
-  const bgImage = theme.projection_bg_image || ''
-  const isVideoBackground = Boolean(bgImage.match(/\.(mp4|webm)$/i))
-  const bgColor = theme.projection_bg_color || '#090b14'
-  const bgOpacity = Number(theme.projection_bg_opacity || 0.48)
+  )
   const fontFamily = theme.projection_font_family || 'Inter'
   const fontSize = Number(theme.projection_font_size || 86)
   const textColor = theme.projection_text_color || '#ffffff'
@@ -127,6 +177,7 @@ export function PresentationCanvas({
   )
   const hasLyrics = showLive && slide && slide.text.trim().length > 0 && !showBlack
   const contentKey = slide ? `${slide.songId}-${slide.slideIndex}-${slide.text}` : 'empty'
+  const resolvedAtmosphere = useMemo(() => resolveAtmosphere(theme), [theme])
 
   const canvas = (
     <div
@@ -144,64 +195,12 @@ export function PresentationCanvas({
           : CANVAS_STYLE
       }
     >
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background:
-            'radial-gradient(circle at 32% 18%, rgba(59,130,246,0.16), transparent 34%), radial-gradient(circle at 72% 80%, rgba(14,165,233,0.10), transparent 38%)',
-          backgroundColor: showBlack ? '#000000' : bgColor
-        }}
-      />
-
-      {isVideoBackground && !showBlack && (
-        <video
-          src={bgImage}
-          autoPlay
-          loop
-          muted
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover'
-          }}
-        />
-      )}
-
-      {bgImage && !isVideoBackground && !showBlack && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage: `url(${bgImage})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            filter: `saturate(1.05) contrast(1.04) blur(${theme.projection_bg_blur || 0}px)`,
-            transform: 'scale(1.012)'
-          }}
-        />
-      )}
-
       {!showBlack && (
-        <>
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: `rgba(0, 0, 0, ${Number.isFinite(bgOpacity) ? bgOpacity : 0.48})`
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background:
-                'linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.26)), radial-gradient(ellipse at center, transparent 54%, rgba(0,0,0,0.26))'
-            }}
-          />
-        </>
+        <AtmosphereRenderer
+          config={resolvedAtmosphere}
+          transitionDuration={transitionDuration}
+          showReadabilityGuard={hasLyrics || showLogo}
+        />
       )}
 
       <AnimatePresence mode="wait">
