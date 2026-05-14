@@ -3,7 +3,7 @@
  * Centralizes all IPC communication between renderer and main process
  */
 
-import { ipcMain } from 'electron'
+import { ipcMain, app, shell } from 'electron'
 import * as xlsx from 'xlsx'
 import { ZodError } from 'zod'
 import {
@@ -159,11 +159,19 @@ export function setupIPC(): void {
   })
   ipcMain.on('window:close', () => getMainWindow()?.close())
   ipcMain.handle('window:is-maximized', () => getMainWindow()?.isMaximized() ?? false)
+  
+  // App version
+  ipcMain.handle('app:get-version', () => app.getVersion())
 
   // Performance monitoring
   ipcMain.handle('system:get-memory', async () => {
     const mem = await process.getProcessMemoryInfo?.()
     return mem ? { private: mem.private, shared: mem.shared } : null
+  })
+
+  // Open external links
+  ipcMain.handle('system:open-external', async (_event, url: string) => {
+    return await shell.openExternal(url)
   })
 
   // App theme sync

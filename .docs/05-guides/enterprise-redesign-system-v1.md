@@ -1,4 +1,5 @@
 # SION Media — Enterprise Redesign System v1.0
+
 ## Complete Application Analysis, Validation & Modernization Blueprint
 
 ---
@@ -7,20 +8,20 @@
 
 ### 1.1 Tech Stack (Confirmed from Source)
 
-| Layer | Technology |
-|---|---|
-| Runtime | Electron 39 + Node.js |
-| UI Framework | React 19 + TypeScript 5.9 |
-| Styling | Tailwind CSS v4 + custom CSS design system |
-| State Management | Zustand v5 (persist middleware) |
-| Animation | Framer Motion v12 |
-| Database | better-sqlite3 (WAL mode, FTS5 search) |
-| IPC | Electron contextBridge (fully isolated) |
-| Build | electron-vite v5 |
-| i18n | i18next (EN + ID) |
-| DnD | @dnd-kit/core + sortable |
-| Virtualization | @tanstack/react-virtual |
-| Floating UI | @floating-ui/react |
+| Layer            | Technology                                 |
+| ---------------- | ------------------------------------------ |
+| Runtime          | Electron 39 + Node.js                      |
+| UI Framework     | React 19 + TypeScript 5.9                  |
+| Styling          | Tailwind CSS v4 + custom CSS design system |
+| State Management | Zustand v5 (persist middleware)            |
+| Animation        | Framer Motion v12                          |
+| Database         | better-sqlite3 (WAL mode, FTS5 search)     |
+| IPC              | Electron contextBridge (fully isolated)    |
+| Build            | electron-vite v5                           |
+| i18n             | i18next (EN + ID)                          |
+| DnD              | @dnd-kit/core + sortable                   |
+| Virtualization   | @tanstack/react-virtual                    |
+| Floating UI      | @floating-ui/react                         |
 
 ### 1.2 Window Architecture (3 Windows)
 
@@ -163,21 +164,22 @@ App Theme:          app:theme-mode-set, app:theme-updated
 
 ### 2.2 Title Bar Menu — Detected Items & Context Rules
 
-| Menu | Always Shown | PROJECTION Only | MANAGEMENT Only | Items |
-|---|---|---|---|---|
-| File | ✓ | | | New Playlist, Import/Export, Backup Database, Exit |
-| Edit | ✓ | | | Search Song (Ctrl+F), Preferences |
-| View | ✓ | | | Command Palette (Ctrl+P), Focus Live Mode*, Settings |
-| Playlist | | ✓ | | Next Song (Ctrl+→), Previous Song (Ctrl+←) |
-| Projection | | ✓ | | Projector ON/OFF, Black Screen (B), Freeze (F), Clear (Esc) |
-| Tools | | ✓ | ✓ | Song Manager (Ctrl+N), Reseed Database |
-| Help | ✓ | | | Keyboard Shortcuts (?), About SION Media |
+| Menu       | Always Shown | PROJECTION Only | MANAGEMENT Only | Items                                                       |
+| ---------- | ------------ | --------------- | --------------- | ----------------------------------------------------------- |
+| File       | ✓            |                 |                 | New Playlist, Import/Export, Backup Database, Exit          |
+| Edit       | ✓            |                 |                 | Search Song (Ctrl+F), Preferences                           |
+| View       | ✓            |                 |                 | Command Palette (Ctrl+P), Focus Live Mode\*, Settings       |
+| Playlist   |              | ✓               |                 | Next Song (Ctrl+→), Previous Song (Ctrl+←)                  |
+| Projection |              | ✓               |                 | Projector ON/OFF, Black Screen (B), Freeze (F), Clear (Esc) |
+| Tools      |              | ✓               | ✓               | Song Manager (Ctrl+N), Reseed Database                      |
+| Help       | ✓            |                 |                 | Keyboard Shortcuts (?), About SION Media                    |
 
-*Focus Live Mode only shown in PROJECTION mode
+\*Focus Live Mode only shown in PROJECTION mode
 
 ### 2.3 Title Bar Status Indicators (TitleBarStatus.tsx)
 
 Detected from store subscriptions and IPC:
+
 - **Live Indicator**: `● LIVE` (red pulse) when projectionState === 'LIVE'
 - **Display Count**: `🖥️ N` — number of connected displays
 - **Service Timer**: `⏱ HH:MM:SS` — elapsed service time
@@ -298,9 +300,11 @@ Help
 ```
 
 **Redesigned Status Bar (right side):**
+
 ```
 [● LIVE / ○ CLEAR]  [🖥 2 displays]  [⏱ 00:00 ▶ ■ ↺]  [14:32:05]  [🌙 theme]  [⚙ settings]  [🔔 notifications]  [─ □ ✕]
 ```
+
 - Live indicator: clickable → toggles projection show/hide
 - Display count: clickable → opens Display Settings
 - Timer: ▶ start, ■ stop, ↺ reset — inline controls
@@ -352,6 +356,7 @@ LibraryMode
 ### 3.2 Library Mode — Detected Issues
 
 **Dead UI / Disconnected:**
+
 1. `Collections` workspace — marked "Coming Soon", no backend
 2. `Practice Tools`, `Chord Charts`, `Vocal Guide` — all "Coming Soon"
 3. `Broadcast Studio`, `AI Features`, `Analytics`, `Utilities` — all "Coming Soon"
@@ -362,6 +367,7 @@ LibraryMode
 8. "Broadcast" button → `setMode('BROADCAST')` — works
 
 **Missing Workflows:**
+
 1. No way to create a new playlist from Library Mode
 2. No drag-and-drop from song grid to playlist
 3. No multi-select in song grid
@@ -372,6 +378,7 @@ LibraryMode
 8. Pagination only on Number view, not Title view (could be slow with 1000+ songs)
 
 **Backend Gaps:**
+
 1. `toggleFavorite` IPC exists but not called from Library Mode song card star button
 2. `logHistory` called on `setSelectedSong` in store — works correctly
 3. `addSongToPlaylist` requires `activePlaylist` — no way to create playlist inline
@@ -412,37 +419,37 @@ LIBRARY MODE — REDESIGNED LAYOUT:
 
 ### 3.4 Library Mode — All Pages & Subpages
 
-| Workspace | Status | Backend | Description |
-|---|---|---|---|
-| All Songs | ✅ Live | `getSongs()` | Full song database, 3 view modes |
-| Playlist Saya | ✅ Live | `getPlaylists()` + `getPlaylistItems()` | Worship rundown builder |
-| Favorit | ✅ Live | `songs.filter(is_favorite)` | Filtered from loaded songs |
-| Recently Opened | ✅ Live | `song_history` table | Songs with last_played |
-| Hymnals | ✅ Live | `getHymnals()` | Hymnal browser with song counts |
-| Tags & Themes | ✅ Live | Derived from song.tags/category | Tag cloud + filtered view |
-| Collections | ⚠️ Stub | `getMediaCollections()` | Media collections (needs UI) |
-| Practice Tools | 🔴 Planned | None | Future: metronome, key trainer |
-| Chord Charts | 🔴 Planned | None | Future: chord display per song |
-| Vocal Guide | 🔴 Planned | None | Future: audio playback |
-| Broadcast Studio | 🔴 Planned | None | Future: streaming controls |
-| AI Features | 🔴 Planned | None | Future: AI lyric suggestions |
-| Analytics | 🔴 Planned | None | Future: usage analytics |
-| Utilities | 🔴 Planned | None | Future: batch operations |
+| Workspace        | Status     | Backend                                 | Description                      |
+| ---------------- | ---------- | --------------------------------------- | -------------------------------- |
+| All Songs        | ✅ Live    | `getSongs()`                            | Full song database, 3 view modes |
+| Playlist Saya    | ✅ Live    | `getPlaylists()` + `getPlaylistItems()` | Worship rundown builder          |
+| Favorit          | ✅ Live    | `songs.filter(is_favorite)`             | Filtered from loaded songs       |
+| Recently Opened  | ✅ Live    | `song_history` table                    | Songs with last_played           |
+| Hymnals          | ✅ Live    | `getHymnals()`                          | Hymnal browser with song counts  |
+| Tags & Themes    | ✅ Live    | Derived from song.tags/category         | Tag cloud + filtered view        |
+| Collections      | ⚠️ Stub    | `getMediaCollections()`                 | Media collections (needs UI)     |
+| Practice Tools   | 🔴 Planned | None                                    | Future: metronome, key trainer   |
+| Chord Charts     | 🔴 Planned | None                                    | Future: chord display per song   |
+| Vocal Guide      | 🔴 Planned | None                                    | Future: audio playback           |
+| Broadcast Studio | 🔴 Planned | None                                    | Future: streaming controls       |
+| AI Features      | 🔴 Planned | None                                    | Future: AI lyric suggestions     |
+| Analytics        | 🔴 Planned | None                                    | Future: usage analytics          |
+| Utilities        | 🔴 Planned | None                                    | Future: batch operations         |
 
 ### 3.5 Library Mode — Modals & Dialogs Required
 
-| Modal | Trigger | Backend | Status |
-|---|---|---|---|
-| CreatePlaylistDialog | File > New Playlist, + button | `addPlaylist()` | ❌ Missing |
-| PlaylistPickerDialog | Open Playlist | `getPlaylists()` | ❌ Missing |
-| SongContextMenu | Right-click on song card | Multiple | ⚠️ Partial (SongContextMenu.tsx exists) |
-| HymnalFilterDropdown | Filter button | `getHymnals()` | ❌ Missing |
-| SortOptionsDropdown | Sort button | Client-side | ❌ Missing |
-| AddToPlaylistDialog | + button on song | `addPlaylistItem()` | ❌ Missing (uses active playlist only) |
-| LyricsViewer | Double-click / Buka | Client-side | ✅ Exists (LibraryLyricsViewer) |
-| SongEditorScreen | Edit Info | `updateSong()` | ✅ Exists (overlay screen) |
-| DeleteConfirmDialog | Delete song | `deleteSong()` | ❌ Missing (uses browser confirm) |
-| TagFilterPanel | Tags workspace | Client-side | ❌ Missing |
+| Modal                | Trigger                       | Backend             | Status                                  |
+| -------------------- | ----------------------------- | ------------------- | --------------------------------------- |
+| CreatePlaylistDialog | File > New Playlist, + button | `addPlaylist()`     | ❌ Missing                              |
+| PlaylistPickerDialog | Open Playlist                 | `getPlaylists()`    | ❌ Missing                              |
+| SongContextMenu      | Right-click on song card      | Multiple            | ⚠️ Partial (SongContextMenu.tsx exists) |
+| HymnalFilterDropdown | Filter button                 | `getHymnals()`      | ❌ Missing                              |
+| SortOptionsDropdown  | Sort button                   | Client-side         | ❌ Missing                              |
+| AddToPlaylistDialog  | + button on song              | `addPlaylistItem()` | ❌ Missing (uses active playlist only)  |
+| LyricsViewer         | Double-click / Buka           | Client-side         | ✅ Exists (LibraryLyricsViewer)         |
+| SongEditorScreen     | Edit Info                     | `updateSong()`      | ✅ Exists (overlay screen)              |
+| DeleteConfirmDialog  | Delete song                   | `deleteSong()`      | ❌ Missing (uses browser confirm)       |
+| TagFilterPanel       | Tags workspace                | Client-side         | ❌ Missing                              |
 
 ### 3.6 Library Mode — Context Menu (Right-Click on Song)
 
@@ -466,19 +473,19 @@ SongContextMenu (right-click on any song card/tile/row):
 
 ### 3.7 Library Mode — Keyboard Shortcuts
 
-| Shortcut | Action |
-|---|---|
-| Ctrl+K | Focus search |
-| Ctrl+Shift+F | Toggle fullscreen library |
-| Ctrl+N | New playlist |
-| Ctrl+E | Edit selected song |
-| Enter | Open selected song (lyrics viewer) |
-| Space | Preview selected song in projection |
-| ↑/↓ | Navigate song list |
-| F | Toggle favorite on selected song |
-| Delete | Delete selected song (with confirm) |
-| Escape | Close fullscreen / close overlay |
-| 1/2/3 | Switch tabs (Playlist/Number/Title) |
+| Shortcut     | Action                              |
+| ------------ | ----------------------------------- |
+| Ctrl+K       | Focus search                        |
+| Ctrl+Shift+F | Toggle fullscreen library           |
+| Ctrl+N       | New playlist                        |
+| Ctrl+E       | Edit selected song                  |
+| Enter        | Open selected song (lyrics viewer)  |
+| Space        | Preview selected song in projection |
+| ↑/↓          | Navigate song list                  |
+| F            | Toggle favorite on selected song    |
+| Delete       | Delete selected song (with confirm) |
+| Escape       | Close fullscreen / close overlay    |
+| 1/2/3        | Switch tabs (Playlist/Number/Title) |
 
 ---
 
@@ -546,6 +553,7 @@ NextReadyState:
 ### 4.3 Projection Mode — Detected Issues
 
 **Critical Functional Gaps:**
+
 1. **SongInfoPanel tabs "Lirik" and "Notes"** — render nothing. Dead UI.
 2. **Chord button** — shows toast "Panel chord akan mengikuti metadata lagu ini" — no actual chord panel.
 3. **Scene presets (1-4)** — wired to CSS classes only, no actual scene configuration UI.
@@ -558,6 +566,7 @@ NextReadyState:
 10. **No confidence monitor view** — ConfidencePayload built but no display in operator UI.
 
 **UX Issues:**
+
 1. Bottom workspace has no resize handles — fixed 3-column layout.
 2. SongLibraryPanel and PlaylistPanel are separate components with duplicate search logic.
 3. No visual indication of which song is currently LIVE vs PREVIEW.
@@ -606,52 +615,52 @@ PROJECTION MODE — REDESIGNED LAYOUT:
 
 ### 4.5 Projection Mode — All Panels & Controls
 
-| Panel | Purpose | Backend | Status |
-|---|---|---|---|
-| LivePreviewPanel | Preview + Program dual view | projectionStore | ✅ Exists |
-| SongLibraryPanel | Song browser for cueing | getSongs(), searchSongs() | ✅ Exists |
-| PlaylistPanel | Worship rundown | getPlaylistItems() | ✅ Exists |
-| SongInfoPanel | Song metadata inspector | Client-side | ✅ Exists (partial) |
-| QuickJumpOverlay | Semantic slide navigation | projectionStore | ✅ Exists |
-| ControlBar | Projection state controls | projection IPC | ✅ Exists |
-| AnnouncementPanel | Custom slides | getCustomSlides() | ❌ Missing |
-| BiblePanel | Bible verse projection | getBibleVerses() | ❌ Missing (BibleScreen exists separately) |
-| LowerThirdsPanel | Text overlays | Custom slides | ❌ Missing |
-| ConfidenceMonitor | Stage-facing display | ConfidencePayload | ⚠️ Built, not shown |
-| TimerPanel | Service timer | projectionStore.timerElapsed | ⚠️ Built, not shown in UI |
-| ScenePresetsPanel | Background/atmosphere | atmosphereStore | ⚠️ CSS only |
-| StageDisplayControl | Stage window toggle | stage IPC | ⚠️ Menu only |
+| Panel               | Purpose                     | Backend                      | Status                                     |
+| ------------------- | --------------------------- | ---------------------------- | ------------------------------------------ |
+| LivePreviewPanel    | Preview + Program dual view | projectionStore              | ✅ Exists                                  |
+| SongLibraryPanel    | Song browser for cueing     | getSongs(), searchSongs()    | ✅ Exists                                  |
+| PlaylistPanel       | Worship rundown             | getPlaylistItems()           | ✅ Exists                                  |
+| SongInfoPanel       | Song metadata inspector     | Client-side                  | ✅ Exists (partial)                        |
+| QuickJumpOverlay    | Semantic slide navigation   | projectionStore              | ✅ Exists                                  |
+| ControlBar          | Projection state controls   | projection IPC               | ✅ Exists                                  |
+| AnnouncementPanel   | Custom slides               | getCustomSlides()            | ❌ Missing                                 |
+| BiblePanel          | Bible verse projection      | getBibleVerses()             | ❌ Missing (BibleScreen exists separately) |
+| LowerThirdsPanel    | Text overlays               | Custom slides                | ❌ Missing                                 |
+| ConfidenceMonitor   | Stage-facing display        | ConfidencePayload            | ⚠️ Built, not shown                        |
+| TimerPanel          | Service timer               | projectionStore.timerElapsed | ⚠️ Built, not shown in UI                  |
+| ScenePresetsPanel   | Background/atmosphere       | atmosphereStore              | ⚠️ CSS only                                |
+| StageDisplayControl | Stage window toggle         | stage IPC                    | ⚠️ Menu only                               |
 
 ### 4.6 Projection Mode — Modals & Dialogs
 
-| Modal | Trigger | Backend | Status |
-|---|---|---|---|
-| QuickJumpOverlay | Ctrl+J / keyboard | projectionStore | ✅ Exists |
-| CreatePlaylistDialog | + New in playlist panel | addPlaylist() | ❌ Missing |
-| SceneConfigDialog | Scene preset editor | atmosphereStore | ❌ Missing |
-| ThemeEditorDialog | Theme button | settings IPC | ⚠️ In Settings only |
-| AnnouncementEditor | Custom slide creation | addCustomSlide() | ❌ Missing |
-| BiblePickerDialog | Bible verse selection | getBibleVerses() | ❌ Missing |
-| EmergencyPanel | Panic/emergency controls | projection IPC | ❌ Missing |
-| SongRelationsPanel | Related songs | getSongRelations() | ❌ Missing |
+| Modal                | Trigger                  | Backend            | Status              |
+| -------------------- | ------------------------ | ------------------ | ------------------- |
+| QuickJumpOverlay     | Ctrl+J / keyboard        | projectionStore    | ✅ Exists           |
+| CreatePlaylistDialog | + New in playlist panel  | addPlaylist()      | ❌ Missing          |
+| SceneConfigDialog    | Scene preset editor      | atmosphereStore    | ❌ Missing          |
+| ThemeEditorDialog    | Theme button             | settings IPC       | ⚠️ In Settings only |
+| AnnouncementEditor   | Custom slide creation    | addCustomSlide()   | ❌ Missing          |
+| BiblePickerDialog    | Bible verse selection    | getBibleVerses()   | ❌ Missing          |
+| EmergencyPanel       | Panic/emergency controls | projection IPC     | ❌ Missing          |
+| SongRelationsPanel   | Related songs            | getSongRelations() | ❌ Missing          |
 
 ### 4.7 Projection Mode — Keyboard Shortcuts (Complete)
 
-| Shortcut | Action | Source |
-|---|---|---|
-| Space / Enter | Go to slide (TAKE) | useGlobalShortcuts |
-| → / PageDown | Next slide | useGlobalShortcuts |
-| ← / PageUp | Previous slide | useGlobalShortcuts |
-| B | Toggle Black | useGlobalShortcuts |
-| F | Toggle Freeze | useGlobalShortcuts |
-| Esc | Clear screen | useGlobalShortcuts |
-| Ctrl+→ | Next song in playlist | TitleBarMenu |
-| Ctrl+← | Previous song in playlist | TitleBarMenu |
-| Ctrl+J | Quick Jump overlay | useGlobalShortcuts |
-| Ctrl+Shift+F | Focus Live Mode | TitleBarMenu |
-| Ctrl+P | Command Palette | useGlobalShortcuts |
-| ? | Keyboard shortcuts | useGlobalShortcuts |
-| Ctrl+Shift+I | Runtime Inspector | useGlobalShortcuts |
+| Shortcut      | Action                    | Source             |
+| ------------- | ------------------------- | ------------------ |
+| Space / Enter | Go to slide (TAKE)        | useGlobalShortcuts |
+| → / PageDown  | Next slide                | useGlobalShortcuts |
+| ← / PageUp    | Previous slide            | useGlobalShortcuts |
+| B             | Toggle Black              | useGlobalShortcuts |
+| F             | Toggle Freeze             | useGlobalShortcuts |
+| Esc           | Clear screen              | useGlobalShortcuts |
+| Ctrl+→        | Next song in playlist     | TitleBarMenu       |
+| Ctrl+←        | Previous song in playlist | TitleBarMenu       |
+| Ctrl+J        | Quick Jump overlay        | useGlobalShortcuts |
+| Ctrl+Shift+F  | Focus Live Mode           | TitleBarMenu       |
+| Ctrl+P        | Command Palette           | useGlobalShortcuts |
+| ?             | Keyboard shortcuts        | useGlobalShortcuts |
+| Ctrl+Shift+I  | Runtime Inspector         | useGlobalShortcuts |
 
 ---
 
@@ -698,12 +707,14 @@ ManagementMode
 ### 5.2 Management Mode — Detected Issues
 
 **Fake/Hardcoded Data:**
+
 1. **Storage metric** — hardcoded "28.4 GB / 28% dari 100 GB" — not real
 2. **Metric trend bars** — hardcoded arrays `[38, 54, 42, 68, 58, 78, 86]` — not real data
 3. **Metric trends** — "+12%", "aktif", "curated", "tagged", "stable" — all hardcoded strings
 4. **Copyright field** — hardcoded "SION Media" in inspector
 
 **Dead UI:**
+
 1. **Layout toggle button** (Grid2X2 icon) — no action wired
 2. **Filter button** — no dropdown, no action
 3. **"Duplikat" quick action** — no backend (no duplicate song IPC)
@@ -714,6 +725,7 @@ ManagementMode
 8. **PanelRight button** — no action
 
 **Missing Pages/Sections:**
+
 1. No Media Library management page (media assets exist in DB but no management UI)
 2. No Bible management page (bible IPC exists but no management UI)
 3. No Custom Slides management page
@@ -724,6 +736,7 @@ ManagementMode
 8. No Permissions management
 
 **Backend Gaps:**
+
 1. Storage metric needs `system:get-memory` + file system stats
 2. Duplicate song needs new IPC handler
 3. Song relations modal needs UI
@@ -761,23 +774,24 @@ MANAGEMENT MODE — REDESIGNED LAYOUT:
 
 ### 5.4 Management Mode — All Sections (Redesigned)
 
-| Section | Purpose | Backend | Status |
-|---|---|---|---|
-| **Songs** | Song CRUD, bulk ops, metadata | getSongs, CRUD | ✅ Exists (current main view) |
-| **Hymnals** | Hymnal management | getHymnals, CRUD | ⚠️ Dialog only (in current mode) |
-| **Media Library** | Image/video asset management | getMediaAssets, CRUD | ❌ Missing dedicated page |
-| **Bible** | Bible translation management | getBibleTranslations, CRUD | ❌ Missing (BibleScreen is separate) |
-| **Custom Slides** | Announcement/liturgy slides | getCustomSlides, CRUD | ❌ Missing |
-| **Playlists** | Playlist management | getPlaylists, CRUD | ❌ Missing (only in Projection) |
-| **Settings** | System configuration | getSettings, updateSetting | ⚠️ Separate SettingsScreen |
-| **Backup** | Database backup/restore | createBackup, restoreBackup | ⚠️ In Settings only |
-| **Diagnostics** | System health, IPC health | health IPC, getMemory | ⚠️ RuntimeInspector only |
-| **Analytics** | Usage statistics | song_history, counts | ❌ Missing |
-| **About** | App info | Static | ⚠️ In Settings only |
+| Section           | Purpose                       | Backend                     | Status                               |
+| ----------------- | ----------------------------- | --------------------------- | ------------------------------------ |
+| **Songs**         | Song CRUD, bulk ops, metadata | getSongs, CRUD              | ✅ Exists (current main view)        |
+| **Hymnals**       | Hymnal management             | getHymnals, CRUD            | ⚠️ Dialog only (in current mode)     |
+| **Media Library** | Image/video asset management  | getMediaAssets, CRUD        | ❌ Missing dedicated page            |
+| **Bible**         | Bible translation management  | getBibleTranslations, CRUD  | ❌ Missing (BibleScreen is separate) |
+| **Custom Slides** | Announcement/liturgy slides   | getCustomSlides, CRUD       | ❌ Missing                           |
+| **Playlists**     | Playlist management           | getPlaylists, CRUD          | ❌ Missing (only in Projection)      |
+| **Settings**      | System configuration          | getSettings, updateSetting  | ⚠️ Separate SettingsScreen           |
+| **Backup**        | Database backup/restore       | createBackup, restoreBackup | ⚠️ In Settings only                  |
+| **Diagnostics**   | System health, IPC health     | health IPC, getMemory       | ⚠️ RuntimeInspector only             |
+| **Analytics**     | Usage statistics              | song_history, counts        | ❌ Missing                           |
+| **About**         | App info                      | Static                      | ⚠️ In Settings only                  |
 
 ### 5.5 Management Mode — Songs Section (Detailed)
 
 **Current columns in song table:**
+
 - Checkbox (multi-select)
 - Number (song number)
 - Title + alternate title + hymnal badge
@@ -786,17 +800,20 @@ MANAGEMENT MODE — REDESIGNED LAYOUT:
 - Actions (edit, preview, delete)
 
 **Missing columns:**
+
 - Last updated date
 - Lyric coverage indicator
 - Favorite indicator
 - Category/theme
 
 **Bulk Operations (current):**
+
 - Bulk background assignment (dialog exists)
 - Bulk delete (exists)
 - Select all visible (exists)
 
 **Missing bulk operations:**
+
 - Bulk status change
 - Bulk category assignment
 - Bulk hymnal move
@@ -804,19 +821,19 @@ MANAGEMENT MODE — REDESIGNED LAYOUT:
 
 ### 5.6 Management Mode — Modals & Dialogs
 
-| Modal | Trigger | Backend | Status |
-|---|---|---|---|
-| NewHymnalDialog | + Hymnal button | addHymnal() | ✅ Exists (inline) |
-| BulkBackgroundDialog | Bulk background button | bulkAssignBackground() | ✅ Exists (inline) |
-| SongRelationsModal | Relasi quick action | getSongRelations() | ❌ Missing |
-| DuplicateSongDialog | Duplikat quick action | addSong() | ❌ Missing |
-| MediaImportDialog | Import media | importMediaAssets() | ❌ Missing |
-| BibleImportDialog | Import bible | addBibleVersesBatch() | ❌ Missing |
-| CustomSlideEditor | New/edit slide | addCustomSlide() | ❌ Missing |
-| DiagnosticsPanel | System health | health IPC | ⚠️ RuntimeInspector exists |
-| AnalyticsDashboard | Usage stats | song_history | ❌ Missing |
-| DeleteConfirmDialog | Delete song | deleteSong() | ⚠️ Uses browser confirm() |
-| IntegrityCheckDialog | Check integrity | checkMultiHymnalIntegrity() | ❌ Missing UI |
+| Modal                | Trigger                | Backend                     | Status                     |
+| -------------------- | ---------------------- | --------------------------- | -------------------------- |
+| NewHymnalDialog      | + Hymnal button        | addHymnal()                 | ✅ Exists (inline)         |
+| BulkBackgroundDialog | Bulk background button | bulkAssignBackground()      | ✅ Exists (inline)         |
+| SongRelationsModal   | Relasi quick action    | getSongRelations()          | ❌ Missing                 |
+| DuplicateSongDialog  | Duplikat quick action  | addSong()                   | ❌ Missing                 |
+| MediaImportDialog    | Import media           | importMediaAssets()         | ❌ Missing                 |
+| BibleImportDialog    | Import bible           | addBibleVersesBatch()       | ❌ Missing                 |
+| CustomSlideEditor    | New/edit slide         | addCustomSlide()            | ❌ Missing                 |
+| DiagnosticsPanel     | System health          | health IPC                  | ⚠️ RuntimeInspector exists |
+| AnalyticsDashboard   | Usage stats            | song_history                | ❌ Missing                 |
+| DeleteConfirmDialog  | Delete song            | deleteSong()                | ⚠️ Uses browser confirm()  |
+| IntegrityCheckDialog | Check integrity        | checkMultiHymnalIntegrity() | ❌ Missing UI              |
 
 ---
 
@@ -856,6 +873,7 @@ SongEditorScreen
 ```
 
 **Issues:**
+
 1. Broadcast rack shows live status indicators — good, but "LIVE" state is hardcoded display
 2. No autosave — only manual save
 3. No version history
@@ -881,6 +899,7 @@ SongEditorScreen
 | Tentang | about | Static | ✅ |
 
 **Issues:**
+
 1. Settings is a separate full-screen overlay — should be accessible as a panel/modal too
 2. No search within settings (sidebar search exists but only filters nav items)
 3. Reseed Database in Backup section — uses `window.confirm()` not a proper dialog
@@ -894,12 +913,14 @@ SongEditorScreen
 **Backend:** `parseExcel()`, `importSongsFromJson()`, `writeJson()`
 
 **Detected capabilities:**
+
 - Excel import (XLSX, max 10MB, max 5000 rows)
 - JSON import (with conflict policy: skip/overwrite/append)
 - JSON export (full library or filtered)
 - Dry run mode for JSON import
 
 **Issues:**
+
 1. No progress indicator for large imports
 2. No import history/log display
 3. No per-row conflict resolution UI (only global policy)
@@ -913,6 +934,7 @@ SongEditorScreen
 **Backend:** `getBibleTranslations()`, `getBibleBooks()`, `getBibleVerses()`, `searchBibleVerses()`
 
 **Issues:**
+
 1. **No menu entry** — BibleScreen is unreachable from any menu or button in the current UI
 2. Bible projection not integrated into Projection Mode
 3. No way to add Bible translations from UI (IPC exists)
@@ -924,6 +946,7 @@ SongEditorScreen
 **Backend:** `finishOnboarding()` in useModeStore
 
 **Detected phases (from App.tsx comments):**
+
 - IntroPhase (splash handled by onboarding)
 - Theme selection
 - Mode selection
@@ -935,43 +958,43 @@ SongEditorScreen
 
 ### 7.1 Existing Modals/Overlays
 
-| Component | Type | Trigger | Status |
-|---|---|---|---|
-| CommandPalette | Full overlay | Ctrl+P | ✅ Functional |
-| KeyboardCheatSheet | Modal | ? key | ✅ Functional |
-| QuickJumpOverlay | Floating panel | Ctrl+J | ✅ Functional |
-| RuntimeInspector | Side panel | Ctrl+Shift+I | ✅ Functional |
-| Toast | Notification | showToast() | ✅ Functional |
-| TitleBarMenu dropdowns | Dropdown | Click menu item | ✅ Functional |
-| TitleBarModeSwitcher | Dropdown | Click mode | ✅ Functional |
-| SongContextMenu | Context menu | Right-click | ⚠️ Partial |
-| NewHymnalDialog | Inline modal | Management Mode | ✅ Functional |
-| BulkBackgroundDialog | Inline modal | Management Mode | ✅ Functional |
+| Component              | Type           | Trigger         | Status        |
+| ---------------------- | -------------- | --------------- | ------------- |
+| CommandPalette         | Full overlay   | Ctrl+P          | ✅ Functional |
+| KeyboardCheatSheet     | Modal          | ? key           | ✅ Functional |
+| QuickJumpOverlay       | Floating panel | Ctrl+J          | ✅ Functional |
+| RuntimeInspector       | Side panel     | Ctrl+Shift+I    | ✅ Functional |
+| Toast                  | Notification   | showToast()     | ✅ Functional |
+| TitleBarMenu dropdowns | Dropdown       | Click menu item | ✅ Functional |
+| TitleBarModeSwitcher   | Dropdown       | Click mode      | ✅ Functional |
+| SongContextMenu        | Context menu   | Right-click     | ⚠️ Partial    |
+| NewHymnalDialog        | Inline modal   | Management Mode | ✅ Functional |
+| BulkBackgroundDialog   | Inline modal   | Management Mode | ✅ Functional |
 
 ### 7.2 Missing Modals (Required for Production)
 
-| Modal | Priority | Backend | Description |
-|---|---|---|---|
-| CreatePlaylistDialog | 🔴 Critical | addPlaylist() | Create new worship playlist |
-| PlaylistPickerDialog | 🔴 Critical | getPlaylists() | Select/switch active playlist |
-| AddToPlaylistDialog | 🔴 Critical | addPlaylistItem() | Add song to specific playlist |
-| DeleteConfirmDialog | 🔴 Critical | deleteSong/Hymnal/etc | Replace browser confirm() |
-| SongRelationsModal | 🟡 High | getSongRelations() | View/manage song relations |
-| BiblePickerDialog | 🟡 High | getBibleVerses() | Select Bible verse for projection |
-| AnnouncementEditor | 🟡 High | addCustomSlide() | Create/edit custom slides |
-| MediaImportDialog | 🟡 High | importMediaAssets() | Import media files |
-| IntegrityCheckDialog | 🟡 High | checkMultiHymnalIntegrity() | DB integrity report |
-| SceneConfigDialog | 🟡 High | atmosphereStore | Configure scene presets |
-| NotificationPanel | 🟡 High | New system | App notifications |
-| DuplicateSongDialog | 🟠 Medium | addSong() | Duplicate a song |
-| ExportSongDialog | 🟠 Medium | writeJson() | Export single song |
-| SongHistoryPanel | 🟠 Medium | getRecentSongs() | Song play history |
-| AnalyticsDashboard | 🟠 Medium | song_history | Usage analytics |
-| TagManagerDialog | 🟠 Medium | Client-side | Manage tags/categories |
-| HymnalIntegrityDialog | 🟠 Medium | checkMultiHymnalIntegrity() | Per-hymnal integrity |
-| ImportProgressDialog | 🟠 Medium | importSongsFromJson() | Import progress + report |
-| BackupProgressDialog | 🟠 Medium | createBackup() | Backup progress |
-| EmergencyControlPanel | 🟠 Medium | projection IPC | Panic/emergency controls |
+| Modal                 | Priority    | Backend                     | Description                       |
+| --------------------- | ----------- | --------------------------- | --------------------------------- |
+| CreatePlaylistDialog  | 🔴 Critical | addPlaylist()               | Create new worship playlist       |
+| PlaylistPickerDialog  | 🔴 Critical | getPlaylists()              | Select/switch active playlist     |
+| AddToPlaylistDialog   | 🔴 Critical | addPlaylistItem()           | Add song to specific playlist     |
+| DeleteConfirmDialog   | 🔴 Critical | deleteSong/Hymnal/etc       | Replace browser confirm()         |
+| SongRelationsModal    | 🟡 High     | getSongRelations()          | View/manage song relations        |
+| BiblePickerDialog     | 🟡 High     | getBibleVerses()            | Select Bible verse for projection |
+| AnnouncementEditor    | 🟡 High     | addCustomSlide()            | Create/edit custom slides         |
+| MediaImportDialog     | 🟡 High     | importMediaAssets()         | Import media files                |
+| IntegrityCheckDialog  | 🟡 High     | checkMultiHymnalIntegrity() | DB integrity report               |
+| SceneConfigDialog     | 🟡 High     | atmosphereStore             | Configure scene presets           |
+| NotificationPanel     | 🟡 High     | New system                  | App notifications                 |
+| DuplicateSongDialog   | 🟠 Medium   | addSong()                   | Duplicate a song                  |
+| ExportSongDialog      | 🟠 Medium   | writeJson()                 | Export single song                |
+| SongHistoryPanel      | 🟠 Medium   | getRecentSongs()            | Song play history                 |
+| AnalyticsDashboard    | 🟠 Medium   | song_history                | Usage analytics                   |
+| TagManagerDialog      | 🟠 Medium   | Client-side                 | Manage tags/categories            |
+| HymnalIntegrityDialog | 🟠 Medium   | checkMultiHymnalIntegrity() | Per-hymnal integrity              |
+| ImportProgressDialog  | 🟠 Medium   | importSongsFromJson()       | Import progress + report          |
+| BackupProgressDialog  | 🟠 Medium   | createBackup()              | Backup progress                   |
+| EmergencyControlPanel | 🟠 Medium   | projection IPC              | Panic/emergency controls          |
 
 ### 7.3 Modal Design Standards
 
@@ -1017,12 +1040,14 @@ States:
 ### 8.1 Design Language
 
 **Target Aesthetic:** Ultra-premium dark desktop software
+
 - Adobe Creative Cloud quality
 - ProPresenter professionalism
 - Linear.app precision
 - Broadcast control system aesthetic
 
 **Core Visual Principles:**
+
 1. Deep navy/graphite base (`#0d0f17` → `#151826` → `#1b2031`)
 2. Glassmorphism surfaces with backdrop-blur
 3. Thin luminous borders (`rgba(255,255,255,0.06-0.12)`)
@@ -1034,39 +1059,25 @@ States:
 
 ```css
 /* Surface Colors */
---color-bg-base:          #0d0f17   /* Deepest background */
---color-bg-surface:       #151826   /* Card/panel background */
---color-bg-elevated:      #1b2031   /* Elevated surfaces */
---color-bg-elevated-hover:#23293f   /* Hover state */
---color-bg-active:        #2d3450   /* Active/selected */
-
-/* Brand Colors */
---color-brand-primary:    #3b82f6   /* Blue — primary actions */
---color-brand-secondary:  #8b5cf6   /* Violet — secondary */
---color-brand-accent:     #f59e0b   /* Amber — accent/warning */
---color-accent:           #38bdf8   /* Cyan — highlights */
-
-/* Live/Broadcast Colors */
---color-live-red:         #ff3b30   /* LIVE indicator */
---color-live-green:       #34c759   /* Active/connected */
---color-program:          #ff3b30   /* Program output */
---color-preview:          #34c759   /* Preview output */
---color-next-blue:        #38bdf8   /* NEXT state */
-
-/* Text */
---color-text-primary:     #f8fafc
---color-text-secondary:   #94a3b8
---color-text-muted:       #64748b
---color-text-disabled:    #475569
-
-/* Typography */
---font-heading: 'Poppins', system-ui, sans-serif
---font-ui:      'Inter', system-ui, sans-serif
+--color-bg-base:
+  #0d0f17 /* Deepest background */ --color-bg-surface: #151826 /* Card/panel background */
+    --color-bg-elevated: #1b2031 /* Elevated surfaces */ --color-bg-elevated-hover: #23293f
+    /* Hover state */ --color-bg-active: #2d3450 /* Active/selected */ /* Brand Colors */
+    --color-brand-primary: #3b82f6 /* Blue — primary actions */ --color-brand-secondary: #8b5cf6
+    /* Violet — secondary */ --color-brand-accent: #f59e0b /* Amber — accent/warning */
+    --color-accent: #38bdf8 /* Cyan — highlights */ /* Live/Broadcast Colors */
+    --color-live-red: #ff3b30 /* LIVE indicator */ --color-live-green: #34c759
+    /* Active/connected */ --color-program: #ff3b30 /* Program output */ --color-preview: #34c759
+    /* Preview output */ --color-next-blue: #38bdf8 /* NEXT state */ /* Text */
+    --color-text-primary: #f8fafc --color-text-secondary: #94a3b8 --color-text-muted: #64748b
+    --color-text-disabled: #475569 /* Typography */ --font-heading: 'Poppins',
+  system-ui, sans-serif --font-ui: 'Inter', system-ui, sans-serif;
 ```
 
 ### 8.3 Component Library — Required Components
 
 **Atoms:**
+
 ```
 Button          — primary, secondary, ghost, danger, icon-only
                   sizes: sm, md, lg
@@ -1086,6 +1097,7 @@ Divider         — horizontal separator
 ```
 
 **Molecules:**
+
 ```
 SearchInput     — icon + input + clear button + kbd hint
 StatusBadge     — dot + label (published/draft/review/archived)
@@ -1099,6 +1111,7 @@ FormField       — label + input + error message
 ```
 
 **Organisms:**
+
 ```
 TitleBar        — complete title bar system
 Sidebar         — collapsible navigation sidebar
@@ -1117,6 +1130,7 @@ EmptyState      — empty state with icon + message + action
 ### 8.4 Interaction Standards
 
 **Hover States:**
+
 ```css
 /* Standard hover: lift + border glow */
 transform: translateY(-1px);
@@ -1126,6 +1140,7 @@ transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
 ```
 
 **Focus States:**
+
 ```css
 /* Keyboard focus: ring */
 outline: 2px solid rgba(59, 130, 246, 0.6);
@@ -1133,23 +1148,36 @@ outline-offset: 2px;
 ```
 
 **Active/Selected States:**
+
 ```css
 /* Selected row/card */
 border-color: rgba(59, 130, 246, 0.24);
-background: linear-gradient(90deg, rgba(37,99,235,0.18), rgba(59,130,246,0.06));
-box-shadow: 0 0 0 1px rgba(59,130,246,0.08), 0 18px 44px rgba(37,99,235,0.12);
+background: linear-gradient(90deg, rgba(37, 99, 235, 0.18), rgba(59, 130, 246, 0.06));
+box-shadow:
+  0 0 0 1px rgba(59, 130, 246, 0.08),
+  0 18px 44px rgba(37, 99, 235, 0.12);
 /* Left accent bar */
-::before { width: 3px; background: var(--color-brand-primary); }
+::before {
+  width: 3px;
+  background: var(--color-brand-primary);
+}
 ```
 
 **Loading States:**
+
 ```css
 /* Skeleton loading */
-background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+background: linear-gradient(
+  90deg,
+  rgba(255, 255, 255, 0.04) 25%,
+  rgba(255, 255, 255, 0.08) 50%,
+  rgba(255, 255, 255, 0.04) 75%
+);
 animation: skeleton-shimmer 1.5s infinite;
 ```
 
 **Error States:**
+
 ```css
 border-color: rgba(239, 68, 68, 0.4);
 background: rgba(239, 68, 68, 0.06);
@@ -1157,6 +1185,7 @@ color: #fca5a5;
 ```
 
 **Success States:**
+
 ```css
 border-color: rgba(16, 185, 129, 0.4);
 background: rgba(16, 185, 129, 0.06);
@@ -1178,10 +1207,18 @@ color: #6ee7b7;
 type: "spring", stiffness: 400, damping: 30
 
 /* Mode transitions (AnimatePresence) */
-initial: { opacity: 0 }
-animate: { opacity: 1 }
-exit: { opacity: 0 }
-transition: { duration: 0.5 }
+initial: {
+  opacity: 0;
+}
+animate: {
+  opacity: 1;
+}
+exit: {
+  opacity: 0;
+}
+transition: {
+  duration: 0.5;
+}
 ```
 
 ### 8.6 Layout Grid System
@@ -1221,118 +1258,120 @@ Spacing Scale (8pt grid):
 
 Every UI action must map to a real IPC handler. Audit result:
 
-| UI Action | IPC Channel | Handler | Status |
-|---|---|---|---|
-| Load songs | db:get-songs | getSongs() | ✅ |
-| Search songs | db:search-songs | searchSongs() (FTS5) | ✅ |
-| Add song | db:add-song | addSong() | ✅ |
-| Update song | db:update-song | updateSong() | ✅ |
-| Delete song | db:delete-song | deleteSong() | ✅ |
-| Toggle favorite | db:toggle-favorite | toggleFavorite() | ✅ |
-| Import JSON | db:import-json | importSongsFromJson() | ✅ |
-| Import Excel | file:parse-excel | xlsx parse | ✅ |
-| Bulk background | db:bulk-assign-song-background | bulkAssignSongBackground() | ✅ |
-| Load hymnals | db:get-hymnals | getHymnals() | ✅ |
-| Add hymnal | db:add-hymnal | addHymnal() | ✅ |
-| Update hymnal | db:update-hymnal | updateHymnal() | ✅ |
-| Delete hymnal | db:delete-hymnal | deleteHymnal() | ✅ |
-| Load playlists | db:get-playlists | getPlaylists() | ✅ |
-| Add playlist | db:add-playlist | addPlaylist() | ✅ |
-| Update playlist | db:update-playlist | updatePlaylist() | ✅ |
-| Delete playlist | db:delete-playlist | deletePlaylist() | ✅ |
-| Load playlist items | db:get-playlist-items | getPlaylistItems() | ✅ |
-| Add playlist item | db:add-playlist-item | addPlaylistItem() | ✅ |
-| Reorder playlist | db:reorder-playlist-items | reorderPlaylistItems() | ✅ |
-| Get settings | db:get-settings | getSettings() | ✅ |
-| Update setting | db:update-setting | updateSetting() | ✅ |
-| Create backup | db:create-backup | createBackup() | ✅ |
-| Restore backup | db:restore-backup | restoreBackup() | ✅ |
-| Reseed DB | db:reseed | reseedDatabase() | ✅ |
-| Get displays | display_get-all | getAllDisplays() | ✅ |
-| Show projection | projection:show | showProjectionWindow() | ✅ |
-| Hide projection | projection:hide | hideProjectionWindow() | ✅ |
-| Slide update | projection:slide-update | updateSlideData() | ✅ |
-| State change | projection:state-change | updateProjectionState() | ✅ |
-| Theme update | projection:theme-update | updateTheme() | ✅ |
-| Show stage | stage:show | showStageDisplayWindow() | ✅ |
-| Hide stage | stage:hide | hideStageDisplayWindow() | ✅ |
-| Get media assets | db:get-media-assets | getMediaAssets() | ✅ |
-| Import media | db:import-media-assets | importMediaAssets() | ✅ |
-| Update media | db:update-media-asset | updateMediaAsset() | ✅ |
-| Delete media | db:delete-media-asset | deleteMediaAsset() | ✅ |
-| Get collections | db:get-media-collections | getMediaCollections() | ✅ |
-| Add collection | db:add-media-collection | addMediaCollection() | ✅ |
-| Bible translations | db:get-bible-translations | getBibleTranslations() | ✅ |
-| Bible books | db:get-bible-books | getBibleBooks() | ✅ |
-| Bible verses | db:get-bible-verses | getBibleVerses() | ✅ |
-| Search bible | db:search-bible-verses | searchBibleVerses() | ✅ |
-| Custom slides | db:get-custom-slides | getCustomSlides() | ✅ |
-| Add custom slide | db:add-custom-slide | addCustomSlide() | ✅ |
-| Slide groups | db:get-slide-groups | getSlideGroups() | ✅ |
-| Song relations | db:get-song-relations | getSongRelations() | ✅ |
-| Add relation | db:add-song-relation | addSongRelation() | ✅ |
-| Log history | db:log-history | logSongHistory() | ✅ |
-| Recent songs | db:get-recent-songs | getRecentSongs() | ✅ |
-| Save session | db:save-session | saveSessionState() | ✅ |
-| Recovery state | db:get-recovery-state | getRecoveryState() | ✅ |
-| Mark clean exit | db:mark-clean-exit | markCleanExit() | ✅ |
-| Integrity check | db:check-multi-hymnal-integrity | checkMultiHymnalIntegrity() | ✅ |
-| Get memory | system:get-memory | process.getProcessMemoryInfo() | ✅ |
-| Set mode | system:set-mode | window management | ✅ |
-| IPC health | health:* | setupIPCHealth() | ✅ |
-| **Duplicate song** | **None** | **None** | ❌ Missing |
-| **Export single song** | **file:write-json** | **writeJson()** | ⚠️ Partial |
-| **Clear media cache** | **None** | **None** | ❌ Missing |
-| **Get storage stats** | **None** | **None** | ❌ Missing |
-| **Notification system** | **None** | **None** | ❌ Missing |
+| UI Action               | IPC Channel                     | Handler                        | Status     |
+| ----------------------- | ------------------------------- | ------------------------------ | ---------- |
+| Load songs              | db:get-songs                    | getSongs()                     | ✅         |
+| Search songs            | db:search-songs                 | searchSongs() (FTS5)           | ✅         |
+| Add song                | db:add-song                     | addSong()                      | ✅         |
+| Update song             | db:update-song                  | updateSong()                   | ✅         |
+| Delete song             | db:delete-song                  | deleteSong()                   | ✅         |
+| Toggle favorite         | db:toggle-favorite              | toggleFavorite()               | ✅         |
+| Import JSON             | db:import-json                  | importSongsFromJson()          | ✅         |
+| Import Excel            | file:parse-excel                | xlsx parse                     | ✅         |
+| Bulk background         | db:bulk-assign-song-background  | bulkAssignSongBackground()     | ✅         |
+| Load hymnals            | db:get-hymnals                  | getHymnals()                   | ✅         |
+| Add hymnal              | db:add-hymnal                   | addHymnal()                    | ✅         |
+| Update hymnal           | db:update-hymnal                | updateHymnal()                 | ✅         |
+| Delete hymnal           | db:delete-hymnal                | deleteHymnal()                 | ✅         |
+| Load playlists          | db:get-playlists                | getPlaylists()                 | ✅         |
+| Add playlist            | db:add-playlist                 | addPlaylist()                  | ✅         |
+| Update playlist         | db:update-playlist              | updatePlaylist()               | ✅         |
+| Delete playlist         | db:delete-playlist              | deletePlaylist()               | ✅         |
+| Load playlist items     | db:get-playlist-items           | getPlaylistItems()             | ✅         |
+| Add playlist item       | db:add-playlist-item            | addPlaylistItem()              | ✅         |
+| Reorder playlist        | db:reorder-playlist-items       | reorderPlaylistItems()         | ✅         |
+| Get settings            | db:get-settings                 | getSettings()                  | ✅         |
+| Update setting          | db:update-setting               | updateSetting()                | ✅         |
+| Create backup           | db:create-backup                | createBackup()                 | ✅         |
+| Restore backup          | db:restore-backup               | restoreBackup()                | ✅         |
+| Reseed DB               | db:reseed                       | reseedDatabase()               | ✅         |
+| Get displays            | display_get-all                 | getAllDisplays()               | ✅         |
+| Show projection         | projection:show                 | showProjectionWindow()         | ✅         |
+| Hide projection         | projection:hide                 | hideProjectionWindow()         | ✅         |
+| Slide update            | projection:slide-update         | updateSlideData()              | ✅         |
+| State change            | projection:state-change         | updateProjectionState()        | ✅         |
+| Theme update            | projection:theme-update         | updateTheme()                  | ✅         |
+| Show stage              | stage:show                      | showStageDisplayWindow()       | ✅         |
+| Hide stage              | stage:hide                      | hideStageDisplayWindow()       | ✅         |
+| Get media assets        | db:get-media-assets             | getMediaAssets()               | ✅         |
+| Import media            | db:import-media-assets          | importMediaAssets()            | ✅         |
+| Update media            | db:update-media-asset           | updateMediaAsset()             | ✅         |
+| Delete media            | db:delete-media-asset           | deleteMediaAsset()             | ✅         |
+| Get collections         | db:get-media-collections        | getMediaCollections()          | ✅         |
+| Add collection          | db:add-media-collection         | addMediaCollection()           | ✅         |
+| Bible translations      | db:get-bible-translations       | getBibleTranslations()         | ✅         |
+| Bible books             | db:get-bible-books              | getBibleBooks()                | ✅         |
+| Bible verses            | db:get-bible-verses             | getBibleVerses()               | ✅         |
+| Search bible            | db:search-bible-verses          | searchBibleVerses()            | ✅         |
+| Custom slides           | db:get-custom-slides            | getCustomSlides()              | ✅         |
+| Add custom slide        | db:add-custom-slide             | addCustomSlide()               | ✅         |
+| Slide groups            | db:get-slide-groups             | getSlideGroups()               | ✅         |
+| Song relations          | db:get-song-relations           | getSongRelations()             | ✅         |
+| Add relation            | db:add-song-relation            | addSongRelation()              | ✅         |
+| Log history             | db:log-history                  | logSongHistory()               | ✅         |
+| Recent songs            | db:get-recent-songs             | getRecentSongs()               | ✅         |
+| Save session            | db:save-session                 | saveSessionState()             | ✅         |
+| Recovery state          | db:get-recovery-state           | getRecoveryState()             | ✅         |
+| Mark clean exit         | db:mark-clean-exit              | markCleanExit()                | ✅         |
+| Integrity check         | db:check-multi-hymnal-integrity | checkMultiHymnalIntegrity()    | ✅         |
+| Get memory              | system:get-memory               | process.getProcessMemoryInfo() | ✅         |
+| Set mode                | system:set-mode                 | window management              | ✅         |
+| IPC health              | health:\*                       | setupIPCHealth()               | ✅         |
+| **Duplicate song**      | **None**                        | **None**                       | ❌ Missing |
+| **Export single song**  | **file:write-json**             | **writeJson()**                | ⚠️ Partial |
+| **Clear media cache**   | **None**                        | **None**                       | ❌ Missing |
+| **Get storage stats**   | **None**                        | **None**                       | ❌ Missing |
+| **Notification system** | **None**                        | **None**                       | ❌ Missing |
 
 ### 9.2 State Management Validation
 
-| Store | Persisted | Hydration | Issues |
-|---|---|---|---|
-| useAppStore | ❌ No | On mount (loadSongs, loadHymnals) | Songs lost on refresh (by design) |
-| useModeStore | ✅ Yes (localStorage) | Automatic | currentMode, isFirstInstall, theme |
-| useProjectionStore | ❌ No | On mount (IPC snapshot) | Projection state lost on refresh |
-| usePlaylistStore | ❌ No | On mount (loadPlaylists) | Active playlist lost on refresh |
-| useAtmosphereStore | ❌ No | From settings | OK |
-| useAnnouncementStore | ❌ No | On demand | OK |
-| useCacheStore | ❌ No | In-memory | OK |
-| useHealthStore | ❌ No | IPC events | OK |
-| usePanelLayoutStore | ❌ No | Default sizes | Panel sizes reset on refresh |
+| Store                | Persisted             | Hydration                         | Issues                             |
+| -------------------- | --------------------- | --------------------------------- | ---------------------------------- |
+| useAppStore          | ❌ No                 | On mount (loadSongs, loadHymnals) | Songs lost on refresh (by design)  |
+| useModeStore         | ✅ Yes (localStorage) | Automatic                         | currentMode, isFirstInstall, theme |
+| useProjectionStore   | ❌ No                 | On mount (IPC snapshot)           | Projection state lost on refresh   |
+| usePlaylistStore     | ❌ No                 | On mount (loadPlaylists)          | Active playlist lost on refresh    |
+| useAtmosphereStore   | ❌ No                 | From settings                     | OK                                 |
+| useAnnouncementStore | ❌ No                 | On demand                         | OK                                 |
+| useCacheStore        | ❌ No                 | In-memory                         | OK                                 |
+| useHealthStore       | ❌ No                 | IPC events                        | OK                                 |
+| usePanelLayoutStore  | ❌ No                 | Default sizes                     | Panel sizes reset on refresh       |
 
 **Recommendation:** Persist `usePanelLayoutStore` and `usePlaylistStore.activePlaylist` to localStorage.
 
 ### 9.3 Crash Recovery System
 
 **Existing implementation:**
+
 - `saveSessionState()` — saves playlistId, songId, slideIndex, projectionState to `app_state`
 - `getRecoveryState()` — reads recovery state on startup
 - `markCleanExit()` — called on `window-all-closed`
 - `useCrashRecovery` hook — reads recovery state and offers restore
 
 **Gaps:**
+
 1. Recovery state not saved on every slide change (only on explicit save)
 2. No recovery UI shown to user (hook exists but no dialog)
 3. Recovery only covers playlist/song/slide — not mode, theme, or panel layout
 
 ### 9.4 Security Validation
 
-| Security Concern | Status | Notes |
-|---|---|---|
-| Context isolation | ✅ Enabled | `contextIsolation: true` |
-| Node integration | ✅ Disabled | `nodeIntegration: false` |
-| Web security | ✅ Enabled | `webSecurity: true` |
-| Navigation prevention | ✅ | `will-navigate` blocked |
-| External links | ✅ | `shell.openExternal` only |
-| Excel file validation | ✅ | Size, extension, row/col limits |
-| JSON import validation | ✅ | Size limit, field validation |
-| Backup path validation | ✅ | Absolute path, .db extension |
-| Reseed confirmation | ✅ | Token required |
-| Destructive audit log | ✅ | `auditDestructiveAction()` |
-| SQL injection | ✅ | Parameterized queries throughout |
-| XSS | ✅ | React escaping + no dangerouslySetInnerHTML |
-| Sandbox | ⚠️ | Optional via env var, not default |
-| Webview tag | ✅ Disabled | `webviewTag: false` |
+| Security Concern       | Status      | Notes                                       |
+| ---------------------- | ----------- | ------------------------------------------- |
+| Context isolation      | ✅ Enabled  | `contextIsolation: true`                    |
+| Node integration       | ✅ Disabled | `nodeIntegration: false`                    |
+| Web security           | ✅ Enabled  | `webSecurity: true`                         |
+| Navigation prevention  | ✅          | `will-navigate` blocked                     |
+| External links         | ✅          | `shell.openExternal` only                   |
+| Excel file validation  | ✅          | Size, extension, row/col limits             |
+| JSON import validation | ✅          | Size limit, field validation                |
+| Backup path validation | ✅          | Absolute path, .db extension                |
+| Reseed confirmation    | ✅          | Token required                              |
+| Destructive audit log  | ✅          | `auditDestructiveAction()`                  |
+| SQL injection          | ✅          | Parameterized queries throughout            |
+| XSS                    | ✅          | React escaping + no dangerouslySetInnerHTML |
+| Sandbox                | ⚠️          | Optional via env var, not default           |
+| Webview tag            | ✅ Disabled | `webviewTag: false`                         |
 
 ---
 
@@ -1340,43 +1379,43 @@ Every UI action must map to a real IPC handler. Audit result:
 
 ### 10.1 Navigation Consistency Audit
 
-| Navigation Pattern | Library | Projection | Management | Settings | Status |
-|---|---|---|---|---|---|
-| Back button | ❌ (sidebar) | ❌ (mode switch) | ❌ (mode switch) | ✅ | Inconsistent |
-| Breadcrumb | ❌ | ❌ | ❌ | ✅ | Only in Settings |
-| Mode indicator | ✅ (pill) | ✅ (focus mode) | ✅ (eyebrow) | ❌ | Mostly consistent |
-| Search | ✅ | ✅ | ✅ | ✅ | Consistent |
-| Empty states | ✅ | ✅ | ✅ | N/A | Consistent |
-| Loading states | ⚠️ | ⚠️ | ⚠️ | ⚠️ | Partial |
-| Error states | ⚠️ (toast) | ⚠️ (toast) | ⚠️ (toast) | ⚠️ (toast) | Toast only |
-| Keyboard nav | ✅ | ✅ | ⚠️ | ⚠️ | Partial |
+| Navigation Pattern | Library      | Projection       | Management       | Settings   | Status            |
+| ------------------ | ------------ | ---------------- | ---------------- | ---------- | ----------------- |
+| Back button        | ❌ (sidebar) | ❌ (mode switch) | ❌ (mode switch) | ✅         | Inconsistent      |
+| Breadcrumb         | ❌           | ❌               | ❌               | ✅         | Only in Settings  |
+| Mode indicator     | ✅ (pill)    | ✅ (focus mode)  | ✅ (eyebrow)     | ❌         | Mostly consistent |
+| Search             | ✅           | ✅               | ✅               | ✅         | Consistent        |
+| Empty states       | ✅           | ✅               | ✅               | N/A        | Consistent        |
+| Loading states     | ⚠️           | ⚠️               | ⚠️               | ⚠️         | Partial           |
+| Error states       | ⚠️ (toast)   | ⚠️ (toast)       | ⚠️ (toast)       | ⚠️ (toast) | Toast only        |
+| Keyboard nav       | ✅           | ✅               | ⚠️               | ⚠️         | Partial           |
 
 ### 10.2 Accessibility Audit
 
-| WCAG Criterion | Status | Notes |
-|---|---|---|
-| Color contrast (text) | ⚠️ | Some muted text may fail AA |
-| Focus indicators | ⚠️ | Custom CSS, needs verification |
-| Keyboard navigation | ⚠️ | Partial — menus have keyboard nav, grids don't |
-| ARIA labels | ⚠️ | Some buttons missing aria-label |
-| Screen reader | ❌ | Not tested |
-| Reduced motion | ❌ | No `prefers-reduced-motion` support |
-| Font size | ✅ | 11-14px base, readable |
-| Touch targets | ✅ | 32-40px minimum |
+| WCAG Criterion        | Status | Notes                                          |
+| --------------------- | ------ | ---------------------------------------------- |
+| Color contrast (text) | ⚠️     | Some muted text may fail AA                    |
+| Focus indicators      | ⚠️     | Custom CSS, needs verification                 |
+| Keyboard navigation   | ⚠️     | Partial — menus have keyboard nav, grids don't |
+| ARIA labels           | ⚠️     | Some buttons missing aria-label                |
+| Screen reader         | ❌     | Not tested                                     |
+| Reduced motion        | ❌     | No `prefers-reduced-motion` support            |
+| Font size             | ✅     | 11-14px base, readable                         |
+| Touch targets         | ✅     | 32-40px minimum                                |
 
 ### 10.3 Performance Considerations
 
-| Area | Current | Recommendation |
-|---|---|---|
-| Song list rendering | ✅ Virtualized (@tanstack/react-virtual) | Good |
-| Song search | ✅ FTS5 with BM25 ranking | Good |
-| Image loading | ⚠️ No lazy loading | Add lazy loading |
-| Media preview | ✅ mediaEngine preload | Good |
-| Bundle size | Unknown | Run analysis |
-| DB queries | ✅ Prepared statements | Good |
-| IPC overhead | ✅ Minimal (direct handlers) | Good |
-| Animation | ✅ Framer Motion (GPU) | Good |
-| Memory | ⚠️ No cleanup on mode switch | Add cleanup |
+| Area                | Current                                  | Recommendation   |
+| ------------------- | ---------------------------------------- | ---------------- |
+| Song list rendering | ✅ Virtualized (@tanstack/react-virtual) | Good             |
+| Song search         | ✅ FTS5 with BM25 ranking                | Good             |
+| Image loading       | ⚠️ No lazy loading                       | Add lazy loading |
+| Media preview       | ✅ mediaEngine preload                   | Good             |
+| Bundle size         | Unknown                                  | Run analysis     |
+| DB queries          | ✅ Prepared statements                   | Good             |
+| IPC overhead        | ✅ Minimal (direct handlers)             | Good             |
+| Animation           | ✅ Framer Motion (GPU)                   | Good             |
+| Memory              | ⚠️ No cleanup on mode switch             | Add cleanup      |
 
 ### 10.4 Operator Workflow Analysis
 
@@ -1411,6 +1450,7 @@ Post-Service:
 ```
 
 **Critical Workflow Gaps:**
+
 1. Step 3 (Create playlist) — no dialog exists, must go to Management Mode
 2. Step 4 (Add songs) — requires active playlist, no inline creation
 3. Step 8 (Preview each song) — no batch preview mode
@@ -1422,63 +1462,63 @@ Post-Service:
 
 ### 11.1 Critical Fixes (Must Fix — Breaks Core Workflow)
 
-| # | Issue | File | Effort |
-|---|---|---|---|
-| 1 | Favorite button in Library Mode doesn't call toggleFavorite | LibraryModeRedesigned.tsx | XS |
-| 2 | "New Playlist" in File menu has empty action | TitleBarMenu.tsx | S |
-| 3 | Bible Screen unreachable (no menu entry) | TitleBarMenu.tsx | XS |
-| 4 | Storage metric is hardcoded fake data | ManagementMode.tsx | S |
-| 5 | Metric trend bars are hardcoded | ManagementMode.tsx | M |
-| 6 | Theme button (Moon) opens nothing | TitleBar.tsx | S |
-| 7 | Notifications button opens nothing | TitleBar.tsx | M |
-| 8 | Layout toggle button has no action | ManagementMode.tsx | S |
-| 9 | Filter button has no dropdown | ManagementMode.tsx | M |
-| 10 | Inspector tabs "Chord" and "Notes" render nothing | Multiple | M |
+| #   | Issue                                                       | File                      | Effort |
+| --- | ----------------------------------------------------------- | ------------------------- | ------ |
+| 1   | Favorite button in Library Mode doesn't call toggleFavorite | LibraryModeRedesigned.tsx | XS     |
+| 2   | "New Playlist" in File menu has empty action                | TitleBarMenu.tsx          | S      |
+| 3   | Bible Screen unreachable (no menu entry)                    | TitleBarMenu.tsx          | XS     |
+| 4   | Storage metric is hardcoded fake data                       | ManagementMode.tsx        | S      |
+| 5   | Metric trend bars are hardcoded                             | ManagementMode.tsx        | M      |
+| 6   | Theme button (Moon) opens nothing                           | TitleBar.tsx              | S      |
+| 7   | Notifications button opens nothing                          | TitleBar.tsx              | M      |
+| 8   | Layout toggle button has no action                          | ManagementMode.tsx        | S      |
+| 9   | Filter button has no dropdown                               | ManagementMode.tsx        | M      |
+| 10  | Inspector tabs "Chord" and "Notes" render nothing           | Multiple                  | M      |
 
 ### 11.2 High Priority (Should Fix — Improves Core UX)
 
-| # | Feature | Effort | Backend Ready |
-|---|---|---|---|
-| 1 | CreatePlaylistDialog | M | ✅ addPlaylist() |
-| 2 | DeleteConfirmDialog (replace browser confirm) | S | ✅ existing |
-| 3 | SongContextMenu (right-click) | M | ✅ existing |
-| 4 | HymnalFilterDropdown in Library Mode | S | ✅ getHymnals() |
-| 5 | SongRelationsModal | M | ✅ getSongRelations() |
-| 6 | IntegrityCheckDialog | M | ✅ checkMultiHymnalIntegrity() |
-| 7 | AnnouncementPanel in Projection Mode | L | ✅ getCustomSlides() |
-| 8 | BiblePickerDialog in Projection Mode | L | ✅ getBibleVerses() |
-| 9 | Media Library management page | L | ✅ getMediaAssets() |
-| 10 | Timer controls in title bar | S | ✅ projectionStore |
+| #   | Feature                                       | Effort | Backend Ready                  |
+| --- | --------------------------------------------- | ------ | ------------------------------ |
+| 1   | CreatePlaylistDialog                          | M      | ✅ addPlaylist()               |
+| 2   | DeleteConfirmDialog (replace browser confirm) | S      | ✅ existing                    |
+| 3   | SongContextMenu (right-click)                 | M      | ✅ existing                    |
+| 4   | HymnalFilterDropdown in Library Mode          | S      | ✅ getHymnals()                |
+| 5   | SongRelationsModal                            | M      | ✅ getSongRelations()          |
+| 6   | IntegrityCheckDialog                          | M      | ✅ checkMultiHymnalIntegrity() |
+| 7   | AnnouncementPanel in Projection Mode          | L      | ✅ getCustomSlides()           |
+| 8   | BiblePickerDialog in Projection Mode          | L      | ✅ getBibleVerses()            |
+| 9   | Media Library management page                 | L      | ✅ getMediaAssets()            |
+| 10  | Timer controls in title bar                   | S      | ✅ projectionStore             |
 
 ### 11.3 Medium Priority (Nice to Have — Enhances Quality)
 
-| # | Feature | Effort | Backend Ready |
-|---|---|---|---|
-| 1 | Resizable panels in Projection Mode | M | ✅ react-resizable-panels |
-| 2 | Drag-and-drop songs to playlist in Library Mode | M | ✅ @dnd-kit |
-| 3 | Multi-select in Library Mode song grid | M | Client-side |
-| 4 | Import progress dialog | M | ✅ importSongsFromJson() |
-| 5 | Panel layout persistence | S | ✅ usePanelLayoutStore |
-| 6 | Reduced motion support | S | CSS |
-| 7 | Keyboard navigation in song grids | M | Client-side |
-| 8 | Custom Slides management page | L | ✅ getCustomSlides() |
-| 9 | Analytics dashboard | L | ✅ song_history |
-| 10 | Notification system | L | New |
+| #   | Feature                                         | Effort | Backend Ready             |
+| --- | ----------------------------------------------- | ------ | ------------------------- |
+| 1   | Resizable panels in Projection Mode             | M      | ✅ react-resizable-panels |
+| 2   | Drag-and-drop songs to playlist in Library Mode | M      | ✅ @dnd-kit               |
+| 3   | Multi-select in Library Mode song grid          | M      | Client-side               |
+| 4   | Import progress dialog                          | M      | ✅ importSongsFromJson()  |
+| 5   | Panel layout persistence                        | S      | ✅ usePanelLayoutStore    |
+| 6   | Reduced motion support                          | S      | CSS                       |
+| 7   | Keyboard navigation in song grids               | M      | Client-side               |
+| 8   | Custom Slides management page                   | L      | ✅ getCustomSlides()      |
+| 9   | Analytics dashboard                             | L      | ✅ song_history           |
+| 10  | Notification system                             | L      | New                       |
 
 ### 11.4 Low Priority (Future — Planned Features)
 
-| # | Feature | Notes |
-|---|---|---|
-| 1 | Practice Tools | Metronome, key trainer |
-| 2 | Chord Charts | Per-song chord display |
-| 3 | Vocal Guide | Audio playback |
-| 4 | Broadcast Studio | Streaming controls |
-| 5 | AI Features | Lyric suggestions |
-| 6 | Cloud Sync | Settings/library sync |
-| 7 | Mobile companion app | Remote control |
-| 8 | Multi-user support | Operator roles |
-| 9 | Version history | Song edit history |
-| 10 | Autosave | Song editor autosave |
+| #   | Feature              | Notes                  |
+| --- | -------------------- | ---------------------- |
+| 1   | Practice Tools       | Metronome, key trainer |
+| 2   | Chord Charts         | Per-song chord display |
+| 3   | Vocal Guide          | Audio playback         |
+| 4   | Broadcast Studio     | Streaming controls     |
+| 5   | AI Features          | Lyric suggestions      |
+| 6   | Cloud Sync           | Settings/library sync  |
+| 7   | Mobile companion app | Remote control         |
+| 8   | Multi-user support   | Operator roles         |
+| 9   | Version history      | Song edit history      |
+| 10  | Autosave             | Song editor autosave   |
 
 ---
 
@@ -1486,49 +1526,50 @@ Post-Service:
 
 ### 12.1 Scalability Assessment
 
-| Concern | Current State | Recommendation |
-|---|---|---|
-| Song count | FTS5 handles 10k+ songs | Good for 100k+ |
-| Playlist size | No limit | Add soft limit (500 items) |
-| Media assets | UUID-based, no limit | Add storage quota |
-| Bible verses | Batch import supported | Good |
-| Multi-hymnal | Fully supported | Good |
-| Concurrent users | Single-user desktop | By design |
-| DB size | WAL mode, checkpointing | Good |
+| Concern          | Current State           | Recommendation             |
+| ---------------- | ----------------------- | -------------------------- |
+| Song count       | FTS5 handles 10k+ songs | Good for 100k+             |
+| Playlist size    | No limit                | Add soft limit (500 items) |
+| Media assets     | UUID-based, no limit    | Add storage quota          |
+| Bible verses     | Batch import supported  | Good                       |
+| Multi-hymnal     | Fully supported         | Good                       |
+| Concurrent users | Single-user desktop     | By design                  |
+| DB size          | WAL mode, checkpointing | Good                       |
 
 ### 12.2 Maintainability Assessment
 
-| Concern | Current State | Score |
-|---|---|---|
-| Component modularity | Good — separate files per component | 8/10 |
-| State management | Good — Zustand stores well-organized | 8/10 |
-| IPC organization | Good — centralized in ipc-handlers.ts | 9/10 |
-| Type safety | Good — TypeScript throughout | 8/10 |
-| CSS organization | Mixed — some inline Tailwind, some CSS classes | 6/10 |
-| Error handling | Good — safeIpcHandle wrapper | 8/10 |
-| Logging | Good — logger utility | 7/10 |
-| Testing | Minimal — vitest configured but few tests | 3/10 |
-| Documentation | Good — JSDoc comments in key files | 7/10 |
-| Dead code | Some — BroadcastMode stub, old LibraryMode.tsx | 6/10 |
+| Concern              | Current State                                  | Score |
+| -------------------- | ---------------------------------------------- | ----- |
+| Component modularity | Good — separate files per component            | 8/10  |
+| State management     | Good — Zustand stores well-organized           | 8/10  |
+| IPC organization     | Good — centralized in ipc-handlers.ts          | 9/10  |
+| Type safety          | Good — TypeScript throughout                   | 8/10  |
+| CSS organization     | Mixed — some inline Tailwind, some CSS classes | 6/10  |
+| Error handling       | Good — safeIpcHandle wrapper                   | 8/10  |
+| Logging              | Good — logger utility                          | 7/10  |
+| Testing              | Minimal — vitest configured but few tests      | 3/10  |
+| Documentation        | Good — JSDoc comments in key files             | 7/10  |
+| Dead code            | Some — BroadcastMode stub, old LibraryMode.tsx | 6/10  |
 
 ### 12.3 Fail-Safe Operation
 
-| Scenario | Current Handling | Status |
-|---|---|---|
-| DB corruption | Legacy backup on schema mismatch | ✅ |
-| Crash recovery | saveSessionState + getRecoveryState | ✅ |
-| Clean exit | markCleanExit() on window-all-closed | ✅ |
-| IPC failure | safeIpcHandle catches + logs | ✅ |
-| Render crash | ErrorBoundary component | ✅ |
-| Projection window crash | Recreated on next show | ✅ |
-| Network loss | Offline-first (local DB) | ✅ |
-| Large import | Timeout + size limits | ✅ |
-| Concurrent DB writes | WAL mode + transactions | ✅ |
-| Memory leak | No cleanup on mode switch | ⚠️ |
+| Scenario                | Current Handling                     | Status |
+| ----------------------- | ------------------------------------ | ------ |
+| DB corruption           | Legacy backup on schema mismatch     | ✅     |
+| Crash recovery          | saveSessionState + getRecoveryState  | ✅     |
+| Clean exit              | markCleanExit() on window-all-closed | ✅     |
+| IPC failure             | safeIpcHandle catches + logs         | ✅     |
+| Render crash            | ErrorBoundary component              | ✅     |
+| Projection window crash | Recreated on next show               | ✅     |
+| Network loss            | Offline-first (local DB)             | ✅     |
+| Large import            | Timeout + size limits                | ✅     |
+| Concurrent DB writes    | WAL mode + transactions              | ✅     |
+| Memory leak             | No cleanup on mode switch            | ⚠️     |
 
 ### 12.4 Component Reusability Audit
 
 **Well-reused components:**
+
 - `Surface` — used throughout ManagementMode
 - `IconButton` — used throughout ManagementMode
 - `StatusBadge` — used in song table
@@ -1536,6 +1577,7 @@ Post-Service:
 - Design system components (EditorShell, SurfacePanel, etc.)
 
 **Components that should be extracted:**
+
 - `DeleteConfirmDialog` — currently browser `confirm()` everywhere
 - `MetadataTable` — duplicated in Library Inspector and Projection SongInfoPanel
 - `SongArtwork` — similar to LibraryArtwork but different implementation
@@ -1548,57 +1590,57 @@ Post-Service:
 
 ### 13.1 All Pages (Complete List)
 
-| Page | Route/Trigger | Mode | Backend | Status |
-|---|---|---|---|---|
-| SplashScreen | App startup | — | isLoading | ✅ |
-| WelcomeScreen | isFirstInstall | — | useModeStore | ✅ |
-| LibraryMode | currentMode=LIBRARY | LIBRARY | songs, hymnals, playlists | ✅ |
-| ProjectionMode | currentMode=PROJECTION | PROJECTION | projectionStore, playlists | ✅ |
-| ManagementMode | currentMode=MANAGEMENT | MANAGEMENT | songs, hymnals, media | ✅ |
-| BroadcastMode | currentMode=BROADCAST | BROADCAST | None (stub) | ⚠️ |
-| SongEditorScreen | currentScreen=song-editor | Overlay | songs CRUD | ✅ |
-| SettingsScreen | currentScreen=settings | Overlay | settings, hymnals | ✅ |
-| ImportExportScreen | currentScreen=import-export | Overlay | songs import/export | ✅ |
-| BibleScreen | currentScreen=bible | Overlay | bible CRUD | ⚠️ (unreachable) |
-| ProjectionApp | projection.html | Window | projection IPC | ✅ |
-| StageDisplayApp | stageDisplay.html | Window | projection IPC | ✅ |
+| Page               | Route/Trigger               | Mode       | Backend                    | Status           |
+| ------------------ | --------------------------- | ---------- | -------------------------- | ---------------- |
+| SplashScreen       | App startup                 | —          | isLoading                  | ✅               |
+| WelcomeScreen      | isFirstInstall              | —          | useModeStore               | ✅               |
+| LibraryMode        | currentMode=LIBRARY         | LIBRARY    | songs, hymnals, playlists  | ✅               |
+| ProjectionMode     | currentMode=PROJECTION      | PROJECTION | projectionStore, playlists | ✅               |
+| ManagementMode     | currentMode=MANAGEMENT      | MANAGEMENT | songs, hymnals, media      | ✅               |
+| BroadcastMode      | currentMode=BROADCAST       | BROADCAST  | None (stub)                | ⚠️               |
+| SongEditorScreen   | currentScreen=song-editor   | Overlay    | songs CRUD                 | ✅               |
+| SettingsScreen     | currentScreen=settings      | Overlay    | settings, hymnals          | ✅               |
+| ImportExportScreen | currentScreen=import-export | Overlay    | songs import/export        | ✅               |
+| BibleScreen        | currentScreen=bible         | Overlay    | bible CRUD                 | ⚠️ (unreachable) |
+| ProjectionApp      | projection.html             | Window     | projection IPC             | ✅               |
+| StageDisplayApp    | stageDisplay.html           | Window     | projection IPC             | ✅               |
 
 ### 13.2 All Workflows (Complete List)
 
-| Workflow | Entry Point | Steps | Status |
-|---|---|---|---|
-| Add new song | Management > + Lagu Baru | Open editor → fill form → save | ✅ |
-| Edit song | Management > Edit / Library > Edit Info | Open editor → modify → save | ✅ |
-| Delete song | Management > Delete | Confirm → delete → reload | ⚠️ (browser confirm) |
-| Import songs (Excel) | Import/Export screen | Select file → parse → review → import | ✅ |
-| Import songs (JSON) | Import/Export screen | Select file → parse → set policy → import | ✅ |
-| Export library | Management > Export Data | Select path → write JSON | ✅ |
-| Create playlist | File > New Playlist | ❌ No dialog | ❌ |
-| Add song to playlist | Library > + / Projection > + | Select playlist → add | ⚠️ (requires active playlist) |
-| Reorder playlist | Projection > PlaylistPanel | Drag items | ✅ |
-| Present song | Projection Mode | Select song → cue → TAKE | ✅ |
-| Navigate slides | Projection Mode | → / ← / Space | ✅ |
-| Black screen | Projection Mode | B key / button | ✅ |
-| Freeze screen | Projection Mode | F key / button | ✅ |
-| Clear screen | Projection Mode | Esc / button | ✅ |
-| Quick jump | Projection Mode | Ctrl+J | ✅ |
-| Add hymnal | Settings > Buku Lagu / Management | Fill form → save | ✅ |
-| Configure theme | Settings > Tema & Font | Adjust settings → apply | ✅ |
-| Configure background | Settings > Background | Select image/video → apply | ✅ |
-| Backup database | File > Backup / Settings > Backup | Select path → backup | ✅ |
-| Restore database | Settings > Backup | Select file → restore | ✅ |
-| Reseed database | Settings > Backup / Tools > Reseed | Confirm → reseed | ✅ |
-| Toggle favorite | Library > ★ button | Click → toggle | ⚠️ (button broken) |
-| Search songs | Any mode | Type in search | ✅ |
-| Switch mode | TitleBar ModeSwitcher | Click → select mode | ✅ |
-| Show projection | Projection menu / button | projection:show | ✅ |
-| Show stage display | View > Stage Display | stage:show | ✅ |
-| Onboarding | First install | Welcome screen flow | ✅ |
-| Crash recovery | App startup after crash | Recovery dialog | ⚠️ (hook exists, no UI) |
-| Integrity check | Tools menu | checkMultiHymnalIntegrity | ⚠️ (IPC exists, no UI) |
-| Bible projection | Bible screen | ❌ Unreachable | ❌ |
-| Custom slide projection | Announcement panel | ❌ No panel | ❌ |
-| Media management | Management > Media | ❌ No page | ❌ |
+| Workflow                | Entry Point                             | Steps                                     | Status                        |
+| ----------------------- | --------------------------------------- | ----------------------------------------- | ----------------------------- |
+| Add new song            | Management > + Lagu Baru                | Open editor → fill form → save            | ✅                            |
+| Edit song               | Management > Edit / Library > Edit Info | Open editor → modify → save               | ✅                            |
+| Delete song             | Management > Delete                     | Confirm → delete → reload                 | ⚠️ (browser confirm)          |
+| Import songs (Excel)    | Import/Export screen                    | Select file → parse → review → import     | ✅                            |
+| Import songs (JSON)     | Import/Export screen                    | Select file → parse → set policy → import | ✅                            |
+| Export library          | Management > Export Data                | Select path → write JSON                  | ✅                            |
+| Create playlist         | File > New Playlist                     | ❌ No dialog                              | ❌                            |
+| Add song to playlist    | Library > + / Projection > +            | Select playlist → add                     | ⚠️ (requires active playlist) |
+| Reorder playlist        | Projection > PlaylistPanel              | Drag items                                | ✅                            |
+| Present song            | Projection Mode                         | Select song → cue → TAKE                  | ✅                            |
+| Navigate slides         | Projection Mode                         | → / ← / Space                             | ✅                            |
+| Black screen            | Projection Mode                         | B key / button                            | ✅                            |
+| Freeze screen           | Projection Mode                         | F key / button                            | ✅                            |
+| Clear screen            | Projection Mode                         | Esc / button                              | ✅                            |
+| Quick jump              | Projection Mode                         | Ctrl+J                                    | ✅                            |
+| Add hymnal              | Settings > Buku Lagu / Management       | Fill form → save                          | ✅                            |
+| Configure theme         | Settings > Tema & Font                  | Adjust settings → apply                   | ✅                            |
+| Configure background    | Settings > Background                   | Select image/video → apply                | ✅                            |
+| Backup database         | File > Backup / Settings > Backup       | Select path → backup                      | ✅                            |
+| Restore database        | Settings > Backup                       | Select file → restore                     | ✅                            |
+| Reseed database         | Settings > Backup / Tools > Reseed      | Confirm → reseed                          | ✅                            |
+| Toggle favorite         | Library > ★ button                      | Click → toggle                            | ⚠️ (button broken)            |
+| Search songs            | Any mode                                | Type in search                            | ✅                            |
+| Switch mode             | TitleBar ModeSwitcher                   | Click → select mode                       | ✅                            |
+| Show projection         | Projection menu / button                | projection:show                           | ✅                            |
+| Show stage display      | View > Stage Display                    | stage:show                                | ✅                            |
+| Onboarding              | First install                           | Welcome screen flow                       | ✅                            |
+| Crash recovery          | App startup after crash                 | Recovery dialog                           | ⚠️ (hook exists, no UI)       |
+| Integrity check         | Tools menu                              | checkMultiHymnalIntegrity                 | ⚠️ (IPC exists, no UI)        |
+| Bible projection        | Bible screen                            | ❌ Unreachable                            | ❌                            |
+| Custom slide projection | Announcement panel                      | ❌ No panel                               | ❌                            |
+| Media management        | Management > Media                      | ❌ No page                                | ❌                            |
 
 ---
 
@@ -1611,6 +1653,7 @@ Post-Service:
 **Changes required:**
 
 1. **Add Media menu** (always visible):
+
 ```typescript
 {
   id: 'media',
@@ -1625,6 +1668,7 @@ Post-Service:
 ```
 
 2. **Add Window menu** (always visible):
+
 ```typescript
 {
   id: 'window',
@@ -1642,16 +1686,19 @@ Post-Service:
 ```
 
 3. **Wire "New Playlist" in File menu:**
+
 ```typescript
 { label: 'New Playlist', shortcut: 'Ctrl+N', action: () => document.dispatchEvent(new CustomEvent('sion:create-playlist')) }
 ```
 
 4. **Add Bible to View menu:**
+
 ```typescript
 { label: 'Bible', shortcut: 'Ctrl+B', action: () => setScreen('bible') }
 ```
 
 5. **Add mode shortcuts to View menu:**
+
 ```typescript
 { label: 'Library Mode', shortcut: 'Ctrl+1', action: () => setMode('LIBRARY') },
 { label: 'Projection Mode', shortcut: 'Ctrl+2', action: () => setMode('PROJECTION') },
@@ -1663,6 +1710,7 @@ Post-Service:
 **Changes required:**
 
 1. **Wire Theme button:**
+
 ```typescript
 // Replace Moon button with:
 <button onClick={() => {
@@ -1676,6 +1724,7 @@ Post-Service:
 ```
 
 2. **Wire Notifications button:**
+
 ```typescript
 // Add notification store and panel
 <button onClick={() => setShowNotifications(true)} title="Notifications">
@@ -1689,6 +1738,7 @@ Post-Service:
 **File to modify:** `src/renderer/src/screens/modes/LibraryModeRedesigned.tsx`
 
 **Fix 1: Wire favorite button in SongMediaCard:**
+
 ```typescript
 // Current (broken):
 <button onClick={(event) => { event.stopPropagation() }} ...>
@@ -1712,6 +1762,7 @@ Post-Service:
 ```
 
 **Fix 2: Add CreatePlaylistDialog:**
+
 ```typescript
 // Add state:
 const [showCreatePlaylist, setShowCreatePlaylist] = useState(false)
@@ -1727,6 +1778,7 @@ useEffect(() => {
 ```
 
 **Fix 3: Add hymnal filter to command bar:**
+
 ```typescript
 // Add hymnal selector dropdown to command bar
 <select
@@ -1742,6 +1794,7 @@ useEffect(() => {
 ```
 
 **Fix 4: Add SongContextMenu (right-click):**
+
 ```typescript
 // Add to SongMediaCard and NumberTile:
 onContextMenu={(e) => {
@@ -1756,6 +1809,7 @@ onContextMenu={(e) => {
 **File to modify:** `src/renderer/src/screens/modes/ProjectionMode.tsx`
 
 **Fix 1: Wire SongInfoPanel "Lirik" tab:**
+
 ```typescript
 // Add lyrics tab content:
 {activeTab === 'lirik' && activeSong && (
@@ -1766,13 +1820,17 @@ onContextMenu={(e) => {
 ```
 
 **Fix 2: Add timer display to Projection Mode:**
+
 ```typescript
 // Add to SongInfoPanel or as separate panel:
 const { timerElapsed, timerRunning, timerStart, timerStop, timerReset } = useProjectionStore()
-const timerDisplay = `${Math.floor(timerElapsed / 60).toString().padStart(2, '0')}:${(timerElapsed % 60).toString().padStart(2, '0')}`
+const timerDisplay = `${Math.floor(timerElapsed / 60)
+  .toString()
+  .padStart(2, '0')}:${(timerElapsed % 60).toString().padStart(2, '0')}`
 ```
 
 **Fix 3: Add resizable panels:**
+
 ```typescript
 // Wrap bottom workspace in react-resizable-panels:
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
@@ -1791,6 +1849,7 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 **File to modify:** `src/renderer/src/screens/modes/ManagementMode.tsx`
 
 **Fix 1: Replace hardcoded storage metric:**
+
 ```typescript
 // Add real storage calculation:
 useEffect(() => {
@@ -1809,6 +1868,7 @@ useEffect(() => {
 ```
 
 **Fix 2: Wire layout toggle button:**
+
 ```typescript
 const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
 
@@ -1819,6 +1879,7 @@ const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
 ```
 
 **Fix 3: Replace browser confirm() with DeleteConfirmDialog:**
+
 ```typescript
 // Add state:
 const [deleteTarget, setDeleteTarget] = useState<Song | null>(null)
@@ -1843,8 +1904,20 @@ const handleDeleteSong = (song: Song) => setDeleteTarget(song)
 ```
 
 **Fix 4: Add Management Mode sidebar navigation:**
+
 ```typescript
-type ManagementSection = 'songs' | 'hymnals' | 'media' | 'bible' | 'slides' | 'playlists' | 'settings' | 'backup' | 'diagnostics' | 'analytics' | 'about'
+type ManagementSection =
+  | 'songs'
+  | 'hymnals'
+  | 'media'
+  | 'bible'
+  | 'slides'
+  | 'playlists'
+  | 'settings'
+  | 'backup'
+  | 'diagnostics'
+  | 'analytics'
+  | 'about'
 
 const [activeSection, setActiveSection] = useState<ManagementSection>('songs')
 ```
@@ -1852,6 +1925,7 @@ const [activeSection, setActiveSection] = useState<ManagementSection>('songs')
 ### 14.5 New Components Required
 
 **CreatePlaylistDialog:**
+
 ```typescript
 interface CreatePlaylistDialogProps {
   isOpen: boolean
@@ -1865,12 +1939,13 @@ interface CreatePlaylistDialogProps {
 ```
 
 **DeleteConfirmDialog:**
+
 ```typescript
 interface DeleteConfirmDialogProps {
   isOpen: boolean
   title: string
   description?: string
-  confirmLabel?: string  // default: "Hapus"
+  confirmLabel?: string // default: "Hapus"
   onConfirm: () => Promise<void>
   onCancel: () => void
 }
@@ -1879,6 +1954,7 @@ interface DeleteConfirmDialogProps {
 ```
 
 **SongRelationsModal:**
+
 ```typescript
 interface SongRelationsModalProps {
   isOpen: boolean
@@ -1891,6 +1967,7 @@ interface SongRelationsModalProps {
 ```
 
 **MediaLibraryPage (Management section):**
+
 ```typescript
 // Grid view of media assets
 // Filter by type (image/video), category, collection
@@ -1899,6 +1976,7 @@ interface SongRelationsModalProps {
 ```
 
 **AnnouncementPanel (Projection Mode):**
+
 ```typescript
 // Panel showing custom slides
 // Filter by type (announcement/liturgy/welcome/offering/custom)
@@ -1913,6 +1991,7 @@ interface SongRelationsModalProps {
 ### 15.1 Before v1.0 Release
 
 **Critical (Blockers):**
+
 - [ ] Fix favorite button in Library Mode
 - [ ] Wire "New Playlist" in File menu (CreatePlaylistDialog)
 - [ ] Make Bible Screen reachable (add to View menu)
@@ -1923,6 +2002,7 @@ interface SongRelationsModalProps {
 - [ ] Add Window menu to title bar
 
 **High Priority:**
+
 - [ ] Add SongContextMenu (right-click)
 - [ ] Add hymnal filter to Library Mode
 - [ ] Wire SongInfoPanel "Lirik" tab in Projection Mode
@@ -1933,6 +2013,7 @@ interface SongRelationsModalProps {
 - [ ] Add IntegrityCheckDialog UI
 
 **Quality:**
+
 - [ ] Add `prefers-reduced-motion` CSS support
 - [ ] Add ARIA labels to all icon-only buttons
 - [ ] Add keyboard navigation to song grids
@@ -1943,6 +2024,7 @@ interface SongRelationsModalProps {
 ### 15.2 Post-v1.0 Roadmap
 
 **v1.1 — Content Operations:**
+
 - Media Library management page
 - Custom Slides management page
 - Bible management page
@@ -1950,6 +2032,7 @@ interface SongRelationsModalProps {
 - Bible Picker in Projection Mode
 
 **v1.2 — Workflow Enhancement:**
+
 - Drag-and-drop songs to playlist in Library Mode
 - Multi-select in Library Mode
 - Import progress dialog
@@ -1957,6 +2040,7 @@ interface SongRelationsModalProps {
 - Notification system
 
 **v1.3 — Advanced Features:**
+
 - Practice Tools (metronome, key trainer)
 - Chord Charts
 - Scene configuration UI
@@ -1964,6 +2048,7 @@ interface SongRelationsModalProps {
 - Confidence monitor display in operator UI
 
 **v2.0 — Platform:**
+
 - Cloud sync
 - Multi-user support
 - Mobile companion app
@@ -1975,6 +2060,7 @@ interface SongRelationsModalProps {
 ## APPENDIX A: DESIGN SYSTEM CSS CLASSES (Current)
 
 ### A.1 Management Mode Classes
+
 ```
 .management-studio          — root container
 .management-studio__shell   — inner layout
@@ -1995,6 +2081,7 @@ interface SongRelationsModalProps {
 ```
 
 ### A.2 Library Mode Classes
+
 ```
 .library-pro-shell          — root container
 .library-pro-sidebar        — left navigation
@@ -2017,6 +2104,7 @@ interface SongRelationsModalProps {
 ```
 
 ### A.3 Song Studio Classes
+
 ```
 .song-studio                — root container
 .song-studio__topbar        — top action bar
@@ -2028,6 +2116,7 @@ interface SongRelationsModalProps {
 ```
 
 ### A.4 Settings Classes
+
 ```
 .settings-shell             — root container
 .settings-header            — top header
@@ -2038,6 +2127,6 @@ interface SongRelationsModalProps {
 
 ---
 
-*Document generated by SION Media Enterprise Redesign System v1.0*
-*Analysis based on complete source code review — May 2026*
-*All findings are based on actual code, not assumptions.*
+_Document generated by SION Media Enterprise Redesign System v1.0_
+_Analysis based on complete source code review — May 2026_
+_All findings are based on actual code, not assumptions._

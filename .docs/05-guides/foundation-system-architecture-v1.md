@@ -1,4 +1,5 @@
 # SION Media — Foundation System Architecture v1.0
+
 ## Enterprise Design & Interface Infrastructure
 
 **Document Status:** Production-Ready Implementation Specification  
@@ -13,6 +14,7 @@
 This document defines the **complete foundational design and interface system** for the entire SION Media ecosystem. Every page, mode, overlay, modal, and workflow will inherit from this foundation.
 
 This is NOT visual decoration. This is **production-grade enterprise infrastructure** for:
+
 - Design language consistency
 - Component architecture scalability
 - Layout framework maintainability
@@ -31,7 +33,7 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 **PART 4:** Window Standard System  
 **PART 5:** Interaction Standards  
 **PART 6:** Accessibility Standards  
-**PART 7:** Engineering Standards  
+**PART 7:** Engineering Standards
 
 ---
 
@@ -43,29 +45,22 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 
 ```css
 /* Base Surfaces — Deepest to Elevated */
---color-bg-base:           #0d0f17   /* Application canvas */
---color-bg-surface:        #151826   /* Card/panel base */
---color-bg-elevated:       #1b2031   /* Elevated panels */
---color-bg-elevated-hover: #23293f   /* Hover state */
---color-bg-active:         #2d3450   /* Active/selected state */
-
-/* Layered Surface System (6 levels) */
---color-surface-0:         #0b0d14   /* Deepest (below base) */
---color-surface-1:         #11131c   /* Base level */
---color-surface-2:         #161925   /* Card level */
---color-surface-3:         #1d2133   /* Elevated card */
---color-surface-4:         #252a40   /* Floating panel */
---color-surface-5:         #2e3352   /* Modal/overlay */
-
-/* Glassmorphism Surfaces */
---color-glass-bg:          rgba(17, 19, 28, 0.72)   /* Standard glass */
---color-glass-bg-strong:   rgba(17, 19, 28, 0.92)   /* Strong glass */
---color-glass-border:      rgba(255, 255, 255, 0.06)
---color-glass-border-strong: rgba(255, 255, 255, 0.12)
---color-glass-highlight:   rgba(255, 255, 255, 0.04)
+--color-bg-base: #0d0f17 /* Application canvas */ --color-bg-surface: #151826 /* Card/panel base */
+  --color-bg-elevated: #1b2031 /* Elevated panels */ --color-bg-elevated-hover: #23293f
+  /* Hover state */ --color-bg-active: #2d3450 /* Active/selected state */
+  /* Layered Surface System (6 levels) */ --color-surface-0: #0b0d14 /* Deepest (below base) */
+  --color-surface-1: #11131c /* Base level */ --color-surface-2: #161925 /* Card level */
+  --color-surface-3: #1d2133 /* Elevated card */ --color-surface-4: #252a40 /* Floating panel */
+  --color-surface-5: #2e3352 /* Modal/overlay */ /* Glassmorphism Surfaces */
+  --color-glass-bg: rgba(17, 19, 28, 0.72) /* Standard glass */
+  --color-glass-bg-strong: rgba(17, 19, 28, 0.92) /* Strong glass */
+  --color-glass-border: rgba(255, 255, 255, 0.06)
+  --color-glass-border-strong: rgba(255, 255, 255, 0.12)
+  --color-glass-highlight: rgba(255, 255, 255, 0.04);
 ```
 
 **Usage Rules:**
+
 - `bg-base`: Application shell, mode backgrounds
 - `bg-surface`: Cards, panels, tables
 - `bg-elevated`: Floating toolbars, dropdowns, popovers
@@ -76,18 +71,14 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 
 ```css
 /* Primary Brand (Blue) */
---color-brand-primary:       #3b82f6   /* Primary actions, links */
---color-brand-primary-hover: #60a5fa   /* Hover state */
-
-/* Secondary Brand (Violet) */
---color-brand-secondary:     #8b5cf6   /* Secondary actions */
-
-/* Accent Colors */
---color-brand-accent:        #f59e0b   /* Amber — warnings, highlights */
---color-accent:              #38bdf8   /* Cyan — info, next state */
+--color-brand-primary: #3b82f6 /* Primary actions, links */ --color-brand-primary-hover: #60a5fa
+  /* Hover state */ /* Secondary Brand (Violet) */ --color-brand-secondary: #8b5cf6
+  /* Secondary actions */ /* Accent Colors */ --color-brand-accent: #f59e0b
+  /* Amber — warnings, highlights */ --color-accent: #38bdf8 /* Cyan — info, next state */;
 ```
 
 **Usage Rules:**
+
 - Primary: Main CTAs, active states, focus rings, links
 - Secondary: Alternative actions, secondary navigation
 - Accent (Amber): Warnings, pending states, highlights
@@ -97,30 +88,19 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 
 ```css
 /* Core Status Colors */
---color-status-success:  #10b981   /* Emerald-500 */
---color-status-error:    #ef4444   /* Red-500 */
---color-status-warning:  #f59e0b   /* Amber-500 */
---color-status-info:     #3b82f6   /* Blue-500 */
-
-/* Extended Semantic Palette */
---color-emerald-400:     #34d399   /* Success hover */
---color-emerald-500:     #10b981   /* Success base */
---color-emerald-600:     #059669   /* Success active */
-
---color-rose-400:        #fb7185   /* Error hover */
---color-rose-500:        #f43f5e   /* Error base */
---color-rose-600:        #e11d48   /* Error active */
-
---color-amber-400:       #fbbf24   /* Warning hover */
---color-amber-500:       #f59e0b   /* Warning base */
---color-amber-600:       #d97706   /* Warning active */
-
---color-cyan-400:        #22d3ee   /* Info hover */
---color-cyan-500:        #06b6d4   /* Info base */
---color-cyan-600:        #0891b2   /* Info active */
+--color-status-success: #10b981 /* Emerald-500 */ --color-status-error: #ef4444 /* Red-500 */
+  --color-status-warning: #f59e0b /* Amber-500 */ --color-status-info: #3b82f6 /* Blue-500 */
+  /* Extended Semantic Palette */ --color-emerald-400: #34d399 /* Success hover */
+  --color-emerald-500: #10b981 /* Success base */ --color-emerald-600: #059669 /* Success active */
+  --color-rose-400: #fb7185 /* Error hover */ --color-rose-500: #f43f5e /* Error base */
+  --color-rose-600: #e11d48 /* Error active */ --color-amber-400: #fbbf24 /* Warning hover */
+  --color-amber-500: #f59e0b /* Warning base */ --color-amber-600: #d97706 /* Warning active */
+  --color-cyan-400: #22d3ee /* Info hover */ --color-cyan-500: #06b6d4 /* Info base */
+  --color-cyan-600: #0891b2 /* Info active */;
 ```
 
 **Usage Rules:**
+
 - Success: Saved states, completed actions, online status
 - Error: Validation errors, failed operations, critical alerts
 - Warning: Pending changes, caution states, dirty flags
@@ -130,18 +110,15 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 
 ```css
 /* Projection States */
---color-live-red:    #ff3b30   /* LIVE output indicator */
---color-live-green:  #34c759   /* Preview/ready indicator */
---color-live-orange: #ff9500   /* Freeze/warning state */
-
-/* Semantic Broadcast Colors */
---color-live:        #34c759   /* Generic live/active */
---color-program:     #ff3b30   /* Program output (audience) */
---color-preview:     #34c759   /* Preview output (operator) */
---color-next-blue:   #38bdf8   /* NEXT state indicator */
+--color-live-red: #ff3b30 /* LIVE output indicator */ --color-live-green: #34c759
+  /* Preview/ready indicator */ --color-live-orange: #ff9500 /* Freeze/warning state */
+  /* Semantic Broadcast Colors */ --color-live: #34c759 /* Generic live/active */
+  --color-program: #ff3b30 /* Program output (audience) */ --color-preview: #34c759
+  /* Preview output (operator) */ --color-next-blue: #38bdf8 /* NEXT state indicator */;
 ```
 
 **Usage Rules:**
+
 - LIVE (red): Program output, audience-facing content
 - Preview (green): Operator preview, cued content
 - NEXT (cyan): Upcoming content, queued slides
@@ -151,14 +128,14 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 
 ```css
 /* Text Colors */
---color-text-primary:    #f8fafc   /* Slate-50 — Headings, primary content */
---color-text-secondary:  #94a3b8   /* Slate-400 — Body text, labels */
---color-text-muted:      #64748b   /* Slate-500 — Subtle text, placeholders */
---color-text-disabled:   #475569   /* Slate-600 — Disabled states */
---color-text-on-brand:   #ffffff   /* Text on brand backgrounds */
+--color-text-primary: #f8fafc /* Slate-50 — Headings, primary content */
+  --color-text-secondary: #94a3b8 /* Slate-400 — Body text, labels */ --color-text-muted: #64748b
+  /* Slate-500 — Subtle text, placeholders */ --color-text-disabled: #475569
+  /* Slate-600 — Disabled states */ --color-text-on-brand: #ffffff /* Text on brand backgrounds */;
 ```
 
 **Usage Rules:**
+
 - Primary: H1-H3, important data, active nav items
 - Secondary: Body text, form labels, table headers
 - Muted: Help text, timestamps, metadata
@@ -169,13 +146,14 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 
 ```css
 /* Border Hierarchy */
---color-border-subtle:   rgba(255, 255, 255, 0.06)   /* Dividers, subtle separators */
---color-border-default:  rgba(255, 255, 255, 0.08)   /* Card borders, input borders */
---color-border-strong:   rgba(255, 255, 255, 0.12)   /* Emphasized borders */
---color-border-brand:    rgba(59, 130, 246, 0.4)     /* Focus borders, active borders */
+--color-border-subtle: rgba(255, 255, 255, 0.06) /* Dividers, subtle separators */
+  --color-border-default: rgba(255, 255, 255, 0.08) /* Card borders, input borders */
+  --color-border-strong: rgba(255, 255, 255, 0.12) /* Emphasized borders */
+  --color-border-brand: rgba(59, 130, 246, 0.4) /* Focus borders, active borders */;
 ```
 
 **Usage Rules:**
+
 - Subtle: Section dividers, table borders, subtle separators
 - Default: Card outlines, input fields, panel borders
 - Strong: Emphasized cards, selected states (non-brand)
@@ -189,21 +167,15 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 
 ```css
 /* Core Spacing Scale */
---spacing-1:  4px    /* 0.5 unit */
---spacing-2:  8px    /* 1 unit — base */
---spacing-3:  12px   /* 1.5 units */
---spacing-4:  16px   /* 2 units */
---spacing-5:  20px   /* 2.5 units */
---spacing-6:  24px   /* 3 units */
---spacing-8:  32px   /* 4 units */
---spacing-10: 40px   /* 5 units */
---spacing-12: 48px   /* 6 units */
---spacing-14: 56px   /* 7 units */
---spacing-16: 64px   /* 8 units */
---spacing-20: 80px   /* 10 units */
+--spacing-1: 4px /* 0.5 unit */ --spacing-2: 8px /* 1 unit — base */ --spacing-3: 12px
+  /* 1.5 units */ --spacing-4: 16px /* 2 units */ --spacing-5: 20px /* 2.5 units */
+  --spacing-6: 24px /* 3 units */ --spacing-8: 32px /* 4 units */ --spacing-10: 40px /* 5 units */
+  --spacing-12: 48px /* 6 units */ --spacing-14: 56px /* 7 units */ --spacing-16: 64px /* 8 units */
+  --spacing-20: 80px /* 10 units */;
 ```
 
 **Usage Rules:**
+
 - 1-2: Icon padding, badge padding, tight spacing
 - 3-4: Button padding, input padding, card padding
 - 5-6: Panel padding, section padding
@@ -214,13 +186,13 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 
 ```css
 /* Component-Specific Spacing */
---spacing-card:      20px   /* Card internal padding */
---spacing-panel:     24px   /* Panel internal padding */
---spacing-section:   32px   /* Section vertical spacing */
---spacing-workspace: 40px   /* Workspace margins */
+--spacing-card: 20px /* Card internal padding */ --spacing-panel: 24px /* Panel internal padding */
+  --spacing-section: 32px /* Section vertical spacing */ --spacing-workspace: 40px
+  /* Workspace margins */;
 ```
 
 **Usage Rules:**
+
 - Card: Internal padding for cards, list items
 - Panel: Sidebar, inspector, floating panel padding
 - Section: Vertical rhythm between major sections
@@ -233,11 +205,12 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 ### 1.3.1 Font Families
 
 ```css
---font-heading: 'Poppins', system-ui, sans-serif;   /* Headings, titles, emphasis */
---font-ui:      'Inter', system-ui, sans-serif;     /* Body, UI, data */
+--font-heading: 'Poppins', system-ui, sans-serif; /* Headings, titles, emphasis */
+--font-ui: 'Inter', system-ui, sans-serif; /* Body, UI, data */
 ```
 
 **Usage Rules:**
+
 - Poppins: H1-H6, page titles, section headers, brand text
 - Inter: Body text, buttons, inputs, tables, labels
 
@@ -245,42 +218,32 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 
 ```css
 /* Size Scale */
---text-xs:   11px   /* Micro labels, badges */
---text-sm:   12px   /* Small labels, metadata */
---text-base: 13px   /* Body text, UI default */
---text-md:   14px   /* Emphasized body, data */
---text-lg:   15px   /* Large body, subheadings */
---text-xl:   16px   /* Small headings */
---text-2xl:  18px   /* Section headings */
---text-3xl:  20px   /* Page subheadings */
---text-4xl:  24px   /* Page headings */
---text-5xl:  28px   /* Workspace titles */
---text-6xl:  32px   /* Large titles */
---text-7xl:  40px   /* Hero titles */
+--text-xs: 11px /* Micro labels, badges */ --text-sm: 12px /* Small labels, metadata */
+  --text-base: 13px /* Body text, UI default */ --text-md: 14px /* Emphasized body, data */
+  --text-lg: 15px /* Large body, subheadings */ --text-xl: 16px /* Small headings */
+  --text-2xl: 18px /* Section headings */ --text-3xl: 20px /* Page subheadings */ --text-4xl: 24px
+  /* Page headings */ --text-5xl: 28px /* Workspace titles */ --text-6xl: 32px /* Large titles */
+  --text-7xl: 40px /* Hero titles */;
 ```
 
 ### 1.3.3 Semantic Typography Tokens
 
 ```css
 /* Context-Specific Sizes */
---text-workspace-title: 28px   /* Mode page titles */
---text-section-title:   18px   /* Section headers */
---text-card-header:     14px   /* Card titles */
---text-label:           11px   /* Form labels, badges */
---text-data:            14px   /* Table data, metrics */
---text-console:         12px   /* Logs, code, monospace */
+--text-workspace-title: 28px /* Mode page titles */ --text-section-title: 18px /* Section headers */
+  --text-card-header: 14px /* Card titles */ --text-label: 11px /* Form labels, badges */
+  --text-data: 14px /* Table data, metrics */ --text-console: 12px /* Logs, code, monospace */;
 ```
 
 ### 1.3.4 Line Heights
 
 ```css
---leading-tight:    1.2    /* Headings, titles */
---leading-normal:   1.5    /* Body text, UI */
---leading-relaxed:  1.6    /* Long-form content */
---leading-loose:    1.8    /* Spacious reading */
+--leading-tight: 1.2 /* Headings, titles */ --leading-normal: 1.5 /* Body text, UI */
+  --leading-relaxed: 1.6 /* Long-form content */ --leading-loose: 1.8 /* Spacious reading */;
 ```
 
 **Usage Rules:**
+
 - Tight: H1-H6, compact UI, badges
 - Normal: Body text, buttons, inputs, tables
 - Relaxed: Paragraphs, descriptions
@@ -290,15 +253,13 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 
 ```css
 /* Weight Scale */
---font-normal:    400   /* Body text */
---font-medium:    500   /* Emphasized text */
---font-semibold:  600   /* Subheadings */
---font-bold:      700   /* Headings */
---font-extrabold: 800   /* Titles, emphasis */
---font-black:     900   /* Hero text, brand */
+--font-normal: 400 /* Body text */ --font-medium: 500 /* Emphasized text */ --font-semibold: 600
+  /* Subheadings */ --font-bold: 700 /* Headings */ --font-extrabold: 800 /* Titles, emphasis */
+  --font-black: 900 /* Hero text, brand */;
 ```
 
 **Usage Rules:**
+
 - 400: Body paragraphs, descriptions
 - 500: Labels, emphasized body
 - 600: Subheadings, card titles
@@ -312,24 +273,17 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 
 ```css
 /* Radius Scale */
---radius-xs:   4px     /* Badges, tags */
---radius-sm:   8px     /* Small buttons, inputs */
---radius-md:   12px    /* Buttons, inputs, cards */
---radius-lg:   16px    /* Large cards, panels */
---radius-xl:   20px    /* Modals, large panels */
---radius-2xl:  24px    /* Hero cards */
---radius-3xl:  32px    /* Special surfaces */
---radius-full: 9999px  /* Pills, circles */
-
-/* Semantic Radius Tokens */
---radius-card:   16px   /* Card corners */
---radius-panel:  12px   /* Panel corners */
---radius-button: 10px   /* Button corners */
---radius-input:  10px   /* Input corners */
---radius-badge:  6px    /* Badge corners */
+--radius-xs: 4px /* Badges, tags */ --radius-sm: 8px /* Small buttons, inputs */ --radius-md: 12px
+  /* Buttons, inputs, cards */ --radius-lg: 16px /* Large cards, panels */ --radius-xl: 20px
+  /* Modals, large panels */ --radius-2xl: 24px /* Hero cards */ --radius-3xl: 32px
+  /* Special surfaces */ --radius-full: 9999px /* Pills, circles */ /* Semantic Radius Tokens */
+  --radius-card: 16px /* Card corners */ --radius-panel: 12px /* Panel corners */
+  --radius-button: 10px /* Button corners */ --radius-input: 10px /* Input corners */
+  --radius-badge: 6px /* Badge corners */;
 ```
 
 **Usage Rules:**
+
 - xs-sm: Small UI elements (badges, tags, small buttons)
 - md: Standard UI (buttons, inputs, dropdowns)
 - lg-xl: Cards, panels, modals
@@ -352,6 +306,7 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 ```
 
 **Usage Rules:**
+
 - 1: Subtle depth (table rows, list items)
 - 2: Cards, panels
 - 3: Floating toolbars, dropdowns
@@ -362,10 +317,10 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 
 ```css
 /* Contextual Shadows */
---shadow-sm:    0 1px 2px 0 rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.08);
---shadow-md:    0 4px 12px -2px rgba(0, 0, 0, 0.18), 0 2px 4px -1px rgba(0, 0, 0, 0.12);
---shadow-lg:    0 12px 24px -4px rgba(0, 0, 0, 0.25), 0 4px 8px -2px rgba(0, 0, 0, 0.15);
---shadow-xl:    0 20px 40px -6px rgba(0, 0, 0, 0.35), 0 8px 16px -4px rgba(0, 0, 0, 0.2);
+--shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.08);
+--shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.18), 0 2px 4px -1px rgba(0, 0, 0, 0.12);
+--shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.25), 0 4px 8px -2px rgba(0, 0, 0, 0.15);
+--shadow-xl: 0 20px 40px -6px rgba(0, 0, 0, 0.35), 0 8px 16px -4px rgba(0, 0, 0, 0.2);
 --shadow-inner: inset 0 1px 3px 0 rgba(0, 0, 0, 0.12);
 ```
 
@@ -373,17 +328,18 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 
 ```css
 /* Brand Glows */
---shadow-glow-sm:    0 0 8px rgba(59, 130, 246, 0.18);
---shadow-glow-md:    0 0 16px rgba(59, 130, 246, 0.25), 0 0 4px rgba(59, 130, 246, 0.15);
---shadow-glow-lg:    0 0 32px rgba(59, 130, 246, 0.2), 0 0 8px rgba(59, 130, 246, 0.12);
+--shadow-glow-sm: 0 0 8px rgba(59, 130, 246, 0.18);
+--shadow-glow-md: 0 0 16px rgba(59, 130, 246, 0.25), 0 0 4px rgba(59, 130, 246, 0.15);
+--shadow-glow-lg: 0 0 32px rgba(59, 130, 246, 0.2), 0 0 8px rgba(59, 130, 246, 0.12);
 
 /* State Glows */
---shadow-glow-green: 0 0 20px rgba(52, 199, 89, 0.3);   /* Success, preview */
---shadow-glow-red:   0 0 20px rgba(255, 59, 48, 0.3);   /* Live, error */
+--shadow-glow-green: 0 0 20px rgba(52, 199, 89, 0.3); /* Success, preview */
+--shadow-glow-red: 0 0 20px rgba(255, 59, 48, 0.3); /* Live, error */
 --shadow-glow-amber: 0 0 20px rgba(245, 158, 11, 0.25); /* Warning */
 ```
 
 **Usage Rules:**
+
 - Glow-sm/md/lg: Focus states, active selections, brand highlights
 - Glow-green: Preview indicators, success states
 - Glow-red: LIVE indicators, critical states
@@ -397,14 +353,15 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 
 ```css
 /* Easing Functions */
---ease-out-expo:       cubic-bezier(0.16, 1, 0.3, 1);        /* Smooth deceleration */
---ease-spring:         cubic-bezier(0.34, 1.56, 0.64, 1);    /* Spring bounce */
---ease-in-out-smooth:  cubic-bezier(0.4, 0, 0.2, 1);         /* Material Design */
---ease-in-out-bounce:  cubic-bezier(0.68, -0.55, 0.265, 1.55); /* Bounce */
---ease-premium:        cubic-bezier(0.22, 1, 0.36, 1);       /* Premium feel */
+--ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1); /* Smooth deceleration */
+--ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* Spring bounce */
+--ease-in-out-smooth: cubic-bezier(0.4, 0, 0.2, 1); /* Material Design */
+--ease-in-out-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55); /* Bounce */
+--ease-premium: cubic-bezier(0.22, 1, 0.36, 1); /* Premium feel */
 ```
 
 **Usage Rules:**
+
 - out-expo: Hover states, micro-interactions, button presses
 - spring: Modals, overlays, drawer animations
 - in-out-smooth: Page transitions, mode switches
@@ -415,14 +372,13 @@ This is NOT visual decoration. This is **production-grade enterprise infrastruct
 
 ```css
 /* Duration Tokens */
---duration-instant: 50ms    /* Instant feedback */
---duration-fast:    150ms   /* Quick interactions */
---duration-normal:  200ms   /* Standard transitions */
---duration-slow:    300ms   /* Deliberate transitions */
---duration-slower:  400ms   /* Page transitions */
+--duration-instant: 50ms /* Instant feedback */ --duration-fast: 150ms /* Quick interactions */
+  --duration-normal: 200ms /* Standard transitions */ --duration-slow: 300ms
+  /* Deliberate transitions */ --duration-slower: 400ms /* Page transitions */;
 ```
 
 **Usage Rules:**
+
 - instant: Hover states, active states
 - fast: Button clicks, dropdown opens
 - normal: Default for most transitions
@@ -441,7 +397,7 @@ export const ANIMATION_PRESETS = {
     exit: { opacity: 0 },
     transition: { duration: 0.2 }
   },
-  
+
   // Slide transitions
   slideUp: {
     initial: { opacity: 0, y: 20 },
@@ -449,7 +405,7 @@ export const ANIMATION_PRESETS = {
     exit: { opacity: 0, y: -20 },
     transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] }
   },
-  
+
   // Scale transitions
   scale: {
     initial: { opacity: 0, scale: 0.95 },
@@ -457,10 +413,10 @@ export const ANIMATION_PRESETS = {
     exit: { opacity: 0, scale: 0.95 },
     transition: { duration: 0.2 }
   },
-  
+
   // Spring animations
   spring: {
-    type: "spring",
+    type: 'spring',
     stiffness: 400,
     damping: 30
   }
@@ -473,18 +429,15 @@ export const ANIMATION_PRESETS = {
 
 ```css
 /* Z-Index Layers */
---z-base:            0      /* Base content */
---z-dropdown:        1000   /* Dropdowns, popovers */
---z-sticky:          1100   /* Sticky headers */
---z-floating:        1200   /* Floating toolbars */
---z-overlay:         1300   /* Overlay backgrounds */
---z-modal:           1400   /* Modal dialogs */
---z-toast:           1500   /* Toast notifications */
---z-tooltip:         1600   /* Tooltips */
---z-critical:        9999   /* Critical dialogs, emergency controls */
+--z-base: 0 /* Base content */ --z-dropdown: 1000 /* Dropdowns, popovers */ --z-sticky: 1100
+  /* Sticky headers */ --z-floating: 1200 /* Floating toolbars */ --z-overlay: 1300
+  /* Overlay backgrounds */ --z-modal: 1400 /* Modal dialogs */ --z-toast: 1500
+  /* Toast notifications */ --z-tooltip: 1600 /* Tooltips */ --z-critical: 9999
+  /* Critical dialogs, emergency controls */;
 ```
 
 **Usage Rules:**
+
 - base: Normal document flow
 - dropdown: Context menus, select dropdowns
 - sticky: Sticky headers, fixed toolbars
@@ -503,31 +456,31 @@ export const ANIMATION_PRESETS = {
 
 ```css
 /* Hover States */
---color-hover-subtle:  rgba(255, 255, 255, 0.04);
+--color-hover-subtle: rgba(255, 255, 255, 0.04);
 --color-hover-default: rgba(255, 255, 255, 0.06);
---color-hover-strong:  rgba(255, 255, 255, 0.08);
---color-hover-brand:   rgba(59, 130, 246, 0.1);
+--color-hover-strong: rgba(255, 255, 255, 0.08);
+--color-hover-brand: rgba(59, 130, 246, 0.1);
 
 /* Active/Pressed States */
---color-active-subtle:  rgba(255, 255, 255, 0.06);
+--color-active-subtle: rgba(255, 255, 255, 0.06);
 --color-active-default: rgba(255, 255, 255, 0.08);
---color-active-strong:  rgba(255, 255, 255, 0.12);
---color-active-brand:   rgba(59, 130, 246, 0.15);
+--color-active-strong: rgba(255, 255, 255, 0.12);
+--color-active-brand: rgba(59, 130, 246, 0.15);
 
 /* Selected States */
---color-selected-bg:     rgba(37, 99, 235, 0.18);
+--color-selected-bg: rgba(37, 99, 235, 0.18);
 --color-selected-border: rgba(59, 130, 246, 0.24);
---color-selected-glow:   rgba(59, 130, 246, 0.08);
+--color-selected-glow: rgba(59, 130, 246, 0.08);
 
 /* Focus States */
---color-focus-ring:      rgba(59, 130, 246, 0.6);
+--color-focus-ring: rgba(59, 130, 246, 0.6);
 --color-focus-ring-offset: 2px;
 
 /* Disabled States */
---color-disabled-bg:     rgba(255, 255, 255, 0.02);
---color-disabled-text:   var(--color-text-disabled);
+--color-disabled-bg: rgba(255, 255, 255, 0.02);
+--color-disabled-text: var(--color-text-disabled);
 --color-disabled-border: rgba(255, 255, 255, 0.04);
---opacity-disabled:      0.4;
+--opacity-disabled: 0.4;
 ```
 
 ---
@@ -538,12 +491,9 @@ export const ANIMATION_PRESETS = {
 
 ```css
 /* Viewport Breakpoints */
---breakpoint-sm:  640px    /* Small tablets */
---breakpoint-md:  768px    /* Tablets */
---breakpoint-lg:  1024px   /* Small desktops */
---breakpoint-xl:  1280px   /* Standard desktops */
---breakpoint-2xl: 1536px   /* Large desktops */
---breakpoint-3xl: 1920px   /* Ultra-wide */
+--breakpoint-sm: 640px /* Small tablets */ --breakpoint-md: 768px /* Tablets */
+  --breakpoint-lg: 1024px /* Small desktops */ --breakpoint-xl: 1280px /* Standard desktops */
+  --breakpoint-2xl: 1536px /* Large desktops */ --breakpoint-3xl: 1920px /* Ultra-wide */;
 ```
 
 **Note:** SION Media is desktop-first. Minimum supported resolution: 1024×700px.
@@ -552,11 +502,9 @@ export const ANIMATION_PRESETS = {
 
 ```css
 /* DPI Scale Factors */
---scale-100: 1.0    /* Standard DPI (96) */
---scale-125: 1.25   /* 125% scaling (120 DPI) */
---scale-150: 1.5    /* 150% scaling (144 DPI) */
---scale-175: 1.75   /* 175% scaling (168 DPI) */
---scale-200: 2.0    /* 200% scaling (192 DPI) */
+--scale-100: 1 /* Standard DPI (96) */ --scale-125: 1.25 /* 125% scaling (120 DPI) */
+  --scale-150: 1.5 /* 150% scaling (144 DPI) */ --scale-175: 1.75 /* 175% scaling (168 DPI) */
+  --scale-200: 2 /* 200% scaling (192 DPI) */;
 ```
 
 **Usage:** Electron handles DPI scaling automatically. Use these for manual adjustments if needed.
@@ -565,9 +513,9 @@ export const ANIMATION_PRESETS = {
 
 ```css
 /* Projection Output Scaling */
---projection-safe-zone: 5%;      /* Safe zone margin */
---projection-text-scale: 1.2;    /* Text size multiplier */
---projection-line-height: 1.4;   /* Tighter line height */
+--projection-safe-zone: 5%; /* Safe zone margin */
+--projection-text-scale: 1.2; /* Text size multiplier */
+--projection-line-height: 1.4; /* Tighter line height */
 ```
 
 ---
@@ -582,11 +530,11 @@ All tokens above define the dark enterprise theme.
 
 ```css
 /* Projection-Specific Overrides */
-[data-theme="projection"] {
+[data-theme='projection'] {
   --color-bg-base: #000000;
   --color-text-primary: #ffffff;
-  --text-base: 16px;  /* Larger base for readability */
-  --leading-normal: 1.4;  /* Tighter for projection */
+  --text-base: 16px; /* Larger base for readability */
+  --leading-normal: 1.4; /* Tighter for projection */
 }
 ```
 
@@ -594,10 +542,10 @@ All tokens above define the dark enterprise theme.
 
 ```css
 /* Stage Display Overrides */
-[data-theme="stage"] {
+[data-theme='stage'] {
   --color-bg-base: #0a0a0a;
   --color-text-primary: #ffffff;
-  --text-base: 18px;  /* Even larger for musicians */
+  --text-base: 18px; /* Even larger for musicians */
   --leading-normal: 1.5;
 }
 ```
@@ -606,7 +554,7 @@ All tokens above define the dark enterprise theme.
 
 ```css
 /* Light Theme Overrides (Placeholder) */
-[data-theme="light"] {
+[data-theme='light'] {
   --color-bg-base: #ffffff;
   --color-bg-surface: #f8fafc;
   --color-text-primary: #0f172a;
@@ -615,7 +563,7 @@ All tokens above define the dark enterprise theme.
 }
 ```
 
-**Note:** Light theme is planned but not currently implemented. Dark theme is the primary focus.
+**Note:** Light theme is planned but not currently implemented. The partial implementation is available in `src/renderer/src/assets/theme/light.scss`. Dark theme is the primary focus.
 
 ---
 
@@ -623,24 +571,24 @@ All tokens above define the dark enterprise theme.
 
 ### 1.11.1 Token Selection Matrix
 
-| Element | Background | Text | Border | Shadow |
-|---|---|---|---|---|
-| Page | `bg-base` | `text-primary` | — | — |
-| Card | `bg-surface` | `text-primary` | `border-default` | `elevation-2` |
-| Panel | `bg-elevated` | `text-primary` | `border-subtle` | `elevation-3` |
-| Button (primary) | `brand-primary` | `text-on-brand` | `border-brand` | `glow-sm` |
-| Button (secondary) | `bg-elevated` | `text-primary` | `border-default` | `elevation-1` |
-| Input | `surface-1` | `text-primary` | `border-default` | `inner` |
-| Modal | `surface-5` | `text-primary` | `border-strong` | `elevation-5` |
-| Dropdown | `bg-elevated` | `text-primary` | `border-default` | `elevation-3` |
-| Toast | `surface-4` | `text-primary` | `border-strong` | `elevation-4` + `glow-md` |
+| Element            | Background      | Text            | Border           | Shadow                    |
+| ------------------ | --------------- | --------------- | ---------------- | ------------------------- |
+| Page               | `bg-base`       | `text-primary`  | —                | —                         |
+| Card               | `bg-surface`    | `text-primary`  | `border-default` | `elevation-2`             |
+| Panel              | `bg-elevated`   | `text-primary`  | `border-subtle`  | `elevation-3`             |
+| Button (primary)   | `brand-primary` | `text-on-brand` | `border-brand`   | `glow-sm`                 |
+| Button (secondary) | `bg-elevated`   | `text-primary`  | `border-default` | `elevation-1`             |
+| Input              | `surface-1`     | `text-primary`  | `border-default` | `inner`                   |
+| Modal              | `surface-5`     | `text-primary`  | `border-strong`  | `elevation-5`             |
+| Dropdown           | `bg-elevated`   | `text-primary`  | `border-default` | `elevation-3`             |
+| Toast              | `surface-4`     | `text-primary`  | `border-strong`  | `elevation-4` + `glow-md` |
 
 ### 1.11.2 State Transition Standards
 
 ```css
 /* Standard Transition */
 .interactive-element {
-  transition: 
+  transition:
     transform var(--duration-fast) var(--ease-out-expo),
     border-color var(--duration-normal) var(--ease-out-expo),
     background var(--duration-normal) var(--ease-out-expo),
@@ -678,7 +626,7 @@ All tokens above define the dark enterprise theme.
 
 ---
 
-*End of Part 1: Design Token System*
+_End of Part 1: Design Token System_
 
 **Next:** Part 2 — Component Standard System
 
@@ -694,25 +642,26 @@ All tokens above define the dark enterprise theme.
 
 **Variants:**
 
-| Variant | Background | Border | Text | Use Case |
-|---|---|---|---|---|
-| `primary` | `brand-primary` gradient | `border-brand` | white | Main CTAs, save, confirm |
-| `secondary` | `bg-elevated` | `border-default` | `text-primary` | Secondary actions |
-| `ghost` | transparent | `border-default` | `text-secondary` | Tertiary actions |
-| `danger` | `rose-600` gradient | `rose-400/30` | white | Destructive actions |
-| `icon` | transparent | none | `text-secondary` | Icon-only actions |
-| `live` | `live-red` gradient | `live-red/30` | white | Projection LIVE button |
+| Variant     | Background               | Border           | Text             | Use Case                 |
+| ----------- | ------------------------ | ---------------- | ---------------- | ------------------------ |
+| `primary`   | `brand-primary` gradient | `border-brand`   | white            | Main CTAs, save, confirm |
+| `secondary` | `bg-elevated`            | `border-default` | `text-primary`   | Secondary actions        |
+| `ghost`     | transparent              | `border-default` | `text-secondary` | Tertiary actions         |
+| `danger`    | `rose-600` gradient      | `rose-400/30`    | white            | Destructive actions      |
+| `icon`      | transparent              | none             | `text-secondary` | Icon-only actions        |
+| `live`      | `live-red` gradient      | `live-red/30`    | white            | Projection LIVE button   |
 
 **Sizes:**
 
-| Size | Height | Padding | Font | Radius |
-|---|---|---|---|---|
-| `sm` | 28px | 0 10px | 11px/700 | 8px |
-| `md` | 36px | 0 14px | 12px/750 | 10px |
-| `lg` | 40px | 0 18px | 13px/800 | 12px |
-| `xl` | 48px | 0 22px | 14px/800 | 14px |
+| Size | Height | Padding | Font     | Radius |
+| ---- | ------ | ------- | -------- | ------ |
+| `sm` | 28px   | 0 10px  | 11px/700 | 8px    |
+| `md` | 36px   | 0 14px  | 12px/750 | 10px   |
+| `lg` | 40px   | 0 18px  | 13px/800 | 12px   |
+| `xl` | 48px   | 0 22px  | 14px/800 | 14px   |
 
 **States:**
+
 ```
 default  → base styles
 hover    → translateY(-1px), border-brand, bg-hover-brand, shadow-elevation-3
@@ -723,11 +672,13 @@ loading  → spinner replaces icon, text dims to 0.7, no interaction
 ```
 
 **Keyboard Interaction:**
+
 - `Enter` / `Space`: Trigger action
 - `Tab`: Move focus to next interactive element
 - `Shift+Tab`: Move focus to previous
 
 **Accessibility:**
+
 - `role="button"` (implicit for `<button>`)
 - `aria-disabled="true"` when disabled (not `disabled` attr for keyboard focus)
 - `aria-busy="true"` when loading
@@ -735,6 +686,7 @@ loading  → spinner replaces icon, text dims to 0.7, no interaction
 - Minimum touch target: 32×32px
 
 **Implementation:**
+
 ```typescript
 interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'icon' | 'live'
@@ -762,13 +714,14 @@ interface ButtonProps {
 **Sizes:**
 
 | Size | Dimensions | Icon Size | Radius |
-|---|---|---|---|
-| `sm` | 28×28px | 14px | 8px |
-| `md` | 32×32px | 16px | 10px |
-| `lg` | 36×36px | 18px | 12px |
-| `xl` | 40×40px | 20px | 12px |
+| ---- | ---------- | --------- | ------ |
+| `sm` | 28×28px    | 14px      | 8px    |
+| `md` | 32×32px    | 16px      | 10px   |
+| `lg` | 36×36px    | 18px      | 12px   |
+| `xl` | 40×40px    | 20px      | 12px   |
 
 **Requirements:**
+
 - `aria-label` is REQUIRED (no visible text)
 - `title` attribute for tooltip
 - Focus ring must be visible
@@ -784,12 +737,13 @@ interface ButtonProps {
 **Sizes:**
 
 | Size | Height | Padding | Font |
-|---|---|---|---|
-| `sm` | 32px | 0 10px | 12px |
-| `md` | 36px | 0 12px | 13px |
-| `lg` | 40px | 0 14px | 13px |
+| ---- | ------ | ------- | ---- |
+| `sm` | 32px   | 0 10px  | 12px |
+| `md` | 36px   | 0 12px  | 13px |
+| `lg` | 40px   | 0 14px  | 13px |
 
 **States:**
+
 ```
 default  → border-default, bg-surface-1
 hover    → border-default/80, bg-surface-2
@@ -799,6 +753,7 @@ disabled → opacity 0.4, cursor not-allowed
 ```
 
 **Accessibility:**
+
 - `id` + `<label for>` pairing required
 - `aria-invalid="true"` on error
 - `aria-describedby` pointing to error message
@@ -813,6 +768,7 @@ disabled → opacity 0.4, cursor not-allowed
 **Variants:** `native` (HTML select), `custom` (floating dropdown)
 
 **Custom Dropdown Behavior:**
+
 - Opens on click, closes on outside click or Escape
 - Arrow keys navigate options
 - Enter/Space selects focused option
@@ -820,6 +776,7 @@ disabled → opacity 0.4, cursor not-allowed
 - Virtualized for lists > 50 items
 
 **Accessibility:**
+
 - `role="combobox"` + `aria-expanded`
 - `role="listbox"` for options container
 - `role="option"` + `aria-selected` for each option
@@ -834,6 +791,7 @@ disabled → opacity 0.4, cursor not-allowed
 **Size:** 16×16px with 4px border-radius
 
 **Behavior:**
+
 - Click toggles checked state
 - Space toggles when focused
 - Indeterminate state for partial selection (bulk select)
@@ -846,8 +804,8 @@ disabled → opacity 0.4, cursor not-allowed
 
 **Sizes:**
 
-| Size | Track | Thumb |
-|---|---|---|
+| Size | Track   | Thumb   |
+| ---- | ------- | ------- |
 | `sm` | 28×16px | 12×12px |
 | `md` | 36×20px | 16×16px |
 | `lg` | 44×24px | 20×20px |
@@ -864,23 +822,23 @@ disabled → opacity 0.4, cursor not-allowed
 
 **Variants:**
 
-| Variant | Background | Text | Border | Use Case |
-|---|---|---|---|---|
-| `success` | emerald-500/10 | emerald-300 | emerald-400/15 | Published, active |
-| `warning` | amber-500/10 | amber-300 | amber-400/15 | Pending, review |
-| `error` | rose-500/10 | rose-300 | rose-400/15 | Error, failed |
-| `info` | blue-500/10 | blue-300 | blue-400/15 | Info, neutral |
-| `neutral` | white/4 | text-muted | white/6 | Archived, inactive |
-| `live` | live-red/15 | live-red | live-red/30 | LIVE state |
-| `preview` | live-green/15 | live-green | live-green/30 | Preview state |
+| Variant   | Background     | Text        | Border         | Use Case           |
+| --------- | -------------- | ----------- | -------------- | ------------------ |
+| `success` | emerald-500/10 | emerald-300 | emerald-400/15 | Published, active  |
+| `warning` | amber-500/10   | amber-300   | amber-400/15   | Pending, review    |
+| `error`   | rose-500/10    | rose-300    | rose-400/15    | Error, failed      |
+| `info`    | blue-500/10    | blue-300    | blue-400/15    | Info, neutral      |
+| `neutral` | white/4        | text-muted  | white/6        | Archived, inactive |
+| `live`    | live-red/15    | live-red    | live-red/30    | LIVE state         |
+| `preview` | live-green/15  | live-green  | live-green/30  | Preview state      |
 
 **Sizes:**
 
-| Size | Height | Padding | Font |
-|---|---|---|---|
-| `sm` | 18px | 0 6px | 10px/800 |
-| `md` | 22px | 0 8px | 11px/800 |
-| `lg` | 26px | 0 10px | 12px/700 |
+| Size | Height | Padding | Font     |
+| ---- | ------ | ------- | -------- |
+| `sm` | 18px   | 0 6px   | 10px/800 |
+| `md` | 22px   | 0 8px   | 11px/800 |
+| `lg` | 26px   | 0 10px  | 12px/700 |
 
 **Structure:** `[dot] [label]` — dot is 6px circle matching text color
 
@@ -891,6 +849,7 @@ disabled → opacity 0.4, cursor not-allowed
 **Purpose:** Contextual help text on hover.
 
 **Behavior:**
+
 - Appears after 400ms hover delay
 - Disappears immediately on mouse leave
 - Positioned using @floating-ui/react
@@ -898,6 +857,7 @@ disabled → opacity 0.4, cursor not-allowed
 - Never covers the trigger element
 
 **Accessibility:**
+
 - `role="tooltip"` on tooltip element
 - `aria-describedby` on trigger pointing to tooltip id
 - Keyboard: appears on focus, disappears on blur
@@ -911,13 +871,14 @@ disabled → opacity 0.4, cursor not-allowed
 **Sizes:** `sm` (16px), `md` (24px), `lg` (32px), `xl` (48px)
 
 **Skeleton:**
+
 ```css
 .skeleton {
   background: linear-gradient(
     90deg,
-    rgba(255,255,255,0.04) 25%,
-    rgba(255,255,255,0.08) 50%,
-    rgba(255,255,255,0.04) 75%
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.04) 75%
   );
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s infinite;
@@ -956,11 +917,13 @@ disabled → opacity 0.4, cursor not-allowed
 **Purpose:** Unified search field used across all modes.
 
 **Structure:**
+
 ```
 [Search Icon] [Input Field] [Clear Button] [Kbd Hint]
 ```
 
 **Behavior:**
+
 - Search icon dims on focus
 - Clear button appears when value is non-empty
 - Kbd hint shows shortcut (e.g., `Ctrl+K`)
@@ -968,6 +931,7 @@ disabled → opacity 0.4, cursor not-allowed
 - Clears on Escape
 
 **Props:**
+
 ```typescript
 interface SearchInputProps {
   value: string
@@ -990,11 +954,13 @@ interface SearchInputProps {
 **Structure:** Container with 4px padding, rounded-xl, dark background. Each option is a button with active state.
 
 **Behavior:**
+
 - Single selection
 - Keyboard: Arrow keys navigate, Enter/Space selects
 - Active item has brand background
 
 **Props:**
+
 ```typescript
 interface SegmentedControlProps<T extends string> {
   options: Array<{ value: T; label: string; icon?: React.ReactNode }>
@@ -1011,6 +977,7 @@ interface SegmentedControlProps<T extends string> {
 **Purpose:** Dashboard KPI display card.
 
 **Structure:**
+
 ```
 ┌─────────────────────────────────┐
 │ [Icon]              [Mini Bars] │
@@ -1021,6 +988,7 @@ interface SegmentedControlProps<T extends string> {
 ```
 
 **Requirements:**
+
 - Icon: 30×30px gradient background
 - Value: 18px/850 weight
 - Label: 10px/800 uppercase tracking
@@ -1029,6 +997,7 @@ interface SegmentedControlProps<T extends string> {
 - Hover: translateY(-2px), border-brand/22, shadow-elevation-4
 
 **Data binding:**
+
 - `value`: Real computed value (NOT hardcoded)
 - `trend`: Computed from actual data
 - `meta`: Descriptive string
@@ -1042,6 +1011,7 @@ interface SegmentedControlProps<T extends string> {
 **Variants:** `sm` (32px), `md` (48px), `lg` (80px), `xl` (146px)
 
 **Structure:**
+
 ```
 Gradient background (blue→violet)
 ├── Flare overlay (radial gradient)
@@ -1070,6 +1040,7 @@ Gradient background (blue→violet)
 **Purpose:** Placeholder when content is absent.
 
 **Structure:**
+
 ```
 [Icon Container (64×64px)]
 [Title (13px/medium)]
@@ -1080,6 +1051,7 @@ Gradient background (blue→violet)
 **Variants:** `default`, `search` (no results), `error` (load failed)
 
 **Requirements:**
+
 - Icon opacity: 40%
 - Container opacity: 50%
 - Action button: ghost variant
@@ -1091,6 +1063,7 @@ Gradient background (blue→violet)
 **Purpose:** Right-click contextual actions.
 
 **Behavior:**
+
 - Opens at cursor position
 - Closes on outside click, Escape, or item selection
 - Arrow keys navigate items
@@ -1099,6 +1072,7 @@ Gradient background (blue→violet)
 - Stays within viewport bounds
 
 **Structure:**
+
 ```
 [Item]
 [Item with icon]
@@ -1107,6 +1081,7 @@ Gradient background (blue→violet)
 ```
 
 **Accessibility:**
+
 - `role="menu"` on container
 - `role="menuitem"` on items
 - `role="separator"` on dividers
@@ -1121,6 +1096,7 @@ Gradient background (blue→violet)
 **Trigger:** `Ctrl+P` or `Ctrl+K`
 
 **Structure:**
+
 ```
 [Search Input]
 [Results List]
@@ -1129,6 +1105,7 @@ Gradient background (blue→violet)
 ```
 
 **Behavior:**
+
 - Opens as centered modal overlay
 - Filters results as user types
 - Arrow keys navigate results
@@ -1145,12 +1122,14 @@ Gradient background (blue→violet)
 **Variants:** `info`, `success`, `error`, `warning`
 
 **Behavior:**
+
 - Appears from bottom-right
 - Auto-dismisses after 3000ms
 - Can be manually dismissed
 - Stacks if multiple toasts
 
 **Structure:**
+
 ```
 [Icon] [Message] [Close Button]
 ```
@@ -1166,6 +1145,7 @@ Gradient background (blue→violet)
 **Purpose:** Application command center and navigation hub.
 
 **Layout:**
+
 ```
 [Left: Identity + Menu] [Center: ModeSwitcher] [Right: Status + Utilities + Controls]
 ```
@@ -1175,6 +1155,7 @@ Gradient background (blue→violet)
 **Height:** 40px (Win32 titleBarOverlay height)
 
 **Components:**
+
 - `TitleBarIdentity`: Logo + app name
 - `TitleBarMenu`: File/Edit/View/Media/Presentation/Window/Help
 - `TitleBarModeSwitcher`: Mode dropdown
@@ -1183,6 +1164,7 @@ Gradient background (blue→violet)
 - `TitleBarControls`: Min/Max/Close (non-Windows only)
 
 **State Rules:**
+
 - During onboarding (`isFirstInstall`): Hide Menu, ModeSwitcher, Status, Utilities
 - During lyrics fullscreen: Hide entire TitleBar
 - PROJECTION mode: Show full status bar
@@ -1197,6 +1179,7 @@ Gradient background (blue→violet)
 **Variants:** `library` (240px), `management` (220px), `settings` (220px)
 
 **Structure:**
+
 ```
 [Brand Mark]
 [Navigation Groups]
@@ -1206,6 +1189,7 @@ Gradient background (blue→violet)
 ```
 
 **Behavior:**
+
 - Active item: brand background, left accent bar
 - Hover: subtle background
 - Count badges: right-aligned
@@ -1213,6 +1197,7 @@ Gradient background (blue→violet)
 - Collapsible to icon-only (64px) via toggle
 
 **Keyboard:**
+
 - Arrow keys navigate items
 - Enter activates item
 - Home/End jump to first/last
@@ -1224,6 +1209,7 @@ Gradient background (blue→violet)
 **Purpose:** Mode-specific action toolbar above content.
 
 **Structure:**
+
 ```
 [Mode Pill] [Search Input] [Filter Controls] [Action Buttons]
 ```
@@ -1231,6 +1217,7 @@ Gradient background (blue→violet)
 **Height:** 48-56px
 
 **Rules:**
+
 - Always visible within a mode
 - Search input: min-width 240px, grows with available space
 - Action buttons: right-aligned
@@ -1243,6 +1230,7 @@ Gradient background (blue→violet)
 **Purpose:** Sortable, filterable, selectable data grid.
 
 **Structure:**
+
 ```
 [Column Headers: checkbox + columns + actions]
 [Rows: checkbox + data cells + action buttons]
@@ -1250,17 +1238,20 @@ Gradient background (blue→violet)
 ```
 
 **Row States:**
+
 - Default: transparent background
 - Hover: subtle background, translateY(-1px)
 - Selected: brand gradient background, left accent bar, brand border
 - Multi-selected: checkbox checked, brand border
 
 **Column Features:**
+
 - Sortable: click header to sort, arrow indicator
 - Resizable: drag column borders
 - Fixed columns: checkbox, actions
 
 **Keyboard:**
+
 - Arrow keys navigate rows
 - Space toggles row selection
 - Shift+Click range select
@@ -1275,6 +1266,7 @@ Gradient background (blue→violet)
 **Width:** 320px default, 380px wide variant
 
 **Structure:**
+
 ```
 [Panel Tabs: Detail / Chord / Notes]
 [Content Area]
@@ -1286,6 +1278,7 @@ Gradient background (blue→violet)
 ```
 
 **Behavior:**
+
 - Empty state when nothing selected
 - Tabs switch content sections
 - Metadata table: 2-column grid (label + value)
@@ -1299,15 +1292,16 @@ Gradient background (blue→violet)
 
 **Sizes:**
 
-| Size | Width | Use Case |
-|---|---|---|
-| `sm` | 400px | Confirmations, simple forms |
-| `md` | 520px | Standard forms, pickers |
-| `lg` | 640px | Complex forms, editors |
-| `xl` | 800px | Multi-step wizards |
-| `full` | 90vw | Full-screen editors |
+| Size   | Width | Use Case                    |
+| ------ | ----- | --------------------------- |
+| `sm`   | 400px | Confirmations, simple forms |
+| `md`   | 520px | Standard forms, pickers     |
+| `lg`   | 640px | Complex forms, editors      |
+| `xl`   | 800px | Multi-step wizards          |
+| `full` | 90vw  | Full-screen editors         |
 
 **Structure:**
+
 ```
 [Backdrop: rgba overlay]
 [Modal Container]
@@ -1317,6 +1311,7 @@ Gradient background (blue→violet)
 ```
 
 **Behavior:**
+
 - Opens with scale + fade animation
 - Backdrop click closes (except destructive modals)
 - Escape closes
@@ -1325,15 +1320,18 @@ Gradient background (blue→violet)
 - Returns focus to trigger on close
 
 **Loading State:**
+
 - Footer buttons show spinner
 - Body dims to 0.6 opacity
 - No interaction during loading
 
 **Error State:**
+
 - Error message appears below body
 - Primary button re-enables
 
 **Accessibility:**
+
 - `role="dialog"`, `aria-modal="true"`
 - `aria-labelledby` → header title id
 - `aria-describedby` → subtitle id
@@ -1347,6 +1345,7 @@ Gradient background (blue→violet)
 **Extends:** Modal (sm size)
 
 **Structure:**
+
 ```
 [Warning Icon (amber/red)]
 [Title: "Are you sure?"]
@@ -1355,6 +1354,7 @@ Gradient background (blue→violet)
 ```
 
 **Rules:**
+
 - Backdrop click does NOT close
 - Escape closes (cancels)
 - Confirm button is danger variant (red)
@@ -1368,6 +1368,7 @@ Gradient background (blue→violet)
 **Purpose:** Dual preview/program display for Projection Mode.
 
 **Structure:**
+
 ```
 [Preview Panel]          [Program Panel]
 [Slide thumbnail]        [Slide thumbnail]
@@ -1376,12 +1377,14 @@ Gradient background (blue→violet)
 ```
 
 **State Indicators:**
+
 - Preview: green border, "PREVIEW" badge
 - Program: red border, "● LIVE" badge when LIVE
 - FREEZE: amber border, "❄ FREEZE" badge
 - BLACK: dark border, "■ BLACK" badge
 
 **Keyboard:**
+
 - Space: TAKE (cue → program)
 - →: Next slide
 - ←: Previous slide
@@ -1396,6 +1399,7 @@ Gradient background (blue→violet)
 **Purpose:** Worship rundown manager in Projection Mode.
 
 **Structure:**
+
 ```
 [Header: Playlist selector + New button]
 [Items List: drag-reorderable]
@@ -1404,12 +1408,14 @@ Gradient background (blue→violet)
 ```
 
 **Item States:**
+
 - Default: transparent
 - Active (currently live): red left bar, brand background
 - Hover: subtle background
 - Dragging: elevated shadow, opacity 0.8
 
 **Drag Behavior:**
+
 - @dnd-kit/sortable
 - Visual placeholder during drag
 - Auto-scroll when dragging near edges
@@ -1421,6 +1427,7 @@ Gradient background (blue→violet)
 **Purpose:** Song display in Library Mode title view.
 
 **Structure:**
+
 ```
 [Top: Artwork + Favorite button]
 [Body: Number + Title + Subtitle]
@@ -1429,11 +1436,13 @@ Gradient background (blue→violet)
 ```
 
 **States:**
+
 - Default: transparent border
 - Selected: brand border, brand background
 - Hover: translateY(-2px), shadow-elevation-3
 
 **Interaction:**
+
 - Single click: select
 - Double click: open lyrics viewer
 - Right click: context menu
@@ -1447,6 +1456,7 @@ Gradient background (blue→violet)
 **Size:** ~80×60px
 
 **Structure:**
+
 ```
 [Number (large, bold)]
 [Sub: Favorite/Key/Hymnal code]
@@ -1461,6 +1471,7 @@ Gradient background (blue→violet)
 **Purpose:** Playlist item in Library Mode playlist view.
 
 **Structure:**
+
 ```
 [Index] [Title + Section] [Duration]
 ```
@@ -1474,6 +1485,7 @@ Gradient background (blue→violet)
 **Purpose:** Full-screen song creation/editing interface.
 
 **Structure:**
+
 ```
 [TopBar: Back + Title + Save State + Broadcast Rack + Actions]
 [Workspace: 3 columns]
@@ -1493,6 +1505,7 @@ Gradient background (blue→violet)
 **Purpose:** System configuration interface.
 
 **Structure:**
+
 ```
 [Header: Back + Title + Breadcrumb]
 [Body: Sidebar + Content]
@@ -1509,6 +1522,7 @@ Gradient background (blue→violet)
 **Purpose:** Media asset management interface.
 
 **Structure:**
+
 ```
 [Toolbar: Import + Filter + Search + View toggle]
 [Content: Grid or List view]
@@ -1524,7 +1538,7 @@ Gradient background (blue→violet)
 
 ---
 
-*End of Part 2: Component Standard System*
+_End of Part 2: Component Standard System_
 
 ---
 
@@ -1567,6 +1581,7 @@ Gradient background (blue→violet)
 ```
 
 **CSS Implementation:**
+
 ```css
 .app-shell {
   display: flex;
@@ -1609,6 +1624,7 @@ Gradient background (blue→violet)
 ```
 
 **CSS:**
+
 ```css
 .mode-layout-standard {
   display: flex;
@@ -1689,6 +1705,7 @@ Gradient background (blue→violet)
 ```
 
 **Panel Sizes (default):**
+
 - Song Library: 25% (min 20%, max 40%)
 - Playlist: 40% (min 30%, max 55%)
 - Song Info: 35% (min 25%, max 45%)
@@ -1945,6 +1962,7 @@ Each mode has a unique ambient background using radial gradients:
 ```
 
 **Rules:**
+
 - Ambient gradients are decorative only (`pointer-events: none`)
 - Maximum opacity: 0.2 for primary, 0.1 for secondary
 - Never interfere with content readability
@@ -1962,7 +1980,7 @@ Each mode has a unique ambient background using radial gradients:
 // Stage Display: Third display or primary fallback
 
 const displays = screen.getAllDisplays()
-const externalDisplay = displays.find(d => d.id !== screen.getPrimaryDisplay().id)
+const externalDisplay = displays.find((d) => d.id !== screen.getPrimaryDisplay().id)
 const stageDisplay = displays.length > 2 ? displays[2] : screen.getPrimaryDisplay()
 ```
 
@@ -1978,7 +1996,7 @@ const stageDisplay = displays.length > 2 ? displays[2] : screen.getPrimaryDispla
 ```css
 /* Projection Output Safe Zone */
 .projection-content {
-  padding: 5%;  /* 5% safe zone on all sides */
+  padding: 5%; /* 5% safe zone on all sides */
 }
 
 /* Text must remain within safe zone */
@@ -1990,7 +2008,7 @@ const stageDisplay = displays.length > 2 ? displays[2] : screen.getPrimaryDispla
 
 ---
 
-*End of Part 3: Layout Standard System*
+_End of Part 3: Layout Standard System_
 
 ---
 
@@ -2000,17 +2018,17 @@ const stageDisplay = displays.length > 2 ? displays[2] : screen.getPrimaryDispla
 
 ### 4.1.1 Specification
 
-| Property | Value |
-|---|---|
-| Default size | 1280×800px |
-| Minimum size | 1024×700px |
-| Frame | `false` (frameless) |
-| Title bar style | `hidden` (Win32 overlay) |
-| Title bar overlay | `{ color: '#0b0f17', symbolColor: '#cbd5e1', height: 40 }` |
-| Auto-hide menu bar | `true` |
-| Sandbox | Optional (env var) |
-| Context isolation | `true` |
-| Node integration | `false` |
+| Property           | Value                                                      |
+| ------------------ | ---------------------------------------------------------- |
+| Default size       | 1280×800px                                                 |
+| Minimum size       | 1024×700px                                                 |
+| Frame              | `false` (frameless)                                        |
+| Title bar style    | `hidden` (Win32 overlay)                                   |
+| Title bar overlay  | `{ color: '#0b0f17', symbolColor: '#cbd5e1', height: 40 }` |
+| Auto-hide menu bar | `true`                                                     |
+| Sandbox            | Optional (env var)                                         |
+| Context isolation  | `true`                                                     |
+| Node integration   | `false`                                                    |
 
 ### 4.1.2 Lifecycle
 
@@ -2036,6 +2054,7 @@ Main window closed
 ### 4.1.3 State Restoration
 
 On startup:
+
 1. Check `getRecoveryState()` — if `needsRecovery: true`, offer recovery
 2. Load `useModeStore` from localStorage (currentMode, theme, isFirstInstall)
 3. Load settings from DB
@@ -2074,15 +2093,15 @@ On startup:
 
 ### 4.2.1 Specification
 
-| Property | Value |
-|---|---|
-| Position | External display bounds |
-| Size | Full display bounds |
-| Fullscreen | `true` |
-| Frame | `false` |
-| Show on create | `false` (operator-controlled) |
-| Context isolation | `true` |
-| Node integration | `false` |
+| Property          | Value                         |
+| ----------------- | ----------------------------- |
+| Position          | External display bounds       |
+| Size              | Full display bounds           |
+| Fullscreen        | `true`                        |
+| Frame             | `false`                       |
+| Show on create    | `false` (operator-controlled) |
+| Context isolation | `true`                        |
+| Node integration  | `false`                       |
 
 ### 4.2.2 Lifecycle
 
@@ -2152,13 +2171,13 @@ Renderer (ProjectionMode)
 
 ### 4.3.1 Specification
 
-| Property | Value |
-|---|---|
-| Position | Third display or primary |
-| Fullscreen | `false` (windowed, moveable) |
-| Frame | `true` (native frame) |
-| Title | "SION Stage Display" |
-| Show on create | `false` |
+| Property       | Value                        |
+| -------------- | ---------------------------- |
+| Position       | Third display or primary     |
+| Fullscreen     | `false` (windowed, moveable) |
+| Frame          | `true` (native frame)        |
+| Title          | "SION Stage Display"         |
+| Show on create | `false`                      |
 
 ### 4.3.2 Purpose
 
@@ -2205,11 +2224,11 @@ App Shell
 
 ```typescript
 const MODAL_SIZES = {
-  sm:   { width: '400px', maxHeight: '80vh' },
-  md:   { width: '520px', maxHeight: '85vh' },
-  lg:   { width: '640px', maxHeight: '90vh' },
-  xl:   { width: '800px', maxHeight: '90vh' },
-  full: { width: '90vw',  maxHeight: '90vh' }
+  sm: { width: '400px', maxHeight: '80vh' },
+  md: { width: '520px', maxHeight: '85vh' },
+  lg: { width: '640px', maxHeight: '90vh' },
+  xl: { width: '800px', maxHeight: '90vh' },
+  full: { width: '90vw', maxHeight: '90vh' }
 }
 ```
 
@@ -2219,12 +2238,16 @@ const MODAL_SIZES = {
 // Framer Motion
 const modalVariants = {
   hidden: { opacity: 0, scale: 0.96, y: 8 },
-  visible: { 
-    opacity: 1, scale: 1, y: 0,
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
     transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] }
   },
-  exit: { 
-    opacity: 0, scale: 0.96, y: 8,
+  exit: {
+    opacity: 0,
+    scale: 0.96,
+    y: 8,
     transition: { duration: 0.15 }
   }
 }
@@ -2267,12 +2290,12 @@ CLOSED → OPENING → OPEN → CLOSING → CLOSED
 
 ### 4.5.1 Overlay Types
 
-| Overlay | Trigger | Z-Index | Animation |
-|---|---|---|---|
-| SongEditorScreen | `setScreen('song-editor')` | z-50 | scale + fade |
-| SettingsScreen | `setScreen('settings')` | z-50 | slide from right |
-| ImportExportScreen | `setScreen('import-export')` | z-50 | slide from bottom |
-| BibleScreen | `setScreen('bible')` | z-50 | slide from right |
+| Overlay            | Trigger                      | Z-Index | Animation         |
+| ------------------ | ---------------------------- | ------- | ----------------- |
+| SongEditorScreen   | `setScreen('song-editor')`   | z-50    | scale + fade      |
+| SettingsScreen     | `setScreen('settings')`      | z-50    | slide from right  |
+| ImportExportScreen | `setScreen('import-export')` | z-50    | slide from bottom |
+| BibleScreen        | `setScreen('bible')`         | z-50    | slide from right  |
 
 ### 4.5.2 Overlay Animation
 
@@ -2366,6 +2389,7 @@ Animation: fade + scale
 ```
 
 **Elements that MUST have `.no-drag`:**
+
 - All buttons
 - All menu triggers
 - Mode switcher
@@ -2394,21 +2418,22 @@ Escape → close dropdown
 ```
 
 **Mode Switch Side Effects:**
+
 - LIBRARY/MANAGEMENT: Hide projection window
 - PROJECTION/BROADCAST: Show/recreate projection window
 - All modes: Animate content transition (AnimatePresence)
 
 ### 4.7.4 Status Indicators
 
-| Indicator | Clickable | Action | Condition |
-|---|---|---|---|
-| LIVE/CLEAR badge | No | — | Always in PROJECTION |
-| Projection ON/OFF | Yes | toggle projection window | PROJECTION mode |
-| Stage Display | Yes | toggle stage window | PROJECTION mode |
-| Display count | Yes | open Display Settings | Always |
-| Timer | Yes | start/stop/reset | PROJECTION mode |
-| Clock | No | — | Always |
-| Focus badge | No | — | PROJECTION + focus mode |
+| Indicator         | Clickable | Action                   | Condition               |
+| ----------------- | --------- | ------------------------ | ----------------------- |
+| LIVE/CLEAR badge  | No        | —                        | Always in PROJECTION    |
+| Projection ON/OFF | Yes       | toggle projection window | PROJECTION mode         |
+| Stage Display     | Yes       | toggle stage window      | PROJECTION mode         |
+| Display count     | Yes       | open Display Settings    | Always                  |
+| Timer             | Yes       | start/stop/reset         | PROJECTION mode         |
+| Clock             | No        | —                        | Always                  |
+| Focus badge       | No        | —                        | PROJECTION + focus mode |
 
 ---
 
@@ -2449,7 +2474,7 @@ if (!projectionWindow || projectionWindow.isDestroyed()) {
 
 ---
 
-*End of Part 4: Window Standard System*
+_End of Part 4: Window Standard System_
 
 ---
 
@@ -2573,42 +2598,42 @@ if (!projectionWindow || projectionWindow.isDestroyed()) {
 
 ### 5.4.1 Global Shortcuts
 
-| Shortcut | Action | Context |
-|---|---|---|
-| `Ctrl+P` | Command Palette | Global |
-| `Ctrl+K` | Command Palette / Search focus | Global |
-| `?` | Keyboard shortcuts | Global |
-| `Ctrl+Shift+I` | Runtime Inspector | Global |
-| `Ctrl+Shift+F` | Focus Live Mode | PROJECTION |
-| `Ctrl+1` | Library Mode | Global |
-| `Ctrl+2` | Projection Mode | Global |
-| `Ctrl+3` | Management Mode | Global |
-| `Ctrl+4` | Broadcast Mode | Global |
-| `Ctrl+N` | New Song | PROJECTION/MANAGEMENT |
-| `Ctrl+,` | Settings | Global |
-| `Ctrl+I` | Import/Export | Global |
-| `Ctrl+B` | Bible Screen | Global |
+| Shortcut       | Action                         | Context               |
+| -------------- | ------------------------------ | --------------------- |
+| `Ctrl+P`       | Command Palette                | Global                |
+| `Ctrl+K`       | Command Palette / Search focus | Global                |
+| `?`            | Keyboard shortcuts             | Global                |
+| `Ctrl+Shift+I` | Runtime Inspector              | Global                |
+| `Ctrl+Shift+F` | Focus Live Mode                | PROJECTION            |
+| `Ctrl+1`       | Library Mode                   | Global                |
+| `Ctrl+2`       | Projection Mode                | Global                |
+| `Ctrl+3`       | Management Mode                | Global                |
+| `Ctrl+4`       | Broadcast Mode                 | Global                |
+| `Ctrl+N`       | New Song                       | PROJECTION/MANAGEMENT |
+| `Ctrl+,`       | Settings                       | Global                |
+| `Ctrl+I`       | Import/Export                  | Global                |
+| `Ctrl+B`       | Bible Screen                   | Global                |
 
 ### 5.4.2 Projection Mode Shortcuts
 
-| Shortcut | Action |
-|---|---|
-| `Space` | TAKE (cue → program) |
-| `→` / `PageDown` | Next slide |
-| `←` / `PageUp` | Previous slide |
-| `Shift+→` | Cue next slide |
-| `Shift+←` | Cue previous slide |
-| `B` | Toggle Black |
-| `F` | Toggle Freeze |
-| `Esc` / `C` | Clear screen |
-| `Ctrl+→` | Next song in playlist |
-| `Ctrl+←` | Previous song in playlist |
-| `1-9` | Jump to playlist item N |
-| `G` | Quick Jump (slide) |
-| `S` | Quick Jump (section) |
-| `Ctrl+G` | Quick Jump overlay |
-| `Ctrl+Enter` | Update live (dirty state) |
-| `Ctrl+Esc` | Discard changes (dirty state) |
+| Shortcut         | Action                        |
+| ---------------- | ----------------------------- |
+| `Space`          | TAKE (cue → program)          |
+| `→` / `PageDown` | Next slide                    |
+| `←` / `PageUp`   | Previous slide                |
+| `Shift+→`        | Cue next slide                |
+| `Shift+←`        | Cue previous slide            |
+| `B`              | Toggle Black                  |
+| `F`              | Toggle Freeze                 |
+| `Esc` / `C`      | Clear screen                  |
+| `Ctrl+→`         | Next song in playlist         |
+| `Ctrl+←`         | Previous song in playlist     |
+| `1-9`            | Jump to playlist item N       |
+| `G`              | Quick Jump (slide)            |
+| `S`              | Quick Jump (section)          |
+| `Ctrl+G`         | Quick Jump overlay            |
+| `Ctrl+Enter`     | Update live (dirty state)     |
+| `Ctrl+Esc`       | Discard changes (dirty state) |
 
 ### 5.4.3 List/Grid Navigation
 
@@ -2702,17 +2727,21 @@ type SaveState = 'saved' | 'dirty' | 'saving' | 'error'
   border-radius: 14px;
   background: linear-gradient(
     90deg,
-    rgba(255,255,255,0.04) 25%,
-    rgba(255,255,255,0.08) 50%,
-    rgba(255,255,255,0.04) 75%
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.04) 75%
   );
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s infinite;
 }
 
 @keyframes skeleton-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 ```
 
@@ -2748,7 +2777,7 @@ type SaveState = 'saved' | 'dirty' | 'saving' | 'error'
 
 ---
 
-*End of Part 5: Interaction Standards*
+_End of Part 5: Interaction Standards_
 
 ---
 
@@ -2756,15 +2785,15 @@ type SaveState = 'saved' | 'dirty' | 'saving' | 'error'
 
 ## 6.1 WCAG 2.1 AA Compliance Targets
 
-| Criterion | Target | Implementation |
-|---|---|---|
-| Color contrast (text) | 4.5:1 minimum | Verify with contrast checker |
-| Color contrast (large text) | 3:1 minimum | 18px+ or 14px+ bold |
-| Focus indicators | Visible, 3:1 contrast | 2px brand-primary ring |
-| Keyboard navigation | Full keyboard access | Tab order, arrow keys |
-| Screen reader | Semantic HTML + ARIA | Labels, roles, descriptions |
-| Reduced motion | Respect preference | `prefers-reduced-motion` |
-| Touch targets | 44×44px minimum | All interactive elements |
+| Criterion                   | Target                | Implementation               |
+| --------------------------- | --------------------- | ---------------------------- |
+| Color contrast (text)       | 4.5:1 minimum         | Verify with contrast checker |
+| Color contrast (large text) | 3:1 minimum           | 18px+ or 14px+ bold          |
+| Focus indicators            | Visible, 3:1 contrast | 2px brand-primary ring       |
+| Keyboard navigation         | Full keyboard access  | Tab order, arrow keys        |
+| Screen reader               | Semantic HTML + ARIA  | Labels, roles, descriptions  |
+| Reduced motion              | Respect preference    | `prefers-reduced-motion`     |
+| Touch targets               | 44×44px minimum       | All interactive elements     |
 
 ## 6.2 Focus Management
 
@@ -2843,7 +2872,7 @@ import { useReducedMotion } from 'framer-motion'
 
 function AnimatedComponent() {
   const shouldReduceMotion = useReducedMotion()
-  
+
   return (
     <motion.div
       animate={{ opacity: 1, y: shouldReduceMotion ? 0 : 0 }}
@@ -2920,17 +2949,17 @@ interface ComponentProps {
   // Required props first
   value: string
   onChange: (value: string) => void
-  
+
   // Optional props with defaults
   size?: 'sm' | 'md' | 'lg'
   disabled?: boolean
   className?: string
-  
+
   // Event handlers
   onClick?: () => void
   onFocus?: () => void
   onBlur?: () => void
-  
+
   // Children
   children?: React.ReactNode
 }
@@ -2998,7 +3027,7 @@ Examples:
 
 ```typescript
 // Prefer selector pattern for performance
-const selectedSong = useAppStore(s => s.selectedSong)
+const selectedSong = useAppStore((s) => s.selectedSong)
 const { setScreen, showToast } = useAppStore()
 
 // Avoid subscribing to entire store
@@ -3184,12 +3213,14 @@ src/renderer/src/assets/main.css
 ### 7.8.2 Tailwind vs Custom CSS
 
 **Use Tailwind for:**
+
 - Layout (flex, grid, padding, margin)
-- Typography (text-*, font-*)
-- Colors (bg-*, text-*, border-*)
+- Typography (text-_, font-_)
+- Colors (bg-_, text-_, border-\*)
 - Responsive utilities
 
 **Use Custom CSS for:**
+
 - Complex multi-property transitions
 - Pseudo-elements (::before, ::after)
 - Complex gradients
@@ -3217,18 +3248,21 @@ All design tokens are defined as CSS custom properties in `@theme {}` block (Tai
 ## 7.9 Foundation System Adoption Plan
 
 ### Phase 1 (Current): Foundation Documentation
+
 - ✅ Design token system documented
 - ✅ Component standards documented
 - ✅ Layout standards documented
 - ✅ Window standards documented
 
 ### Phase 2: Token Consolidation
+
 - Audit existing CSS for hardcoded values
 - Replace all hardcoded colors with token references
 - Add missing tokens (state colors, responsive tokens)
 - Add `prefers-reduced-motion` support
 
 ### Phase 3: Component Library Build
+
 - Extract shared components from existing modes
 - Build missing atomic components (Button, Input, Badge, etc.)
 - Build missing molecular components (SearchInput, SegmentedControl, etc.)
@@ -3236,6 +3270,7 @@ All design tokens are defined as CSS custom properties in `@theme {}` block (Tai
 - Update design-system/index.ts exports
 
 ### Phase 4: Mode Standardization
+
 - Apply standard layout templates to all modes
 - Standardize command bars
 - Standardize inspector panels
@@ -3243,6 +3278,7 @@ All design tokens are defined as CSS custom properties in `@theme {}` block (Tai
 - Standardize loading states
 
 ### Phase 5: Accessibility Pass
+
 - Add focus rings to all interactive elements
 - Add ARIA labels to all icon-only buttons
 - Add `prefers-reduced-motion` to all animations
@@ -3347,7 +3383,7 @@ SegmentedControl
 
 ---
 
-*Document: Foundation System Architecture v1.0*  
-*SION Media Enterprise Redesign — Phase 1*  
-*Generated: May 2026*  
-*Status: Production-Ready Implementation Specification*
+_Document: Foundation System Architecture v1.0_  
+_SION Media Enterprise Redesign — Phase 1_  
+_Generated: May 2026_  
+_Status: Production-Ready Implementation Specification_

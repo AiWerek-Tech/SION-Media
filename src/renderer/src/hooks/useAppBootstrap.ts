@@ -9,6 +9,7 @@ import {
 } from '../utils/runtimeCommandBus'
 import { registerCommandHandlers, registerCommandValidators } from '../utils/runtimeCommandHandlers'
 import { initHealthMonitor } from '../store/useHealthStore'
+import { UpdateService } from '../services/update-service'
 
 export function useAppBootstrap(): void {
   const loadSongs = useAppStore((s) => s.loadSongs)
@@ -65,6 +66,18 @@ export function useAppBootstrap(): void {
           if (count > prevCount) showToast('Monitor terhubung', 'success')
           else if (count < prevCount) showToast('Monitor terputus', 'error')
         })
+
+        // Background Update Check
+        try {
+          const currentVersion = await window.api.window.getVersion()
+          const update = await UpdateService.checkForUpdate(currentVersion)
+          if (update.hasUpdate) {
+            showToast(`Pembaruan v${update.latestVersion} tersedia! Silakan cek menu Tentang.`, 'info')
+          }
+        } catch (err) {
+          logger.warn('Initial update check failed:', err)
+        }
+
       } catch (err) {
         logger.error('Init error:', err)
       } finally {

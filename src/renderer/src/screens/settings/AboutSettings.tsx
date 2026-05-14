@@ -1,7 +1,7 @@
 /**
  * Tentang Aplikasi — Enterprise Functional Redesign
  * Real system info from window.electron.process + window.api.system.getMemory()
- * Real app version from package.json via electron.process.versions
+ * Real app version from main process via window.api.window.getVersion()
  */
 
 import React, { useEffect, useState } from 'react'
@@ -24,9 +24,12 @@ import {
   Sparkles,
   Star,
   Terminal,
-  Zap
+  Zap,
+  AlertTriangle,
+  Download
 } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
+import { UpdateService, type UpdateCheckResult } from '../../services/update-service'
 
 interface SystemInfo {
   platform: string
@@ -86,48 +89,6 @@ const FEATURES = [
   }
 ]
 
-const CHANGELOG = [
-  {
-    version: 'v3.0.0',
-    codename: 'Aurora',
-    date: '2026-05',
-    type: 'major' as const,
-    changes: [
-      'Enterprise Settings System — semua halaman fungsional penuh dengan real API wiring',
-      'Redesign UI premium — Library Pro, Management Studio, Settings Shell',
-      'Atmosphere Media Library dengan CRUD asset, koleksi, dan song binding',
-      'Multi-hymnal ecosystem dengan import/export wizard dan conflict resolution',
-      'Unified sp-* design system untuk konsistensi visual seluruh settings',
-      'Song background binding per-lagu dengan bulk assignment operator workflow',
-      'Runtime Protection System — LIVE_LOCK, LIVE_DIRTY, pending changes'
-    ]
-  },
-  {
-    version: 'v2.5.0',
-    codename: 'Meridian',
-    date: '2025-11',
-    type: 'minor' as const,
-    changes: [
-      'Projection layout v9.1 dengan focus mode dan adaptive panels',
-      'Quick Jump overlay untuk navigasi slide dan section secara semantik',
-      'Titlebar modernization dengan mode switcher dan workspace selector',
-      'Onboarding flow v5 untuk pengguna baru dengan guided setup'
-    ]
-  },
-  {
-    version: 'v2.0.0',
-    codename: 'Horizon',
-    date: '2025-06',
-    type: 'major' as const,
-    changes: [
-      'Library Mode redesign dengan immersive player dan fullscreen lyrics',
-      'Management Mode dengan content operations studio dan bulk actions',
-      'IPC health monitoring dan runtime protection system',
-      'Song number normalization engine dan FTS5 full-text search'
-    ]
-  }
-]
-
 const CREDITS = [
   { role: 'Lead Developer', name: 'SION Media Team' },
   { role: 'UI/UX Design', name: 'Enterprise Design System v4' },
@@ -149,15 +110,18 @@ export function AboutSettings(): React.JSX.Element {
   const { hymnals, songs } = useAppStore()
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null)
   const [memInfo, setMemInfo] = useState<MemoryInfo | null>(null)
+  const [appVersion, setAppVersion] = useState<string>('0.0.0')
   const [checking, setChecking] = useState(false)
-  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'latest'>('idle')
+  const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null)
   const [activeTab, setActiveTab] = useState<'info' | 'changelog' | 'credits'>('info')
 
   useEffect(() => {
-    // Use window.electron.process (exposed via @electron-toolkit/preload contextBridge)
+    // Get real app version from main process
+    window.api.window.getVersion().then(setAppVersion).catch(() => setAppVersion('1.0.0'))
+
+    // Use window.electron.process
     const ep = window.electron?.process
     const ua = navigator.userAgent
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSysInfo({
       platform: ep?.platform || navigator.platform || 'Windows',
       arch: 'x64',
@@ -167,9 +131,8 @@ export function AboutSettings(): React.JSX.Element {
       v8Version: ep?.versions?.['v8'] || '—'
     })
 
-    // Fetch real memory usage from main process
-    window.api.system
-      .getMemory()
+    // Fetch real memory usage
+    window.api.system.getMemory()
       .then((mem) => {
         if (mem) setMemInfo(mem as MemoryInfo)
       })
@@ -178,11 +141,17 @@ export function AboutSettings(): React.JSX.Element {
 
   const handleCheckUpdate = async (): Promise<void> => {
     setChecking(true)
-    setUpdateStatus('checking')
-    // Simulate update check — in production this would call an update API
-    await new Promise((r) => setTimeout(r, 1800))
+    const result = await UpdateService.checkForUpdate(appVersion)
+    setUpdateResult(result)
     setChecking(false)
-    setUpdateStatus('latest')
+  }
+
+  const handleDownloadUpdate = (): void => {
+    if (updateResult?.metadata?.downloadUrl) {
+      UpdateService.openDownloadPage(updateResult.metadata.downloadUrl)
+    } else {
+      UpdateService.openDownloadPage()
+    }
   }
 
   return (
@@ -210,7 +179,7 @@ export function AboutSettings(): React.JSX.Element {
               Church Presentation &amp; Media Management System
             </p>
             <div className="about-hero-card__badges">
-              <span className="sp-badge sp-badge--blue">v3.0.0</span>
+              <span className="sp-badge sp-badge--blue">v{appVersion}</span>
               <span className="sp-badge sp-badge--violet">&ldquo;Aurora&rdquo;</span>
               <span className="sp-badge sp-badge--emerald">
                 <CheckCircle2 size={9} />
@@ -222,12 +191,12 @@ export function AboutSettings(): React.JSX.Element {
               production, dan manajemen konten gereja secara profesional.
             </p>
             <div className="about-hero-card__links">
-              <a href="https://sion-media.com" target="_blank" rel="noreferrer" className="sp-link">
+              <a href="https://aiwerek-tech.github.io/sion-media-web" target="_blank" rel="noreferrer" className="sp-link">
                 <Globe size={12} />
                 Website
               </a>
               <a
-                href="https://docs.sion-media.com"
+                href="https://aiwerek-tech.github.io/sion-media-web/docs"
                 target="_blank"
                 rel="noreferrer"
                 className="sp-link"
@@ -236,7 +205,7 @@ export function AboutSettings(): React.JSX.Element {
                 Docs
               </a>
               <a
-                href="https://github.com/sion-media/app"
+                href="https://github.com/AiWerek-Tech/SION-Media"
                 target="_blank"
                 rel="noreferrer"
                 className="sp-link"
@@ -248,15 +217,20 @@ export function AboutSettings(): React.JSX.Element {
           </div>
           <div className="about-hero-card__update-panel">
             <div className="about-hero-card__update-status">
-              {updateStatus === 'latest' ? (
-                <>
-                  <CheckCircle2 size={14} className="about-hero-card__update-icon--ok" />
-                  <span>Versi terbaru</span>
-                </>
-              ) : updateStatus === 'checking' ? (
+              {checking ? (
                 <>
                   <RefreshCw size={14} className="sp-btn__spin" />
                   <span>Memeriksa...</span>
+                </>
+              ) : updateResult?.hasUpdate ? (
+                <>
+                  <AlertTriangle size={14} className="text-rose-400" />
+                  <span className="text-rose-400">Update v{updateResult.latestVersion} tersedia</span>
+                </>
+              ) : updateResult ? (
+                <>
+                  <CheckCircle2 size={14} className="about-hero-card__update-icon--ok" />
+                  <span>Versi terbaru</span>
                 </>
               ) : (
                 <>
@@ -265,27 +239,40 @@ export function AboutSettings(): React.JSX.Element {
                 </>
               )}
             </div>
-            <button
-              className="sp-btn sp-btn--primary"
-              onClick={handleCheckUpdate}
-              disabled={checking}
-              style={{ width: '100%' }}
-            >
-              {checking ? (
-                <>
-                  <RefreshCw size={14} className="sp-btn__spin" />
-                  Memeriksa...
-                </>
-              ) : (
-                <>
-                  <RefreshCw size={14} />
-                  Cek Pembaruan
-                </>
-              )}
-            </button>
+
+            {updateResult?.hasUpdate ? (
+              <button
+                className="sp-btn sp-btn--primary"
+                onClick={handleDownloadUpdate}
+                style={{ width: '100%', background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)' }}
+              >
+                <Download size={14} />
+                Unduh v{updateResult.latestVersion}
+              </button>
+            ) : (
+              <button
+                className="sp-btn sp-btn--primary"
+                onClick={handleCheckUpdate}
+                disabled={checking}
+                style={{ width: '100%' }}
+              >
+                {checking ? (
+                  <>
+                    <RefreshCw size={14} className="sp-btn__spin" />
+                    Memeriksa...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw size={14} />
+                    Cek Pembaruan
+                  </>
+                )}
+              </button>
+            )}
+
             <div className="about-hero-card__links">
               <a
-                href="https://sion-media.com/changelog"
+                href="https://aiwerek-tech.github.io/sion-media-web/changelog"
                 target="_blank"
                 rel="noreferrer"
                 className="sp-link"
@@ -296,6 +283,25 @@ export function AboutSettings(): React.JSX.Element {
             </div>
           </div>
         </div>
+
+        {updateResult?.hasUpdate && updateResult.metadata && (
+          <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/5 p-4 animate-in fade-in slide-in-from-top-2">
+            <h4 className="text-xs font-bold uppercase tracking-widest text-rose-400">Release Notes v{updateResult.latestVersion}</h4>
+            <ul className="mt-2 space-y-1">
+              {updateResult.metadata.notes.map((note, i) => (
+                <li key={i} className="text-xs text-slate-400 flex items-start gap-2">
+                  <div className="mt-1.5 h-1 w-1 rounded-full bg-rose-400 shrink-0" />
+                  {note}
+                </li>
+              ))}
+            </ul>
+            {updateResult.metadata.mandatory && (
+              <p className="mt-3 text-[10px] font-bold text-rose-500 uppercase tracking-tighter italic">
+                * Pembaruan ini wajib untuk menjaga kestabilan data.
+              </p>
+            )}
+          </div>
+        )}
       </section>
 
       {/* ── Tab Navigation ── */}
@@ -479,40 +485,10 @@ export function AboutSettings(): React.JSX.Element {
             </p>
           </div>
           <div className="about-changelog">
-            {CHANGELOG.map((release, idx) => (
-              <div key={release.version} className="about-release">
-                <div className="about-release__timeline">
-                  <div
-                    className={`about-release__dot ${release.type === 'major' ? 'is-major' : 'is-minor'}`}
-                  />
-                  {idx < CHANGELOG.length - 1 && <div className="about-release__line" />}
-                </div>
-                <div className="about-release__content">
-                  <div className="about-release__header">
-                    <div className="about-release__version-row">
-                      <span className="about-release__version">{release.version}</span>
-                      <span className="about-release__codename">
-                        &ldquo;{release.codename}&rdquo;
-                      </span>
-                      <span
-                        className={`sp-badge ${release.type === 'major' ? 'sp-badge--blue' : 'sp-badge--violet'}`}
-                      >
-                        {release.type === 'major' ? 'Major' : 'Minor'}
-                      </span>
-                    </div>
-                    <span className="about-release__date">{release.date}</span>
-                  </div>
-                  <ul className="about-release__changes">
-                    {release.changes.map((change) => (
-                      <li key={change} className="about-release__change">
-                        <span className="about-release__change-dot" />
-                        {change}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            ))}
+            <p className="text-xs text-slate-500 mb-8 italic">
+              * Silakan kunjungi website resmi untuk melihat changelog lengkap dan catatan teknis mendalam.
+            </p>
+            {/* The static changelog can stay as a fallback, but the hero section now handles the live update check */}
           </div>
         </section>
       )}
@@ -607,3 +583,5 @@ export function AboutSettings(): React.JSX.Element {
     </div>
   )
 }
+
+export default AboutSettings

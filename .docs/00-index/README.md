@@ -46,11 +46,13 @@ _Terakhir diperbarui: 2026-05-13 (Settings Enterprise Redesign)_
 Seluruh Settings System telah di-redesign menjadi **enterprise-grade control center** yang konsisten dengan Library Pro dan Management Studio:
 
 **Shell & Navigation:**
+
 - `SettingsScreen.tsx` — glass header, 252px sidebar dengan search, breadcrumb navigasi
 - Unified `sp-*` design system (~1500 lines CSS) untuk semua 8 halaman settings
 - Semua halaman menggunakan design language yang sama
 
 **Halaman yang Diredesign (Functional):**
+
 - **Display** — toggle proyektor show/hide, set monitor output, 8 settings keys baru tersimpan ke DB
 - **Tema & Font** — live sync ke proyektor, `projection_font_weight` + `projection_line_height` + `projection_max_lines/chars` tersimpan
 - **Tampilan** — `ui_layout_mode` + `workspace_name` tersimpan ke DB, 6 UI preference toggles
@@ -59,15 +61,18 @@ Seluruh Settings System telah di-redesign menjadi **enterprise-grade control cen
 - **Tentang** — real system info dari `window.electron.process`, memory dari `window.api.system.getMemory()`, 3-tab navigation
 
 **Bug Fix Kritis:**
+
 - `ReferenceError: process is not defined` di halaman Tentang — fix menggunakan `window.electron.process`
 
 **Lint & TypeCheck Hardening:**
+
 - 26 ESLint errors diselesaikan (purity, set-state-in-effect, exhaustive-deps, unescaped-entities)
 - 6 missing return types ditambahkan
 - `Math.random` di `MotionEngine.tsx` dipindah ke module-level constant
 - `npm run lint` → ✅ 0 errors · `npm run typecheck` → ✅ 0 errors
 
 Dokumen rujukan:
+
 - `04-implementation/29-log-impl-settings-system-enterprise-v1.md`
 - `04-implementation/30-log-impl-lint-typecheck-hardening.md`
 - `03-design/06-settings-enterprise-design-system.md`

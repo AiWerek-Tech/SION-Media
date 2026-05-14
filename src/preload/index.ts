@@ -13,7 +13,8 @@ const api = {
       const listener = (_e: IpcRendererEvent, val: boolean): void => callback(val)
       ipcRenderer.on('window:maximized-changed', listener)
       return () => ipcRenderer.removeListener('window:maximized-changed', listener)
-    }
+    },
+    getVersion: (): Promise<string> => ipcRenderer.invoke('app:get-version')
   },
 
   // App theme sync
@@ -148,7 +149,8 @@ const api = {
     checkMultiHymnalIntegrity: (hymnalId?: number): Promise<unknown> =>
       ipcRenderer.invoke('db:check-multi-hymnal-integrity', hymnalId),
     getMemory: (): Promise<unknown> => ipcRenderer.invoke('system:get-memory'),
-    setMode: (mode: string): Promise<void> => ipcRenderer.invoke('system:set-mode', mode)
+    setMode: (mode: string): Promise<void> => ipcRenderer.invoke('system:set-mode', mode),
+    openExternal: (url: string): Promise<void> => ipcRenderer.invoke('system:open-external', url)
   },
 
   // File System

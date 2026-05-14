@@ -23,22 +23,26 @@ Mode Library adalah salah satu dari empat mode utama dalam SION Media (bersama d
 Workspace adalah kategori navigasi utama di sidebar:
 
 **Library (Aktif):**
+
 - `all` - Semua lagu dalam database
 - `playlist` - Playlist yang dibuat user
 - `favorites` - Lagu yang ditandai favorit
 - `recent` - Lagu yang baru saja dibuka
 
 **Koleksi (Aktif):**
+
 - `collections` - Collections (coming soon)
 - `hymnals` - Daftar buku lagu/hymnal
 - `tags` - Tags & Themes
 
 **Latihan (Coming Soon):**
+
 - `practice` - Practice Tools
 - `chords` - Chord Charts
 - `vocal` - Vocal Guide
 
 **Studio (Coming Soon):**
+
 - `broadcast` - Broadcast Studio
 - `ai` - AI Features
 - `analytics` - Worship Analytics
@@ -57,6 +61,7 @@ Tab mengatur cara tampilan lagu di area utama:
 ### Komponen Navigasi & Layout
 
 **LibrarySidebar.tsx** (497 lines)
+
 - Lokasi: `src/renderer/src/components/library/LibrarySidebar.tsx`
 - Fungsi: Sidebar navigasi kiri dengan:
   - Hymnal selector dengan dropdown
@@ -68,6 +73,7 @@ Tab mengatur cara tampilan lagu di area utama:
   - Compact mode
 
 **LibraryCommandBar.tsx** (151 lines)
+
 - Lokasi: `src/renderer/src/components/library/LibraryCommandBar.tsx`
 - Fungsi: Command bar di atas dengan:
   - Hymnal selector
@@ -76,6 +82,7 @@ Tab mengatur cara tampilan lagu di area utama:
   - Focus mode toggle
 
 **LibraryBrowserPanel.tsx** (105 lines)
+
 - Lokasi: `src/renderer/src/components/library/LibraryBrowserPanel.tsx`
 - Fungsi: Panel browser yang mengatur tab switching antara:
   - Number view
@@ -85,6 +92,7 @@ Tab mengatur cara tampilan lagu di area utama:
 ### Komponen Tampilan Lagu
 
 **LibraryNumberView.tsx** (385 lines)
+
 - Lokasi: `src/renderer/src/components/library/LibraryNumberView.tsx`
 - Fungsi: Grid view nomor lagu dengan:
   - Virtual scrolling menggunakan @tanstack/react-virtual
@@ -94,6 +102,7 @@ Tab mengatur cara tampilan lagu di area utama:
   - Compact mode
 
 **LibraryTitleView.tsx** (316 lines)
+
 - Lokasi: `src/renderer/src/components/library/LibraryTitleView.tsx`
 - Fungsi: List view judul dengan:
   - Virtual scrolling
@@ -102,20 +111,24 @@ Tab mengatur cara tampilan lagu di area utama:
   - Quick actions (add to playlist, favorite)
 
 **LibraryPlaylistWorkspace.tsx**
+
 - Lokasi: `src/renderer/src/components/library/LibraryPlaylistWorkspace.tsx`
 - Fungsi: Workspace untuk playlist aktif
 
 **LibraryPlaylistView.tsx**
+
 - Lokasi: `src/renderer/src/components/library/LibraryPlaylistView.tsx`
 - Fungsi: Tampilan daftar playlist
 
 **HighDensitySongGrid.tsx**
+
 - Lokasi: `src/renderer/src/components/library/HighDensitySongGrid.tsx`
 - Fungsi: Grid lagu dengan density tinggi
 
 ### Komponen Lyrics & Preview
 
 **LibraryLyricsViewer.tsx** (839 lines)
+
 - Lokasi: `src/renderer/src/components/library/LibraryLyricsViewer.tsx`
 - Fungsi: Fullscreen lyrics viewer dengan:
   - Atmosphere system support (background visual)
@@ -128,20 +141,24 @@ Tab mengatur cara tampilan lagu di area utama:
   - Bottom navigation bar dengan auto-hide
 
 **LibraryLyricsPane.tsx**
+
 - Lokasi: `src/renderer/src/components/library/LibraryLyricsPane.tsx`
 - Fungsi: Pane lyrics preview (non-fullscreen)
 
 ### Komponen Utility
 
 **LibrarySearchPalette.tsx** (17,606 bytes)
+
 - Lokasi: `src/renderer/src/components/library/LibrarySearchPalette.tsx`
 - Fungsi: Palette pencarian global
 
 **SongContextMenu.tsx**
+
 - Lokasi: `src/renderer/src/components/library/SongContextMenu.tsx`
 - Fungsi: Context menu untuk aksi lagu
 
 **HymnalTopBar.tsx** (11,386 bytes)
+
 - Lokasi: `src/renderer/src/components/library/HymnalTopBar.tsx`
 - Fungsi: Top bar untuk hymnal selector
 
@@ -207,6 +224,7 @@ Lokasi: `src/renderer/src/screens/settings/`
 ### Store yang Digunakan
 
 **useAppStore**
+
 - Lokasi: `src/renderer/src/store/useAppStore.ts`
 - State yang digunakan:
   - `songs` - Daftar semua lagu
@@ -224,6 +242,7 @@ Lokasi: `src/renderer/src/screens/settings/`
   - `showToast` - Display toast notification
 
 **useModeStore**
+
 - Lokasi: `src/renderer/src/store/useModeStore.ts`
 - State yang digunakan:
   - `currentMode` - Mode aktif saat ini
@@ -231,6 +250,7 @@ Lokasi: `src/renderer/src/screens/settings/`
   - `setMode` - Switch antar mode
 
 **usePlaylistStore**
+
 - Lokasi: `src/renderer/src/store/usePlaylistStore.ts`
 - State yang digunakan:
   - `playlists` - Daftar playlist
@@ -242,12 +262,14 @@ Lokasi: `src/renderer/src/screens/settings/`
 ## Fitur Utama Library Mode
 
 ### Search & Filter
+
 - **Global search** dengan debouncing (250ms delay)
 - **Filter by workspace** - favorites, recent, hymnal-specific
 - **Multi-field search** - judul, nomor, penulis, tema, tags
 - **Real-time filtering** saat mengetik
 
 ### Tampilan & Navigasi
+
 - **Virtual scrolling** untuk performa dengan ribuan lagu
 - **Pagination** - 120 lagu per halaman (untuk number view)
 - **Responsive grid** - menyesuaikan jumlah kolom berdasarkan lebar
@@ -255,12 +277,14 @@ Lokasi: `src/renderer/src/screens/settings/`
 - **Compact mode** - tampilan lebih padat
 
 ### Sorting
+
 - **Sort by number** - urut berdasarkan nomor lagu
 - **Sort by title** - urut berdasarkan judul (A-Z)
 - **Sort by category** - urut berdasarkan kategori
 - **Sort by favorite** - favorit di atas
 
 ### User Experience
+
 - **Fullscreen library mode** (Ctrl+Shift+F) - hide sidebar untuk fokus
 - **Lyrics fullscreen** dengan auto-hide UI (2.5 detik idle)
 - **Title bar hover detection** - hanya muncul saat mouse di top 5px edge
@@ -269,12 +293,14 @@ Lokasi: `src/renderer/src/screens/settings/`
 - **Toast notifications** untuk feedback
 
 ### Persistence
+
 - **Pinned hymnals** - disimpan di localStorage
 - **Theme preference** - dark/light mode disimpan
 - **Recent songs** - tracking lagu yang baru dibuka
 - **Search history** - (potensial fitur)
 
 ### Keyboard Shortcuts
+
 - `Ctrl+K` - Buka global search
 - `Ctrl+Shift+F` - Toggle fullscreen library
 - `Escape` - Exit fullscreen / close overlay
@@ -286,18 +312,22 @@ Lokasi: `src/renderer/src/screens/settings/`
 ### Dari Library Mode
 
 **Buka Lagu:**
+
 - Klik lagu → `setSelectedSong(song)` + `setLyricsFullscreen(true)`
 - Membuka `LibraryLyricsViewer` sebagai overlay
 
 **Edit Lagu:**
+
 - Klik "Edit Info" di inspector → `setEditingSong(song)` + `setScreen('song-editor')`
 - Navigasi ke `SongEditorScreen`
 
 **Settings:**
+
 - Klik menu di title bar → `setScreen('settings')`
 - Navigasi ke `SettingsScreen`
 
 **Mode Switch:**
+
 - Klik "Content" → `setMode('MANAGEMENT')`
 - Klik "Broadcast" → `setMode('BROADCAST')`
 - Klik "Present" → `setMode('PROJECTION')`
@@ -305,50 +335,60 @@ Lokasi: `src/renderer/src/screens/settings/`
 ### Ke Library Mode
 
 **Dari WelcomeScreen:**
+
 - Setelah onboarding selesai → `setMode('LIBRARY')`
 
 **Dari Mode Lain:**
+
 - Menggunakan mode switcher di command bar
 - Menggunakan command palette
 
 **Dari Command Palette:**
+
 - Search "Library" atau navigate ke library mode
 
 ## Teknologi & Dependencies
 
 ### UI Framework
+
 - **React** - Component library
 - **Framer Motion** - Animations dan transitions
 - **Lucide React** - Icon library
 
 ### Performance
+
 - **@tanstack/react-virtual** - Virtual scrolling untuk list/grid besar
 - **React.memo** - Memoization untuk komponen
 - **useMemo** - Memoization untuk computed values
 - **useCallback** - Stable function references
 
 ### Styling
+
 - **Tailwind CSS** - Utility-first CSS framework
 - **Custom CSS classes** - Untuk komponen kompleks
 
 ## Catatan Penting
 
 ### Status Implementasi
+
 - LibraryModeRedesigned adalah implementasi yang aktif digunakan
 - Versi LibraryMode.tsx lama kemungkinan deprecated
 - Banyak workspace yang masih "coming soon" menunggu backend implementation
 
 ### Performance Considerations
+
 - Virtual scrolling digunakan untuk menangani ribuan lagu
 - Debouncing pada search untuk mengurangi re-render
 - Pagination pada number view untuk performa
 
 ### Known Limitations
+
 - Workspace seperti practice, chords, vocal, broadcast, ai, analytics, utilities belum aktif
 - Collections workspace belum diimplementasikan
 - Beberapa fitur masih placeholder
 
 ### Future Enhancements
+
 - Backend integration untuk workspace yang "coming soon"
 - Advanced search dengan filters
 - Playlist management yang lebih lengkap
@@ -358,10 +398,12 @@ Lokasi: `src/renderer/src/screens/settings/`
 ## File Reference Summary
 
 ### Mode Implementation
+
 - `src/renderer/src/screens/modes/LibraryModeRedesigned.tsx` - Main implementation
 - `src/renderer/src/screens/modes/LibraryMode.tsx` - Old version (deprecated)
 
 ### Components
+
 - `src/renderer/src/components/library/LibrarySidebar.tsx`
 - `src/renderer/src/components/library/LibraryCommandBar.tsx`
 - `src/renderer/src/components/library/LibraryBrowserPanel.tsx`
@@ -377,11 +419,13 @@ Lokasi: `src/renderer/src/screens/settings/`
 - `src/renderer/src/components/library/HymnalTopBar.tsx`
 
 ### Stores
+
 - `src/renderer/src/store/useAppStore.ts`
 - `src/renderer/src/store/useModeStore.ts`
 - `src/renderer/src/store/usePlaylistStore.ts`
 
 ### Screens
+
 - `src/renderer/src/App.tsx` - Main routing
 - `src/renderer/src/screens/SongEditorScreen.tsx`
 - `src/renderer/src/screens/SettingsScreen.tsx`
@@ -394,4 +438,4 @@ Lokasi: `src/renderer/src/screens/settings/`
 
 ---
 
-*Dokumentasi ini dibuat berdasarkan analisis codebase per Mei 2026. Untuk informasi terbaru, silakan cek implementasi terbaru di repository.*
+_Dokumentasi ini dibuat berdasarkan analisis codebase per Mei 2026. Untuk informasi terbaru, silakan cek implementasi terbaru di repository._

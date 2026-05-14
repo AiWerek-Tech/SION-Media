@@ -15,15 +15,15 @@ Audit dan implementasi field metadata lagu di semua mode UI (projection, stage d
 
 Mapping field dari `songs_full_metadata.json` ke database dan UI:
 
-| JSON Field | Database Column | UI Label | Status |
-|------------|-----------------|----------|--------|
-| `english_title` | `alternate_title` | Sub Judul (English) | ✅ |
-| `composer` | `composer` | Komposer | ✅ |
-| `arranger` | `author` | Pengarang (Arranger) | ✅ |
-| `key_signature` | `key_note` | Nada Dasar | ✅ |
-| `time_signature` | `time_signature` | Birama | ✅ |
-| `bible_verse` | `scripture_reference` | Referensi Alkitab | ✅ |
-| `album` | `category` | Kategori | ✅ |
+| JSON Field       | Database Column       | UI Label             | Status |
+| ---------------- | --------------------- | -------------------- | ------ |
+| `english_title`  | `alternate_title`     | Sub Judul (English)  | ✅     |
+| `composer`       | `composer`            | Komposer             | ✅     |
+| `arranger`       | `author`              | Pengarang (Arranger) | ✅     |
+| `key_signature`  | `key_note`            | Nada Dasar           | ✅     |
+| `time_signature` | `time_signature`      | Birama               | ✅     |
+| `bible_verse`    | `scripture_reference` | Referensi Alkitab    | ✅     |
+| `album`          | `category`            | Kategori             | ✅     |
 
 ---
 
@@ -34,6 +34,7 @@ Mapping field dari `songs_full_metadata.json` ke database dan UI:
 **Status**: ✅ Lengkap untuk audience projection
 
 **Field yang ditampilkan**:
+
 - `key_note` - Nada dasar (overlay musik)
 - `time_signature` - Birama (overlay musik)
 - `tempo` - BPM (overlay musik)
@@ -47,11 +48,13 @@ Mapping field dari `songs_full_metadata.json` ke database dan UI:
 **Status**: ✅ Lengkap untuk musisi/singer
 
 **Field yang ditampilkan**:
+
 - `key_note` - Nada dasar (footer)
 - `composer` - Komposer (footer, baru ditambah)
 - `author` - Pengarang/Arranger (footer, baru ditambah)
 
 **Perubahan**:
+
 - Menambahkan composer dan author di footer untuk informasi musisi
 
 ---
@@ -63,11 +66,13 @@ Mapping field dari `songs_full_metadata.json` ke database dan UI:
 **Status**: ✅ Lengkap
 
 **Field yang ditampilkan**:
+
 - `category` - Kategori (badge)
 - `author` - Pengarang (subtitle)
 - `composer` - Komposer (subtitle, baru ditambah)
 
 **Perubahan**:
+
 - Menambahkan composer display di subtitle
 
 #### SongCard.tsx (Card View)
@@ -75,12 +80,14 @@ Mapping field dari `songs_full_metadata.json` ke database dan UI:
 **Status**: ✅ Lengkap
 
 **Field yang ditampilkan**:
+
 - `alternate_title` - Sub judul (italic)
 - `category` - Kategori (badge)
 - `key_note` - Nada dasar (metadata badge)
 - `composer` / `author` - Credits (baru ditambah)
 
 **Perubahan**:
+
 - Menambahkan composer/author credits display
 
 ---
@@ -90,6 +97,7 @@ Mapping field dari `songs_full_metadata.json` ke database dan UI:
 **Status**: ✅ Lengkap
 
 **Field yang ditampilkan** (semua editable):
+
 - `alternate_title` - Sub Judul (English/Optional)
 - `category` - Kategori (dropdown)
 - `author` - Pengarang (Arranger) - **BARU**
@@ -100,6 +108,7 @@ Mapping field dari `songs_full_metadata.json` ke database dan UI:
 - `tempo` - BPM (input dengan validasi)
 
 **Perubahan**:
+
 - Menambahkan input field untuk composer, author, scripture_reference
 - Update state management untuk menyertakan field baru
 - Update dirty state check untuk field baru
@@ -165,6 +174,7 @@ Mapping field dari `songs_full_metadata.json` ke database dan UI:
 **Purpose**: Update database dengan metadata dari `songs_full_metadata.json`
 
 **Usage**:
+
 ```bash
 # Update resources database (default)
 node scripts/update-song-metadata.mjs
@@ -174,6 +184,7 @@ node scripts/update-song-metadata.mjs /path/to/sion.db
 ```
 
 **Features**:
+
 - Normalisasi song number untuk matching
 - Mapping field JSON ke database columns
 - Error handling per song update
@@ -186,6 +197,7 @@ node scripts/update-song-metadata.mjs /path/to/sion.db
 **File**: `src/main/database.ts`
 
 **Initialization Logic** (lines 449-463):
+
 ```typescript
 export function initDatabase(): void {
   const dbPath = join(app.getPath('userData'), 'sion.db')
@@ -204,6 +216,7 @@ export function initDatabase(): void {
 **Status**: ✅ Database default sudah dikonfigurasi dengan benar
 
 **Flow**:
+
 1. Pada instalasi pertama, aplikasi menyalin `resources/sion.db` ke `userData/sion.db`
 2. Setiap user baru akan mendapatkan database dengan metadata yang sudah diupdate
 3. Update script default mengupdate `resources/sion.db` untuk memastikan database default selalu up-to-date

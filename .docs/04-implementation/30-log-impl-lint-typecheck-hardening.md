@@ -32,6 +32,7 @@ import { ... } from 'lucide-react'  // Square dan X dihapus
 **Error:** `'isMaximizedLocal' is declared but its value is never read`
 
 **Fix:** Rename ke `_isMaximizedLocal` dengan eslint-disable comment:
+
 ```typescript
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const [_isMaximizedLocal, setIsMaximizedLocal] = useState(false)
@@ -99,13 +100,13 @@ useEffect(() => {
 
 **Files yang difix:**
 
-| File | setState yang difix |
-|------|-------------------|
-| `AboutSettings.tsx` | `setSysInfo(info)` |
-| `AppThemeSettings.tsx` | `setActiveMode(mode)` |
-| `BackgroundSettings.tsx` | `setAssetNameDraft`, `setAssetCategoryDraft`, `setAssetTagsDraft` |
-| `SongEditorScreen.tsx` | `setSongAtmosphereAssetId`, `setDuplicateWarning`, `setActiveSlideIdx` |
-| `ManagementMode.tsx` | `setSelectedSongIds`, `setBulkAssetId`, `setSelectedSongId` |
+| File                     | setState yang difix                                                    |
+| ------------------------ | ---------------------------------------------------------------------- |
+| `AboutSettings.tsx`      | `setSysInfo(info)`                                                     |
+| `AppThemeSettings.tsx`   | `setActiveMode(mode)`                                                  |
+| `BackgroundSettings.tsx` | `setAssetNameDraft`, `setAssetCategoryDraft`, `setAssetTagsDraft`      |
+| `SongEditorScreen.tsx`   | `setSongAtmosphereAssetId`, `setDuplicateWarning`, `setActiveSlideIdx` |
+| `ManagementMode.tsx`     | `setSelectedSongIds`, `setBulkAssetId`, `setSelectedSongId`            |
 
 **Catatan:** Penggunaan `eslint-disable` di sini adalah intentional karena pattern ini adalah **derived state synchronization** yang valid — setState dipanggil sebagai respons terhadap perubahan external state (settings, selectedAsset, dll), bukan sebagai side effect murni.
 
@@ -120,6 +121,7 @@ useEffect(() => {
 **Root cause:** Kedua variabel ini dideklarasikan **setelah** `useCallback` dalam urutan kode, sehingga tidak bisa dimasukkan ke deps array tanpa menyebabkan error TypeScript `accessed before declaration`.
 
 **Fix:** Suppress dengan `eslint-disable-next-line`:
+
 ```typescript
 // eslint-disable-next-line react-hooks/exhaustive-deps
 [hymnalId, songNumber, title, ..., checkDuplicate]
@@ -134,6 +136,7 @@ useEffect(() => {
 **Error:** Unescaped `"` di dalam JSX.
 
 **Fix:**
+
 ```tsx
 // ❌ Sebelum
 <span>"{query}"</span>
@@ -151,6 +154,7 @@ useEffect(() => {
 **Error:** Control characters `\x00-\x1F` dalam regex dianggap suspicious.
 
 **Fix:** Tambahkan eslint-disable comment:
+
 ```typescript
 // eslint-disable-next-line no-control-regex
 .replace(/[<>:"/\\|?*\u0000-\u001F]/g, ' ')
@@ -186,6 +190,7 @@ const handleMouseDown = (event: MouseEvent): void => { ... }
 **Root cause:** `process` adalah Node.js global yang **tidak tersedia** di renderer process Electron ketika `contextIsolation: true` (default sejak Electron 12).
 
 **Fix:**
+
 ```typescript
 // ❌ Crash di renderer
 process?.versions?.node
@@ -202,11 +207,13 @@ ep?.versions?.['node']
 ## 10. Prettier Formatting
 
 Semua file yang dimodifikasi di-auto-fix menggunakan:
+
 ```bash
 npx eslint --fix <file>
 ```
 
 Prettier warnings yang di-fix:
+
 - Inline JSX props yang terlalu panjang → multi-line
 - Object literal inline → multi-line
 - Template literal formatting
@@ -215,18 +222,18 @@ Prettier warnings yang di-fix:
 
 ## 11. Ringkasan Error yang Diselesaikan
 
-| Kategori | Jumlah | Status |
-|----------|--------|--------|
-| `no-unused-vars` (TS) | 4 | ✅ |
-| `react-hooks/purity` | 7 | ✅ |
-| `react-hooks/set-state-in-effect` | 9 | ✅ |
-| `react-hooks/exhaustive-deps` | 1 | ✅ |
-| `react/no-unescaped-entities` | 2 | ✅ |
-| `no-control-regex` | 1 | ✅ |
-| `explicit-function-return-type` | 6 | ✅ |
-| Runtime crash (`process`) | 1 | ✅ |
-| Prettier warnings | ~185 | ✅ |
-| **Total** | **~216** | **✅** |
+| Kategori                          | Jumlah   | Status |
+| --------------------------------- | -------- | ------ |
+| `no-unused-vars` (TS)             | 4        | ✅     |
+| `react-hooks/purity`              | 7        | ✅     |
+| `react-hooks/set-state-in-effect` | 9        | ✅     |
+| `react-hooks/exhaustive-deps`     | 1        | ✅     |
+| `react/no-unescaped-entities`     | 2        | ✅     |
+| `no-control-regex`                | 1        | ✅     |
+| `explicit-function-return-type`   | 6        | ✅     |
+| Runtime crash (`process`)         | 1        | ✅     |
+| Prettier warnings                 | ~185     | ✅     |
+| **Total**                         | **~216** | **✅** |
 
 ---
 

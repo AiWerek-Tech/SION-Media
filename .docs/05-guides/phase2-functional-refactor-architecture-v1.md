@@ -1,10 +1,11 @@
 # SION Media — Phase 2: Functional Refactor Architecture v1.0
+
 ## Production-Grade Runtime Engineering Blueprint
 
 **Document Status:** Implementation-Ready Architecture Specification  
 **Phase:** Phase 2 — Functional Refactor Architecture  
 **Depends On:** enterprise-redesign-system-v1.md, foundation-system-architecture-v1.md  
-**Codebase Revision:** Electron 39 / React 19 / Zustand 5 / better-sqlite3 / RuntimeCommandBus  
+**Codebase Revision:** Electron 39 / React 19 / Zustand 5 / better-sqlite3 / RuntimeCommandBus
 
 ---
 
@@ -13,6 +14,7 @@
 This document defines the complete functional refactor architecture for SION Media. Every decision is grounded in the actual source code. The architecture addresses 10 dead UI issues, 20 missing modals, 35 broken workflows, and 8 runtime gaps identified in the audit — without breaking the existing projection runtime, which is already production-quality.
 
 **What is NOT broken and must be preserved:**
+
 - `RuntimeCommandBus` — excellent architecture, extend only
 - `useProjectionStore` — solid state machine, normalize only
 - `runtimeCommandHandlers` — well-structured, add missing handlers only
@@ -22,6 +24,7 @@ This document defines the complete functional refactor architecture for SION Med
 - `usePanelLayoutStore` — persisted correctly, extend only
 
 **What must be refactored:**
+
 - Dead UI connections (10 broken interactions)
 - Missing modal system (20 modals needed)
 - IPC channel normalization (type safety, validation)
@@ -37,22 +40,23 @@ This document defines the complete functional refactor architecture for SION Med
 
 ### DUI-001: Favorite Button in Library Mode
 
-| Field | Value |
-|---|---|
-| **ID** | DUI-001 |
-| **Severity** | 🔴 Critical |
-| **Current Behavior** | Star button in `SongMediaCard` calls `event.stopPropagation()` only — no toggle |
-| **Root Cause** | `onClick` handler was stubbed during development and never wired |
-| **Affected Component** | `LibraryModeRedesigned.tsx` → `SongMediaCard` |
-| **Affected Store** | `useAppStore` (needs `loadSongs` after toggle) |
-| **Affected IPC** | `db:toggle-favorite` → `toggleFavorite()` |
-| **UX Impact** | Operators cannot mark favorites — core workflow broken |
-| **Runtime Impact** | None (no projection impact) |
-| **Refactor Strategy** | Wire `window.api.songs.toggleFavorite(song.id)` then call `loadSongs()` |
-| **Correct Solution** | Optimistic update: flip `is_favorite` in local state immediately, then sync DB |
-| **Validation** | Star fills/unfills on click; favorites count in sidebar updates; persists on reload |
+| Field                  | Value                                                                               |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| **ID**                 | DUI-001                                                                             |
+| **Severity**           | 🔴 Critical                                                                         |
+| **Current Behavior**   | Star button in `SongMediaCard` calls `event.stopPropagation()` only — no toggle     |
+| **Root Cause**         | `onClick` handler was stubbed during development and never wired                    |
+| **Affected Component** | `LibraryModeRedesigned.tsx` → `SongMediaCard`                                       |
+| **Affected Store**     | `useAppStore` (needs `loadSongs` after toggle)                                      |
+| **Affected IPC**       | `db:toggle-favorite` → `toggleFavorite()`                                           |
+| **UX Impact**          | Operators cannot mark favorites — core workflow broken                              |
+| **Runtime Impact**     | None (no projection impact)                                                         |
+| **Refactor Strategy**  | Wire `window.api.songs.toggleFavorite(song.id)` then call `loadSongs()`             |
+| **Correct Solution**   | Optimistic update: flip `is_favorite` in local state immediately, then sync DB      |
+| **Validation**         | Star fills/unfills on click; favorites count in sidebar updates; persists on reload |
 
 **Architecture Fix:**
+
 ```
 SongMediaCard.onStarClick
   → optimistic: mutate songs[] in useAppStore (flip is_favorite)
@@ -65,162 +69,162 @@ SongMediaCard.onStarClick
 
 ### DUI-002: "New Playlist" in File Menu — Empty Action
 
-| Field | Value |
-|---|---|
-| **ID** | DUI-002 |
-| **Severity** | 🔴 Critical |
-| **Current Behavior** | `File > New Playlist` has empty action comment `/* Will be wired */` |
-| **Root Cause** | `CreatePlaylistDialog` component does not exist |
-| **Affected Component** | `TitleBarMenu.tsx` → File menu |
-| **Affected Store** | `usePlaylistStore` (has `createPlaylist()` action — already implemented) |
-| **Affected IPC** | `db:add-playlist` → `addPlaylist()` — already implemented |
-| **UX Impact** | Operators cannot create playlists from the primary entry point |
-| **Runtime Impact** | None |
-| **Refactor Strategy** | Build `CreatePlaylistDialog`, dispatch `sion:create-playlist` custom event |
-| **Correct Solution** | Global modal manager dispatches `OPEN_MODAL('create-playlist')` |
-| **Validation** | Dialog opens, form validates, playlist created, appears in sidebar |
+| Field                  | Value                                                                      |
+| ---------------------- | -------------------------------------------------------------------------- |
+| **ID**                 | DUI-002                                                                    |
+| **Severity**           | 🔴 Critical                                                                |
+| **Current Behavior**   | `File > New Playlist` has empty action comment `/* Will be wired */`       |
+| **Root Cause**         | `CreatePlaylistDialog` component does not exist                            |
+| **Affected Component** | `TitleBarMenu.tsx` → File menu                                             |
+| **Affected Store**     | `usePlaylistStore` (has `createPlaylist()` action — already implemented)   |
+| **Affected IPC**       | `db:add-playlist` → `addPlaylist()` — already implemented                  |
+| **UX Impact**          | Operators cannot create playlists from the primary entry point             |
+| **Runtime Impact**     | None                                                                       |
+| **Refactor Strategy**  | Build `CreatePlaylistDialog`, dispatch `sion:create-playlist` custom event |
+| **Correct Solution**   | Global modal manager dispatches `OPEN_MODAL('create-playlist')`            |
+| **Validation**         | Dialog opens, form validates, playlist created, appears in sidebar         |
 
 ---
 
 ### DUI-003: Bible Screen Unreachable
 
-| Field | Value |
-|---|---|
-| **ID** | DUI-003 |
-| **Severity** | 🔴 Critical |
-| **Current Behavior** | `BibleScreen` exists and is fully implemented but has no navigation entry point |
-| **Root Cause** | No menu item, no button, no keyboard shortcut routes to `setScreen('bible')` |
-| **Affected Component** | `TitleBarMenu.tsx` → View menu; `App.tsx` routing |
-| **Affected Store** | `useAppStore.setScreen('bible')` |
-| **Affected IPC** | All `db:get-bible-*` channels — implemented but unreachable |
-| **UX Impact** | Entire Bible projection workflow is inaccessible |
-| **Runtime Impact** | None |
-| **Refactor Strategy** | Add `View > Bible` menu item + `Ctrl+B` shortcut |
-| **Correct Solution** | Also add Bible panel to Projection Mode bottom workspace |
-| **Validation** | `Ctrl+B` opens BibleScreen; View menu item works |
+| Field                  | Value                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------- |
+| **ID**                 | DUI-003                                                                         |
+| **Severity**           | 🔴 Critical                                                                     |
+| **Current Behavior**   | `BibleScreen` exists and is fully implemented but has no navigation entry point |
+| **Root Cause**         | No menu item, no button, no keyboard shortcut routes to `setScreen('bible')`    |
+| **Affected Component** | `TitleBarMenu.tsx` → View menu; `App.tsx` routing                               |
+| **Affected Store**     | `useAppStore.setScreen('bible')`                                                |
+| **Affected IPC**       | All `db:get-bible-*` channels — implemented but unreachable                     |
+| **UX Impact**          | Entire Bible projection workflow is inaccessible                                |
+| **Runtime Impact**     | None                                                                            |
+| **Refactor Strategy**  | Add `View > Bible` menu item + `Ctrl+B` shortcut                                |
+| **Correct Solution**   | Also add Bible panel to Projection Mode bottom workspace                        |
+| **Validation**         | `Ctrl+B` opens BibleScreen; View menu item works                                |
 
 ---
 
 ### DUI-004: Theme Button (Moon Icon) Opens Nothing
 
-| Field | Value |
-|---|---|
-| **ID** | DUI-004 |
-| **Severity** | 🟡 High |
-| **Current Behavior** | Moon icon button in `TitleBarUtilityButtons` has no `onClick` handler |
-| **Root Cause** | Button was added as placeholder; theme system exists in `useModeStore` |
-| **Affected Component** | `TitleBar.tsx` → `TitleBarUtilityButtons` |
-| **Affected Store** | `useModeStore.theme`, `useModeStore.setTheme()` |
-| **Affected IPC** | `app:theme-mode-set` → `broadcastAppTheme()` |
-| **UX Impact** | No way to toggle theme from title bar |
-| **Refactor Strategy** | Cycle through `dark → light → system` on click; update icon per state |
-| **Correct Solution** | `onClick` → `setTheme(nextTheme)` → `applyEffectiveTheme()` → IPC broadcast |
-| **Validation** | Icon changes (Moon/Sun/SunMoon); theme applies; persists on reload |
+| Field                  | Value                                                                       |
+| ---------------------- | --------------------------------------------------------------------------- |
+| **ID**                 | DUI-004                                                                     |
+| **Severity**           | 🟡 High                                                                     |
+| **Current Behavior**   | Moon icon button in `TitleBarUtilityButtons` has no `onClick` handler       |
+| **Root Cause**         | Button was added as placeholder; theme system exists in `useModeStore`      |
+| **Affected Component** | `TitleBar.tsx` → `TitleBarUtilityButtons`                                   |
+| **Affected Store**     | `useModeStore.theme`, `useModeStore.setTheme()`                             |
+| **Affected IPC**       | `app:theme-mode-set` → `broadcastAppTheme()`                                |
+| **UX Impact**          | No way to toggle theme from title bar                                       |
+| **Refactor Strategy**  | Cycle through `dark → light → system` on click; update icon per state       |
+| **Correct Solution**   | `onClick` → `setTheme(nextTheme)` → `applyEffectiveTheme()` → IPC broadcast |
+| **Validation**         | Icon changes (Moon/Sun/SunMoon); theme applies; persists on reload          |
 
 ---
 
 ### DUI-005: Notifications Button Opens Nothing
 
-| Field | Value |
-|---|---|
-| **ID** | DUI-005 |
-| **Severity** | 🟡 High |
-| **Current Behavior** | Bell icon button has no `onClick` handler |
-| **Root Cause** | No notification system exists in the application |
-| **Affected Component** | `TitleBar.tsx` → `TitleBarUtilityButtons` |
-| **Affected Store** | None (needs new `useNotificationStore`) |
-| **Affected IPC** | None (needs new notification IPC or in-process events) |
-| **UX Impact** | Dead UI creates confusion |
-| **Refactor Strategy** | Build minimal `NotificationStore` + `NotificationPanel` |
-| **Correct Solution** | In-process notification queue (no IPC needed for v1); panel slides in from right |
-| **Validation** | Bell opens panel; import results, backup results post notifications |
+| Field                  | Value                                                                            |
+| ---------------------- | -------------------------------------------------------------------------------- |
+| **ID**                 | DUI-005                                                                          |
+| **Severity**           | 🟡 High                                                                          |
+| **Current Behavior**   | Bell icon button has no `onClick` handler                                        |
+| **Root Cause**         | No notification system exists in the application                                 |
+| **Affected Component** | `TitleBar.tsx` → `TitleBarUtilityButtons`                                        |
+| **Affected Store**     | None (needs new `useNotificationStore`)                                          |
+| **Affected IPC**       | None (needs new notification IPC or in-process events)                           |
+| **UX Impact**          | Dead UI creates confusion                                                        |
+| **Refactor Strategy**  | Build minimal `NotificationStore` + `NotificationPanel`                          |
+| **Correct Solution**   | In-process notification queue (no IPC needed for v1); panel slides in from right |
+| **Validation**         | Bell opens panel; import results, backup results post notifications              |
 
 ---
 
 ### DUI-006: Storage Metric is Hardcoded Fake Data
 
-| Field | Value |
-|---|---|
-| **ID** | DUI-006 |
-| **Severity** | 🔴 Critical |
-| **Current Behavior** | Management Mode shows "28.4 GB / 28% dari 100 GB" — completely fabricated |
-| **Root Cause** | No filesystem stats IPC exists; metric was hardcoded as placeholder |
-| **Affected Component** | `ManagementMode.tsx` → `metrics` array |
-| **Affected Store** | `useAppStore` (needs memory info) |
-| **Affected IPC** | `system:get-memory` exists but returns process memory, not disk |
-| **UX Impact** | Operators see false system information — trust-breaking |
-| **Refactor Strategy** | Replace with real `process.getProcessMemoryInfo()` data + DB file size |
-| **Correct Solution** | New IPC `system:get-storage-stats` returns `{ dbSizeBytes, memorySizeMB }` |
-| **Validation** | Shows real memory usage; updates on each Management Mode open |
+| Field                  | Value                                                                      |
+| ---------------------- | -------------------------------------------------------------------------- |
+| **ID**                 | DUI-006                                                                    |
+| **Severity**           | 🔴 Critical                                                                |
+| **Current Behavior**   | Management Mode shows "28.4 GB / 28% dari 100 GB" — completely fabricated  |
+| **Root Cause**         | No filesystem stats IPC exists; metric was hardcoded as placeholder        |
+| **Affected Component** | `ManagementMode.tsx` → `metrics` array                                     |
+| **Affected Store**     | `useAppStore` (needs memory info)                                          |
+| **Affected IPC**       | `system:get-memory` exists but returns process memory, not disk            |
+| **UX Impact**          | Operators see false system information — trust-breaking                    |
+| **Refactor Strategy**  | Replace with real `process.getProcessMemoryInfo()` data + DB file size     |
+| **Correct Solution**   | New IPC `system:get-storage-stats` returns `{ dbSizeBytes, memorySizeMB }` |
+| **Validation**         | Shows real memory usage; updates on each Management Mode open              |
 
 ---
 
 ### DUI-007: Metric Trend Bars are Hardcoded
 
-| Field | Value |
-|---|---|
-| **ID** | DUI-007 |
-| **Severity** | 🟡 High |
-| **Current Behavior** | All 6 metric cards show hardcoded bar arrays `[38, 54, 42, 68, 58, 78, 86]` |
-| **Root Cause** | No analytics/history data was available when metrics were built |
-| **Affected Component** | `ManagementMode.tsx` → `metrics` array |
-| **Affected Store** | None (needs derived computation) |
-| **Affected IPC** | `db:get-recent-songs` can provide history data |
-| **UX Impact** | Misleading visual data |
-| **Refactor Strategy** | Compute bars from `song_history` data (last 7 days activity) |
-| **Correct Solution** | `getRecentSongs(50)` → group by day → normalize to 0-100 scale |
-| **Validation** | Bars reflect actual usage; flat bars when no history |
+| Field                  | Value                                                                       |
+| ---------------------- | --------------------------------------------------------------------------- |
+| **ID**                 | DUI-007                                                                     |
+| **Severity**           | 🟡 High                                                                     |
+| **Current Behavior**   | All 6 metric cards show hardcoded bar arrays `[38, 54, 42, 68, 58, 78, 86]` |
+| **Root Cause**         | No analytics/history data was available when metrics were built             |
+| **Affected Component** | `ManagementMode.tsx` → `metrics` array                                      |
+| **Affected Store**     | None (needs derived computation)                                            |
+| **Affected IPC**       | `db:get-recent-songs` can provide history data                              |
+| **UX Impact**          | Misleading visual data                                                      |
+| **Refactor Strategy**  | Compute bars from `song_history` data (last 7 days activity)                |
+| **Correct Solution**   | `getRecentSongs(50)` → group by day → normalize to 0-100 scale              |
+| **Validation**         | Bars reflect actual usage; flat bars when no history                        |
 
 ---
 
 ### DUI-008: Management Mode Layout Toggle Has No Action
 
-| Field | Value |
-|---|---|
-| **ID** | DUI-008 |
-| **Severity** | 🟠 Medium |
-| **Current Behavior** | `Grid2X2` icon button in Management command bar has no `onClick` |
-| **Root Cause** | Grid view was planned but not implemented |
-| **Affected Component** | `ManagementMode.tsx` → command bar |
-| **Affected Store** | Local state `viewMode: 'table' | 'grid'` |
-| **UX Impact** | Dead button creates confusion |
-| **Refactor Strategy** | Add `viewMode` state; toggle between table and card grid |
-| **Correct Solution** | Table view (current) + Card grid view (new); icon changes per mode |
-| **Validation** | Toggle switches layout; layout persists in session |
+| Field                  | Value                                                              |
+| ---------------------- | ------------------------------------------------------------------ | ------- |
+| **ID**                 | DUI-008                                                            |
+| **Severity**           | 🟠 Medium                                                          |
+| **Current Behavior**   | `Grid2X2` icon button in Management command bar has no `onClick`   |
+| **Root Cause**         | Grid view was planned but not implemented                          |
+| **Affected Component** | `ManagementMode.tsx` → command bar                                 |
+| **Affected Store**     | Local state `viewMode: 'table'                                     | 'grid'` |
+| **UX Impact**          | Dead button creates confusion                                      |
+| **Refactor Strategy**  | Add `viewMode` state; toggle between table and card grid           |
+| **Correct Solution**   | Table view (current) + Card grid view (new); icon changes per mode |
+| **Validation**         | Toggle switches layout; layout persists in session                 |
 
 ---
 
 ### DUI-009: Management Mode Filter Button Has No Dropdown
 
-| Field | Value |
-|---|---|
-| **ID** | DUI-009 |
-| **Severity** | 🟠 Medium |
-| **Current Behavior** | "Filter" button in Management command bar opens nothing |
-| **Root Cause** | Filter panel was not implemented |
-| **Affected Component** | `ManagementMode.tsx` → command bar |
-| **Affected Store** | Local state for filter options |
-| **UX Impact** | Operators cannot filter by category, author, key, etc. |
-| **Refactor Strategy** | Build `FilterDropdown` component with category/author/key filters |
-| **Correct Solution** | Floating dropdown with checkboxes; active filters shown as chips |
-| **Validation** | Filter applies to song list; chips show active filters; clear all works |
+| Field                  | Value                                                                   |
+| ---------------------- | ----------------------------------------------------------------------- |
+| **ID**                 | DUI-009                                                                 |
+| **Severity**           | 🟠 Medium                                                               |
+| **Current Behavior**   | "Filter" button in Management command bar opens nothing                 |
+| **Root Cause**         | Filter panel was not implemented                                        |
+| **Affected Component** | `ManagementMode.tsx` → command bar                                      |
+| **Affected Store**     | Local state for filter options                                          |
+| **UX Impact**          | Operators cannot filter by category, author, key, etc.                  |
+| **Refactor Strategy**  | Build `FilterDropdown` component with category/author/key filters       |
+| **Correct Solution**   | Floating dropdown with checkboxes; active filters shown as chips        |
+| **Validation**         | Filter applies to song list; chips show active filters; clear all works |
 
 ---
 
 ### DUI-010: Inspector Tabs "Chord" and "Notes" Render Nothing
 
-| Field | Value |
-|---|---|
-| **ID** | DUI-010 |
-| **Severity** | 🟡 High |
-| **Current Behavior** | Both Library Mode inspector and Projection Mode `SongInfoPanel` have "Chord" and "Notes" tabs that render empty content |
-| **Root Cause** | Chord and notes systems were not implemented |
-| **Affected Components** | `LibraryModeRedesigned.tsx` → `RightInspector`; `ProjectionMode.tsx` → `SongInfoPanel` |
-| **Affected Store** | None |
-| **UX Impact** | Dead tabs create confusion; operators click and see nothing |
-| **Refactor Strategy** | Phase A: Show "Coming Soon" placeholder with feature description. Phase B: Implement chord display from `key_note` + `time_signature` |
-| **Correct Solution** | Notes tab: free-text note per song (stored in `app_state` keyed by song ID). Chord tab: display key + time signature + basic chord chart |
-| **Validation** | Tabs show content (not blank); notes persist per song |
+| Field                   | Value                                                                                                                                    |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **ID**                  | DUI-010                                                                                                                                  |
+| **Severity**            | 🟡 High                                                                                                                                  |
+| **Current Behavior**    | Both Library Mode inspector and Projection Mode `SongInfoPanel` have "Chord" and "Notes" tabs that render empty content                  |
+| **Root Cause**          | Chord and notes systems were not implemented                                                                                             |
+| **Affected Components** | `LibraryModeRedesigned.tsx` → `RightInspector`; `ProjectionMode.tsx` → `SongInfoPanel`                                                   |
+| **Affected Store**      | None                                                                                                                                     |
+| **UX Impact**           | Dead tabs create confusion; operators click and see nothing                                                                              |
+| **Refactor Strategy**   | Phase A: Show "Coming Soon" placeholder with feature description. Phase B: Implement chord display from `key_note` + `time_signature`    |
+| **Correct Solution**    | Notes tab: free-text note per song (stored in `app_state` keyed by song ID). Chord tab: display key + time signature + basic chord chart |
+| **Validation**          | Tabs show content (not blank); notes persist per song                                                                                    |
 
 ---
 
@@ -228,56 +232,56 @@ SongMediaCard.onStarClick
 
 ### FI-001: Projection Mode "Chord" Button Shows Toast Only
 
-| Field | Value |
-|---|---|
-| **ID** | FI-001 |
+| Field                | Value                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------ |
+| **ID**               | FI-001                                                                                     |
 | **Current Behavior** | Chord button in `SongInfoPanel` shows toast "Panel chord akan mengikuti metadata lagu ini" |
-| **Root Cause** | Chord panel not implemented; toast used as placeholder |
-| **Fix** | Replace toast with actual chord display in "Chord" tab of inspector |
+| **Root Cause**       | Chord panel not implemented; toast used as placeholder                                     |
+| **Fix**              | Replace toast with actual chord display in "Chord" tab of inspector                        |
 
 ---
 
 ### FI-002: Scene Presets (1-4) Apply CSS Classes Only
 
-| Field | Value |
-|---|---|
-| **ID** | FI-002 |
+| Field                | Value                                                                                                       |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **ID**               | FI-002                                                                                                      |
 | **Current Behavior** | Scene preset buttons dispatch `projection-scene-change` event → applies CSS class `projection-scene-N` only |
-| **Root Cause** | Scene configuration UI not built; presets are CSS-only |
-| **Fix** | Wire scene presets to `atmosphereStore`; each preset loads an `AtmosphereConfig` |
+| **Root Cause**       | Scene configuration UI not built; presets are CSS-only                                                      |
+| **Fix**              | Wire scene presets to `atmosphereStore`; each preset loads an `AtmosphereConfig`                            |
 
 ---
 
 ### FI-003: Management "Duplikat" Quick Action Has No Backend
 
-| Field | Value |
-|---|---|
-| **ID** | FI-003 |
-| **Current Behavior** | "Duplikat" button in Management inspector has no `onClick` |
-| **Root Cause** | No duplicate song IPC handler exists |
-| **Fix** | Add `db:duplicate-song` IPC handler; opens `DuplicateSongDialog` |
+| Field                | Value                                                            |
+| -------------------- | ---------------------------------------------------------------- |
+| **ID**               | FI-003                                                           |
+| **Current Behavior** | "Duplikat" button in Management inspector has no `onClick`       |
+| **Root Cause**       | No duplicate song IPC handler exists                             |
+| **Fix**              | Add `db:duplicate-song` IPC handler; opens `DuplicateSongDialog` |
 
 ---
 
 ### FI-004: Management "Relasi" Quick Action Has No UI
 
-| Field | Value |
-|---|---|
-| **ID** | FI-004 |
-| **Current Behavior** | "Relasi" button has no `onClick` |
-| **Root Cause** | `SongRelationsModal` not built (IPC exists: `db:get-song-relations`) |
-| **Fix** | Build `SongRelationsModal`; wire button |
+| Field                | Value                                                                |
+| -------------------- | -------------------------------------------------------------------- |
+| **ID**               | FI-004                                                               |
+| **Current Behavior** | "Relasi" button has no `onClick`                                     |
+| **Root Cause**       | `SongRelationsModal` not built (IPC exists: `db:get-song-relations`) |
+| **Fix**              | Build `SongRelationsModal`; wire button                              |
 
 ---
 
 ### FI-005: Management "Export" Quick Action Has No Per-Song Export
 
-| Field | Value |
-|---|---|
-| **ID** | FI-005 |
-| **Current Behavior** | "Export" button has no `onClick` |
-| **Root Cause** | Only full-library export exists |
-| **Fix** | Wire to `file:write-json` with single song payload |
+| Field                | Value                                              |
+| -------------------- | -------------------------------------------------- |
+| **ID**               | FI-005                                             |
+| **Current Behavior** | "Export" button has no `onClick`                   |
+| **Root Cause**       | Only full-library export exists                    |
+| **Fix**              | Wire to `file:write-json` with single song payload |
 
 ---
 
@@ -289,6 +293,7 @@ SongMediaCard.onStarClick
 **Backend:** `usePlaylistStore.createPlaylist()` → `db:add-playlist` (both exist)  
 **Missing:** `CreatePlaylistDialog` component  
 **Orchestration:**
+
 ```
 User triggers → OPEN_MODAL('create-playlist')
   → Dialog: name (required), service_date, description
@@ -306,6 +311,7 @@ User triggers → OPEN_MODAL('create-playlist')
 **Current:** `window.confirm()` — blocks main thread, no styling, no async  
 **Missing:** `DeleteConfirmDialog` component  
 **Orchestration:**
+
 ```
 User triggers delete → OPEN_MODAL('confirm-delete', { target, onConfirm })
   → Dialog shows: title, description, item name
@@ -323,6 +329,7 @@ User triggers delete → OPEN_MODAL('confirm-delete', { target, onConfirm })
 **Backend:** All `db:get-bible-*` IPC channels exist  
 **Missing:** Navigation entry point + Projection Mode integration  
 **Orchestration:**
+
 ```
 Operator opens Bible screen
   → Select translation → Select book → Select chapter
@@ -339,6 +346,7 @@ Operator opens Bible screen
 **Backend:** All `db:get-custom-slides` IPC channels exist  
 **Missing:** `AnnouncementPanel` in Projection Mode  
 **Orchestration:**
+
 ```
 Operator opens Announcement panel (new tab in bottom workspace)
   → Load custom slides by type
@@ -355,6 +363,7 @@ Operator opens Announcement panel (new tab in bottom workspace)
 **Backend:** `db:get/add/delete-song-relations` all exist  
 **Missing:** `SongRelationsModal`  
 **Orchestration:**
+
 ```
 User clicks Relasi → OPEN_MODAL('song-relations', { songId })
   → Load relations via getSongRelations(songId)
@@ -371,6 +380,7 @@ User clicks Relasi → OPEN_MODAL('song-relations', { songId })
 **Backend:** `db:get-recovery-state` exists; `useCrashRecovery` hook exists  
 **Missing:** Recovery dialog UI  
 **Orchestration:**
+
 ```
 App starts → useCrashRecovery checks getRecoveryState()
   → If needsRecovery: OPEN_MODAL('crash-recovery', { state })
@@ -387,6 +397,7 @@ App starts → useCrashRecovery checks getRecoveryState()
 **Backend:** `importSongsFromJson()` returns `ImportSongsFromJsonResult`  
 **Missing:** Progress dialog showing import results  
 **Orchestration:**
+
 ```
 User triggers import → show ImportProgressDialog (loading state)
   → Run import → receive ImportSongsFromJsonResult
@@ -401,75 +412,75 @@ User triggers import → show ImportProgressDialog (loading state)
 
 ### BS-001: Active Playlist Lost on App Restart
 
-| Field | Value |
-|---|---|
-| **ID** | BS-001 |
+| Field                | Value                                                               |
+| -------------------- | ------------------------------------------------------------------- |
+| **ID**               | BS-001                                                              |
 | **Current Behavior** | `usePlaylistStore.activePlaylist` is not persisted; lost on restart |
-| **Root Cause** | `usePlaylistStore` has no `persist` middleware |
-| **Impact** | Operators must re-select playlist every session |
-| **Fix** | Persist `activePlaylist.id` in localStorage; restore on bootstrap |
+| **Root Cause**       | `usePlaylistStore` has no `persist` middleware                      |
+| **Impact**           | Operators must re-select playlist every session                     |
+| **Fix**              | Persist `activePlaylist.id` in localStorage; restore on bootstrap   |
 
 ---
 
 ### BS-002: Panel Layout Not Persisted (Projection Bottom)
 
-| Field | Value |
-|---|---|
-| **ID** | BS-002 |
+| Field                | Value                                                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **ID**               | BS-002                                                                                                           |
 | **Current Behavior** | `usePanelLayoutStore` IS persisted, but Projection Mode bottom workspace uses 3 panels while store only tracks 2 |
-| **Root Cause** | `projectionBottom` stores `[number, number]` but Projection Mode has 3 panels |
-| **Fix** | Extend `PanelLayoutSizes.projectionBottom` to `[number, number, number]` |
+| **Root Cause**       | `projectionBottom` stores `[number, number]` but Projection Mode has 3 panels                                    |
+| **Fix**              | Extend `PanelLayoutSizes.projectionBottom` to `[number, number, number]`                                         |
 
 ---
 
 ### BS-003: Timer Not Persisted Across Mode Switches
 
-| Field | Value |
-|---|---|
-| **ID** | BS-003 |
-| **Current Behavior** | `timerElapsed` and `timerRunning` reset when switching modes |
-| **Root Cause** | `useProjectionStore` is not persisted; timer state is ephemeral |
-| **Impact** | Service timer resets if operator accidentally switches modes |
-| **Fix** | Persist `timerElapsed` and `timerRunning` in `usePanelLayoutStore` or dedicated store |
+| Field                | Value                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| **ID**               | BS-003                                                                                |
+| **Current Behavior** | `timerElapsed` and `timerRunning` reset when switching modes                          |
+| **Root Cause**       | `useProjectionStore` is not persisted; timer state is ephemeral                       |
+| **Impact**           | Service timer resets if operator accidentally switches modes                          |
+| **Fix**              | Persist `timerElapsed` and `timerRunning` in `usePanelLayoutStore` or dedicated store |
 
 ---
 
 ### BS-004: Recovery State Not Saved on Every Slide Change
 
-| Field | Value |
-|---|---|
-| **ID** | BS-004 |
-| **Current Behavior** | `saveSessionState()` is called manually; not on every slide navigation |
-| **Root Cause** | No automatic session save on projection state changes |
-| **Impact** | Crash recovery may restore to stale state |
-| **Fix** | Subscribe to `useProjectionStore` in `useCrashRecovery`; debounce save (2000ms) |
+| Field                | Value                                                                           |
+| -------------------- | ------------------------------------------------------------------------------- |
+| **ID**               | BS-004                                                                          |
+| **Current Behavior** | `saveSessionState()` is called manually; not on every slide navigation          |
+| **Root Cause**       | No automatic session save on projection state changes                           |
+| **Impact**           | Crash recovery may restore to stale state                                       |
+| **Fix**              | Subscribe to `useProjectionStore` in `useCrashRecovery`; debounce save (2000ms) |
 
 ---
 
 ## 1.5 Missing Modal Registry
 
-| ID | Modal | Priority | Backend Ready | Complexity |
-|---|---|---|---|---|
-| MM-001 | CreatePlaylistDialog | 🔴 Critical | ✅ | Low |
-| MM-002 | DeleteConfirmDialog | 🔴 Critical | ✅ | Low |
-| MM-003 | CrashRecoveryDialog | 🔴 Critical | ✅ | Low |
-| MM-004 | SongRelationsModal | 🟡 High | ✅ | Medium |
-| MM-005 | ImportProgressDialog | 🟡 High | ✅ | Medium |
-| MM-006 | IntegrityCheckDialog | 🟡 High | ✅ | Medium |
-| MM-007 | BiblePickerDialog | 🟡 High | ✅ | High |
-| MM-008 | AnnouncementEditor | 🟡 High | ✅ | High |
-| MM-009 | MediaImportDialog | 🟡 High | ✅ | Medium |
-| MM-010 | DuplicateSongDialog | 🟠 Medium | ❌ (needs IPC) | Low |
-| MM-011 | NotificationPanel | 🟠 Medium | ❌ (in-process) | Medium |
-| MM-012 | FilterDropdown | 🟠 Medium | ✅ | Low |
-| MM-013 | SceneConfigDialog | 🟠 Medium | ✅ | High |
-| MM-014 | TagManagerDialog | 🟠 Medium | ✅ | Medium |
-| MM-015 | PlaylistPickerDialog | 🟠 Medium | ✅ | Low |
-| MM-016 | ExportSongDialog | 🟠 Medium | ✅ | Low |
-| MM-017 | SongHistoryPanel | 🟠 Medium | ✅ | Low |
-| MM-018 | StorageStatsDialog | 🟠 Medium | ❌ (needs IPC) | Low |
-| MM-019 | HymnalIntegrityDialog | 🟠 Medium | ✅ | Medium |
-| MM-020 | BackupProgressDialog | 🟠 Medium | ✅ | Low |
+| ID     | Modal                 | Priority    | Backend Ready   | Complexity |
+| ------ | --------------------- | ----------- | --------------- | ---------- |
+| MM-001 | CreatePlaylistDialog  | 🔴 Critical | ✅              | Low        |
+| MM-002 | DeleteConfirmDialog   | 🔴 Critical | ✅              | Low        |
+| MM-003 | CrashRecoveryDialog   | 🔴 Critical | ✅              | Low        |
+| MM-004 | SongRelationsModal    | 🟡 High     | ✅              | Medium     |
+| MM-005 | ImportProgressDialog  | 🟡 High     | ✅              | Medium     |
+| MM-006 | IntegrityCheckDialog  | 🟡 High     | ✅              | Medium     |
+| MM-007 | BiblePickerDialog     | 🟡 High     | ✅              | High       |
+| MM-008 | AnnouncementEditor    | 🟡 High     | ✅              | High       |
+| MM-009 | MediaImportDialog     | 🟡 High     | ✅              | Medium     |
+| MM-010 | DuplicateSongDialog   | 🟠 Medium   | ❌ (needs IPC)  | Low        |
+| MM-011 | NotificationPanel     | 🟠 Medium   | ❌ (in-process) | Medium     |
+| MM-012 | FilterDropdown        | 🟠 Medium   | ✅              | Low        |
+| MM-013 | SceneConfigDialog     | 🟠 Medium   | ✅              | High       |
+| MM-014 | TagManagerDialog      | 🟠 Medium   | ✅              | Medium     |
+| MM-015 | PlaylistPickerDialog  | 🟠 Medium   | ✅              | Low        |
+| MM-016 | ExportSongDialog      | 🟠 Medium   | ✅              | Low        |
+| MM-017 | SongHistoryPanel      | 🟠 Medium   | ✅              | Low        |
+| MM-018 | StorageStatsDialog    | 🟠 Medium   | ❌ (needs IPC)  | Low        |
+| MM-019 | HymnalIntegrityDialog | 🟠 Medium   | ✅              | Medium     |
+| MM-020 | BackupProgressDialog  | 🟠 Medium   | ✅              | Low        |
 
 ---
 
@@ -478,6 +489,7 @@ User triggers import → show ImportProgressDialog (loading state)
 ## 2.1 Global Modal Manager Design
 
 The current application has no centralized modal system. Each modal is managed with ad-hoc `useState` inside the component that needs it. This creates:
+
 - Duplicated open/close logic across 8+ components
 - No modal stacking support
 - No promise-based async handling
@@ -598,7 +610,7 @@ const { close, getProps } = useModalStore()
 const props = getProps('confirm-delete')
 
 const handleConfirm = () => {
-  props.resolve(true)  // resolves the openAsync promise
+  props.resolve(true) // resolves the openAsync promise
   close()
 }
 const handleCancel = () => {
@@ -615,7 +627,7 @@ const handleCancel = () => {
 
 export function ModalRegistry(): React.JSX.Element {
   const { stack } = useModalStore()
-  
+
   return (
     <AnimatePresence>
       {stack.map((entry, index) => (
@@ -771,6 +783,7 @@ IPC:
 ### 3.1.1 Current IPC Problems
 
 From the audit:
+
 1. **No typed contracts** — `ipcMain.handle('db:get-songs', (_e, hymnalId?) => getSongs(hymnalId))` — `hymnalId` is `unknown` at the call site
 2. **No timeout handling** — long-running queries can hang indefinitely
 3. **Inconsistent error format** — some handlers throw raw errors, some return null
@@ -785,7 +798,7 @@ Pattern: [domain]:[action]-[resource]
 
 Current violations:
   display_get-all → RENAME TO: display:get-all
-  
+
 Standard format:
   db:get-songs          ✅
   db:add-song           ✅
@@ -795,10 +808,11 @@ Standard format:
 ```
 
 **Migration:** Add alias in `ipc-handlers.ts` for backward compatibility during transition:
+
 ```typescript
 // Alias for backward compatibility
-ipcMain.handle('display_get-all', () => getAllDisplays())  // keep existing
-ipcMain.handle('display:get-all', () => getAllDisplays())  // add normalized
+ipcMain.handle('display_get-all', () => getAllDisplays()) // keep existing
+ipcMain.handle('display:get-all', () => getAllDisplays()) // add normalized
 ```
 
 ### 3.1.3 IPC Channel Groups (Complete Normalized Map)
@@ -941,19 +955,24 @@ FILE:
 ### 3.1.4 New IPC Handlers Required
 
 **`system:get-storage-stats`** (fixes DUI-006):
+
 ```typescript
 // Main process handler
 ipcMain.handle('system:get-storage-stats', async () => {
   const { statSync } = await import('fs')
   const dbPath = join(app.getPath('userData'), 'sion.db')
   const mem = await process.getProcessMemoryInfo?.()
-  
+
   let dbSizeBytes = 0
-  try { dbSizeBytes = statSync(dbPath).size } catch { /* ignore */ }
-  
+  try {
+    dbSizeBytes = statSync(dbPath).size
+  } catch {
+    /* ignore */
+  }
+
   return {
     dbSizeBytes,
-    dbSizeMB: Math.round(dbSizeBytes / (1024 * 1024) * 10) / 10,
+    dbSizeMB: Math.round((dbSizeBytes / (1024 * 1024)) * 10) / 10,
     memoryPrivateMB: mem ? Math.round(mem.private / 1024) : null,
     memorySharedMB: mem ? Math.round(mem.shared / 1024) : null
   }
@@ -961,25 +980,30 @@ ipcMain.handle('system:get-storage-stats', async () => {
 ```
 
 **`db:duplicate-song`** (fixes FI-003):
+
 ```typescript
 // Database function
 export function duplicateSong(songId: number): Song {
   const original = db.prepare('SELECT * FROM songs WHERE id = ?').get(songId)
   if (!original) throw new Error('Song not found')
-  
-  const result = db.prepare(`
+
+  const result = db
+    .prepare(
+      `
     INSERT INTO songs (hymnal_id, number, title, alternate_title, lyrics_raw,
       category, language, author, composer, key_note, time_signature, tempo,
       tags, theme, scripture_reference)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    original.hymnal_id,
-    `${original.number}-copy`,
-    `${original.title} (Salinan)`,
-    original.alternate_title,
-    original.lyrics_raw,
-    // ... rest of fields
-  )
+  `
+    )
+    .run(
+      original.hymnal_id,
+      `${original.number}-copy`,
+      `${original.title} (Salinan)`,
+      original.alternate_title,
+      original.lyrics_raw
+      // ... rest of fields
+    )
   return db.prepare('SELECT * FROM songs WHERE id = ?').get(result.lastInsertRowid)
 }
 ```
@@ -989,19 +1013,24 @@ export function duplicateSong(songId: number): Song {
 **Current state:** `safeIpcHandle` wrapper exists for destructive operations. Standard `ipcMain.handle` used for reads.
 
 **Normalization plan:**
+
 ```typescript
 // Wrap ALL handlers in safeIpcHandle for consistent error handling
 // Current: ipcMain.handle('db:get-songs', (_e, hymnalId?) => getSongs(hymnalId))
 // Normalized:
 safeIpcHandle('db:get-songs', (hymnalId?: unknown) => {
-  const id = hymnalId === undefined ? undefined : 
-    typeof hymnalId === 'number' ? hymnalId : 
-    parseInt(String(hymnalId), 10)
+  const id =
+    hymnalId === undefined
+      ? undefined
+      : typeof hymnalId === 'number'
+        ? hymnalId
+        : parseInt(String(hymnalId), 10)
   return getSongs(Number.isFinite(id) ? id : undefined)
 })
 ```
 
 **Preload bridge validation:**
+
 ```typescript
 // All preload functions validate types before sending
 songs: {
@@ -1018,11 +1047,7 @@ songs: {
 
 ```typescript
 // Wrap long-running IPC calls with timeout
-function invokeWithTimeout<T>(
-  channel: string,
-  timeoutMs: number,
-  ...args: unknown[]
-): Promise<T> {
+function invokeWithTimeout<T>(channel: string, timeoutMs: number, ...args: unknown[]): Promise<T> {
   return Promise.race([
     ipcRenderer.invoke(channel, ...args) as Promise<T>,
     new Promise<never>((_, reject) =>
@@ -1055,9 +1080,7 @@ function registerListener(key: string, register: () => () => void): void {
 }
 
 // Usage in useAppBootstrap:
-registerListener('display-changed', () =>
-  window.api.display.onDisplayChanged(handleDisplayChange)
-)
+registerListener('display-changed', () => window.api.display.onDisplayChanged(handleDisplayChange))
 ```
 
 ---
@@ -1068,18 +1091,18 @@ registerListener('display-changed', () =>
 
 ### 4.1.1 Current Store Inventory
 
-| Store | Persisted | Responsibility | Issues |
-|---|---|---|---|
-| `useAppStore` | ❌ | Songs, hymnals, screen routing, display, toast | Too broad — owns too much |
-| `useModeStore` | ✅ localStorage | currentMode, theme, isFirstInstall | Good — keep as-is |
-| `useProjectionStore` | ❌ | Slides, program state, timer, NEXT state | Good — add timer persistence |
-| `usePlaylistStore` | ❌ | Playlists, items, active playlist | Missing persistence for activePlaylist |
-| `useAtmosphereStore` | ❌ | Atmosphere config | Not read in audit — verify usage |
-| `useAnnouncementStore` | ❌ | Custom slides | Not read in audit — verify usage |
-| `useCacheStore` | ❌ | Media cache | In-memory only — correct |
-| `useHealthStore` | ❌ | IPC health endpoints | In-memory only — correct |
-| `usePanelLayoutStore` | ✅ localStorage | Panel sizes | Needs 3-panel support |
-| `useModalStore` | ❌ | Modal stack | NEW — needs to be created |
+| Store                  | Persisted       | Responsibility                                 | Issues                                 |
+| ---------------------- | --------------- | ---------------------------------------------- | -------------------------------------- |
+| `useAppStore`          | ❌              | Songs, hymnals, screen routing, display, toast | Too broad — owns too much              |
+| `useModeStore`         | ✅ localStorage | currentMode, theme, isFirstInstall             | Good — keep as-is                      |
+| `useProjectionStore`   | ❌              | Slides, program state, timer, NEXT state       | Good — add timer persistence           |
+| `usePlaylistStore`     | ❌              | Playlists, items, active playlist              | Missing persistence for activePlaylist |
+| `useAtmosphereStore`   | ❌              | Atmosphere config                              | Not read in audit — verify usage       |
+| `useAnnouncementStore` | ❌              | Custom slides                                  | Not read in audit — verify usage       |
+| `useCacheStore`        | ❌              | Media cache                                    | In-memory only — correct               |
+| `useHealthStore`       | ❌              | IPC health endpoints                           | In-memory only — correct               |
+| `usePanelLayoutStore`  | ✅ localStorage | Panel sizes                                    | Needs 3-panel support                  |
+| `useModalStore`        | ❌              | Modal stack                                    | NEW — needs to be created              |
 
 ### 4.1.2 Store Ownership Rules
 
@@ -1149,7 +1172,7 @@ export const usePlaylistStore = create<PlaylistStore>()(
   persist(
     (set, get) => ({
       // ... existing state
-      _persistedActivePlaylistId: null as number | null,
+      _persistedActivePlaylistId: null as number | null
     }),
     {
       name: 'sion-playlist-storage',
@@ -1165,7 +1188,7 @@ export const usePlaylistStore = create<PlaylistStore>()(
 const persistedId = usePlaylistStore.getState()._persistedActivePlaylistId
 if (persistedId) {
   const playlists = await window.api.playlists.getAll()
-  const playlist = playlists.find(p => p.id === persistedId)
+  const playlist = playlists.find((p) => p.id === persistedId)
   if (playlist) {
     usePlaylistStore.getState().setActivePlaylist(playlist)
     await usePlaylistStore.getState().loadPlaylistItems(persistedId)
@@ -1195,7 +1218,7 @@ export const useServiceStore = create<ServiceState>()(
     (set, get) => ({
       timerElapsed: 0,
       timerRunning: false,
-      timerStartedAt: null as number | null,
+      timerStartedAt: null as number | null
       // ... timer actions
     }),
     { name: 'sion-service-storage' }
@@ -1228,6 +1251,7 @@ updateSlideData(slideData) → broadcast to:
 ```
 
 **Reconnect behavior:**
+
 ```
 projectionWindow reconnects (did-finish-load)
   ↓
@@ -1239,6 +1263,7 @@ ProjectionApp receives and renders current state
 ```
 
 **Recovery sync:**
+
 ```
 App crash → restart
   ↓
@@ -1266,24 +1291,21 @@ markCleanExit() (clear recovery flag)
 // BAD:
 const store = useAppStore()
 // GOOD:
-const selectedSong = useAppStore(s => s.selectedSong)
+const selectedSong = useAppStore((s) => s.selectedSong)
 
 // Rule 2: Stable selectors — avoid inline object creation
 // BAD:
-const { songs, hymnals } = useAppStore(s => ({ songs: s.songs, hymnals: s.hymnals }))
+const { songs, hymnals } = useAppStore((s) => ({ songs: s.songs, hymnals: s.hymnals }))
 // GOOD (use shallow):
 import { useShallow } from 'zustand/react/shallow'
-const { songs, hymnals } = useAppStore(useShallow(s => ({ songs: s.songs, hymnals: s.hymnals })))
+const { songs, hymnals } = useAppStore(useShallow((s) => ({ songs: s.songs, hymnals: s.hymnals })))
 
 // Rule 3: Memoize derived state
-const filteredSongs = useMemo(() =>
-  songs.filter(s => matchesSong(s, query)),
-  [songs, query]
-)
+const filteredSongs = useMemo(() => songs.filter((s) => matchesSong(s, query)), [songs, query])
 
 // Rule 4: Avoid store subscriptions in render-heavy components
 // Use getState() for one-time reads in event handlers
 const handleAction = () => {
-  const { selectedSong } = useAppStore.getState()  // not a subscription
+  const { selectedSong } = useAppStore.getState() // not a subscription
 }
 ```

@@ -131,6 +131,7 @@ interface WindowAPI {
   close: () => void
   isMaximized: () => Promise<boolean>
   onMaximizedChanged: (callback: (isMaximized: boolean) => void) => () => void
+  getVersion: () => Promise<string>
 }
 
 interface AppThemeAPI {
@@ -250,6 +251,7 @@ interface SystemAPI {
   checkMultiHymnalIntegrity: (hymnalId?: number) => Promise<unknown>
   getMemory: () => Promise<unknown>
   setMode: (mode: string) => Promise<void>
+  openExternal: (url: string) => Promise<void>
 }
 
 interface FileAPI {

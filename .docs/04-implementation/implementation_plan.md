@@ -5,6 +5,7 @@ The current `LibrarySearchPalette.tsx` has syntax errors (missing `return` state
 ## Proposed Changes
 
 ### `LibrarySearchPalette.tsx`
+
 - [MODIFY] Fix syntax errors by adding the missing `return` and correctly closing `AnimatePresence`.
 - [MODIFY] Improve the "Result" item layout:
   - Better vertical centering.
@@ -15,5 +16,6 @@ The current `LibrarySearchPalette.tsx` has syntax errors (missing `return` state
   - Improve button labels and icons.
 
 ## Verification Plan
+
 - [x] Check for linting errors.
 - [x] Verify the UI in the renderer (simulated).

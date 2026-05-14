@@ -15,16 +15,18 @@ Penyempurnaan `LibraryLyricsViewer` untuk meningkatkan fungsionalitas bagi opera
 ## Daftar Fitur & Spesifikasi
 
 ### 1. **Font Scaling (Zoom Controls)**
+
 - **Tujuan**: Memungkinkan operator menyesuaikan ukuran teks lirik secara instan.
-- **UI**: 
+- **UI**:
   - Tombol **(+)** dan **(-)** di sebelah kanan Slide Indicators atau di Footer.
   - Menampilkan angka persentase atau ukuran pixel saat diubah.
-- **Logika**: 
+- **Logika**:
   - State `fontSize` (saat ini sudah ada namun akan diekspos ke UI).
   - Shortcut keyboard: `+` (zoom in) dan `-` (zoom out).
   - Simpan preferensi di `localStorage`.
 
 ### 2. **Quick Jump Search (Command Palette)**
+
 - **Tujuan**: Berpindah lagu secara instan tanpa menutup penampil lirik.
 - **UI**:
   - Ikon **Kaca Pembesar (Search)** di Top Bar (sebelah kiri tombol Fullscreen).
@@ -34,6 +36,7 @@ Penyempurnaan `LibraryLyricsViewer` untuk meningkatkan fungsionalitas bagi opera
   - Integrasi dengan `selectedSong` di store untuk update konten secara reaktif.
 
 ### 3. **Salin Lirik (Copy to Clipboard)**
+
 - **Tujuan**: Mempermudah distribusi teks lirik untuk tim media sosial atau koordinasi.
 - **UI**:
   - Ikon **Salin (Copy)** di Top Bar.
@@ -42,14 +45,16 @@ Penyempurnaan `LibraryLyricsViewer` untuk meningkatkan fungsionalitas bagi opera
   - Menggunakan `navigator.clipboard.writeText(song.lyrics_raw)`.
 
 ### 4. **Progress Indicator (Visual Navigation)**
+
 - **Tujuan**: Memberikan orientasi posisi bait lirik secara visual.
 - **UI**:
   - Indikator berupa deretan titik (dots) vertikal di sisi kanan (Slide Indicators).
-  - *Optional*: Progress bar tipis di bagian bawah Top Bar atau di atas Footer.
-- **Logika**: 
+  - _Optional_: Progress bar tipis di bagian bawah Top Bar atau di atas Footer.
+- **Logika**:
   - Berdasarkan `(index + 1) / totalPages`.
 
 ### 5. **Music Mode (Chord View Toggle)**
+
 - **Tujuan**: Menampilkan kunci musik (chords) bagi tim pemusik.
 - **UI**:
   - Toggle **Ikon Musik (Music)** di Top Bar.
