@@ -4,7 +4,7 @@
  * Provides: mock data factories, store reset helpers, render wrappers
  */
 
-import type { Song, Hymnal, Playlist, PlaylistItem, SlideData } from '../types'
+import type { Song, Hymnal, Playlist, PlaylistItem, SlideData } from '@renderer/types'
 
 // ============================================================================
 // Mock Data Factories

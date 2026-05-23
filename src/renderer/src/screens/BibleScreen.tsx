@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { Search, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useAppStore } from '../store/useAppStore'
-import { useProjectionStore } from '../store/useProjectionStore'
-import type { BibleTranslation, BibleBook, BibleVerse, SlideData } from '../types'
+import { useAppStore } from '@renderer/store/useAppStore'
+import { useProjectionStore } from '@renderer/store/useProjectionStore'
+import type { BibleTranslation, BibleBook, BibleVerse, SlideData } from '@renderer/types'
 
 // Standard Bible book names (can be localized later)
 const OLD_TESTAMENT_BOOKS = [
@@ -203,16 +203,47 @@ export function BibleScreen(): React.JSX.Element {
     if (!selectedVerses || !selectedBook) return
 
     const { setSlides, goToSlide } = useProjectionStore.getState()
+    const MAX_LENGTH = 180 // Soft character limit for auto-splitting
 
-    // Create slides from selected verses
-    const slides: SlideData[] = selectedVerses.verses.map((verse, index) => ({
-      songId: 0, // 0 indicates non-song slide
-      slideIndex: index,
-      text: verse.text,
-      sectionLabel: `${selectedBook.long_name} ${selectedVerses.chapter}:${verse.verse}`,
-      bibleId: selectedTranslation?.id,
-      bibleReference: `${selectedBook.short_name} ${selectedVerses.chapter}:${verse.verse}`
-    }))
+    const slides: SlideData[] = []
+    let currentText = ''
+    let vStart = selectedVerses.verses[0]?.verse || 0
+    let vEnd = selectedVerses.verses[0]?.verse || 0
+    let slideIndex = 0
+
+    const pushSlide = (): void => {
+      if (!currentText.trim()) return
+      slides.push({
+        songId: 0,
+        slideIndex: slideIndex++,
+        text: currentText.trim(),
+        sectionLabel: `${selectedBook.long_name} ${selectedVerses.chapter}:${vStart}${vEnd !== vStart ? '-' + vEnd : ''}`,
+        bibleId: selectedTranslation?.id,
+        bibleReference: `${selectedBook.short_name} ${selectedVerses.chapter}:${vStart}${vEnd !== vStart ? '-' + vEnd : ''}`
+      })
+    }
+
+    for (const verse of selectedVerses.verses) {
+      const verseStr = `[${verse.verse}] ${verse.text.trim()}`
+
+      if (currentText.length === 0) {
+        currentText = verseStr
+        vStart = verse.verse
+        vEnd = verse.verse
+      } else if (currentText.length + verseStr.length > MAX_LENGTH) {
+        pushSlide()
+        currentText = verseStr
+        vStart = verse.verse
+        vEnd = verse.verse
+      } else {
+        currentText += ` ${verseStr}`
+        vEnd = verse.verse
+      }
+    }
+
+    if (currentText) {
+      pushSlide()
+    }
 
     setSlides(slides)
     goToSlide(0)

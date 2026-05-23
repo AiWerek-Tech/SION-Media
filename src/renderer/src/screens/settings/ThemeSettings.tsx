@@ -82,6 +82,7 @@ export function ThemeSettings({ settings, updateSetting }: ThemeSettingsProps): 
   const textOutline = settings.projection_text_outline === '1'
   const lineHeight = parseFloat(settings.projection_line_height || '1.4')
   const fadeEnabled = (settings.projection_fade ?? '1') === '1'
+  const transitionType = settings.transition_type || 'smooth-blur'
   const maxLines = parseInt(settings.projection_max_lines || '4')
   const maxChars = parseInt(settings.projection_max_chars || '40')
 
@@ -92,18 +93,24 @@ export function ThemeSettings({ settings, updateSetting }: ThemeSettingsProps): 
       projection_text_color: textColor,
       projection_text_align: textAlign,
       projection_text_shadow: textShadow,
-      projection_text_size: fontSize,
-      projection_line_spacing: lineHeight,
-      transition_duration: parseFloat(settings.transition_duration || '0.5')
+      projection_text_outline: textOutline,
+      projection_font_size: fontSize,
+      projection_font_weight: fontWeight,
+      projection_line_height: lineHeight,
+      transition_duration: parseFloat(settings.transition_duration || '0.5'),
+      transition_type: transitionType
     })
   }, [
     fontFamily,
     textColor,
     textAlign,
     textShadow,
+    textOutline,
     fontSize,
+    fontWeight,
     lineHeight,
-    settings.transition_duration
+    settings.transition_duration,
+    transitionType
   ])
 
   const applyPreset = (preset: (typeof STYLE_PRESETS)[0]): void => {
@@ -371,6 +378,34 @@ export function ThemeSettings({ settings, updateSetting }: ThemeSettingsProps): 
         </div>
         {fadeEnabled && (
           <div className="sp-field" style={{ marginTop: 14 }}>
+            <label className="sp-field__label">Tipe Transisi</label>
+            <div className="sp-select-wrap mb-4">
+              <select
+                value={transitionType}
+                onChange={(e) => updateSetting('transition_type', e.target.value)}
+                className="sp-select"
+              >
+                <option value="dissolve">Fade (Dissolve)</option>
+                <option value="crossfade">Crossfade</option>
+                <option value="fast-cut">Fast Cut</option>
+                <option value="slide">Slide Up</option>
+                <option value="smooth-blur">Smooth Blur (Premium)</option>
+                <option value="premium-slide">Premium Slide</option>
+              </select>
+              <svg
+                className="sp-select-chevron"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
             <label className="sp-field__label sp-field__label--between">
               <span>Durasi Transisi</span>
               <span className="sp-field__value-badge">{transitionDuration.toFixed(1)}s</span>

@@ -1,5 +1,7 @@
 # Rancangan Implementasi & Eksekusi Database Multi-Hymnal SION Media
 
+> **Status:** ✅ IMPLEMENTED — Database multi-hymnal sudah diimplementasikan dengan 17+ migrasi. Lihat `06-history/03-log-db-multihymnal-revamp.md`
+
 Dokumen ini merupakan panduan teknis mendetail yang siap dieksekusi per fase untuk melakukan perombakan total pada arsitektur database (SQLite) SION Media, beralih dari aplikasi buku lagu tunggal menjadi **Platform Enterprise Multi-Hymnal**.
 
 Berdasarkan kesepakatan arsitektur dan keputusan strategis, **kita akan melakukan _wipe-out_ (penghapusan total) struktur database lama** dan membangun struktur yang benar-benar _fresh_, bersih, dan sangat profesional untuk masa depan. Semua data lama akan dihapus agar tidak tumpang tindih, dan data resmi (Lagu Sion Edisi Lengkap) akan di-import/seed kembali dengan skema baru.

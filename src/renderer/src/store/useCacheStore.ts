@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Song } from '../types'
+import type { Song } from '@renderer/types'
 
 interface CacheState {
   parsedItems: Partial<Song>[]

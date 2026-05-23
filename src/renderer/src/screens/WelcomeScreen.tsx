@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion'
+import { motion, AnimatePresence, useMotionValue, useSpring, useReducedMotion } from 'framer-motion'
 import {
   Library,
   LayoutDashboard,
@@ -10,9 +10,9 @@ import {
   ArrowRight,
   Check
 } from 'lucide-react'
-import { useModeStore, type AppMode, type AppTheme } from '../store/useModeStore'
-import { useAppStore } from '../store/useAppStore'
-import logoSrc from '../assets/logo.png'
+import { useModeStore, type AppMode, type AppTheme } from '@renderer/store/useModeStore'
+import { useAppStore } from '@renderer/store/useAppStore'
+import LogoShadow from '@renderer/assets/logo-shadow.svg?react'
 
 const easePremium = [0.22, 1, 0.36, 1] as const
 
@@ -38,6 +38,7 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
   const [ready, setReady] = useState(false)
   const [statusIndex, setStatusIndex] = useState(0)
   const isLoading = useAppStore((s) => s.isLoading)
+  const shouldReduceMotion = useReducedMotion()
 
   useEffect(() => {
     const minDuration = 1500
@@ -80,7 +81,7 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
     'Menyinkronkan konfigurasi...'
   ]
 
-  const statusTitle = ready ? 'All systems operational' : statusMessages[statusIndex]
+  const statusTitle = ready ? 'Semua sistem siap' : statusMessages[statusIndex]
 
   return (
     <div className="drag-area relative flex h-full w-full flex-col items-center justify-center overflow-hidden px-6">
@@ -105,8 +106,12 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
       <motion.div
         className="pointer-events-none absolute inset-0 -z-10"
         initial={{ opacity: 0.55 }}
-        animate={{ opacity: [0.45, 0.7, 0.45] }}
-        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+        animate={shouldReduceMotion ? { opacity: 0.55 } : { opacity: [0.45, 0.7, 0.45] }}
+        transition={
+          shouldReduceMotion
+            ? { duration: 0 }
+            : { duration: 6, repeat: Infinity, ease: 'easeInOut' }
+        }
         style={{
           background:
             'radial-gradient(circle at 55% 45%, rgba(59,130,246,0.10), transparent 58%),' +
@@ -117,8 +122,12 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
       <motion.div
         className="pointer-events-none absolute inset-0 -z-10"
         initial={{ opacity: 0.22 }}
-        animate={{ opacity: [0.18, 0.26, 0.18] }}
-        transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
+        animate={shouldReduceMotion ? { opacity: 0.22 } : { opacity: [0.18, 0.26, 0.18] }}
+        transition={
+          shouldReduceMotion
+            ? { duration: 0 }
+            : { duration: 14, repeat: Infinity, ease: 'easeInOut' }
+        }
         style={{
           background:
             'radial-gradient(700px 320px at 20% 30%, rgba(59,130,246,0.10), transparent 60%),' +
@@ -146,9 +155,9 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
       {/* Ambient volumetric glow behind logo */}
       <motion.div
         className="pointer-events-none absolute top-[22%] left-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2"
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 0.55, scale: 1 }}
-        transition={{ duration: 1.4, ease: easePremium }}
+        initial={shouldReduceMotion ? undefined : { opacity: 0, scale: 0.8 }}
+        animate={shouldReduceMotion ? { opacity: 0.55, scale: 1 } : { opacity: 0.55, scale: 1 }}
+        transition={shouldReduceMotion ? { duration: 0 } : { duration: 1.4, ease: easePremium }}
         style={{
           background:
             'radial-gradient(circle at 50% 50%, rgba(59,130,246,0.22), transparent 55%),' +
@@ -164,13 +173,21 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
           {/* Logo with volumetric glow */}
           <motion.div
             className="relative flex h-[96px] w-[96px] items-center justify-center"
-            initial={{ opacity: 0, y: 12, scale: 0.92 }}
-            animate={{ opacity: 1, y: [0, -4, 0], scale: 1 }}
-            transition={{
-              opacity: { duration: 0.9, ease: easePremium },
-              scale: { duration: 0.9, ease: easePremium },
-              y: { duration: 9, repeat: Infinity, ease: 'easeInOut' }
-            }}
+            initial={shouldReduceMotion ? undefined : { opacity: 0, y: 12, scale: 0.92 }}
+            animate={
+              shouldReduceMotion
+                ? { opacity: 1, y: 0, scale: 1 }
+                : { opacity: 1, y: [0, -4, 0], scale: 1 }
+            }
+            transition={
+              shouldReduceMotion
+                ? { duration: 0 }
+                : {
+                    opacity: { duration: 0.9, ease: easePremium },
+                    scale: { duration: 0.9, ease: easePremium },
+                    y: { duration: 9, repeat: Infinity, ease: 'easeInOut' }
+                  }
+            }
           >
             <div
               className="pointer-events-none absolute inset-[-24px]"
@@ -183,8 +200,16 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
             />
             <motion.div
               className="pointer-events-none absolute inset-[-44px]"
-              animate={{ opacity: [0.35, 0.55, 0.35], scale: [0.98, 1.03, 0.98] }}
-              transition={{ duration: 8.5, repeat: Infinity, ease: 'easeInOut' }}
+              animate={
+                shouldReduceMotion
+                  ? { opacity: 0.45, scale: 1 }
+                  : { opacity: [0.35, 0.55, 0.35], scale: [0.98, 1.03, 0.98] }
+              }
+              transition={
+                shouldReduceMotion
+                  ? { duration: 0 }
+                  : { duration: 8.5, repeat: Infinity, ease: 'easeInOut' }
+              }
               style={{
                 background:
                   'radial-gradient(circle at 50% 50%, rgba(59,130,246,0.16), transparent 58%),' +
@@ -192,20 +217,18 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
                 filter: 'blur(28px)'
               }}
             />
-            <img
-              src={logoSrc}
-              alt="SION Media"
-              className="h-16 w-16 object-contain"
-              draggable={false}
+            <LogoShadow
+              className="h-16 w-16"
+              style={{ filter: 'drop-shadow(0 0 20px rgba(59,130,246,0.3))' }}
             />
           </motion.div>
 
           {/* Ambient haze behind title */}
           <motion.div
             className="pointer-events-none absolute -top-4 left-1/2 h-[280px] w-[500px] -translate-x-1/2"
-            initial={{ opacity: 0 }}
+            initial={shouldReduceMotion ? undefined : { opacity: 0 }}
             animate={{ opacity: 0.3 }}
-            transition={{ duration: 1.6, ease: easePremium }}
+            transition={shouldReduceMotion ? { duration: 0 } : { duration: 1.6, ease: easePremium }}
             style={{
               background:
                 'radial-gradient(circle at 50% 50%, rgba(59,130,246,0.12), transparent 55%),' +
@@ -217,9 +240,13 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
           {/* Title */}
           <motion.h1
             className="text-[56px] font-bold leading-[1.0] tracking-tight text-text-primary"
-            initial={{ opacity: 0, y: 16 }}
+            initial={shouldReduceMotion ? undefined : { opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.12, ease: easePremium }}
+            transition={
+              shouldReduceMotion
+                ? { duration: 0 }
+                : { duration: 0.7, delay: 0.12, ease: easePremium }
+            }
           >
             SION Media
           </motion.h1>
@@ -227,9 +254,13 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
           {/* Subtitle */}
           <motion.p
             className="text-[16px] font-normal tracking-wide text-text-secondary/70"
-            initial={{ opacity: 0, y: 12 }}
+            initial={shouldReduceMotion ? undefined : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.22, ease: easePremium }}
+            transition={
+              shouldReduceMotion
+                ? { duration: 0 }
+                : { duration: 0.6, delay: 0.22, ease: easePremium }
+            }
           >
             Elevating Worship Experience
           </motion.p>
@@ -238,9 +269,13 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
         {/* System status - glassmorphism pill */}
         <motion.div
           className="flex items-center gap-3 rounded-full bg-white/[0.04] px-5 py-2.5 backdrop-blur-sm ring-1 ring-white/[0.06]"
-          initial={{ opacity: 0, y: 8 }}
+          initial={shouldReduceMotion ? undefined : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55, delay: 0.32, ease: easePremium }}
+          transition={
+            shouldReduceMotion
+              ? { duration: 0 }
+              : { duration: 0.55, delay: 0.32, ease: easePremium }
+          }
         >
           {/* Pulsing indicator */}
           <span className="relative flex h-2.5 w-2.5">
@@ -255,9 +290,12 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
               }`}
             />
           </span>
-          <span className="text-[12px] font-medium tracking-wide text-text-secondary/80">
+          <span
+            className="text-[12px] font-medium tracking-wide text-text-secondary/80"
+            aria-live="polite"
+          >
             {ready
-              ? 'Engine Online • Library Indexed • Renderer Ready'
+              ? 'Mesin Siap • Perpustakaan Terindeks • Renderer Siap'
               : `${statusTitle}${!ready ? `  •  ${Math.round(progress)}%` : ''}`}
           </span>
         </motion.div>
@@ -266,15 +304,20 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
         {!ready && (
           <motion.div
             className="h-[3px] w-[200px] overflow-hidden rounded-full bg-white/[0.06]"
-            initial={{ opacity: 0 }}
+            initial={shouldReduceMotion ? undefined : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.4, delay: 0.38 }}
+            transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.4, delay: 0.38 }}
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progress)}
+            aria-label="Status pemuatan"
           >
             <motion.div
               className="h-full bg-[linear-gradient(90deg,rgba(59,130,246,1),rgba(139,92,246,1))]"
-              initial={{ width: 0 }}
+              initial={shouldReduceMotion ? undefined : { width: 0 }}
               animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.25, ease: 'linear' }}
+              transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.25, ease: 'linear' }}
             />
           </motion.div>
         )}
@@ -283,12 +326,14 @@ function IntroPhase({ onNext }: { onNext: () => void }): React.JSX.Element {
         <AnimatePresence>
           {ready && (
             <motion.div
-              initial={{ opacity: 0, y: 14, scale: 0.96 }}
+              initial={shouldReduceMotion ? undefined : { opacity: 0, y: 14, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.5, ease: easePremium }}
+              transition={
+                shouldReduceMotion ? { duration: 0 } : { duration: 0.5, ease: easePremium }
+              }
             >
               <MagneticButton onClick={onNext}>
-                Launch Studio
+                Mulai Studio
                 <ArrowRight size={16} />
               </MagneticButton>
             </motion.div>
@@ -458,9 +503,7 @@ function ModePhase({
       key: 'PROJECTION',
       title: 'Projection Mode',
       desc: 'Standar ibadah live dengan kontrol dual-monitor.',
-      icon: (
-        <img src={logoSrc} alt="" className="h-7 w-7 object-contain opacity-80" draggable={false} />
-      ),
+      icon: <LogoShadow className="h-7 w-7 opacity-80" />,
       glow: 'rgba(59,130,246,0.18)'
     },
     {
@@ -572,6 +615,7 @@ function MagneticButton({
   children: React.ReactNode
   onClick: () => void
 }): React.JSX.Element {
+  const shouldReduceMotion = useReducedMotion()
   const ref = useRef<HTMLButtonElement>(null)
   const x = useMotionValue(0)
   const y = useMotionValue(0)
@@ -597,14 +641,21 @@ function MagneticButton({
   return (
     <motion.button
       ref={ref}
-      initial={{ opacity: 0, y: 14 }}
+      type="button"
+      initial={shouldReduceMotion ? undefined : { opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: easePremium }}
+      transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.5, ease: easePremium }}
       onClick={onClick}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onClick()
+        }
+      }}
       style={{ x: springX, y: springY }}
-      className="group relative inline-flex h-11 items-center justify-center gap-2 rounded-full bg-brand-primary px-8 text-[14px] font-semibold text-white shadow-lg shadow-brand-primary/25 transition-all duration-200 hover:bg-brand-primary-hover hover:shadow-xl hover:shadow-brand-primary/30 hover:-translate-y-0.5"
+      className="group relative inline-flex h-11 items-center justify-center gap-2 rounded-full bg-brand-primary px-8 text-[14px] font-semibold text-white shadow-lg shadow-brand-primary/25 transition-all duration-200 hover:bg-brand-primary-hover hover:shadow-xl hover:shadow-brand-primary/30 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
     >
       {/* Inner highlight */}
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] [background:linear-gradient(180deg,rgba(255,255,255,0.1)_0%,transparent_50%)]" />

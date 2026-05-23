@@ -4,7 +4,7 @@
  * Real app version from main process via window.api.window.getVersion()
  */
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   BookOpen,
@@ -28,8 +28,9 @@ import {
   AlertTriangle,
   Download
 } from 'lucide-react'
-import { useAppStore } from '../../store/useAppStore'
-import { UpdateService, type UpdateCheckResult } from '../../services/update-service'
+import { useAppStore } from '@renderer/store/useAppStore'
+import { UpdateService, type UpdateCheckResult } from '@renderer/services/update-service'
+import LogoTransparent from '@renderer/assets/logo-transparent.svg?react'
 
 interface SystemInfo {
   platform: string
@@ -108,7 +109,18 @@ function formatBytes(bytes: number): string {
 
 export function AboutSettings(): React.JSX.Element {
   const { hymnals, songs } = useAppStore()
-  const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null)
+  const sysInfo = useMemo<SystemInfo>(() => {
+    const ep = window.electron?.process
+    const ua = navigator.userAgent
+    return {
+      platform: ep?.platform || navigator.platform || 'Windows',
+      arch: 'x64',
+      nodeVersion: ep?.versions?.['node'] || '—',
+      electronVersion: ep?.versions?.['electron'] || '—',
+      chromeVersion: ep?.versions?.['chrome'] || ua.match(/Chrome\/([\d.]+)/)?.[1] || '—',
+      v8Version: ep?.versions?.['v8'] || '—'
+    }
+  }, [])
   const [memInfo, setMemInfo] = useState<MemoryInfo | null>(null)
   const [appVersion, setAppVersion] = useState<string>('0.0.0')
   const [checking, setChecking] = useState(false)
@@ -117,22 +129,14 @@ export function AboutSettings(): React.JSX.Element {
 
   useEffect(() => {
     // Get real app version from main process
-    window.api.window.getVersion().then(setAppVersion).catch(() => setAppVersion('1.0.0'))
-
-    // Use window.electron.process
-    const ep = window.electron?.process
-    const ua = navigator.userAgent
-    setSysInfo({
-      platform: ep?.platform || navigator.platform || 'Windows',
-      arch: 'x64',
-      nodeVersion: ep?.versions?.['node'] || '—',
-      electronVersion: ep?.versions?.['electron'] || '—',
-      chromeVersion: ep?.versions?.['chrome'] || ua.match(/Chrome\/([\d.]+)/)?.[1] || '—',
-      v8Version: ep?.versions?.['v8'] || '—'
-    })
+    window.api.window
+      .getVersion()
+      .then(setAppVersion)
+      .catch(() => setAppVersion('1.0.0'))
 
     // Fetch real memory usage
-    window.api.system.getMemory()
+    window.api.system
+      .getMemory()
       .then((mem) => {
         if (mem) setMemInfo(mem as MemoryInfo)
       })
@@ -169,7 +173,7 @@ export function AboutSettings(): React.JSX.Element {
           <div className="about-hero-card__glow" />
           <div className="about-hero-card__logo-wrap">
             <div className="about-hero-card__logo">
-              <Music2 size={36} />
+              <LogoTransparent style={{ width: 48, height: 48 }} />
             </div>
             <div className="about-hero-card__logo-ring" />
           </div>
@@ -187,11 +191,17 @@ export function AboutSettings(): React.JSX.Element {
               </span>
             </div>
             <p className="about-hero-card__desc">
-              Solusi proyeksi lagu modern yang dirancang untuk mendukung kelancaran ibadah, live
-              production, dan manajemen konten gereja secara profesional.
+              Rilis &ldquo;Aurora&rdquo; menghadirkan ekosistem multimedia yang saling terhubung,
+              dioptimalkan untuk reliabilitas tinggi dan estetika broadcast kelas dunia dalam
+              pelayanan gereja.
             </p>
             <div className="about-hero-card__links">
-              <a href="https://aiwerek-tech.github.io/sion-media-web" target="_blank" rel="noreferrer" className="sp-link">
+              <a
+                href="https://aiwerek-tech.github.io/sion-media-web"
+                target="_blank"
+                rel="noreferrer"
+                className="sp-link"
+              >
                 <Globe size={12} />
                 Website
               </a>
@@ -225,7 +235,9 @@ export function AboutSettings(): React.JSX.Element {
               ) : updateResult?.hasUpdate ? (
                 <>
                   <AlertTriangle size={14} className="text-rose-400" />
-                  <span className="text-rose-400">Update v{updateResult.latestVersion} tersedia</span>
+                  <span className="text-rose-400">
+                    Update v{updateResult.latestVersion} tersedia
+                  </span>
                 </>
               ) : updateResult ? (
                 <>
@@ -244,7 +256,10 @@ export function AboutSettings(): React.JSX.Element {
               <button
                 className="sp-btn sp-btn--primary"
                 onClick={handleDownloadUpdate}
-                style={{ width: '100%', background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)' }}
+                style={{
+                  width: '100%',
+                  background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)'
+                }}
               >
                 <Download size={14} />
                 Unduh v{updateResult.latestVersion}
@@ -286,7 +301,9 @@ export function AboutSettings(): React.JSX.Element {
 
         {updateResult?.hasUpdate && updateResult.metadata && (
           <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/5 p-4 animate-in fade-in slide-in-from-top-2">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-rose-400">Release Notes v{updateResult.latestVersion}</h4>
+            <h4 className="text-xs font-bold uppercase tracking-widest text-rose-400">
+              Release Notes v{updateResult.latestVersion}
+            </h4>
             <ul className="mt-2 space-y-1">
               {updateResult.metadata.notes.map((note, i) => (
                 <li key={i} className="text-xs text-slate-400 flex items-start gap-2">
@@ -486,7 +503,8 @@ export function AboutSettings(): React.JSX.Element {
           </div>
           <div className="about-changelog">
             <p className="text-xs text-slate-500 mb-8 italic">
-              * Silakan kunjungi website resmi untuk melihat changelog lengkap dan catatan teknis mendalam.
+              * Silakan kunjungi website resmi untuk melihat changelog lengkap dan catatan teknis
+              mendalam.
             </p>
             {/* The static changelog can stay as a fallback, but the hero section now handles the live update check */}
           </div>

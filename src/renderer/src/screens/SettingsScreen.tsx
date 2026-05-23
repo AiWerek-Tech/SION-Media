@@ -16,11 +16,12 @@ import {
   BookOpen,
   Search
 } from 'lucide-react'
-import { useAppStore } from '../store/useAppStore'
-import { mediaEngine } from '../engine/mediaEngine'
-import { logger } from '../utils/logger'
-import type { Hymnal } from '../types'
-import type { DisplayInfo } from '../../../shared/types'
+import { useAppStore } from '@renderer/store/useAppStore'
+import { useModalStore } from '@renderer/store/useModalStore'
+import { mediaEngine } from '@renderer/engine/mediaEngine'
+import { logger } from '@renderer/utils/logger'
+import type { Hymnal } from '@renderer/types'
+import type { DisplayInfo } from '@shared/types'
 import {
   DisplaySettings,
   AppThemeSettings,
@@ -175,6 +176,16 @@ export function SettingsScreen(): React.JSX.Element {
   }
 
   const handleReseed = async (): Promise<void> => {
+    const confirmed = await useModalStore
+      .getState()
+      .openAsync<boolean>('confirm-reseed', 'confirm', {
+        title: 'Reset Database Lagu?',
+        description:
+          'Semua lagu, hymnal, dan playlist akan dihapus dan diganti dengan data default. Tindakan ini tidak dapat dibatalkan.',
+        confirmLabel: 'Reset Database',
+        danger: true
+      })
+    if (!confirmed) return
     await window.api.system.reseed()
     await useAppStore.getState().loadSongs()
     showToast('Database lagu berhasil diatur ulang', 'success')

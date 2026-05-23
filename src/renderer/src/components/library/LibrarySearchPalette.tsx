@@ -1,5 +1,5 @@
 /**
- * LibrarySearchPalette — Advanced search with FTS5 highlighting and number pad.
+ * LibrarySearchPalette - Advanced search with FTS5 highlighting and number pad.
  * Supports searching by number, title (ID/EN), lyrics, and tags simultaneously.
  * Includes a number pad for quick number-based navigation.
  */
@@ -13,7 +13,7 @@ import type { Song } from '../../types'
 
 function normalizeDisplayNumber(input: string | null | undefined): string {
   const raw = String(input ?? '').trim()
-  if (raw === '') return '—'
+  if (raw === '') return '-'
   const trimmed = raw.replace(/^0+/, '')
   return trimmed === '' ? '0' : trimmed
 }
@@ -25,7 +25,7 @@ interface SearchPaletteProps {
 }
 
 // Number pad digits
-const NUMBER_PAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫']
+const NUMBER_PAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'Backspace']
 
 // Highlight matched text
 function highlightMatch(text: string, query: string): React.ReactNode {
@@ -112,7 +112,7 @@ export function LibrarySearchPalette({
     if (digit === 'C') {
       setQuery('')
       setResults([])
-    } else if (digit === '⌫') {
+    } else if (digit === 'Backspace') {
       const newQuery = query.slice(0, -1)
       handleQueryChange(newQuery)
     } else {
@@ -393,12 +393,12 @@ export function LibrarySearchPalette({
                       className={`h-11 flex items-center justify-center rounded-xl font-mono text-[16px] font-bold transition-all border ${
                         digit === 'C'
                           ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'
-                          : digit === '⌫'
+                          : digit === 'Backspace'
                             ? 'bg-white/[0.04] border-white/[0.06] text-white/40 hover:text-white hover:bg-white/[0.08]'
                             : 'bg-white/[0.06] border-white/[0.08] text-white/80 hover:bg-white/[0.12] hover:border-white/[0.15] active:scale-95'
                       }`}
                     >
-                      {digit === '⌫' ? <Delete size={18} /> : digit}
+                      {digit === 'Backspace' ? <Delete size={18} /> : digit}
                     </button>
                   ))}
                 </div>
@@ -421,7 +421,7 @@ export function LibrarySearchPalette({
                 <div className="flex items-center gap-5">
                   <div className="flex items-center gap-2">
                     <kbd className="px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-[9px] font-mono text-white/40">
-                      ↑↓
+                      Up/Down
                     </kbd>
                     <span className="text-[10px] font-bold uppercase tracking-tighter text-white/20">
                       Navigasi

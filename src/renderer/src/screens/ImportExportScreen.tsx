@@ -11,16 +11,16 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react'
-import { useAppStore } from '../store/useAppStore'
-import { useCacheStore } from '../store/useCacheStore'
-import type { Song } from '../types'
-import { logger } from '../utils/logger'
+import { useAppStore } from '@renderer/store/useAppStore'
+import { useCacheStore } from '@renderer/store/useCacheStore'
+import type { Song } from '@renderer/types'
+import { logger } from '@renderer/utils/logger'
 import {
   validateKeyNote,
   validateTempo,
   formatKeyNote,
   formatTempo
-} from '../utils/metadataValidation'
+} from '@renderer/utils/metadataValidation'
 
 type ConflictResolution = 'pending' | 'skip' | 'overwrite' | 'merge'
 
@@ -349,13 +349,13 @@ export function ImportExportScreen(): React.JSX.Element {
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-base overflow-hidden">
+    <div className="h-full w-full flex flex-col bg-bg-base overflow-hidden">
       {/* Header */}
-      <div className="h-14 flex items-center justify-between px-6 border-b border-border bg-surface/50">
+      <div className="h-14 flex items-center justify-between px-6 border-b border-border-default bg-bg-surface/50">
         <div className="flex items-center gap-4">
           <button
             onClick={() => setScreen('dashboard')}
-            className="p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-elevated transition-colors"
+            className="p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors"
           >
             <ArrowLeft size={20} />
           </button>
@@ -369,17 +369,17 @@ export function ImportExportScreen(): React.JSX.Element {
           <div className="flex gap-8 h-full items-center justify-center">
             {/* Import Card */}
             <div
-              className={`flex-1 card-modern card-modern--interactive p-10 flex flex-col items-center justify-center text-center border-2 border-dashed transition-all h-80 ${
+              className={`flex-1 bg-bg-surface rounded-xl shadow-md p-10 flex flex-col items-center justify-center text-center border-2 border-dashed transition-all cursor-pointer h-80 ${
                 isDragging
-                  ? 'border-accent bg-accent/10 scale-105 shadow-xl'
-                  : 'border-border hover:border-accent/50 hover:bg-accent/5'
+                  ? 'border-accent-primary bg-accent-primary/10 scale-105 shadow-xl'
+                  : 'border-border-default hover:border-accent-primary/50 hover:bg-accent-primary/5'
               }`}
               onClick={() => fileInputRef.current?.click()}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
-              <Upload size={48} className="text-accent mb-6" />
+              <Upload size={48} className="text-accent-primary mb-6" />
               <h2 className="text-xl font-semibold mb-2">Import JSON / Excel</h2>
               <p className="text-sm text-text-muted max-w-[250px]">
                 Impor database lagu dari file JSON atau Excel (.xlsx).
@@ -395,10 +395,10 @@ export function ImportExportScreen(): React.JSX.Element {
 
             {/* Export Card */}
             <div
-              className="flex-1 card-modern card-modern--interactive p-10 flex flex-col items-center justify-center text-center border border-border hover:border-live/50 hover:bg-live/5 transition-colors h-80"
+              className="flex-1 bg-bg-surface rounded-xl shadow-md cursor-pointer p-10 flex flex-col items-center justify-center text-center border border-border-default hover:border-status-success/50 hover:bg-status-success/5 transition-colors h-80"
               onClick={handleExport}
             >
-              <Download size={48} className="text-live mb-6" />
+              <Download size={48} className="text-status-success mb-6" />
               <h2 className="text-xl font-semibold mb-2">Export Library</h2>
               <p className="text-sm text-text-muted max-w-[250px]">
                 Ekspor seluruh lagu di library Anda ke dalam file JSON untuk di-backup atau
@@ -410,8 +410,8 @@ export function ImportExportScreen(): React.JSX.Element {
           <div className="flex flex-col h-full animate-fadeIn">
             <h2 className="text-xl font-semibold mb-2">Preview Import</h2>
             {importedPlaylistMeta && (
-              <div className="mb-2 px-3 py-1.5 bg-accent/10 border border-accent/20 rounded-md inline-block">
-                <span className="text-xs text-accent font-medium">
+              <div className="mb-2 px-3 py-1.5 bg-accent-primary/10 border border-accent-primary/20 rounded-md inline-block">
+                <span className="text-xs text-accent-primary font-medium">
                   📦 Playlist Pack: {importedPlaylistMeta.name}
                 </span>
               </div>
@@ -445,7 +445,7 @@ export function ImportExportScreen(): React.JSX.Element {
                   <select
                     value={targetHymnalId}
                     onChange={(e) => setTargetHymnalId(Number(e.target.value))}
-                    className="input-premium"
+                    className="rounded-md border border-border-default bg-bg-surface px-3 py-1.5 text-sm outline-none focus:border-accent-primary"
                   >
                     {hymnals.map((h) => (
                       <option key={h.id} value={h.id}>
@@ -456,7 +456,7 @@ export function ImportExportScreen(): React.JSX.Element {
                 </div>
                 <button
                   onClick={() => setStep(1)}
-                  className="btn-premium btn-premium-ghost text-xs py-1 px-3"
+                  className="rounded-md border border-border-default px-3 py-1.5 text-sm hover:bg-bg-elevated text-text-secondary"
                 >
                   Batal
                 </button>
@@ -469,28 +469,28 @@ export function ImportExportScreen(): React.JSX.Element {
                 <span className="text-xs text-text-muted">Atur semua konflik:</span>
                 <button
                   onClick={() => setAllResolutions('skip')}
-                  className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-bg-surface border border-border-subtle hover:bg-warning/10 hover:border-warning/30 hover:text-warning transition-colors"
+                  className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-bg-surface border border-border-default hover:bg-status-warning/10 hover:border-status-warning/30 hover:text-status-warning transition-colors"
                 >
                   <SkipForward size={12} /> Skip Semua
                 </button>
                 <button
                   onClick={() => setAllResolutions('overwrite')}
-                  className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-bg-surface border border-border-subtle hover:bg-live/10 hover:border-live/30 hover:text-live transition-colors"
+                  className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-bg-surface border border-border-default hover:bg-status-success/10 hover:border-status-success/30 hover:text-status-success transition-colors"
                 >
                   <RefreshCw size={12} /> Timpa Semua
                 </button>
                 <button
                   onClick={() => setAllResolutions('merge')}
-                  className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-bg-surface border border-border-subtle hover:bg-accent/10 hover:border-accent/30 hover:text-accent transition-colors"
+                  className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-bg-surface border border-border-default hover:bg-accent-primary/10 hover:border-accent-primary/30 hover:text-accent-primary transition-colors"
                 >
                   <Merge size={12} /> Gabung Semua
                 </button>
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto border border-border rounded-lg bg-surface/30 mb-6">
+            <div className="flex-1 overflow-y-auto border border-border-default rounded-lg bg-bg-surface/30 mb-6">
               <table className="w-full text-left text-sm">
-                <thead className="bg-elevated sticky top-0">
+                <thead className="bg-bg-elevated sticky top-0">
                   <tr>
                     <th className="p-3 font-semibold text-text-muted w-32">Status</th>
                     <th className="p-3 font-semibold text-text-muted w-20">No</th>
@@ -508,15 +508,15 @@ export function ImportExportScreen(): React.JSX.Element {
                     return (
                       <tr
                         key={index}
-                        className={`border-t border-border ${isConflict ? 'bg-warning/5' : ''}`}
+                        className={`border-t border-border-default ${isConflict ? 'bg-status-warning/5' : ''}`}
                       >
                         <td className="p-3">
                           {isConflict ? (
-                            <span className="flex items-center gap-1.5 text-warning text-xs font-medium">
+                            <span className="flex items-center gap-1.5 text-status-warning text-xs font-medium">
                               <AlertCircle size={14} /> Konflik
                             </span>
                           ) : (
-                            <span className="flex items-center gap-1.5 text-live text-xs font-medium">
+                            <span className="flex items-center gap-1.5 text-status-success text-xs font-medium">
                               <CheckCircle2 size={14} /> Baru
                             </span>
                           )}
@@ -541,8 +541,8 @@ export function ImportExportScreen(): React.JSX.Element {
                                   onClick={() => setResolution(index, 'skip')}
                                   className={`flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors ${
                                     resolution === 'skip'
-                                      ? 'bg-warning/20 text-warning border border-warning/40'
-                                      : 'bg-bg-surface border border-border-subtle hover:bg-warning/10 hover:text-warning'
+                                      ? 'bg-status-warning/20 text-status-warning border border-status-warning/40'
+                                      : 'bg-bg-surface border border-border-default hover:bg-status-warning/10 hover:text-status-warning'
                                   }`}
                                 >
                                   <SkipForward size={10} /> Skip
@@ -551,8 +551,8 @@ export function ImportExportScreen(): React.JSX.Element {
                                   onClick={() => setResolution(index, 'overwrite')}
                                   className={`flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors ${
                                     resolution === 'overwrite'
-                                      ? 'bg-live/20 text-live border border-live/40'
-                                      : 'bg-bg-surface border border-border-subtle hover:bg-live/10 hover:text-live'
+                                      ? 'bg-status-success/20 text-status-success border border-status-success/40'
+                                      : 'bg-bg-surface border border-border-default hover:bg-status-success/10 hover:text-status-success'
                                   }`}
                                 >
                                   <RefreshCw size={10} /> Timpa
@@ -561,8 +561,8 @@ export function ImportExportScreen(): React.JSX.Element {
                                   onClick={() => setResolution(index, 'merge')}
                                   className={`flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors ${
                                     resolution === 'merge'
-                                      ? 'bg-accent/20 text-accent border border-accent/40'
-                                      : 'bg-bg-surface border border-border-subtle hover:bg-accent/10 hover:text-accent'
+                                      ? 'bg-accent-primary/20 text-accent-primary border border-accent-primary/40'
+                                      : 'bg-bg-surface border border-border-default hover:bg-accent-primary/10 hover:text-accent-primary'
                                   }`}
                                 >
                                   <Merge size={10} /> Gabung
@@ -596,9 +596,11 @@ export function ImportExportScreen(): React.JSX.Element {
 
               {/* Merge Preview Panel */}
               {showMergePreview !== null && importedData[showMergePreview] && (
-                <div className="border-t border-border p-4 bg-bg-elevated/50">
-                  <h4 className="text-xs font-bold text-accent mb-2">Preview Lirik Gabungan:</h4>
-                  <pre className="text-[10px] text-text-muted whitespace-pre-wrap font-mono bg-bg-surface p-3 rounded border border-border-subtle max-h-40 overflow-y-auto">
+                <div className="border-t border-border-default p-4 bg-bg-elevated/50">
+                  <h4 className="text-xs font-bold text-accent-primary mb-2">
+                    Preview Lirik Gabungan:
+                  </h4>
+                  <pre className="text-[10px] text-text-muted whitespace-pre-wrap font-mono bg-bg-surface p-3 rounded border border-border-default max-h-40 overflow-y-auto">
                     {getMergedLyricsPreview(showMergePreview)}
                   </pre>
                 </div>
@@ -612,7 +614,7 @@ export function ImportExportScreen(): React.JSX.Element {
                   importing ||
                   (!allConflictsResolved && Object.keys(conflictResolutions).length > 0)
                 }
-                className="btn-premium btn-premium-primary py-2 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-lg bg-accent-primary px-6 py-2 text-sm font-semibold text-white hover:bg-accent-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {importing
                   ? 'Mengimpor...'

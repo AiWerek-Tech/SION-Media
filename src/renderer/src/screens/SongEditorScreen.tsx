@@ -21,19 +21,23 @@ import {
   Wand2
 } from 'lucide-react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { useAppStore } from '../store/useAppStore'
-import { useProjectionStore } from '../store/useProjectionStore'
-import { generateSlides, autoFormatLyrics } from '../engine/slideEngine'
-import type { SlideData } from '../types'
-import { logger } from '../utils/logger'
+import { useAppStore } from '@renderer/store/useAppStore'
+import { useProjectionStore } from '@renderer/store/useProjectionStore'
+import { generateSlides, autoFormatLyrics } from '@core/projection'
+import type { SlideData } from '@renderer/types'
+import { logger } from '@renderer/utils/logger'
 import {
   validateKeyNote,
   validateTempo,
   formatKeyNote,
   formatTempo
-} from '../utils/metadataValidation'
-import { DEFAULT_SCENE_PRESETS } from '../atmosphere/presets'
-import type { AtmosphereConfig, MediaAssetRecord, MediaCollectionRecord } from '../atmosphere/types'
+} from '@renderer/utils/metadataValidation'
+import { DEFAULT_SCENE_PRESETS } from '@renderer/atmosphere/presets'
+import type {
+  AtmosphereConfig,
+  MediaAssetRecord,
+  MediaCollectionRecord
+} from '@renderer/atmosphere/types'
 
 function formatRuntime(seconds: number): string {
   const safeSeconds = Math.max(0, seconds)

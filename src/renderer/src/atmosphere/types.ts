@@ -22,6 +22,12 @@ export type MotionPreset =
   | 'volumetric-light'
   | 'cloud-drift'
   | 'animated-gradient'
+  | 'sabbath-dawn'
+  | 'three-angels'
+  | 'sanctuary-light'
+  | 'living-water'
+  | 'second-advent'
+  | 'scripture-glow'
 
 export interface MotionConfig {
   preset: MotionPreset
@@ -120,4 +126,12 @@ export interface AtmosphereScenePreset {
   description: string
   icon?: string
   config: AtmosphereConfig
+}
+
+export interface AtmosphereThemePack {
+  schema: 'sion.atmosphere.theme-pack.v1'
+  name: string
+  version?: string
+  author?: string
+  presets: AtmosphereScenePreset[]
 }

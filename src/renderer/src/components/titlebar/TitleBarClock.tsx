@@ -1,6 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { Clock, Timer, TimerOff, Zap } from 'lucide-react'
-import { useAppStore } from '../../store/useAppStore'
+/**
+ * TitleBarClock — wall clock + FPS counter
+ *
+ * Service timer has been moved to TitleBarStatus (TitleBarTimer component).
+ * This component only shows: FPS | clock time
+ *
+ * Auto-start of the projection timer when going LIVE is handled here
+ * so it still fires even when AudioPanel is hidden.
+ */
+import React, { useState, useEffect } from 'react'
+import { Clock, Zap } from 'lucide-react'
 import { useProjectionStore } from '../../store/useProjectionStore'
 
 function useFPS(): number {
@@ -25,61 +33,26 @@ function useFPS(): number {
   return fps
 }
 
-function formatElapsed(ms: number): string {
-  const totalSec = Math.floor(ms / 1000)
-  const h = Math.floor(totalSec / 3600)
-  const m = Math.floor((totalSec % 3600) / 60)
-  const s = totalSec % 60
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-}
-
 export function TitleBarClock(): React.JSX.Element {
   const [time, setTime] = useState(new Date())
-  const { serviceTimerStartTime, startServiceTimer, stopServiceTimer } = useAppStore()
-  const { projectionState } = useProjectionStore()
-  const [elapsed, setElapsed] = useState(0)
   const fps = useFPS()
 
-  // Clock tick
+  // Auto-start projection timer when first going LIVE
+  const projectionState = useProjectionStore((s) => s.projectionState)
+  const timerRunning = useProjectionStore((s) => s.timerRunning)
+  const timerStart = useProjectionStore((s) => s.timerStart)
+
   useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000)
-    return () => clearInterval(timer)
+    if (projectionState === 'LIVE' && !timerRunning) {
+      timerStart()
+    }
+  }, [projectionState, timerRunning, timerStart])
+
+  // Clock tick — 1s interval
+  useEffect(() => {
+    const id = setInterval(() => setTime(new Date()), 1000)
+    return () => clearInterval(id)
   }, [])
-
-  // Auto-start service timer when first going LIVE
-  useEffect(() => {
-    if (projectionState === 'LIVE' && !serviceTimerStartTime) {
-      startServiceTimer()
-    }
-  }, [projectionState, serviceTimerStartTime, startServiceTimer])
-
-  // Update elapsed time
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null
-    if (serviceTimerStartTime) {
-      interval = setInterval(() => {
-        setElapsed(Date.now() - serviceTimerStartTime)
-      }, 1000)
-    }
-    return () => {
-      if (interval) clearInterval(interval)
-    }
-  }, [serviceTimerStartTime])
-
-  useEffect(() => {
-    if (!serviceTimerStartTime) {
-      setTimeout(() => setElapsed(0), 0)
-    }
-  }, [serviceTimerStartTime])
-
-  const handleTimerClick = useCallback((): void => {
-    if (serviceTimerStartTime) {
-      stopServiceTimer()
-    } else {
-      startServiceTimer()
-    }
-  }, [serviceTimerStartTime, startServiceTimer, stopServiceTimer])
 
   const fpsColor =
     fps >= 50 ? 'var(--color-live)' : fps >= 30 ? 'var(--color-warning)' : 'var(--color-program)'
@@ -92,20 +65,10 @@ export function TitleBarClock(): React.JSX.Element {
         <span>{fps}</span>
       </div>
 
-      {/* Service Timer */}
-      <button
-        className={`title-bar-timer ${serviceTimerStartTime ? 'running' : ''}`}
-        onClick={handleTimerClick}
-        title={serviceTimerStartTime ? 'Click to stop timer' : 'Click to start timer'}
-      >
-        {serviceTimerStartTime ? <Timer size={10} /> : <TimerOff size={10} />}
-        <span>{serviceTimerStartTime ? formatElapsed(elapsed) : '--:--'}</span>
-      </button>
-
       {/* Separator */}
       <div className="title-bar-separator" />
 
-      {/* Clock */}
+      {/* Wall clock */}
       <div className="title-bar-time" title={time.toLocaleDateString()}>
         <Clock size={10} />
         <span>

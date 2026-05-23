@@ -10,14 +10,14 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, ChevronRight, Hash, Music, Navigation } from 'lucide-react'
-import { useProjectionStore } from '../store/useProjectionStore'
-import { executeRuntimeCommand } from '../utils/runtimeCommandBus'
+import { useProjectionStore } from '@renderer/store/useProjectionStore'
+import { executeRuntimeCommand } from '@renderer/utils/runtimeCommandBus'
 import {
   generateQuickJumpTargets,
   filterQuickJumpTargets,
   parseSlideAddress
-} from '../utils/slideAddressResolver'
-import type { QuickJumpTarget } from '../types'
+} from '@renderer/utils/slideAddressResolver'
+import type { QuickJumpTarget } from '@renderer/types'
 
 interface QuickJumpOverlayProps {
   isOpen: boolean
@@ -34,12 +34,23 @@ export function QuickJumpOverlay({
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const { slides, sectionMap, currentSlideIndex, programSlideIndex } = useProjectionStore()
+  const {
+    slides,
+    sectionMap,
+    currentSlideIndex,
+    programSlides,
+    programSectionMap,
+    programSlideIndex
+  } = useProjectionStore()
+
+  const sourceSlides = mode === 'preview' ? slides : programSlides
+  const sourceSectionMap = mode === 'preview' ? sectionMap : programSectionMap
+  const currentPosition = mode === 'preview' ? currentSlideIndex : programSlideIndex
 
   // Generate targets
   const allTargets = useMemo(() => {
-    return generateQuickJumpTargets(slides, sectionMap)
-  }, [slides, sectionMap])
+    return generateQuickJumpTargets(sourceSlides, sourceSectionMap)
+  }, [sourceSlides, sourceSectionMap])
 
   // Filter targets based on query
   const filteredTargets = useMemo(() => {
@@ -145,8 +156,11 @@ export function QuickJumpOverlay({
     }
   }
 
-  // Get current position label
-  const currentPosition = mode === 'preview' ? currentSlideIndex : programSlideIndex
+  const currentPositionLabel =
+    sourceSlides.length > 0 && currentPosition >= 0
+      ? `Slide ${currentPosition + 1}/${sourceSlides.length}`
+      : 'No slides loaded'
+  const currentSlide = currentPosition >= 0 ? sourceSlides[currentPosition] : undefined
 
   return (
     <AnimatePresence>
@@ -194,11 +208,9 @@ export function QuickJumpOverlay({
 
               {/* Current Position */}
               <div className="px-4 py-2 bg-bg-surface/50 text-[11px] text-text-muted border-b border-border-subtle">
-                Current: Slide {currentPosition + 1}/{slides.length}
-                {slides[currentPosition]?.sectionLabel && (
-                  <span className="ml-2 text-text-secondary">
-                    ({slides[currentPosition].sectionLabel})
-                  </span>
+                Current: {currentPositionLabel}
+                {currentSlide?.sectionLabel && (
+                  <span className="ml-2 text-text-secondary">({currentSlide.sectionLabel})</span>
                 )}
               </div>
 

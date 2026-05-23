@@ -29,13 +29,14 @@ import {
   ListPlus,
   ListX
 } from 'lucide-react'
-import { useAppStore } from '../store/useAppStore'
-import { useProjectionStore } from '../store/useProjectionStore'
-import { generateSlidesForSong } from '../engine/slideEngine'
-import { getHymnalColor } from '../utils/hymnal-colors'
-import { getPaletteCommands, executeRuntimeCommand } from '../utils/runtimeCommandBus'
-import type { RuntimeCommandType, CommandMetadata } from '../utils/runtimeCommandBus'
-import type { Song } from '../types'
+import { useAppStore } from '@renderer/store/useAppStore'
+import { useProjectionStore } from '@renderer/store/useProjectionStore'
+import { generateSlidesForSong } from '@core/projection'
+import { getHymnalColor } from '@renderer/utils/hymnal-colors'
+import { getPaletteCommands, executeRuntimeCommand } from '@renderer/utils/runtimeCommandBus'
+import type { RuntimeCommandType, CommandMetadata } from '@renderer/utils/runtimeCommandBus'
+import type { Song } from '@renderer/types'
+import { useModalStore } from '@renderer/store/useModalStore'
 
 function normalizeDisplayNumber(input: string | null | undefined): string {
   const raw = String(input ?? '').trim()
@@ -223,18 +224,28 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps): React.
           songBackgroundConfig: song.song_background_config || ''
         })
         showToast(`Cue "${song.title}" masuk ke Preview`, 'success')
+        onClose()
       } else {
         const cmd = item.data
         if (cmd.meta.dangerous) {
-          const confirmed = window.confirm(
-            `PERINGATAN: Perintah "${cmd.meta.label}" akan langsung mengubah tampilan Live.\n\nLanjutkan?`
-          )
-          if (!confirmed) return
+          void (async (): Promise<void> => {
+            const confirmed = await useModalStore
+              .getState()
+              .openAsync<boolean>('confirm-dangerous-cmd', 'confirm', {
+                title: 'Perintah Berbahaya',
+                description: `PERINGATAN: Perintah "${cmd.meta.label}" akan langsung mengubah tampilan Live.\n\nLanjutkan?`,
+                confirmLabel: 'Lanjutkan',
+                danger: true
+              })
+            if (!confirmed) return
+            executeRuntimeCommand(cmd.type, undefined, 'KEYBOARD')
+            onClose()
+          })()
+        } else {
+          executeRuntimeCommand(cmd.type, undefined, 'KEYBOARD')
+          onClose()
         }
-        executeRuntimeCommand(cmd.type, undefined, 'KEYBOARD')
-        // Feedback is handled by the global toast subscriber in App.tsx
       }
-      onClose()
     },
     [setSlides, showToast, onClose]
   )

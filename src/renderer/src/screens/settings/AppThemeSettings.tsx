@@ -5,8 +5,8 @@
 
 import React, { useEffect, useState } from 'react'
 import { Monitor, Moon, Sun, Laptop, Layout, Columns, Maximize2, PanelLeft } from 'lucide-react'
-import { useModeStore } from '../../store/useModeStore'
-import { logger } from '../../utils/logger'
+import { useModeStore } from '@renderer/store/useModeStore'
+import { logger } from '@renderer/utils/logger'
 import {
   applyEffectiveTheme,
   buildThemeSyncPayload,
@@ -14,7 +14,7 @@ import {
   resolveEffectiveTheme,
   watchSystemThemeChanges,
   type AppThemeMode
-} from '../../utils/app-theme'
+} from '@renderer/utils/app-theme'
 
 interface AppThemeSettingsProps {
   settings: Record<string, string>

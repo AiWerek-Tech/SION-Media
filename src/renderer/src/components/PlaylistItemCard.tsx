@@ -2,9 +2,9 @@ import React, { useState } from 'react'
 import { AlertTriangle, GripVertical, Radio, Tag, X } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { generateSlidesForPlaylistItem } from '../engine/slideEngine'
-import { usePlaylistStore } from '../store/usePlaylistStore'
-import type { PlaylistItem } from '../types'
+import { generateSlidesForPlaylistItem } from '@renderer/engine/slideEngine'
+import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
+import type { PlaylistItem } from '@renderer/types'
 
 interface PlaylistItemCardProps {
   item: PlaylistItem

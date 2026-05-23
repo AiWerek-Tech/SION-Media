@@ -25,10 +25,10 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable'
-import { usePlaylistStore } from '../../store/usePlaylistStore'
-import { useAppStore } from '../../store/useAppStore'
-import PlaylistItemCard from '../PlaylistItemCard'
-import { logger } from '../../utils/logger'
+import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
+import { useAppStore } from '@renderer/store/useAppStore'
+import PlaylistItemCard from '@renderer/components/PlaylistItemCard'
+import { logger } from '@renderer/utils/logger'
 
 const SECTION_PRESETS = [
   'PEMBUKAAN',

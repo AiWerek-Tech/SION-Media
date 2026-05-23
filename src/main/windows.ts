@@ -3,11 +3,12 @@
  * Handles creation and lifecycle of all application windows
  */
 
-import { BrowserWindow, shell, screen } from 'electron'
+import { BrowserWindow, shell, screen, type Display } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { getLatestProjectionTheme, mergeProjectionTheme } from './theme-manager'
+import { getSettings } from './database'
 
 type EffectiveTheme = 'dark' | 'light'
 // Sandbox is desirable, but this app currently relies on preload behaviors that
@@ -17,12 +18,89 @@ const isSandboxEnabled = process.env['ELECTRON_ENABLE_SANDBOX'] === '1'
 
 // Window references
 let mainWindow: BrowserWindow | null = null
+let splashWindow: BrowserWindow | null = null
 let projectionWindow: BrowserWindow | null = null
 let stageDisplayWindow: BrowserWindow | null = null
 
 // Projection state tracking
 let latestSlideData: unknown = null
 let latestProjectionState = 'CLEAR'
+
+function getProjectionWindowOptions(): {
+  targetDisplay: Display
+  fullscreen: boolean
+} {
+  const displays = screen.getAllDisplays()
+  const settings = getSettings()
+  const selectedDisplayId = Number(settings['projection_monitor_id'] || 0)
+  const configuredDisplay = Number.isFinite(selectedDisplayId)
+    ? displays.find((display) => display.id === selectedDisplayId)
+    : undefined
+  const externalDisplay = displays.find((display) => display.id !== screen.getPrimaryDisplay().id)
+  return {
+    targetDisplay: configuredDisplay || externalDisplay || screen.getPrimaryDisplay(),
+    fullscreen: (settings['display_fullscreen'] ?? '1') === '1'
+  }
+}
+
+export function repositionProjectionWindowFromSettings(): void {
+  if (!projectionWindow || projectionWindow.isDestroyed()) return
+  const { targetDisplay, fullscreen } = getProjectionWindowOptions()
+  projectionWindow.setFullScreen(false)
+  projectionWindow.setBounds(targetDisplay.bounds)
+  projectionWindow.setFullScreen(fullscreen)
+}
+
+export function createNativeSplashWindow(): void {
+  splashWindow = new BrowserWindow({
+    width: 520,
+    height: 400,
+    resizable: false,
+    frame: false,
+    transparent: true,
+    title: 'SION Media',
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    focusable: false,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: isSandboxEnabled,
+      webSecurity: true,
+      webviewTag: false
+    }
+  })
+
+  const splashPath =
+    is.dev && process.env['ELECTRON_RENDERER_URL']
+      ? `${process.env['ELECTRON_RENDERER_URL']}/splash.html`
+      : join(__dirname, '../renderer/splash.html')
+
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    splashWindow.loadURL(splashPath)
+  } else {
+    splashWindow.loadFile(splashPath)
+  }
+
+  splashWindow.on('closed', () => {
+    splashWindow = null
+  })
+}
+
+export function closeNativeSplashWindow(): void {
+  if (!splashWindow || splashWindow.isDestroyed()) return
+  splashWindow.close()
+  splashWindow = null
+}
+
+export function showMainWindow(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (!mainWindow.isVisible()) {
+    mainWindow.show()
+  }
+  mainWindow.focus()
+}
 
 /**
  * Send current projection state snapshot to a window
@@ -173,10 +251,6 @@ export function createMainWindow(): void {
     console.error('[mainWindow] render-process-gone', details)
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow?.show()
-  })
-
   // Notify renderer on maximize state changes
   mainWindow.on('maximize', () => {
     mainWindow?.webContents.send('window:maximized-changed', true)
@@ -216,16 +290,14 @@ export function createMainWindow(): void {
  * Create the projection window for external display
  */
 export function createProjectionWindow(): void {
-  const displays = screen.getAllDisplays()
-  const externalDisplay = displays.find((d) => d.id !== screen.getPrimaryDisplay().id)
-  const targetDisplay = externalDisplay || screen.getPrimaryDisplay()
+  const { targetDisplay, fullscreen } = getProjectionWindowOptions()
 
   projectionWindow = new BrowserWindow({
     x: targetDisplay.bounds.x,
     y: targetDisplay.bounds.y,
     width: targetDisplay.bounds.width,
     height: targetDisplay.bounds.height,
-    fullscreen: true,
+    fullscreen,
     frame: false,
     autoHideMenuBar: true,
     show: false,
@@ -327,8 +399,8 @@ export function showProjectionWindow(): void {
     createProjectionWindow()
   }
   if (projectionWindow && !projectionWindow.isDestroyed()) {
+    repositionProjectionWindowFromSettings()
     projectionWindow.show()
-    projectionWindow.setFullScreen(true)
   }
 }
 

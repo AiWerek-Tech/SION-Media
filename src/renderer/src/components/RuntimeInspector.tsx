@@ -14,15 +14,27 @@ import {
   Zap,
   Heart
 } from 'lucide-react'
-import type { RuntimeEvent, RuntimeEventFilter, CommandSource } from '../utils/runtimeCommandBus'
+import type {
+  RuntimeEvent,
+  RuntimeEventFilter,
+  CommandSource
+} from '@renderer/utils/runtimeCommandBus'
 import {
   subscribeToRuntimeEvents,
   getRecentRuntimeEvents,
   clearRuntimeEvents
-} from '../utils/runtimeCommandBus'
-import { useHealthStore } from '../store/useHealthStore'
-import { getInputAdapterHealth } from '../utils/runtimeInputAdapter'
+} from '@renderer/utils/runtimeCommandBus'
+import { useHealthStore } from '@renderer/store/useHealthStore'
+import { getInputAdapterHealth } from '@renderer/utils/runtimeInputAdapter'
 import { VirtualAdapterSimulator } from './VirtualAdapterPanel'
+import {
+  queryTraces,
+  getTraceStats,
+  eventLogger,
+  type EventTrace,
+  type TraceQuery,
+  type TraceStats
+} from '@core/projection'
 
 interface RuntimeInspectorProps {
   isOpen: boolean
@@ -140,7 +152,7 @@ interface HealthStatus {
   confidenceConnected: boolean
 }
 
-type InspectorTab = 'EVENTS' | 'HEALTH' | 'INPUTS' | 'SIMULATOR'
+type InspectorTab = 'EVENTS' | 'HEALTH' | 'INPUTS' | 'FSM' | 'SIMULATOR'
 
 // Status badge component - using design system
 function StatusBadge({ status }: { status: RuntimeEvent['status'] }): React.JSX.Element {
@@ -507,6 +519,148 @@ function FilterBar({
   )
 }
 
+function FsmTab(): React.JSX.Element {
+  const [traces, setTraces] = useState<EventTrace[]>([])
+  const [stats, setStats] = useState<TraceStats | null>(null)
+  const [query, setQuery] = useState<TraceQuery>({})
+  const [filterText, setFilterText] = useState('')
+
+  const loadData = useCallback((): void => {
+    try {
+      const allTraces = queryTraces(query)
+      const filteredTraces = filterText
+        ? allTraces.filter((trace) =>
+            JSON.stringify(trace).toLowerCase().includes(filterText.toLowerCase())
+          )
+        : allTraces
+
+      setTraces(filteredTraces)
+      setStats(getTraceStats())
+    } catch (error) {
+      console.error('Failed to load trace data:', error)
+    }
+  }, [query, filterText])
+
+  useEffect(() => {
+    const initialLoad = window.setTimeout(loadData, 0)
+    const interval = window.setInterval(loadData, 1000)
+    return () => {
+      window.clearTimeout(initialLoad)
+      window.clearInterval(interval)
+    }
+  }, [loadData])
+
+  const formatTimestamp = (timestamp: number): string => {
+    return new Date(timestamp).toLocaleTimeString()
+  }
+
+  const getTraceIcon = (type: EventTrace['type']): string => {
+    switch (type) {
+      case 'COMMAND':
+        return '📝'
+      case 'TRANSITION':
+        return '🔄'
+      case 'EFFECT':
+        return '⚡'
+      case 'ERROR':
+        return '❌'
+      default:
+        return '?'
+    }
+  }
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden text-xs">
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-white/5">
+        <Filter size={14} className="text-zinc-500" />
+        <input
+          type="text"
+          placeholder="Filter FSM traces..."
+          value={filterText}
+          onChange={(e) => setFilterText(e.target.value)}
+          className="flex-1 px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-white"
+        />
+        <select
+          value={query.type || ''}
+          onChange={(e) =>
+            setQuery({ ...query, type: (e.target.value as EventTrace['type']) || undefined })
+          }
+          className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-white"
+        >
+          <option value="">All Types</option>
+          <option value="COMMAND">Commands</option>
+          <option value="TRANSITION">Transitions</option>
+          <option value="EFFECT">Effects</option>
+          <option value="ERROR">Errors</option>
+        </select>
+        <button
+          onClick={() => {
+            eventLogger.clear()
+            loadData()
+          }}
+          className="btn-premium btn-premium-ghost text-xs"
+        >
+          Clear FSM
+        </button>
+      </div>
+
+      {stats && (
+        <div className="flex items-center gap-4 px-4 py-2 border-b border-white/5 text-zinc-400 bg-black/20">
+          <span>
+            Total: <strong className="text-zinc-200">{stats.totalTraces}</strong>
+          </span>
+          <span>
+            Errors: <strong className="text-rose-400">{stats.errorCount}</strong>
+          </span>
+          <span>
+            Avg Duration:{' '}
+            <strong className="text-zinc-200">{stats.averageDuration.toFixed(1)}ms</strong>
+          </span>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="divide-y divide-white/5">
+          {traces.map((trace) => (
+            <div key={trace.id} className="px-4 py-2 hover:bg-white/5 flex gap-3 items-start">
+              <span className="text-base leading-none">{getTraceIcon(trace.type)}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-zinc-300">{trace.type}</span>
+                  <span className="px-1.5 py-0.5 rounded bg-white/10 text-zinc-400 text-[10px]">
+                    {trace.source}
+                  </span>
+                  {trace.duration && (
+                    <span className="text-zinc-500">{trace.duration.toFixed(1)}ms</span>
+                  )}
+                  <span className="text-zinc-500 ml-auto">{formatTimestamp(trace.timestamp)}</span>
+                </div>
+                {trace.command && (
+                  <div className="text-zinc-400 mt-0.5">
+                    <strong>Cmd:</strong> {trace.command.type}
+                  </div>
+                )}
+                {trace.transition && (
+                  <div className="text-zinc-400 mt-0.5">
+                    <strong>Trans:</strong> {trace.transition.fromState} →{' '}
+                    {trace.transition.toState}
+                    <span className="text-cyan-400 ml-2">({trace.transition.event})</span>
+                  </div>
+                )}
+                {trace.error && (
+                  <div className="text-rose-400 mt-0.5">
+                    <strong>Err:</strong> {trace.error.message}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function RuntimeInspector({ isOpen, onClose }: RuntimeInspectorProps): React.JSX.Element {
   const [events, setEvents] = useState<RuntimeEvent[]>([])
   const [selectedEvent, setSelectedEvent] = useState<RuntimeEvent | null>(null)
@@ -659,6 +813,7 @@ export function RuntimeInspector({ isOpen, onClose }: RuntimeInspectorProps): Re
       {/* Tabs */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-white/5">
         <TabButton tab="EVENTS" activeTab={activeTab} onClick={() => setActiveTab('EVENTS')} />
+        <TabButton tab="FSM" activeTab={activeTab} onClick={() => setActiveTab('FSM')} />
         <TabButton tab="HEALTH" activeTab={activeTab} onClick={() => setActiveTab('HEALTH')} />
         <TabButton tab="INPUTS" activeTab={activeTab} onClick={() => setActiveTab('INPUTS')} />
         <TabButton
@@ -727,6 +882,8 @@ export function RuntimeInspector({ isOpen, onClose }: RuntimeInspectorProps): Re
       )}
 
       {activeTab === 'INPUTS' && <InputsTab />}
+
+      {activeTab === 'FSM' && <FsmTab />}
 
       {activeTab === 'SIMULATOR' && import.meta.env.DEV && (
         <div className="flex-1 overflow-hidden p-4">

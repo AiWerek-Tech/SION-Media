@@ -8,6 +8,8 @@ import { persist } from 'zustand/middleware'
 export interface PanelLayoutSizes {
   /** ProjectionMode: [SongLibrary width%, Playlist width%] */
   projectionBottom: [number, number]
+  /** ProjectionMode 3-panel: [SongLibrary%, Playlist%, DetailPanel%] */
+  projectionBottom3: [number, number, number]
   /** Dashboard: [SongLibrary width%, Playlist width%] */
   dashboardBottom: [number, number]
   /** ManagementMode: [SongList width%, DetailPanel width%] */
@@ -20,14 +22,16 @@ export interface PanelLayoutSizes {
 
 interface PanelLayoutState {
   sizes: PanelLayoutSizes
-  setSizes: (mode: keyof PanelLayoutSizes, sizes: [number, number]) => void
-  getSizes: (mode: keyof PanelLayoutSizes) => [number, number]
+  setSizes: (mode: keyof PanelLayoutSizes, sizes: number[]) => void
+  getSizes: (mode: keyof PanelLayoutSizes) => number[]
   resetToDefaults: () => void
 }
 
 const DEFAULT_SIZES: PanelLayoutSizes = {
   // ProjectionMode bottom section: 45% library, 55% playlist
   projectionBottom: [45, 55],
+  // ProjectionMode 3-panel: 35% library, 40% playlist, 25% detail
+  projectionBottom3: [35, 40, 25],
   // Dashboard bottom section: 45% library, 55% playlist
   dashboardBottom: [45, 55],
   // ManagementMode main section: 65% list, 35% detail
@@ -86,6 +90,10 @@ export const PANEL_CONSTRAINTS = {
   projectionBottom: {
     minSizes: [30, 35], // Library min 30%, Playlist min 35%
     maxSizes: [60, 65] // Library max 60%, Playlist max 65%
+  },
+  projectionBottom3: {
+    minSizes: [25, 30, 15], // Library min 25%, Playlist min 30%, Detail min 15%
+    maxSizes: [50, 50, 35] // Library max 50%, Playlist max 50%, Detail max 35%
   },
   dashboardBottom: {
     minSizes: [30, 35],

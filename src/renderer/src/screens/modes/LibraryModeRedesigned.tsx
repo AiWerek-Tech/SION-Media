@@ -1,40 +1,45 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  BarChart3,
   BookOpen,
-  Bot,
   Boxes,
-  ChevronDown,
   Command,
+  Copy,
   Edit3,
   Expand,
+  FileEdit,
   FolderOpen,
-  Gauge,
   Grid3X3,
+  GripVertical,
   Heart,
   History,
   Library,
   ListMusic,
-  Mic2,
   MonitorPlay,
   MoreHorizontal,
   Music2,
   PanelRightClose,
+  PanelLeftOpen,
   Play,
   Plus,
   Radio,
   Search,
   SlidersHorizontal,
-  Sparkles,
   Star,
   Tags,
-  Type
+  Trash2,
+  Type,
+  X
 } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import { useModeStore } from '../../store/useModeStore'
 import { usePlaylistStore } from '../../store/usePlaylistStore'
+import { useModalStore } from '../../store/useModalStore'
 import { LibraryLyricsViewer } from '../../components/library/LibraryLyricsViewer'
+import { SongContextMenu } from '../../components/library/SongContextMenu'
+import type { SongContextMenuAction } from '../../components/library/SongContextMenu'
+import { HymnalFilterDropdown } from '../../components/library/HymnalFilterDropdown'
 import { logger } from '../../utils/logger'
 import type { AppMode } from '../../store/useModeStore'
 import type { Song } from '../../types'
@@ -75,35 +80,11 @@ const NAV_GROUPS: Array<{
   {
     label: 'Library',
     items: [
-      { id: 'all', label: 'Semua Lagu', icon: Music2, count: (ctx) => ctx.songs },
+      { id: 'all', label: 'Buku Aktif', icon: BookOpen, count: (ctx) => ctx.songs },
       { id: 'playlist', label: 'Playlist Saya', icon: ListMusic, count: (ctx) => ctx.playlists },
       { id: 'favorites', label: 'Favorit', icon: Heart, count: (ctx) => ctx.favorites },
-      { id: 'recent', label: 'Recently Opened', icon: History, count: (ctx) => ctx.recent }
-    ]
-  },
-  {
-    label: 'Koleksi',
-    items: [
-      { id: 'collections', label: 'Collections', icon: Boxes, comingSoon: true },
-      { id: 'hymnals', label: 'Hymnals', icon: BookOpen, count: (ctx) => ctx.hymnals },
+      { id: 'recent', label: 'Recently Opened', icon: History, count: (ctx) => ctx.recent },
       { id: 'tags', label: 'Tags & Themes', icon: Tags, count: (ctx) => ctx.tags }
-    ]
-  },
-  {
-    label: 'Latihan',
-    items: [
-      { id: 'practice', label: 'Practice Tools', icon: Gauge, comingSoon: true },
-      { id: 'chords', label: 'Chord Charts', icon: SlidersHorizontal, comingSoon: true },
-      { id: 'vocal', label: 'Vocal Guide', icon: Mic2, comingSoon: true }
-    ]
-  },
-  {
-    label: 'Studio',
-    items: [
-      { id: 'broadcast', label: 'Broadcast Studio', icon: Radio, comingSoon: true },
-      { id: 'ai', label: 'AI Features', icon: Bot, comingSoon: true },
-      { id: 'analytics', label: 'Worship Analytics', icon: BarChart3, comingSoon: true },
-      { id: 'utilities', label: 'Utilities', icon: Sparkles, comingSoon: true }
     ]
   }
 ]
@@ -115,6 +96,11 @@ type LibraryCounts = {
   recent: number
   hymnals: number
   tags: number
+}
+
+type TagOption = {
+  label: string
+  count: number
 }
 
 function normalizeNumber(input: string | null | undefined): string {
@@ -153,6 +139,12 @@ function matchesSong(song: Song, query: string): boolean {
   ]
     .filter(Boolean)
     .some((field) => String(field).toLowerCase().includes(q))
+}
+
+function parseSongTags(song: Song): string[] {
+  return [song.category, song.theme, ...(song.tags || '').split(',')]
+    .map((tag) => tag?.trim())
+    .filter(Boolean) as string[]
 }
 
 function LibraryArtwork({
@@ -247,34 +239,62 @@ function SongMediaCard({
   selected,
   onSelect,
   onOpen,
-  onAdd
+  onAdd,
+  onToggleFavorite,
+  onContextMenu
 }: {
   song: Song
   selected: boolean
   onSelect: () => void
   onOpen: () => void
   onAdd: () => void
+  onToggleFavorite: (song: Song) => void
+  onContextMenu?: (e: React.MouseEvent) => void
 }): React.JSX.Element {
   const verses = songVerseCount(song)
+  const articleRef = React.useRef<HTMLDivElement>(null)
+
+  // Phase 6: Bind native dragstart via ref to avoid framer-motion conflict
+  React.useEffect(() => {
+    const el = articleRef.current
+    if (!el) return
+    el.setAttribute('draggable', 'true')
+    const handler = (e: DragEvent): void => {
+      e.dataTransfer?.setData('application/sion-song-id', String(song.id))
+      e.dataTransfer?.setData('text/plain', `${song.number} - ${song.title}`)
+      if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
+    }
+    el.addEventListener('dragstart', handler)
+    return () => el.removeEventListener('dragstart', handler)
+  }, [song.id, song.number, song.title])
+
   return (
     <motion.article
+      ref={articleRef}
       layout
       whileHover={{ y: -2 }}
       className={`library-pro-song-card ${selected ? 'is-selected' : ''}`}
       onClick={onSelect}
       onDoubleClick={onOpen}
+      onContextMenu={onContextMenu}
     >
       <div className="library-pro-song-card__top">
         <LibraryArtwork song={song} />
-        <button
-          onClick={(event) => {
-            event.stopPropagation()
-          }}
-          className={song.is_favorite === 1 ? 'is-favorite' : ''}
-          title="Favorit"
-        >
-          <Star size={15} fill={song.is_favorite === 1 ? 'currentColor' : 'none'} />
-        </button>
+        <div className="flex items-center gap-1">
+          <span className="text-text-disabled cursor-grab active:cursor-grabbing">
+            <GripVertical size={12} />
+          </span>
+          <button
+            onClick={(event) => {
+              event.stopPropagation()
+              onToggleFavorite(song)
+            }}
+            className={song.is_favorite === 1 ? 'is-favorite' : ''}
+            title="Favorit"
+          >
+            <Star size={15} fill={song.is_favorite === 1 ? 'currentColor' : 'none'} />
+          </button>
+        </div>
       </div>
 
       <div className="library-pro-song-card__body">
@@ -339,20 +359,39 @@ function RightInspector({
   song,
   onOpen,
   onAdd,
+  onToggleFavorite,
   onEdit
 }: {
   song: Song | null
   onOpen: () => void
   onAdd: () => void
+  onToggleFavorite: () => void
   onEdit: () => void
 }): React.JSX.Element {
+  const [activeTab, setActiveTab] = useState<'detail' | 'chord' | 'notes'>('detail')
+
   if (!song) {
     return (
       <aside className="library-pro-inspector">
         <div className="library-pro-panel-tabs">
-          <button className="is-active">Detail Lagu</button>
-          <button>Chord</button>
-          <button>Notes</button>
+          <button
+            className={activeTab === 'detail' ? 'is-active' : ''}
+            onClick={() => setActiveTab('detail')}
+          >
+            Detail Lagu
+          </button>
+          <button
+            className={activeTab === 'chord' ? 'is-active' : ''}
+            onClick={() => setActiveTab('chord')}
+          >
+            Chord
+          </button>
+          <button
+            className={activeTab === 'notes' ? 'is-active' : ''}
+            onClick={() => setActiveTab('notes')}
+          >
+            Notes
+          </button>
         </div>
         <div className="library-pro-empty-inspector">
           <Music2 size={34} />
@@ -376,61 +415,175 @@ function RightInspector({
   ]
 
   return (
-    <aside className="library-pro-inspector">
-      <div className="library-pro-panel-tabs">
-        <button className="is-active">Detail Lagu</button>
-        <button>Chord</button>
-        <button>Notes</button>
+    <aside className="library-pro-inspector flex flex-col">
+      <div className="library-pro-panel-tabs shrink-0">
+        <button
+          className={activeTab === 'detail' ? 'is-active' : ''}
+          onClick={() => setActiveTab('detail')}
+        >
+          Detail Lagu
+        </button>
+        <button
+          className={activeTab === 'chord' ? 'is-active' : ''}
+          onClick={() => setActiveTab('chord')}
+        >
+          Chord
+        </button>
+        <button
+          className={activeTab === 'notes' ? 'is-active' : ''}
+          onClick={() => setActiveTab('notes')}
+        >
+          Notes
+        </button>
       </div>
 
-      <div className="library-pro-inspector__content">
-        <LibraryArtwork song={song} large />
-        <div className="library-pro-inspector__title">
-          <span>{normalizeNumber(song.number).padStart(3, '0')}</span>
-          <h2>{song.title}</h2>
-          <p>{song.title_en || song.alternate_title || song.hymnal_name || 'Worship media'}</p>
-        </div>
-
-        <div className="library-pro-inspector__primary-actions">
-          <button onClick={onOpen}>
-            <Play size={15} />
-            Buka Lagu
-          </button>
-          <button onClick={onAdd}>
-            <Plus size={15} />
-            Tambah Playlist
-          </button>
-        </div>
-
-        <div className="library-pro-meta-table">
-          {meta.map(([label, value]) => (
-            <div key={label}>
-              <span>{label}</span>
-              <strong>{value}</strong>
+      <div className="library-pro-inspector__content flex-1 overflow-y-auto">
+        {activeTab === 'detail' && (
+          <>
+            <LibraryArtwork song={song} large />
+            <div className="library-pro-inspector__title">
+              <span>{normalizeNumber(song.number).padStart(3, '0')}</span>
+              <h2>{song.title}</h2>
+              <p>{song.title_en || song.alternate_title || song.hymnal_name || 'Worship media'}</p>
             </div>
-          ))}
-        </div>
 
-        <div className="library-pro-inspector__quick">
-          <button>
-            <Heart size={14} />
-            Favorit
-          </button>
-          <button onClick={onEdit}>
-            <Edit3 size={14} />
-            Edit Info
-          </button>
-          <button>
-            <SlidersHorizontal size={14} />
-            Chord
-          </button>
-          <button>
-            <MoreHorizontal size={14} />
-          </button>
-        </div>
+            <div className="library-pro-inspector__primary-actions">
+              <button onClick={onOpen}>
+                <Play size={15} />
+                Buka Lagu
+              </button>
+              <button onClick={onAdd}>
+                <Plus size={15} />
+                Tambah Playlist
+              </button>
+            </div>
+
+            <div className="library-pro-meta-table">
+              {meta.map(([label, value]) => (
+                <div key={label}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
+
+            <div className="library-pro-inspector__quick">
+              <button
+                className={song.is_favorite === 1 ? 'is-favorite' : ''}
+                onClick={onToggleFavorite}
+              >
+                <Heart size={14} />
+                {song.is_favorite === 1 ? 'Favorit' : 'Favoritkan'}
+              </button>
+              <button onClick={onEdit}>
+                <Edit3 size={14} />
+                Edit Info
+              </button>
+              <button onClick={() => setActiveTab('chord')}>
+                <SlidersHorizontal size={14} />
+                Chord
+              </button>
+              <button>
+                <MoreHorizontal size={14} />
+              </button>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'chord' && (
+          <div className="flex flex-col gap-4 pt-2">
+            <h3 className="text-sm font-bold text-white mb-2">Chord Sheet</h3>
+            <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-4 text-center">
+              <h4 className="text-[14px] font-bold text-text-primary mb-2">
+                Nada Dasar: {song.key_note || '?'}
+              </h4>
+              <p className="text-[12px] text-text-secondary mb-4">
+                Birama: {song.time_signature || '?'} • Tempo: {song.tempo || '?'}
+              </p>
+              <div className="text-[12px] text-text-muted bg-black/20 p-4 rounded-lg font-mono whitespace-pre text-left overflow-x-auto">
+                {song.key_note
+                  ? `[${song.key_note}]\nTidak ada chord sheet yang tersimpan untuk lagu ini.`
+                  : 'Metadata nada dasar belum diatur.'}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'notes' && (
+          <div className="flex flex-col gap-4 pt-2">
+            <h3 className="text-sm font-bold text-white mb-2">Operator Notes</h3>
+            <div className="text-[12px] text-slate-400 bg-white/[0.03] p-4 rounded-lg border border-white/[0.05] min-h-[150px]">
+              Notes kosong. Gunakan fitur Edit Info untuk menambahkan catatan operator khusus untuk
+              lagu ini.
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   )
+}
+
+function LibraryFilterRail({
+  workspace,
+  hymnals,
+  selectedHymnalId,
+  tagOptions,
+  activeTag,
+  onSelectHymnal,
+  onSelectTag
+}: {
+  workspace: LibraryWorkspace
+  hymnals: Array<{ id: number; name: string; code: string }>
+  selectedHymnalId: number | null
+  tagOptions: TagOption[]
+  activeTag: string | null
+  onSelectHymnal: (id: number | null) => void
+  onSelectTag: (tag: string | null) => void
+}): React.JSX.Element | null {
+  if (workspace === 'hymnals') {
+    return (
+      <div className="library-pro-filter-rail">
+        <button
+          className={selectedHymnalId === null ? 'is-active' : ''}
+          onClick={() => onSelectHymnal(null)}
+        >
+          Semua Buku
+        </button>
+        {hymnals.map((hymnal) => (
+          <button
+            key={hymnal.id}
+            className={selectedHymnalId === hymnal.id ? 'is-active' : ''}
+            onClick={() => onSelectHymnal(hymnal.id)}
+          >
+            <span>{hymnal.code}</span>
+            {hymnal.name}
+          </button>
+        ))}
+      </div>
+    )
+  }
+
+  if (workspace === 'tags') {
+    return (
+      <div className="library-pro-filter-rail">
+        <button className={activeTag === null ? 'is-active' : ''} onClick={() => onSelectTag(null)}>
+          Semua Tema
+        </button>
+        {tagOptions.slice(0, 24).map((tag) => (
+          <button
+            key={tag.label}
+            className={activeTag === tag.label ? 'is-active' : ''}
+            onClick={() => onSelectTag(tag.label)}
+          >
+            {tag.label}
+            <small>{tag.count}</small>
+          </button>
+        ))}
+      </div>
+    )
+  }
+
+  return null
 }
 
 function LibraryOverview({ counts }: { counts: LibraryCounts }): React.JSX.Element {
@@ -462,10 +615,6 @@ function LibraryOverview({ counts }: { counts: LibraryCounts }): React.JSX.Eleme
 
   return (
     <section className="library-pro-overview">
-      <div className="library-pro-heading">
-        <h1>Semua Lagu</h1>
-        <p>{counts.songs} lagu dalam database</p>
-      </div>
       <div className="library-pro-stat-grid">
         {stats.map((stat) => {
           const Icon = stat.icon
@@ -485,18 +634,119 @@ function LibraryOverview({ counts }: { counts: LibraryCounts }): React.JSX.Eleme
   )
 }
 
+/** Virtualized grid for SongMediaCard (Title tab) — renders only visible rows for 1000+ songs */
+const TITLE_CARD_MIN_WIDTH = 236
+const TITLE_CARD_GAP = 14
+const ROW_HEIGHT = 220
+
+function VirtualizedSongGrid({
+  songs,
+  selectedSongId,
+  onSelectSong,
+  onOpenSong,
+  onAddToPlaylist,
+  onToggleFavorite,
+  onContextMenu
+}: {
+  songs: Song[]
+  selectedSongId: number | null
+  onSelectSong: (song: Song) => void
+  onOpenSong: (song: Song) => void
+  onAddToPlaylist: (song: Song) => void
+  onToggleFavorite: (song: Song) => void
+  onContextMenu: (e: React.MouseEvent, song: Song) => void
+}): React.JSX.Element {
+  const parentRef = useRef<HTMLDivElement>(null)
+  const [columnCount, setColumnCount] = useState(3)
+  const rowCount = Math.ceil(songs.length / columnCount)
+
+  useEffect(() => {
+    const element = parentRef.current
+    if (!element) return
+
+    const updateColumnCount = (): void => {
+      const contentWidth = Math.max(0, element.clientWidth - 36)
+      const nextColumnCount = Math.max(
+        1,
+        Math.floor((contentWidth + TITLE_CARD_GAP) / (TITLE_CARD_MIN_WIDTH + TITLE_CARD_GAP))
+      )
+      setColumnCount((current) => (current === nextColumnCount ? current : nextColumnCount))
+    }
+
+    updateColumnCount()
+    const resizeObserver = new ResizeObserver(updateColumnCount)
+    resizeObserver.observe(element)
+
+    return () => resizeObserver.disconnect()
+  }, [])
+
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
+    count: rowCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 3
+  })
+
+  return (
+    <div ref={parentRef} className="library-pro-title-scroll scrollbar-thin">
+      <div
+        style={{
+          height: `${rowVirtualizer.getTotalSize()}px`,
+          width: '100%',
+          position: 'relative'
+        }}
+      >
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          const startIdx = virtualRow.index * columnCount
+          const rowSongs = songs.slice(startIdx, startIdx + columnCount)
+
+          return (
+            <div
+              key={virtualRow.key}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+                gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`
+              }}
+              className="library-pro-title-row"
+            >
+              {rowSongs.map((song) => (
+                <SongMediaCard
+                  key={song.id}
+                  song={song}
+                  selected={selectedSongId === song.id}
+                  onSelect={() => onSelectSong(song)}
+                  onOpen={() => onOpenSong(song)}
+                  onAdd={() => onAddToPlaylist(song)}
+                  onToggleFavorite={onToggleFavorite}
+                  onContextMenu={(e) => onContextMenu(e, song)}
+                />
+              ))}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export function LibraryMode(): React.JSX.Element {
   const {
     hymnals,
     loadHymnals,
     loadSongs,
-    selectedHymnalId,
     setSelectedSong,
     setLyricsFullscreen,
     setEditingSong,
     setScreen,
     showToast,
-    songs
+    songs,
+    setSongs
   } = useAppStore()
   const selectedSong = useAppStore((s) => s.selectedSong)
   const isLyricsFullscreen = useAppStore((s) => s.isLyricsFullscreen)
@@ -509,12 +759,65 @@ export function LibraryMode(): React.JSX.Element {
   const [query, setQuery] = useState('')
   const [fullscreenLibrary, setFullscreenLibrary] = useState(false)
   const [page, setPage] = useState(1)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [activeLibraryHymnalId, setActiveLibraryHymnalId] = useState<number | null>(null)
+  const [appVersion, setAppVersion] = useState('')
+  const [activeTag, setActiveTag] = useState<string | null>(null)
+  const [recentSongs, setRecentSongs] = useState<Song[]>([])
+  // Phase 6: Context menu state
+  const [ctxMenu, setCtxMenu] = useState<{
+    open: boolean
+    x: number
+    y: number
+    song: Song | null
+  }>({
+    open: false,
+    x: 0,
+    y: 0,
+    song: null
+  })
+  const playlistDropRef = useRef<HTMLDivElement>(null)
+
+  const refreshRecentSongs = useCallback(async (): Promise<void> => {
+    try {
+      const recent = (await window.api.system.getRecentSongs(50)) as Song[]
+      setRecentSongs(recent)
+    } catch (err) {
+      logger.error('Failed to load recent songs:', err)
+      setRecentSongs([])
+    }
+  }, [])
 
   useEffect(() => {
     loadHymnals()
-    loadSongs(selectedHymnalId || undefined)
+    loadSongs(undefined)
     loadPlaylists().catch(logger.error)
-  }, [loadHymnals, loadPlaylists, loadSongs, selectedHymnalId])
+    const timer = window.setTimeout(() => {
+      void refreshRecentSongs()
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [loadHymnals, loadPlaylists, loadSongs, refreshRecentSongs])
+
+  useEffect(() => {
+    if (workspace !== 'recent') return
+    const timer = window.setTimeout(() => {
+      void refreshRecentSongs()
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [refreshRecentSongs, workspace])
+
+  useEffect(() => {
+    let isMounted = true
+    window.api.window
+      .getVersion()
+      .then((version) => {
+        if (isMounted) setAppVersion(version)
+      })
+      .catch((err) => logger.error('Failed to load app version:', err))
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -535,26 +838,65 @@ export function LibraryMode(): React.JSX.Element {
   }, [fullscreenLibrary, isLyricsFullscreen])
 
   const counts = useMemo<LibraryCounts>(() => {
-    const tagSet = new Set(
-      songs
-        .flatMap((song) => [song.category, song.theme, ...(song.tags || '').split(',')])
-        .map((tag) => tag?.trim())
-        .filter(Boolean) as string[]
-    )
+    const tagSet = new Set(songs.flatMap(parseSongTags))
     return {
       songs: songs.length,
       playlists: playlists.length,
       favorites: songs.filter((song) => song.is_favorite === 1).length,
-      recent: songs.filter((song) => song.last_played || song.last_used).length,
+      recent: recentSongs.length,
       hymnals: hymnals.length,
       tags: tagSet.size
     }
-  }, [hymnals.length, playlists.length, songs])
+  }, [hymnals.length, playlists.length, recentSongs.length, songs])
+
+  const defaultHymnal = useMemo(() => {
+    return (
+      hymnals.find((hymnal) => hymnal.name.toLowerCase().includes('lagu sion edisi lengkap')) ||
+      hymnals.find((hymnal) => hymnal.code.toLowerCase() === 'ls') ||
+      hymnals[0] ||
+      null
+    )
+  }, [hymnals])
+
+  const activeHymnal = useMemo(() => {
+    return hymnals.find((hymnal) => hymnal.id === activeLibraryHymnalId) || defaultHymnal
+  }, [activeLibraryHymnalId, defaultHymnal, hymnals])
+
+  const activeHymnalId = activeHymnal?.id ?? null
+
+  const tagOptions = useMemo<TagOption[]>(() => {
+    const map = new Map<string, number>()
+    for (const song of songs.filter((item) => item.hymnal_id === activeHymnalId)) {
+      for (const tag of parseSongTags(song)) {
+        map.set(tag, (map.get(tag) || 0) + 1)
+      }
+    }
+    return Array.from(map, ([label, count]) => ({ label, count })).sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count
+      return a.label.localeCompare(b.label)
+    })
+  }, [activeHymnalId, songs])
+
+  // Phase 6: Hymnal song counts for filter dropdown
+  const hymnalSongCounts = useMemo(() => {
+    const map = new Map<number, number>()
+    for (const song of songs) {
+      if (song.hymnal_id) {
+        map.set(song.hymnal_id, (map.get(song.hymnal_id) || 0) + 1)
+      }
+    }
+    return map
+  }, [songs])
+
+  const effectiveActiveTag = workspace === 'tags' ? activeTag : null
 
   const visibleSongs = useMemo(() => {
-    let base = songs
-    if (workspace === 'favorites') base = songs.filter((song) => song.is_favorite === 1)
-    if (workspace === 'recent') base = songs.filter((song) => song.last_played || song.last_used)
+    let base = workspace === 'recent' ? recentSongs : songs
+    if (activeHymnalId !== null) base = base.filter((song) => song.hymnal_id === activeHymnalId)
+    if (workspace === 'favorites') base = base.filter((song) => song.is_favorite === 1)
+    if (effectiveActiveTag) {
+      base = base.filter((song) => parseSongTags(song).includes(effectiveActiveTag))
+    }
     const filtered = base.filter((song) => matchesSong(song, query))
     return [...filtered].sort((a, b) => {
       if (activeTab === 'title') return (a.title || '').localeCompare(b.title || '')
@@ -563,18 +905,50 @@ export function LibraryMode(): React.JSX.Element {
       if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb
       return (a.number || '').localeCompare(b.number || '')
     })
-  }, [activeTab, query, songs, workspace])
+  }, [activeHymnalId, activeTab, effectiveActiveTag, query, recentSongs, songs, workspace])
 
   useEffect(() => {
-    if (!selectedSong && visibleSongs[0]) setSelectedSong(visibleSongs[0])
+    if (visibleSongs.length === 0) return
+    if (!selectedSong || !visibleSongs.some((song) => song.id === selectedSong.id)) {
+      setSelectedSong(visibleSongs[0])
+    }
   }, [selectedSong, setSelectedSong, visibleSongs])
 
   const pageSize = 120
   const pageCount = Math.max(1, Math.ceil(visibleSongs.length / pageSize))
+  const currentPage = Math.min(page, pageCount)
+
   const pagedSongs = useMemo(() => {
     if (activeTab !== 'number') return visibleSongs
-    return visibleSongs.slice((page - 1) * pageSize, page * pageSize)
-  }, [activeTab, page, visibleSongs])
+    return visibleSongs.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  }, [activeTab, currentPage, visibleSongs])
+
+  const inspectedSong = useMemo(() => {
+    if (!selectedSong) return null
+    return (
+      visibleSongs.find((song) => song.id === selectedSong.id) ||
+      songs.find((song) => song.id === selectedSong.id) ||
+      recentSongs.find((song) => song.id === selectedSong.id) ||
+      selectedSong
+    )
+  }, [recentSongs, selectedSong, songs, visibleSongs])
+
+  const workspaceTitle = useMemo(() => {
+    if (workspace === 'favorites') return 'Favorit'
+    if (workspace === 'recent') return 'Recently Opened'
+    if (workspace === 'playlist') return 'Playlist Workspace'
+    if (workspace === 'tags')
+      return effectiveActiveTag ? `Tema: ${effectiveActiveTag}` : 'Tags & Themes'
+    return activeHymnal?.name || 'Buku Lagu'
+  }, [activeHymnal?.name, effectiveActiveTag, workspace])
+
+  const resultSummary = useMemo(() => {
+    if (visibleSongs.length === 0) return 'Tidak ada lagu yang cocok'
+    if (activeTab === 'number') {
+      return `Menampilkan ${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, visibleSongs.length)} dari ${visibleSongs.length} lagu`
+    }
+    return `${visibleSongs.length} lagu tampil dari ${songs.length} lagu dalam database`
+  }, [activeTab, currentPage, songs.length, visibleSongs.length])
 
   const handleSelectSong = useCallback(
     (song: Song) => {
@@ -589,8 +963,11 @@ export function LibraryMode(): React.JSX.Element {
       if (!song) return
       setSelectedSong(song)
       setLyricsFullscreen(true)
+      window.setTimeout(() => {
+        void refreshRecentSongs()
+      }, 150)
     },
-    [selectedSong, setLyricsFullscreen, setSelectedSong]
+    [refreshRecentSongs, selectedSong, setLyricsFullscreen, setSelectedSong]
   )
 
   const handlePrevSong = useCallback(() => {
@@ -639,18 +1016,166 @@ export function LibraryMode(): React.JSX.Element {
     [activePlaylist, addSongToPlaylist, showToast]
   )
 
+  // DUI-001: Wire favorite button with optimistic update
+  const handleToggleFavorite = useCallback(
+    async (song: Song): Promise<void> => {
+      const prevSongs = songs
+      // Optimistic update
+      setSongs(
+        songs.map((s) => (s.id === song.id ? { ...s, is_favorite: s.is_favorite ? 0 : 1 } : s))
+      )
+      setRecentSongs(
+        recentSongs.map((s) =>
+          s.id === song.id ? { ...s, is_favorite: s.is_favorite ? 0 : 1 } : s
+        )
+      )
+      try {
+        await window.api.songs.toggleFavorite(song.id)
+      } catch {
+        setSongs(prevSongs)
+        void refreshRecentSongs()
+        showToast('Gagal mengubah favorit', 'error')
+      }
+    },
+    [recentSongs, refreshRecentSongs, setSongs, showToast, songs]
+  )
+
   const handleEditSong = (): void => {
-    if (!selectedSong) return
-    setEditingSong(selectedSong)
+    if (!inspectedSong) return
+    setEditingSong(inspectedSong)
     setScreen('song-editor')
   }
+
+  // Phase 6: Context menu handler
+  const handleSongContextMenu = useCallback((e: React.MouseEvent, song: Song) => {
+    e.preventDefault()
+    setCtxMenu({ open: true, x: e.clientX, y: e.clientY, song })
+  }, [])
+
+  const ctxMenuActions: SongContextMenuAction[] = useMemo(() => {
+    if (!ctxMenu.song) return []
+    const song = ctxMenu.song
+    return [
+      {
+        id: 'open_song',
+        label: 'Buka Lagu',
+        icon: <BookOpen size={14} />,
+        onClick: () => {
+          setSelectedSong(song)
+          setLyricsFullscreen(true)
+        }
+      },
+      {
+        id: 'add_to_playlist',
+        label: 'Tambah ke Playlist',
+        icon: <Plus size={14} />,
+        onClick: () => handleAddToPlaylist(song)
+      },
+      {
+        id: 'toggle_favorite',
+        label: song.is_favorite === 1 ? 'Hapus Favorit' : 'Tambah Favorit',
+        icon: <Star size={14} />,
+        onClick: () => {
+          void handleToggleFavorite(song)
+        },
+        dividerBefore: true
+      },
+      {
+        id: 'edit_song',
+        label: 'Edit Info Lagu',
+        icon: <Edit3 size={14} />,
+        onClick: () => {
+          setEditingSong(song)
+          setScreen('song-editor')
+        }
+      },
+      {
+        id: 'edit_lyrics',
+        label: 'Edit Lirik',
+        icon: <FileEdit size={14} />,
+        onClick: () => {
+          setEditingSong(song)
+          setScreen('song-editor')
+        }
+      },
+      {
+        id: 'copy_number',
+        label: 'Salin Nomor Lagu',
+        icon: <Copy size={14} />,
+        onClick: () => {
+          navigator.clipboard.writeText(String(song.number || '')).catch(() => {})
+          showToast(`Nomor "${song.number}" disalin`, 'info')
+        },
+        dividerBefore: true
+      },
+      {
+        id: 'copy_title',
+        label: 'Salin Judul',
+        icon: <Copy size={14} />,
+        onClick: () => {
+          navigator.clipboard.writeText(song.title || '').catch(() => {})
+          showToast(`Judul "${song.title}" disalin`, 'info')
+        }
+      },
+      {
+        id: 'view_relations',
+        label: 'Lihat Relasi Lagu',
+        icon: <Boxes size={14} />,
+        onClick: () => {
+          useModalStore.getState().open('song-relations-modal', 'song-relations', { song })
+        },
+        dividerBefore: true
+      },
+      {
+        id: 'delete_song',
+        label: 'Hapus Lagu...',
+        icon: <Trash2 size={14} />,
+        onClick: () => {
+          showToast('Gunakan Management Mode untuk menghapus lagu', 'info')
+        },
+        danger: true,
+        dividerBefore: true
+      }
+    ]
+  }, [
+    ctxMenu.song,
+    handleAddToPlaylist,
+    handleToggleFavorite,
+    setEditingSong,
+    setScreen,
+    setSelectedSong,
+    setLyricsFullscreen,
+    showToast
+  ])
+
+  // Phase 6: Drag-to-playlist drop handler
+  const handlePlaylistDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      const songIdStr = e.dataTransfer.getData('application/sion-song-id')
+      if (!songIdStr) return
+      const songId = parseInt(songIdStr, 10)
+      const song = songs.find((s) => s.id === songId)
+      if (song) handleAddToPlaylist(song)
+    },
+    [songs, handleAddToPlaylist]
+  )
+
+  const handlePlaylistDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('application/sion-song-id')) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+    }
+  }, [])
 
   const activeWorkspaceIsComingSoon = NAV_GROUPS.flatMap((group) => group.items).some(
     (item) => item.id === workspace && item.comingSoon
   )
 
   return (
-    <div className={`library-pro-shell ${fullscreenLibrary ? 'is-fullscreen-library' : ''}`}>
+    <div
+      className={`library-pro-shell ${fullscreenLibrary ? 'is-fullscreen-library' : ''} ${sidebarOpen ? 'is-sidebar-open' : ''}`}
+    >
       <div className="library-pro-ambient" />
 
       {!fullscreenLibrary && (
@@ -661,8 +1186,15 @@ export function LibraryMode(): React.JSX.Element {
             </div>
             <div>
               <strong>SION Media</strong>
-              <span>Library v3.0</span>
+              <span>{appVersion ? `Library v${appVersion}` : 'Library'}</span>
             </div>
+            <button
+              className="library-pro-sidebar__close"
+              onClick={() => setSidebarOpen(false)}
+              title="Sembunyikan sidebar"
+            >
+              <X size={16} />
+            </button>
           </div>
 
           <nav className="library-pro-nav">
@@ -680,8 +1212,13 @@ export function LibraryMode(): React.JSX.Element {
                       onClick={() => {
                         setWorkspace(item.id)
                         setPage(1)
-                        if (item.id === 'playlist') setActiveTab('playlist')
-                        if (item.id === 'all') setActiveTab('number')
+                        if (item.id === 'playlist') {
+                          setActiveTab('playlist')
+                        } else if (!item.comingSoon) {
+                          setActiveTab((tab) => (tab === 'playlist' ? 'number' : tab))
+                        }
+                        if (item.id !== 'tags') setActiveTag(null)
+                        setSidebarOpen(false)
                       }}
                     >
                       <Icon size={16} />
@@ -699,14 +1236,6 @@ export function LibraryMode(): React.JSX.Element {
           </nav>
 
           <div className="library-pro-sidebar__footer">
-            <div className="library-pro-operator">
-              <div>A</div>
-              <span>
-                <strong>Operator</strong>
-                <small>admin@sionmedia.org</small>
-              </span>
-              <ChevronDown size={14} />
-            </div>
             <div className="library-pro-db-status">
               <span>Database</span>
               <strong>
@@ -718,8 +1247,25 @@ export function LibraryMode(): React.JSX.Element {
         </aside>
       )}
 
+      {!fullscreenLibrary && sidebarOpen && (
+        <button
+          className="library-pro-sidebar-scrim"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Tutup menu Library"
+        />
+      )}
+
       <main className="library-pro-main">
         <header className="library-pro-command-bar">
+          {!fullscreenLibrary && (
+            <button
+              className="library-pro-sidebar-toggle"
+              onClick={() => setSidebarOpen(true)}
+              title="Buka menu Library"
+            >
+              <PanelLeftOpen size={17} />
+            </button>
+          )}
           <div className="library-pro-mode-pill">
             <Library size={15} />
             <span>Library Mode</span>
@@ -736,9 +1282,24 @@ export function LibraryMode(): React.JSX.Element {
               }}
               placeholder="Cari lagu, penulis, tema, nomor..."
             />
-            <kbd>
-              <Command size={11} />K
-            </kbd>
+            {query ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery('')
+                  setPage(1)
+                  document.getElementById('library-pro-search')?.focus()
+                }}
+                title="Hapus pencarian"
+                aria-label="Hapus pencarian"
+              >
+                <X size={13} />
+              </button>
+            ) : (
+              <kbd>
+                <Command size={11} />K
+              </kbd>
+            )}
           </label>
 
           {!fullscreenLibrary && (
@@ -765,29 +1326,33 @@ export function LibraryMode(): React.JSX.Element {
           <div className="library-pro-browser">
             <div className="library-pro-browser__header">
               <div>
-                <h1>
-                  {workspace === 'favorites'
-                    ? 'Favorit'
-                    : workspace === 'recent'
-                      ? 'Recently Opened'
-                      : workspace === 'playlist'
-                        ? 'Playlist Workspace'
-                        : 'Semua Lagu'}
-                </h1>
+                {workspace === 'all' ? (
+                  <HymnalFilterDropdown
+                    hymnals={hymnals}
+                    selectedId={activeHymnalId}
+                    songCounts={hymnalSongCounts}
+                    includeAll={false}
+                    className="library-pro-title-selector"
+                    onChange={(id) => {
+                      if (id === null) return
+                      setActiveLibraryHymnalId(id)
+                      setWorkspace('all')
+                      setActiveTab('number')
+                      setActiveTag(null)
+                      setPage(1)
+                    }}
+                  />
+                ) : (
+                  <h1>{workspaceTitle}</h1>
+                )}
                 <p>
-                  {activeTab === 'number'
-                    ? `Menampilkan ${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, visibleSongs.length)} dari ${visibleSongs.length} lagu`
-                    : `${visibleSongs.length} lagu tampil dari ${songs.length} lagu dalam database`}
+                  {activeTab === 'playlist'
+                    ? `${playlistItems.length} item dalam rundown ibadah`
+                    : resultSummary}
                 </p>
               </div>
 
               <div className="library-pro-browser__tools">
-                {!fullscreenLibrary && (
-                  <button className="library-pro-filter-button">
-                    Semua Kategori
-                    <ChevronDown size={14} />
-                  </button>
-                )}
                 <div className="library-pro-tabs">
                   {TABS.map((tab) => {
                     const Icon = tab.icon
@@ -826,7 +1391,12 @@ export function LibraryMode(): React.JSX.Element {
                 }}
               />
             ) : activeTab === 'playlist' ? (
-              <div className="library-pro-playlist-workspace">
+              <div
+                ref={playlistDropRef}
+                className="library-pro-playlist-workspace"
+                onDrop={handlePlaylistDrop}
+                onDragOver={handlePlaylistDragOver}
+              >
                 <div className="library-pro-playlist-hero">
                   <ListMusic size={24} />
                   <div>
@@ -839,7 +1409,7 @@ export function LibraryMode(): React.JSX.Element {
                     <div className="library-pro-empty-state">
                       <ListMusic size={38} />
                       <strong>Belum ada playlist aktif</strong>
-                      <p>Buat atau buka playlist untuk menyusun worship rundown.</p>
+                      <p>Buat atau buka playlist, lalu drag lagu ke sini.</p>
                     </div>
                   ) : (
                     playlistItems.map((item, index) => (
@@ -864,75 +1434,129 @@ export function LibraryMode(): React.JSX.Element {
               </div>
             ) : activeTab === 'number' ? (
               <div className="library-pro-number-workspace">
-                <div className="library-pro-number-grid">
-                  {pagedSongs.map((song) => (
-                    <NumberTile
-                      key={song.id}
-                      song={song}
-                      selected={selectedSong?.id === song.id}
-                      onSelect={() => handleSelectSong(song)}
-                    />
-                  ))}
-                </div>
-                <div className="library-pro-pagination">
-                  <span>
-                    Menampilkan {(page - 1) * pageSize + 1}-
-                    {Math.min(page * pageSize, visibleSongs.length)} dari {visibleSongs.length} lagu
-                  </span>
-                  <div>
-                    {Array.from({ length: Math.min(pageCount, 5) }).map((_, index) => {
-                      const value = index + 1
-                      return (
-                        <button
-                          key={value}
-                          className={page === value ? 'is-active' : ''}
-                          onClick={() => setPage(value)}
-                        >
-                          {value}
-                        </button>
-                      )
-                    })}
-                    {pageCount > 5 && <small>...</small>}
-                    {pageCount > 5 && (
-                      <button
-                        className={page === pageCount ? 'is-active' : ''}
-                        onClick={() => setPage(pageCount)}
-                      >
-                        {pageCount}
-                      </button>
-                    )}
+                <LibraryFilterRail
+                  workspace={workspace}
+                  hymnals={hymnals}
+                  selectedHymnalId={activeHymnalId}
+                  tagOptions={tagOptions}
+                  activeTag={effectiveActiveTag}
+                  onSelectHymnal={(id) => {
+                    if (id !== null) setActiveLibraryHymnalId(id)
+                    setPage(1)
+                  }}
+                  onSelectTag={(tag) => {
+                    setActiveTag(tag)
+                    setPage(1)
+                  }}
+                />
+                {visibleSongs.length === 0 ? (
+                  <div className="library-pro-empty-state">
+                    <Search size={38} />
+                    <strong>Tidak ada lagu ditemukan</strong>
+                    <p>Ubah kata kunci, buku lagu, atau tema untuk melihat hasil lain.</p>
                   </div>
-                  <button onClick={() => setPage((value) => Math.min(pageCount, value + 1))}>
-                    120 / halaman
-                  </button>
-                </div>
+                ) : (
+                  <div className="library-pro-number-grid">
+                    {pagedSongs.map((song) => (
+                      <NumberTile
+                        key={song.id}
+                        song={song}
+                        selected={inspectedSong?.id === song.id}
+                        onSelect={() => handleSelectSong(song)}
+                      />
+                    ))}
+                  </div>
+                )}
+                {visibleSongs.length > 0 && (
+                  <div className="library-pro-pagination">
+                    <span>{resultSummary}</span>
+                    <div>
+                      {Array.from({ length: Math.min(pageCount, 5) }).map((_, index) => {
+                        const value = index + 1
+                        return (
+                          <button
+                            key={value}
+                            className={currentPage === value ? 'is-active' : ''}
+                            onClick={() => setPage(value)}
+                          >
+                            {value}
+                          </button>
+                        )
+                      })}
+                      {pageCount > 5 && <small>...</small>}
+                      {pageCount > 5 && (
+                        <button
+                          className={currentPage === pageCount ? 'is-active' : ''}
+                          onClick={() => setPage(pageCount)}
+                        >
+                          {pageCount}
+                        </button>
+                      )}
+                    </div>
+                    <button onClick={() => setPage((value) => Math.min(pageCount, value + 1))}>
+                      120 / halaman
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="library-pro-song-grid">
-                {visibleSongs.map((song) => (
-                  <SongMediaCard
-                    key={song.id}
-                    song={song}
-                    selected={selectedSong?.id === song.id}
-                    onSelect={() => handleSelectSong(song)}
-                    onOpen={() => handleOpenSong(song)}
-                    onAdd={() => handleAddToPlaylist(song)}
+              <div className="library-pro-title-workspace">
+                <LibraryFilterRail
+                  workspace={workspace}
+                  hymnals={hymnals}
+                  selectedHymnalId={activeHymnalId}
+                  tagOptions={tagOptions}
+                  activeTag={effectiveActiveTag}
+                  onSelectHymnal={(id) => {
+                    if (id !== null) setActiveLibraryHymnalId(id)
+                    setPage(1)
+                  }}
+                  onSelectTag={(tag) => {
+                    setActiveTag(tag)
+                    setPage(1)
+                  }}
+                />
+                {visibleSongs.length === 0 ? (
+                  <div className="library-pro-empty-state">
+                    <Search size={38} />
+                    <strong>Tidak ada lagu ditemukan</strong>
+                    <p>Ubah kata kunci, buku lagu, atau tema untuk melihat hasil lain.</p>
+                  </div>
+                ) : (
+                  <VirtualizedSongGrid
+                    songs={visibleSongs}
+                    selectedSongId={inspectedSong?.id ?? null}
+                    onSelectSong={handleSelectSong}
+                    onOpenSong={handleOpenSong}
+                    onAddToPlaylist={handleAddToPlaylist}
+                    onToggleFavorite={handleToggleFavorite}
+                    onContextMenu={handleSongContextMenu}
                   />
-                ))}
+                )}
               </div>
             )}
           </div>
 
           {!fullscreenLibrary && (
             <RightInspector
-              song={selectedSong}
+              song={inspectedSong}
               onOpen={() => handleOpenSong()}
-              onAdd={() => selectedSong && handleAddToPlaylist(selectedSong)}
+              onAdd={() => inspectedSong && handleAddToPlaylist(inspectedSong)}
+              onToggleFavorite={() => inspectedSong && void handleToggleFavorite(inspectedSong)}
               onEdit={handleEditSong}
             />
           )}
         </section>
       </main>
+
+      {/* Phase 6: Song context menu */}
+      <SongContextMenu
+        open={ctxMenu.open}
+        x={ctxMenu.x}
+        y={ctxMenu.y}
+        onClose={() => setCtxMenu((prev) => ({ ...prev, open: false }))}
+        actions={ctxMenuActions}
+      />
 
       <AnimatePresence>
         {isLyricsFullscreen && selectedSong && (

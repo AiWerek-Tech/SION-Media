@@ -1,4 +1,12 @@
 import { create } from 'zustand'
+
+// ── Navigation debounce guard ─────────────────────────────────────────────────
+// Prevents rapid keyboard input (e.g. held arrow keys) from flooding the IPC
+// channel with slide-update messages and causing projection desync.
+// INVARIANT: at most one slide advance/retreat per NAV_DEBOUNCE_MS window.
+let lastNavTimestamp = 0
+const NAV_DEBOUNCE_MS = 50
+
 import type {
   SlideData,
   ProjectionState,
@@ -7,11 +15,29 @@ import type {
   NextReadyState,
   Song,
   SectionIndexMap,
-  SlideAddress
-} from '../types'
-import { logger } from '../utils/logger'
-import { buildSectionIndexMap, resolveSlideAddress } from '../utils/slideAddressResolver'
-import { buildConfidencePayload } from '../utils/confidencePayloadBuilder'
+  SlideAddress,
+  NavigationFlow
+} from '@renderer/types'
+import { logger } from '@renderer/utils/logger'
+import { buildSectionIndexMap, resolveSlideAddress, requestTransition } from '@core/projection'
+import { buildConfidencePayload } from '@core/projection'
+import {
+  resolveNavigationFlow,
+  resolveFlowPosition,
+  computeSmartNext,
+  computeSmartPrev,
+  computeSmartNextSlideData
+} from '@core/projection/navigationFlowEngine'
+import {
+  createProjectionSnapshot,
+  type ProjectionSnapshot
+} from '@core/projection/state-machine/projection-snapshot'
+import {
+  executeProjectionEffects,
+  createProjectionThemeUpdateEffect
+} from '@core/projection/state-machine/effects'
+import type { ProjectionEffect } from '@core/projection/state-machine/effects'
+import type { ProjectionTransitionRequest } from '@core/projection'
 
 interface ProjectionStore {
   slides: SlideData[]
@@ -32,6 +58,8 @@ interface ProjectionStore {
   setProjectionState: (state: ProjectionState) => void
   fadeSpeed: number
   setFadeSpeed: (speed: number) => void
+  transitionType: string
+  setTransitionType: (type: string) => void
 
   // ═══════════════════════════════════════════════════════════════
   // RUNTIME PROTECTION STATE
@@ -55,13 +83,38 @@ interface ProjectionStore {
   // ═══════════════════════════════════════════════════════════════
   // QUICK JUMP STATE - Semantic navigation
   // ═══════════════════════════════════════════════════════════════
+  /** Section map for the CUE (preview) song — used by cueGoToSection */
   sectionMap: SectionIndexMap
+  /** Section map for the PROGRAM (live) song — used by goToLiveSection */
+  programSectionMap: SectionIndexMap
+
+  // ═══════════════════════════════════════════════════════════════
+  // SMART WORSHIP NAVIGATION STATE
+  // ═══════════════════════════════════════════════════════════════
+  /** Computed navigation flow for the current program song. null when no song is loaded. */
+  navigationFlow: NavigationFlow | null
+  /** Current position in navigationFlow.steps. -1 when no valid position. */
+  flowPosition: number
+  /** Shortcut: navigationFlow?.isSmartMode ?? false */
+  isSmartMode: boolean
 
   // ═══════════════════════════════════════════════════════════════
   // CONFIDENCE MONITOR STATE - Timer & broadcast
   // ═══════════════════════════════════════════════════════════════
   timerElapsed: number
   timerRunning: boolean
+
+  // ═══════════════════════════════════════════════════════════════
+  // EMERGENCY STATE - Projection overlay overrides
+  // ═══════════════════════════════════════════════════════════════
+  emergencyConfig: {
+    active: boolean
+    message?: string
+    subMessage?: string
+  }
+
+  /** State saved before entering BLACK — used to restore on toggle off */
+  prevStateBeforeBlack: ProjectionState | null
 
   // ═══════════════════════════════════════════════════════════════
   // ACTIONS
@@ -85,7 +138,7 @@ interface ProjectionStore {
 
   // NEXT State Actions
   computeNextState: () => void
-  loadNextSong: (song: Song, slides: SlideData[]) => void
+  loadNextSong: (song: Song, slides: SlideData[], playlistIndex?: number | null) => void
   clearNextSong: () => void
 
   // Quick Jump Actions
@@ -102,32 +155,291 @@ interface ProjectionStore {
   timerReset: () => void
   timerTick: () => void
   getConfidencePayload: () => import('../types').ConfidencePayload
+
+  // Emergency Actions
+  setEmergencyConfig: (config: { active: boolean; message?: string; subMessage?: string }) => void
+
+  // ═══════════════════════════════════════════════════════════════
+  // AUDIO PANEL STATE - VU Meter visibility management
+  // ═══════════════════════════════════════════════════════════════
+  isAudioPanelVisible: boolean
+  toggleAudioPanel: () => void
+  setAudioPanelVisible: (visible: boolean) => void
+
+  // ═══════════════════════════════════════════════════════════════
+  // LYRICS ZOOM STATE - Font size scaling for Preview and Live
+  // ═══════════════════════════════════════════════════════════════
+  lyricsFontSizePercent: number
+  setLyricsFontSize: (percent: number) => void
+  increaseLyricsFontSize: () => void
+  decreaseLyricsFontSize: () => void
+  resetLyricsFontSize: () => void
 }
 
-function withNextSlide(slides: SlideData[], index: number): SlideData {
+function withProgramNextSlide(
+  slides: SlideData[],
+  index: number,
+  navigationFlow?: NavigationFlow | null,
+  flowPosition = -1
+): SlideData {
+  const nextIndex =
+    navigationFlow?.isSmartMode && flowPosition >= 0
+      ? computeSmartNext(index, navigationFlow, flowPosition)
+      : index + 1
+
   return {
     ...slides[index],
-    nextSlideText: slides[index + 1]?.text || ''
+    nextSlideText:
+      nextIndex !== null && nextIndex >= 0 && nextIndex < slides.length
+        ? slides[nextIndex]?.text || ''
+        : ''
   }
 }
 
-function sendLiveSlide(slideData: SlideData): void {
-  window.api.projection.stateChange('LIVE')
-  window.api.projection.slideUpdate(slideData)
+function extractCurrentProjectionSnapshot(get: () => ProjectionStore): ProjectionSnapshot {
+  const store = get()
+
+  return createProjectionSnapshot({
+    projectionState: store.projectionState,
+    slides: store.slides,
+    currentSlideIndex: store.currentSlideIndex,
+    programSlides: store.programSlides,
+    programSlideIndex: store.programSlideIndex,
+    programSlide: store.programSlide,
+    cuedSongMeta: store.cuedSongMeta,
+    programSongMeta: store.programSongMeta,
+    cuedSongBackgroundConfig: store.cuedSongBackgroundConfig,
+    programSongBackgroundConfig: store.programSongBackgroundConfig,
+    programLockState: store.programLockState,
+    pendingChanges: store.pendingChanges,
+    hasPendingLiveChanges: store.hasPendingLiveChanges,
+    // Use programSectionMap for live navigation (go-to-section/address use program slides)
+    // Fall back to sectionMap (cue) if program map is empty (e.g. before first takeCue)
+    sectionMap:
+      Object.keys(store.programSectionMap).length > 0 ? store.programSectionMap : store.sectionMap
+  })
+}
+
+function applyProjectionSnapshot(
+  snapshot: ProjectionSnapshot,
+  set: (state: Partial<ProjectionStore>) => void
+): void {
+  set({
+    projectionState: snapshot.projectionState,
+    slides: snapshot.slides,
+    currentSlideIndex: snapshot.currentSlideIndex,
+    programSlides: snapshot.programSlides,
+    programSlideIndex: snapshot.programSlideIndex,
+    programSlide: snapshot.programSlide,
+    cuedSongMeta: snapshot.cuedSongMeta,
+    programSongMeta: snapshot.programSongMeta,
+    cuedSongBackgroundConfig: snapshot.cuedSongBackgroundConfig,
+    programSongBackgroundConfig: snapshot.programSongBackgroundConfig,
+    programLockState: snapshot.programLockState,
+    pendingChanges: snapshot.pendingChanges,
+    hasPendingLiveChanges: snapshot.hasPendingLiveChanges,
+    sectionMap: snapshot.sectionMap
+  })
+}
+
+/**
+ * Map UI projection state to FSM state
+ * NOTE: BLACK and LOGO are preserved as separate string literals to avoid
+ * information loss during round-trips through the FSM layer.
+ */
+function mapUIStateToFSMState(
+  uiState: ProjectionState
+): 'IDLE' | 'ACTIVE' | 'PAUSED' | 'STOPPED' | 'BLACK' | 'LOGO' {
+  switch (uiState) {
+    case 'CLEAR':
+      return 'STOPPED'
+    case 'LIVE':
+      return 'ACTIVE'
+    case 'FREEZE':
+      return 'PAUSED'
+    case 'BLACK':
+      return 'BLACK' // FIX ARCH-02: preserve BLACK, not PAUSED
+    case 'LOGO':
+      return 'LOGO' // FIX ARCH-02: preserve LOGO, not PAUSED
+    default:
+      return 'STOPPED'
+  }
+}
+
+/**
+ * Map FSM state to UI projection state
+ * FIX ARCH-02: BLACK and LOGO are now preserved through the round-trip.
+ */
+function mapFSMStateToUIState(
+  fsmState: 'IDLE' | 'ACTIVE' | 'PAUSED' | 'STOPPED' | 'BLACK' | 'LOGO' | string
+): ProjectionState {
+  switch (fsmState) {
+    case 'STOPPED':
+      return 'CLEAR'
+    case 'ACTIVE':
+      return 'LIVE'
+    case 'PAUSED':
+      return 'FREEZE'
+    case 'IDLE':
+      return 'CLEAR'
+    case 'BLACK':
+      return 'BLACK'
+    case 'LOGO':
+      return 'LOGO'
+    default:
+      return 'CLEAR'
+  }
+}
+
+type ProjectionStoreAction = string | { type: string; payload?: unknown }
+
+/**
+ * FIX BUG-03: Unified projection transition executor.
+ *
+ * Previously, all `projection:*` actions bypassed the FSM and skipped IPC
+ * broadcasts. Now each legacy action is handled with proper IPC side-effects
+ * so the projection window always stays in sync.
+ */
+function executeProjectionTransition(
+  action: ProjectionStoreAction,
+  set: (state: Partial<ProjectionStore>) => void,
+  get: () => ProjectionStore
+): void {
+  try {
+    const { type, payload } = typeof action === 'string' ? { type: action, payload: {} } : action
+
+    // ── Legacy / direct-action path ──────────────────────────────────────────
+    // These actions bypass the FSM but MUST still broadcast IPC so the
+    // projection window stays in sync.
+    if (type.startsWith('projection:')) {
+      if (type === 'projection:go-to-slide') {
+        // FIX BUG-03: was only updating currentSlideIndex (CUE), not program
+        const slideIndex = (payload as { slideIndex?: number }).slideIndex ?? 0
+        const { programSlides, navigationFlow, flowPosition } = get()
+        if (slideIndex >= 0 && slideIndex < programSlides.length) {
+          const newFlowPosition = navigationFlow
+            ? resolveFlowPosition(slideIndex, navigationFlow, flowPosition)
+            : -1
+          const slide = withProgramNextSlide(
+            programSlides,
+            slideIndex,
+            navigationFlow,
+            newFlowPosition
+          )
+          set({
+            programSlideIndex: slideIndex,
+            programSlide: slide,
+            projectionState: 'LIVE',
+            flowPosition: newFlowPosition
+          })
+          window.api.projection.stateChange('LIVE')
+          window.api.projection.slideUpdate(slide)
+          get().computeNextState()
+        }
+      } else if (type === 'projection:black') {
+        // Toggle BLACK dengan restore ke state sebelumnya
+        const { projectionState, programSlide, prevStateBeforeBlack } = get()
+        if (projectionState === 'BLACK') {
+          // Restore ke state sebelumnya yang tersimpan, atau LIVE sebagai fallback
+          const restoreState: ProjectionState = prevStateBeforeBlack ?? 'LIVE'
+          set({ projectionState: restoreState, prevStateBeforeBlack: null })
+          window.api.projection.stateChange(restoreState)
+          if (programSlide && restoreState !== 'CLEAR') {
+            window.api.projection.slideUpdate(programSlide)
+          }
+        } else {
+          // Simpan state sebelumnya sebelum masuk BLACK
+          set({ projectionState: 'BLACK', prevStateBeforeBlack: projectionState })
+          window.api.projection.stateChange('BLACK')
+        }
+      } else if (type === 'projection:freeze') {
+        // FIX BUG-03: was missing IPC broadcast
+        const { projectionState, programSlide } = get()
+        if (projectionState === 'FREEZE') {
+          set({ projectionState: 'LIVE' })
+          window.api.projection.stateChange('LIVE')
+          if (programSlide) window.api.projection.slideUpdate(programSlide)
+        } else {
+          set({ projectionState: 'FREEZE' })
+          window.api.projection.stateChange('FREEZE')
+        }
+      } else if (type === 'projection:clear') {
+        // FIX BUG-03: was missing IPC broadcast
+        set({
+          projectionState: 'CLEAR',
+          programSlide: null,
+          programSlideIndex: -1,
+          programLockState: 'UNLOCKED',
+          pendingChanges: [],
+          hasPendingLiveChanges: false
+        })
+        window.api.projection.stateChange('CLEAR')
+        get().computeNextState()
+      }
+      return
+    }
+
+    // ── FSM path ─────────────────────────────────────────────────────────────
+    const currentSnapshot = extractCurrentProjectionSnapshot(get)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const currentFSMState: any = {
+      state: mapUIStateToFSMState(currentSnapshot.projectionState),
+      context: {
+        currentSlideIndex: currentSnapshot.currentSlideIndex
+      },
+      timestamp: Date.now()
+    }
+
+    const transitionRequest: ProjectionTransitionRequest = {
+      type: type as ProjectionTransitionRequest['type'],
+      payload
+    }
+    const result = requestTransition(currentFSMState, transitionRequest)
+
+    const updatedSnapshot = {
+      ...currentSnapshot,
+      ...result.newState,
+      projectionState: mapFSMStateToUIState(result.newState.state)
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    applyProjectionSnapshot(updatedSnapshot as any, set)
+    get().computeNextState()
+
+    executeProjectionEffects(result.sideEffects as unknown as ProjectionEffect[])
+  } catch (err) {
+    logger.error('[Projection Store] FSM transition failed:', err)
+  }
 }
 
 export const useProjectionStore = create<ProjectionStore>((set, get) => ({
   slides: [],
   setSlides: (slides, meta) => {
     const sectionMap = buildSectionIndexMap(slides)
+    const cueNavigationFlow = resolveNavigationFlow(slides)
+    const hasActiveProgram = get().programSlides.length > 0 && get().programSlideIndex >= 0
     set({
       slides,
       currentSlideIndex: 0,
       cuedSongMeta: meta ? { hymnalCode: meta.hymnalCode, hymnalName: meta.hymnalName } : null,
       cuedSongBackgroundConfig: meta?.songBackgroundConfig || '',
-      sectionMap
+      sectionMap,
+      ...(hasActiveProgram
+        ? {}
+        : {
+            navigationFlow: cueNavigationFlow,
+            isSmartMode: cueNavigationFlow.isSmartMode,
+            flowPosition: -1
+          })
     })
     logger.info('[Quick Jump] Built section map:', Object.keys(sectionMap).join(', ') || 'none')
+    logger.info(
+      '[Smart Nav] Cue navigation flow resolved:',
+      cueNavigationFlow.isSmartMode ? 'Smart_Mode' : 'Linear_Mode',
+      `(${cueNavigationFlow.steps.length} steps)`
+    )
+    // Recompute next state after new slides are loaded
+    setTimeout(() => get().computeNextState(), 0)
   },
   cuedSongMeta: null,
   cuedSongBackgroundConfig: '',
@@ -161,12 +473,37 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
   // QUICK JUMP STATE - Initial Values
   // ═══════════════════════════════════════════════════════════════
   sectionMap: {},
+  programSectionMap: {},
+
+  // ═══════════════════════════════════════════════════════════════
+  // SMART WORSHIP NAVIGATION STATE - Initial Values
+  // ═══════════════════════════════════════════════════════════════
+  navigationFlow: null,
+  flowPosition: -1,
+  isSmartMode: false,
 
   // ═══════════════════════════════════════════════════════════════
   // CONFIDENCE MONITOR STATE - Initial Values
   // ═══════════════════════════════════════════════════════════════
   timerElapsed: 0,
   timerRunning: false,
+
+  // ═══════════════════════════════════════════════════════════════
+  // EMERGENCY STATE - Initial Values
+  // ═══════════════════════════════════════════════════════════════
+  emergencyConfig: { active: false },
+
+  prevStateBeforeBlack: null,
+
+  // ═══════════════════════════════════════════════════════════════
+  // AUDIO PANEL STATE - Initial Values (persisted via settings)
+  // ═══════════════════════════════════════════════════════════════
+  isAudioPanelVisible: false,
+
+  // ═══════════════════════════════════════════════════════════════
+  // LYRICS ZOOM STATE - Initial Values (persisted via settings)
+  // ═══════════════════════════════════════════════════════════════
+  lyricsFontSizePercent: 100,
 
   setCurrentSlideIndex: (index) => {
     const { slides } = get()
@@ -181,10 +518,20 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
   fadeSpeed: 0.4,
   setFadeSpeed: (speed) => {
     set({ fadeSpeed: speed })
+    executeProjectionEffects([
+      createProjectionThemeUpdateEffect({ transition_duration: speed.toString() })
+    ])
     window.api.settings
       .update('transition_duration', speed.toString())
       .catch((err) => logger.error('Failed to save transition_duration:', err))
-    window.api.projection.themeUpdate({ transition_duration: speed.toString() })
+  },
+  transitionType: 'smooth-blur',
+  setTransitionType: (type) => {
+    set({ transitionType: type })
+    executeProjectionEffects([createProjectionThemeUpdateEffect({ transition_type: type })])
+    window.api.settings
+      .update('transition_type', type)
+      .catch((err) => logger.error('Failed to save transition_type:', err))
   },
 
   cueNextSlide: () => {
@@ -200,126 +547,271 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
   },
 
   takeCue: () => {
-    const { currentSlideIndex, cuedSongMeta, cuedSongBackgroundConfig } = get()
-    set({
-      programSongMeta: cuedSongMeta,
-      programSongBackgroundConfig: cuedSongBackgroundConfig
-    })
-    get().goToSlide(currentSlideIndex)
+    try {
+      const { slides, currentSlideIndex, cuedSongMeta, cuedSongBackgroundConfig } = get()
+      if (slides.length === 0) return
+
+      const slideIndex = Math.max(0, Math.min(currentSlideIndex, slides.length - 1))
+      const navigationFlow = resolveNavigationFlow(slides)
+      // Compute flowPosition for the committed slide
+      const newFlowPosition = navigationFlow
+        ? resolveFlowPosition(slideIndex, navigationFlow, 0)
+        : -1
+      const slide = withProgramNextSlide(slides, slideIndex, navigationFlow, newFlowPosition)
+
+      // Build programSectionMap from the slides being committed to program
+      const newProgramSectionMap = buildSectionIndexMap(slides)
+
+      // Commit CUE → PROGRAM
+      set({
+        projectionState: 'LIVE',
+        programSlides: slides,
+        programSlideIndex: slideIndex,
+        programSlide: slide,
+        programSongMeta: cuedSongMeta,
+        programSongBackgroundConfig: cuedSongBackgroundConfig,
+        programLockState: 'LIVE_LOCK',
+        pendingChanges: [],
+        hasPendingLiveChanges: false,
+        navigationFlow,
+        isSmartMode: navigationFlow.isSmartMode,
+        flowPosition: newFlowPosition,
+        programSectionMap: newProgramSectionMap
+      })
+
+      // Broadcast to projection window
+      window.api.settings
+        .getAll()
+        .then((settings) => {
+          if ((settings.display_auto_show_on_take ?? '1') === '1') window.api.projection.show()
+        })
+        .catch((err) => logger.error('[Projection Store] failed to read display settings:', err))
+      window.api.projection.stateChange('LIVE')
+      window.api.projection.slideUpdate(slide)
+      window.api.projection.themeUpdate({
+        song_background_config: cuedSongBackgroundConfig || ''
+      })
+
+      // Recompute next state
+      get().computeNextState()
+
+      logger.info(
+        '[takeCue] Committed slide',
+        slideIndex + 1,
+        'to LIVE, flowPosition:',
+        newFlowPosition
+      )
+    } catch (err) {
+      logger.error('[Projection Store] takeCue failed:', err)
+    }
   },
 
   nextSlide: () => {
-    const { programSlides, programSlideIndex, projectionState } = get()
+    // Debounce guard — drop calls within NAV_DEBOUNCE_MS of the last accepted call
+    const now = Date.now()
+    const isTest = typeof process !== 'undefined' && process.env.NODE_ENV === 'test'
+    if (!isTest && now - lastNavTimestamp < NAV_DEBOUNCE_MS) return
+    lastNavTimestamp = now
+
+    const {
+      programSlides,
+      programSlideIndex,
+      projectionState,
+      navigationFlow,
+      flowPosition,
+      isSmartMode
+    } = get()
     if (programSlides.length === 0) return
 
     const shouldAdvance = projectionState === 'LIVE' || projectionState === 'FREEZE'
     if (!shouldAdvance) return
 
-    const newIndex = Math.min(programSlideIndex + 1, programSlides.length - 1)
-    const slideData = withNextSlide(programSlides, newIndex)
+    let nextIndex: number | null
+    let newFlowPosition = flowPosition
 
-    set({ programSlideIndex: newIndex, projectionState: 'LIVE', programSlide: slideData })
-    sendLiveSlide(slideData)
+    if (isSmartMode && navigationFlow) {
+      // Smart Navigation
+      nextIndex = computeSmartNext(programSlideIndex, navigationFlow, flowPosition)
+      if (nextIndex === null) return // already at end of song
+      // Clamp to valid range (safety guard)
+      nextIndex = Math.min(nextIndex, programSlides.length - 1)
+      if (nextIndex === programSlideIndex) return
+
+      // CRITICAL: advance flowPosition by 1 when moving to next step.
+      // Do NOT use resolveFlowPosition here — chorus slides appear multiple
+      // times in the flow with the same slideIndex, so resolveFlowPosition
+      // would always return the last matching step, breaking the sequence.
+      const currentStep = navigationFlow.steps[flowPosition]
+      if (currentStep && programSlideIndex >= currentStep.lastSlideIndex) {
+        // We are leaving this step — advance to next step in flow
+        newFlowPosition = Math.min(flowPosition + 1, navigationFlow.steps.length - 1)
+      }
+      // If still within the same section (linear advance), flowPosition stays the same
+    } else {
+      // Linear Navigation (existing behaviour)
+      nextIndex = Math.min(programSlideIndex + 1, programSlides.length - 1)
+      if (nextIndex === programSlideIndex) return // already at end
+    }
+
+    // Compute nextSlideText using Smart Navigation (Req 7.7)
+    const afterNextIndex =
+      isSmartMode && navigationFlow
+        ? computeSmartNext(nextIndex, navigationFlow, newFlowPosition)
+        : nextIndex + 1
+    const nextSlideText =
+      afterNextIndex !== null && afterNextIndex < programSlides.length
+        ? programSlides[afterNextIndex]?.text || ''
+        : ''
+
+    const slide = {
+      ...programSlides[nextIndex],
+      nextSlideText
+    }
+
+    set({
+      projectionState: 'LIVE',
+      programSlideIndex: nextIndex,
+      programSlide: slide,
+      flowPosition: newFlowPosition
+    })
+
+    window.api.projection.stateChange('LIVE')
+    window.api.projection.slideUpdate(slide)
     get().computeNextState()
   },
 
   prevSlide: () => {
-    const { programSlides, programSlideIndex, projectionState } = get()
+    // Debounce guard — drop calls within NAV_DEBOUNCE_MS of the last accepted call
+    const now = Date.now()
+    const isTest = typeof process !== 'undefined' && process.env.NODE_ENV === 'test'
+    if (!isTest && now - lastNavTimestamp < NAV_DEBOUNCE_MS) return
+    lastNavTimestamp = now
+
+    const {
+      programSlides,
+      programSlideIndex,
+      projectionState,
+      navigationFlow,
+      flowPosition,
+      isSmartMode
+    } = get()
     if (programSlides.length === 0) return
 
     const shouldNavigateLive = projectionState === 'LIVE' || projectionState === 'FREEZE'
     if (!shouldNavigateLive) return
 
-    const newIndex = Math.max(programSlideIndex - 1, 0)
-    const slideData = withNextSlide(programSlides, newIndex)
+    let prevIndex: number | null
+    let newFlowPosition = flowPosition
 
-    set({ programSlideIndex: newIndex, projectionState: 'LIVE', programSlide: slideData })
-    sendLiveSlide(slideData)
+    if (isSmartMode && navigationFlow) {
+      // Smart Navigation
+      prevIndex = computeSmartPrev(programSlideIndex, navigationFlow, flowPosition)
+      if (prevIndex === null) return // already at beginning of song
+      // Clamp to valid range (safety guard)
+      prevIndex = Math.max(prevIndex, 0)
+      if (prevIndex === programSlideIndex) return
+
+      // CRITICAL: decrement flowPosition by 1 when moving to previous step.
+      // Do NOT use resolveFlowPosition here — same reason as nextSlide above.
+      const currentStep = navigationFlow.steps[flowPosition]
+      if (currentStep && programSlideIndex <= currentStep.firstSlideIndex) {
+        // We are leaving this step backwards — go to previous step in flow
+        newFlowPosition = Math.max(flowPosition - 1, 0)
+      }
+      // If still within the same section (linear retreat), flowPosition stays the same
+    } else {
+      // Linear Navigation (existing behaviour)
+      prevIndex = Math.max(programSlideIndex - 1, 0)
+      if (prevIndex === programSlideIndex) return // already at start
+    }
+
+    // Compute nextSlideText using Smart Navigation (Req 7.7)
+    const afterPrevIndex =
+      isSmartMode && navigationFlow
+        ? computeSmartNext(prevIndex, navigationFlow, newFlowPosition)
+        : prevIndex + 1
+    const nextSlideText =
+      afterPrevIndex !== null && afterPrevIndex < programSlides.length
+        ? programSlides[afterPrevIndex]?.text || ''
+        : ''
+
+    const slide = {
+      ...programSlides[prevIndex],
+      nextSlideText
+    }
+
+    set({
+      projectionState: 'LIVE',
+      programSlideIndex: prevIndex,
+      programSlide: slide,
+      flowPosition: newFlowPosition
+    })
+
+    window.api.projection.stateChange('LIVE')
+    window.api.projection.slideUpdate(slide)
     get().computeNextState()
   },
 
   goToSlide: (index) => {
-    const { slides, cuedSongBackgroundConfig } = get()
+    const { slides } = get()
     if (index >= 0 && index < slides.length) {
-      const slideData = withNextSlide(slides, index)
-
-      set({
-        currentSlideIndex: index,
-        programSlides: slides,
-        programSlideIndex: index,
-        programSongBackgroundConfig: cuedSongBackgroundConfig,
-        projectionState: 'LIVE',
-        programSlide: slideData,
-        // ══════════════════════════════════════════════════════════
-        // RUNTIME PROTECTION: Lock program when going LIVE
-        // ══════════════════════════════════════════════════════════
-        programLockState: 'LIVE_LOCK',
-        pendingChanges: [],
-        hasPendingLiveChanges: false
-      })
-      window.api.projection.themeUpdate({ song_background_config: cuedSongBackgroundConfig || '' })
-      sendLiveSlide(slideData)
-      get().computeNextState()
+      try {
+        executeProjectionTransition(
+          { type: 'projection:go-to-slide', payload: { slideIndex: index } },
+          set,
+          get
+        )
+      } catch (err) {
+        logger.error('[Projection Store] goToSlide transition failed:', err)
+      }
     }
   },
 
   toggleBlack: () => {
-    const { projectionState } = get()
-    const newState = projectionState === 'BLACK' ? 'LIVE' : 'BLACK'
-    set({ projectionState: newState })
-    window.api.projection.stateChange(newState)
-    if (newState === 'LIVE') {
-      const { programSlides, programSlideIndex, programSlide } = get()
-      if (programSlide) {
-        window.api.projection.slideUpdate(programSlide)
-      } else if (programSlides[programSlideIndex]) {
-        const slideData = withNextSlide(programSlides, programSlideIndex)
-        set({ programSlide: slideData })
-        window.api.projection.slideUpdate(slideData)
-      }
+    // BLACK bisa diaktifkan dari state apapun — operator mungkin perlu
+    // black screen sebelum ada konten (misal saat persiapan ibadah)
+    try {
+      executeProjectionTransition({ type: 'projection:black', payload: {} }, set, get)
+    } catch (err) {
+      logger.error('[Projection Store] toggleBlack transition failed:', err)
     }
   },
 
   toggleFreeze: () => {
     const { projectionState } = get()
-    const newState = projectionState === 'FREEZE' ? 'LIVE' : 'FREEZE'
-    set({ projectionState: newState })
-    window.api.projection.stateChange(newState)
-    if (newState === 'LIVE') {
-      const { programSlide } = get()
-      if (programSlide) window.api.projection.slideUpdate(programSlide)
+    // Cannot freeze from CLEAR or LOGO state — nothing to freeze
+    if (projectionState === 'CLEAR' || projectionState === 'LOGO') return
+
+    try {
+      executeProjectionTransition({ type: 'projection:freeze', payload: {} }, set, get)
+    } catch (err) {
+      logger.error('[Projection Store] toggleFreeze transition failed:', err)
     }
   },
 
   clearScreen: () => {
-    set({
-      projectionState: 'CLEAR',
-      // ══════════════════════════════════════════════════════════
-      // RUNTIME PROTECTION: Unlock when output is cleared
-      // ══════════════════════════════════════════════════════════
-      programLockState: 'UNLOCKED',
-      pendingChanges: [],
-      hasPendingLiveChanges: false
-    })
-    window.api.projection.stateChange('CLEAR')
+    const { projectionState } = get()
+    if (projectionState === 'CLEAR') return
+
+    try {
+      executeProjectionTransition({ type: 'projection:clear', payload: {} }, set, get)
+      // Reset flow position when screen is cleared
+      set({ flowPosition: -1 })
+    } catch (err) {
+      logger.error('[Projection Store] clearScreen transition failed:', err)
+    }
   },
 
   hotSwapSlides: (songId, newSlides) => {
-    const {
-      slides,
-      currentSlideIndex,
-      programSlide,
-      programSlideIndex,
-      projectionState,
-      programLockState
-    } = get()
+    const { slides, currentSlideIndex, programSlide, programSlideIndex, programLockState } = get()
 
     // ══════════════════════════════════════════════════════════
     // RUNTIME PROTECTION: Handle preview updates
     // ══════════════════════════════════════════════════════════
     const newCueIndex = Math.max(0, Math.min(currentSlideIndex, newSlides.length - 1))
+    const newCueSectionMap = buildSectionIndexMap(newSlides)
     if (slides.length > 0 && slides[0].songId === songId) {
-      set({ slides: newSlides, currentSlideIndex: newCueIndex })
+      set({ slides: newSlides, currentSlideIndex: newCueIndex, sectionMap: newCueSectionMap })
     }
 
     // ══════════════════════════════════════════════════════════
@@ -328,8 +820,21 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
     if (programSlide?.songId === songId) {
       const newProgramIndex = Math.max(0, Math.min(programSlideIndex, newSlides.length - 1))
 
+      // Re-compute navigation flow for the updated slides
+      const newNavigationFlow = resolveNavigationFlow(newSlides)
+      const newFlowPosition = resolveFlowPosition(
+        newProgramIndex,
+        newNavigationFlow,
+        get().flowPosition
+      )
+
       if (newSlides.length > 0) {
-        const slideData = withNextSlide(newSlides, newProgramIndex)
+        const slideData = withProgramNextSlide(
+          newSlides,
+          newProgramIndex,
+          newNavigationFlow,
+          newFlowPosition
+        )
 
         // Check if program is LIVE_LOCKED
         if (programLockState === 'LIVE_LOCK') {
@@ -346,7 +851,8 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
                 timestamp: Date.now(),
                 description: 'Lyrics updated while live'
               }
-            ]
+            ],
+            sectionMap: newCueSectionMap
           })
           logger.warn('[Runtime Protection] Program is LIVE_LOCK, changes stored in preview only')
         } else {
@@ -354,9 +860,13 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
           set({
             programSlides: newSlides,
             programSlideIndex: newProgramIndex,
-            programSlide: slideData
+            programSlide: slideData,
+            navigationFlow: newNavigationFlow,
+            isSmartMode: newNavigationFlow.isSmartMode,
+            flowPosition: newFlowPosition,
+            programSectionMap: buildSectionIndexMap(newSlides)
           })
-          if (projectionState === 'LIVE') sendLiveSlide(slideData)
+          // Effects will be executed by state sync if needed
         }
       } else {
         set({
@@ -366,9 +876,13 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
           programSlide: null,
           programLockState: 'UNLOCKED',
           pendingChanges: [],
-          hasPendingLiveChanges: false
+          hasPendingLiveChanges: false,
+          navigationFlow: null,
+          isSmartMode: false,
+          flowPosition: -1,
+          programSectionMap: {}
         })
-        window.api.projection.stateChange('CLEAR')
+        // Effects will be executed by state sync
       }
     }
   },
@@ -404,18 +918,44 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
       return
     }
 
-    // Apply pending changes to program
-    const slideData = withNextSlide(slides, currentSlideIndex)
+    if (slides.length === 0) {
+      set({
+        programSlides: [],
+        programSlideIndex: -1,
+        programSlide: null,
+        projectionState: 'CLEAR',
+        programLockState: 'UNLOCKED',
+        pendingChanges: [],
+        hasPendingLiveChanges: false,
+        navigationFlow: null,
+        isSmartMode: false,
+        flowPosition: -1,
+        programSectionMap: {}
+      })
+      window.api.projection.stateChange('CLEAR')
+      return
+    }
+
+    const liveIndex = Math.max(0, Math.min(currentSlideIndex, slides.length - 1))
+    const newNavigationFlow = resolveNavigationFlow(slides)
+    const newFlowPosition = resolveFlowPosition(liveIndex, newNavigationFlow, get().flowPosition)
+    const slideData = withProgramNextSlide(slides, liveIndex, newNavigationFlow, newFlowPosition)
     set({
       programSlides: slides,
-      programSlideIndex: currentSlideIndex,
+      programSlideIndex: liveIndex,
       programSlide: slideData,
       programLockState: 'LIVE_LOCK',
       pendingChanges: [],
-      hasPendingLiveChanges: false
+      hasPendingLiveChanges: false,
+      navigationFlow: newNavigationFlow,
+      isSmartMode: newNavigationFlow.isSmartMode,
+      flowPosition: newFlowPosition,
+      programSectionMap: buildSectionIndexMap(slides)
     })
 
-    sendLiveSlide(slideData)
+    // FIX BUG-06 side-effect: broadcast updated slide to projection window
+    window.api.projection.slideUpdate(slideData)
+
     logger.info(
       '[Runtime Protection] Live updated with pending changes:',
       pendingChanges.length,
@@ -438,6 +978,7 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
     set({
       slides: programSlides,
       currentSlideIndex: programSlideIndex,
+      sectionMap: buildSectionIndexMap(programSlides),
       programLockState: 'LIVE_LOCK',
       pendingChanges: [],
       hasPendingLiveChanges: false
@@ -463,12 +1004,41 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
    * Called automatically when programSlideIndex changes
    */
   computeNextState: () => {
-    const { programSlides, programSlideIndex, nextSong, queuedSlides } = get()
+    const {
+      programSlides,
+      programSlideIndex,
+      nextSong,
+      queuedSlides,
+      navigationFlow,
+      flowPosition,
+      isSmartMode
+    } = get()
 
-    // Compute next slide
-    const nextIndex = programSlideIndex + 1
-    const hasNextSlide = programSlides.length > 0 && nextIndex < programSlides.length
-    const nextSlideData = hasNextSlide ? programSlides[nextIndex] : null
+    // Compute next slide — Smart_Mode uses flow-aware resolver
+    let nextSlideData: SlideData | null = null
+    let nextIndex: number | null = null
+    const hasActiveProgramSlide = programSlides.length > 0 && programSlideIndex >= 0
+
+    if (hasActiveProgramSlide && isSmartMode && navigationFlow) {
+      nextSlideData = computeSmartNextSlideData(
+        programSlides,
+        programSlideIndex,
+        navigationFlow,
+        flowPosition
+      )
+      if (nextSlideData) {
+        const smartNextIndex = computeSmartNext(programSlideIndex, navigationFlow, flowPosition)
+        nextIndex =
+          smartNextIndex !== null ? Math.min(smartNextIndex, programSlides.length - 1) : null
+      }
+    } else if (hasActiveProgramSlide) {
+      const linearNextIndex = programSlideIndex + 1
+      const hasNext = programSlides.length > 0 && linearNextIndex < programSlides.length
+      nextSlideData = hasNext ? programSlides[linearNextIndex] : null
+      nextIndex = hasNext ? linearNextIndex : null
+    }
+
+    const hasNextSlide = nextSlideData !== null
 
     // Compute ready state
     const hasNextSong = nextSong !== null && queuedSlides.length > 0
@@ -483,7 +1053,7 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
 
     set({
       nextSlideData,
-      nextSlideIndex: hasNextSlide ? nextIndex : null,
+      nextSlideIndex: nextIndex,
       hasNextSlide,
       hasNextSong,
       nextReadyState: readyState
@@ -491,8 +1061,9 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
 
     logger.info('[NEXT State] Computed:', {
       hasNextSlide,
-      nextSlideIndex: hasNextSlide ? nextIndex : null,
-      readyState
+      nextSlideIndex: nextIndex,
+      readyState,
+      smartMode: isSmartMode
     })
   },
 
@@ -500,7 +1071,7 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
    * Pre-load next song into queuedSlides
    * Called when operator wants to prepare next song
    */
-  loadNextSong: (song: Song, slides: SlideData[]) => {
+  loadNextSong: (song: Song, slides: SlideData[], playlistIndex = null) => {
     const { programSlide } = get()
 
     // Don't load if it's the same as current program song
@@ -511,7 +1082,7 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
 
     set({
       nextSong: song,
-      nextSongIndex: null, // Will be set by playlist integration
+      nextSongIndex: playlistIndex,
       queuedSlides: slides,
       hasNextSong: true
     })
@@ -589,71 +1160,92 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
 
   /**
    * Navigate live output to a specific slide index
-   * DANGEROUS - directly affects live output
-   * Should only be used when operator intends to change live content
+   * FIX BUG-02: removed incorrect LIVE_LOCK guard — navigating live slides
+   * is exactly what operators need to do while the program is live.
    */
   goToLiveSlide: (index: number) => {
-    const { programSlides, programLockState } = get()
-
-    if (programLockState === 'LIVE_LOCK') {
-      logger.warn('[Quick Jump] Cannot navigate live while LIVE_LOCK is active')
-      return
-    }
+    const { programSlides, navigationFlow } = get()
 
     if (index >= 0 && index < programSlides.length) {
-      const slideData = withNextSlide(programSlides, index)
-      set({
-        programSlideIndex: index,
-        programSlide: slideData,
-        projectionState: 'LIVE'
-      })
-      sendLiveSlide(slideData)
-      get().computeNextState()
-      logger.info('[Quick Jump] Live navigated to slide', index + 1)
+      try {
+        executeProjectionTransition(
+          { type: 'projection:go-to-slide', payload: { slideIndex: index } },
+          set,
+          get
+        )
+        // Update flowPosition to match the new slide
+        if (navigationFlow) {
+          const newFlowPosition = resolveFlowPosition(index, navigationFlow, get().flowPosition)
+          set({ flowPosition: newFlowPosition })
+        }
+        logger.info('[Quick Jump] Live navigated to slide', index + 1)
+      } catch (err) {
+        logger.error('[Projection Store] goToLiveSlide transition failed:', err)
+      }
     }
   },
 
   /**
    * Navigate live output to a section
-   * DANGEROUS - directly affects live output
+   * FIX BUG-02: removed incorrect LIVE_LOCK guard
    */
   goToLiveSection: (section: string) => {
-    const { sectionMap, programLockState } = get()
+    const { programSectionMap, navigationFlow, programSlides } = get()
 
-    if (programLockState === 'LIVE_LOCK') {
-      logger.warn('[Quick Jump] Cannot navigate live while LIVE_LOCK is active')
-      return
-    }
-
-    const indices = sectionMap[section.toLowerCase()]
+    const indices = programSectionMap[section.toLowerCase()]
     if (indices && indices.length > 0) {
-      get().goToLiveSlide(indices[0])
-      logger.info('[Quick Jump] Live navigated to section:', section)
+      try {
+        // Use programSectionMap for the FSM transition payload
+        executeProjectionTransition(
+          { type: 'projection:go-to-section', payload: { section } },
+          set,
+          get
+        )
+        // Update flowPosition to match the target section's first slide
+        if (navigationFlow && programSlides.length > 0) {
+          const targetIndex = indices[0]
+          if (targetIndex >= 0 && targetIndex < programSlides.length) {
+            const newFlowPosition = resolveFlowPosition(
+              targetIndex,
+              navigationFlow,
+              get().flowPosition
+            )
+            set({ flowPosition: newFlowPosition })
+          }
+        }
+        logger.info('[Quick Jump] Live navigated to section:', section)
+      } catch (err) {
+        logger.error('[Projection Store] goToLiveSection transition failed:', err)
+      }
     } else {
-      logger.warn('[Quick Jump] Section not found:', section)
+      logger.warn('[Quick Jump] Section not found in program:', section)
     }
   },
 
   /**
    * Navigate live output using a slide address
-   * DANGEROUS - directly affects live output
-   * Universal navigation method for live
+   * FIX BUG-02: removed incorrect LIVE_LOCK guard
    */
   goToLiveAddress: (address: SlideAddress) => {
-    const { programSlides, sectionMap, programSlideIndex, programLockState } = get()
-
-    if (programLockState === 'LIVE_LOCK') {
-      logger.warn('[Quick Jump] Cannot navigate live while LIVE_LOCK is active')
-      return
-    }
-
-    const result = resolveSlideAddress(address, programSlides, sectionMap, programSlideIndex)
-
-    if (result.found && result.slideIndex !== null) {
-      get().goToLiveSlide(result.slideIndex)
-      logger.info('[Quick Jump] Live navigated:', result.description)
-    } else {
-      logger.warn('[Quick Jump] Live navigation failed:', result.error)
+    try {
+      executeProjectionTransition(
+        { type: 'projection:go-to-address', payload: { address } },
+        set,
+        get
+      )
+      // Update flowPosition to match the resolved slide after transition
+      const { navigationFlow, programSlideIndex, programSlides } = get()
+      if (navigationFlow && programSlideIndex >= 0 && programSlides.length > 0) {
+        const newFlowPosition = resolveFlowPosition(
+          programSlideIndex,
+          navigationFlow,
+          get().flowPosition
+        )
+        set({ flowPosition: newFlowPosition })
+      }
+      logger.info('[Quick Jump] Live navigated to address')
+    } catch (err) {
+      logger.error('[Projection Store] goToLiveAddress transition failed:', err)
     }
   },
 
@@ -720,5 +1312,63 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
       projectionState,
       timerElapsed
     )
+  },
+
+  setEmergencyConfig: (config: { active: boolean; message?: string; subMessage?: string }) => {
+    set({ emergencyConfig: config })
+    // Broadcast to projection window
+    window.api.projection.emergencyUpdate?.(config)
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // AUDIO PANEL ACTIONS
+  // ═══════════════════════════════════════════════════════════════
+  toggleAudioPanel: () => {
+    const next = !get().isAudioPanelVisible
+    set({ isAudioPanelVisible: next })
+    window.api.settings
+      .update('ui_audio_panel_visible', next ? '1' : '0')
+      .catch((err) => logger.error('Failed to save audio panel state:', err))
+  },
+
+  setAudioPanelVisible: (visible: boolean) => {
+    set({ isAudioPanelVisible: visible })
+    window.api.settings
+      .update('ui_audio_panel_visible', visible ? '1' : '0')
+      .catch((err) => logger.error('Failed to save audio panel state:', err))
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // LYRICS ZOOM ACTIONS
+  // ═══════════════════════════════════════════════════════════════
+  setLyricsFontSize: (percent: number) => {
+    const clamped = Math.max(70, Math.min(150, percent))
+    set({ lyricsFontSizePercent: clamped })
+    window.api.settings
+      .update('ui_lyrics_font_size', clamped.toString())
+      .catch((err) => logger.error('Failed to save lyrics font size:', err))
+  },
+
+  increaseLyricsFontSize: () => {
+    const next = Math.min(150, get().lyricsFontSizePercent + 10)
+    set({ lyricsFontSizePercent: next })
+    window.api.settings
+      .update('ui_lyrics_font_size', next.toString())
+      .catch((err) => logger.error('Failed to save lyrics font size:', err))
+  },
+
+  decreaseLyricsFontSize: () => {
+    const next = Math.max(70, get().lyricsFontSizePercent - 10)
+    set({ lyricsFontSizePercent: next })
+    window.api.settings
+      .update('ui_lyrics_font_size', next.toString())
+      .catch((err) => logger.error('Failed to save lyrics font size:', err))
+  },
+
+  resetLyricsFontSize: () => {
+    set({ lyricsFontSizePercent: 100 })
+    window.api.settings
+      .update('ui_lyrics_font_size', '100')
+      .catch((err) => logger.error('Failed to save lyrics font size:', err))
   }
 }))

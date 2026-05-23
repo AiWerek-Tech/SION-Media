@@ -139,6 +139,11 @@ interface AppThemeAPI {
   onUpdated: (callback: (payload: { mode: string; effective: string }) => void) => () => void
 }
 
+interface AppAPI {
+  notifyShellReady: () => void
+  isSafeMode: () => Promise<boolean>
+}
+
 interface ProjectionAPI {
   slideUpdate: (slideData: unknown) => void
   stateChange: (state: string) => void
@@ -148,6 +153,10 @@ interface ProjectionAPI {
   onSlideUpdate: (callback: (data: unknown) => void) => () => void
   onStateChange: (callback: (state: string) => void) => () => void
   onThemeUpdate: (callback: (theme: unknown) => void) => () => void
+  emergencyUpdate: (payload: { active: boolean; message?: string; subMessage?: string }) => void
+  onEmergencyUpdate: (
+    callback: (payload: { active: boolean; message?: string; subMessage?: string }) => void
+  ) => () => void
 }
 
 interface StageAPI {
@@ -208,6 +217,9 @@ interface SongsAPI {
   getRelations: (songId: number) => Promise<SongRelationDto[]>
   addRelation: (relation: SongRelationCreatePayload) => Promise<SongRelationDto>
   deleteRelation: (id: number) => Promise<boolean>
+  // Phase 1 — Enterprise Refactor
+  duplicate: (id: number) => Promise<{ id: number; number: string; title: string } | null>
+  getSummary: (hymnalId?: number) => Promise<unknown[]>
 }
 
 interface PlaylistsAPI {
@@ -252,6 +264,7 @@ interface SystemAPI {
   getMemory: () => Promise<unknown>
   setMode: (mode: string) => Promise<void>
   openExternal: (url: string) => Promise<void>
+  getStorageStats: () => Promise<unknown>
 }
 
 interface FileAPI {
@@ -398,9 +411,16 @@ interface HealthAPI {
   onHeartbeatAck: (callback: (data: { id: EndpointId; timestamp: number }) => void) => () => void
 }
 
+// Phase 1 — Enterprise Refactor
+interface ConfidenceAPI {
+  update: (payload: unknown) => void
+  onUpdate: (callback: (data: unknown) => void) => () => void
+}
+
 interface API {
   window: WindowAPI
   appTheme: AppThemeAPI
+  app: AppAPI
   projection: ProjectionAPI
   stage: StageAPI
   display: DisplayAPI
@@ -414,6 +434,8 @@ interface API {
   bible: BibleAPI
   slides: SlidesAPI
   health: HealthAPI
+  // Phase 1 — Enterprise Refactor
+  confidence: ConfidenceAPI
 }
 
 declare global {

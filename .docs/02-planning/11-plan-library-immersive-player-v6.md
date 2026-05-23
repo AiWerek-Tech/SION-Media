@@ -1,8 +1,10 @@
 ---
 title: Plan — Library Immersive Player v6 (Player-First)
-phase: 0-plan
-status: draft
+phase: implemented
+status: done
 ---
+
+> **Status:** ✅ IMPLEMENTED — Lihat `04-implementation/12-log-impl-library-immersive-player-v6.md`
 
 # Goal
 

@@ -1,5 +1,7 @@
 # Plan: Projection Mode Resizable Broadcast Console v9.1
 
+> **Status:** ✅ IMPLEMENTED — Lihat `04-implementation/16-log-impl-projection-layout-v9.1.md`
+
 **Date:** 2026-05-10
 **Scope:** `ProjectionMode.tsx`, `LivePreviewPanel.tsx`, `main.css`
 **Objective:** Dynamic dual-monitor layout with resizable split (vMix/OBS style) while preserving 16:9 confidence monitors and strict CUE vs PROGRAM state separation.

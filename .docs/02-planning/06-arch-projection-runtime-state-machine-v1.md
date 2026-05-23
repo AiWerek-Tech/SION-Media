@@ -1,5 +1,7 @@
 # Projection Runtime State Architecture v1
 
+> **Status:** ✅ IMPLEMENTED — State machine formal sudah diimplementasikan di `src/renderer/src/core/projection/state-machine/`. Lihat `04-implementation/31-log-impl-projection-system-foundation-v1.md`
+
 **Date**: 2026-05-10
 **Purpose**: Formal State Machine Definition for Projection Workflow
 **Prerequisite**: audit-projection-workflow-v1.md

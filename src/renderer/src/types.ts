@@ -46,6 +46,8 @@ export interface SlideData {
   slideIndex: number
   text: string
   sectionLabel: string
+  /** Source lyric section ordinal. Preserves marker boundaries when labels repeat. */
+  sectionId?: number
   nextSlideText?: string
   // Musical metadata for projection overlay
   keyNote?: string
@@ -248,6 +250,63 @@ export interface RecoveryState {
 export type FilterTab = 'all' | 'favorites' | 'recent' | 'category'
 
 export type AppScreen = 'dashboard' | 'song-editor' | 'import-export' | 'settings' | 'bible'
+
+// ============================================================================
+// Smart Worship Navigation Types
+// ============================================================================
+
+/**
+ * Section type classification for worship navigation.
+ * 'other' is the fallback for unrecognized section labels.
+ */
+export type SectionType = 'verse' | 'chorus' | 'bridge' | 'intro' | 'ending' | 'other'
+
+/**
+ * One step in the Navigation Flow.
+ * Represents one section that will be displayed in navigation order.
+ */
+export interface NavigationFlowStep {
+  /** Classified section type */
+  sectionType: SectionType
+  /** Original sectionLabel verbatim from SlideData */
+  sectionLabel: string
+  /** Index of the first slide of this section in programSlides */
+  firstSlideIndex: number
+  /** Index of the last slide of this section in programSlides */
+  lastSlideIndex: number
+  /** Short label for badge UI (V1, V2, C, B, I, E, or custom) */
+  badgeLabel: string
+}
+
+/**
+ * Ordered navigation sequence computed for one song.
+ * Smart_Mode: follows worship pattern V1→C→V2→C→...
+ * Linear_Mode: follows original section order.
+ */
+export interface NavigationFlow {
+  /** Array of navigation steps in the order they will be followed */
+  steps: NavigationFlowStep[]
+  /** Whether this flow uses Smart_Mode (song has a chorus) */
+  isSmartMode: boolean
+}
+
+/**
+ * Internal boundary record used by the Navigation Flow Engine.
+ * Represents a contiguous block of slides sharing the same sectionLabel.
+ */
+export interface SectionBoundary {
+  sectionLabel: string
+  sectionType: SectionType
+  firstSlideIndex: number
+  lastSlideIndex: number
+}
+
+/**
+ * Navigation mode active for the current song.
+ * SMART: Contextual navigation based on worship structure.
+ * LINEAR: Linear slide-by-slide navigation (existing behaviour).
+ */
+export type NavigationMode = 'SMART' | 'LINEAR'
 
 // ============================================================================
 // Confidence Monitor Types - Stage-facing display system

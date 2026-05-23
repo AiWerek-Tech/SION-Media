@@ -1,8 +1,12 @@
 import React from 'react'
-import { AlertTriangle, Eye, GripVertical, Plus, Star } from 'lucide-react'
-import { useAppStore } from '../store/useAppStore'
-import { getHymnalBgColor, getHymnalBorderColor, getHymnalColor } from '../utils/hymnal-colors'
-import type { Song } from '../types'
+import { AlertTriangle, Eye, Plus, Star } from 'lucide-react'
+import { useAppStore } from '@renderer/store/useAppStore'
+import {
+  getHymnalBgColor,
+  getHymnalBorderColor,
+  getHymnalColor
+} from '@renderer/utils/hymnal-colors'
+import type { Song } from '@renderer/types'
 
 function normalizeDisplayNumber(input: string | null | undefined): string {
   const raw = String(input ?? '').trim()
@@ -34,8 +38,15 @@ export function SongCard({
   const hymnalBg = getHymnalBgColor(hymnalCode)
   const hymnalBorder = getHymnalBorderColor(hymnalCode)
   const hasEmptyLyrics = !song.lyrics_raw?.trim()
-  const verseCount = Math.max(1, song.lyrics_raw?.split(/\n\s*\n/).filter(Boolean).length || 1)
-  const bpm = song.tempo?.match(/\d+/)?.[0] ?? '72'
+  // FIX: count actual [SECTION] markers, fallback to paragraph count, min 1
+  const sectionCount = song.lyrics_raw
+    ? (song.lyrics_raw.match(/^\[.+\]$/gm) || []).length ||
+      Math.max(1, song.lyrics_raw.split(/\n\s*\n/).filter(Boolean).length)
+    : 1
+  // FIX: use actual time_signature from song data, fallback to '4/4'
+  const timeSignature = song.time_signature || '4/4'
+  // FIX: use actual tempo, no hardcoded default
+  const bpm = song.tempo?.match(/\d+/)?.[0] ?? null
 
   const handleProjectNow = (): void => {
     onProjectNow(song)
@@ -49,10 +60,15 @@ export function SongCard({
       }`}
       role="button"
       tabIndex={0}
-      onDoubleClick={handleProjectNow}
+      onClick={handleProjectNow}
       onKeyDown={(event) => {
-        if (event.key === 'Enter') handleProjectNow()
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          handleProjectNow()
+        }
       }}
+      aria-label={`Cue lagu ${song.title}`}
+      aria-pressed={isActive}
     >
       <button
         className="projection-song-row__favorite"
@@ -60,10 +76,15 @@ export function SongCard({
           event.stopPropagation()
           onToggleFavorite(song)
         }}
-        title="Toggle favorite"
+        title={song.is_favorite ? 'Hapus dari favorit' : 'Tambah ke favorit'}
         aria-label={`${song.is_favorite ? 'Remove' : 'Add'} ${song.title} favorite`}
+        style={song.is_favorite ? { opacity: 1 } : undefined}
       >
-        <Star size={15} fill={song.is_favorite ? 'currentColor' : 'none'} />
+        <Star
+          size={13}
+          fill={song.is_favorite ? 'currentColor' : 'none'}
+          strokeWidth={song.is_favorite ? 0 : 1.8}
+        />
       </button>
 
       <div className="projection-song-row__thumb">
@@ -97,14 +118,21 @@ export function SongCard({
       </div>
 
       <div className="projection-song-row__stats">
-        <span>4/4</span>
-        <span>BPM {bpm}</span>
-        <span>{verseCount} verse</span>
+        <span>{timeSignature}</span>
+        {bpm && <span>BPM {bpm}</span>}
+        <span>{sectionCount} verse</span>
       </div>
 
       <div className="projection-song-row__actions">
-        <button onClick={handleProjectNow} title="Cue to Preview" aria-label={`Cue ${song.title}`}>
-          <Eye size={15} />
+        <button
+          onClick={(event) => {
+            event.stopPropagation()
+            handleProjectNow()
+          }}
+          title="Cue to Preview"
+          aria-label={`Cue ${song.title}`}
+        >
+          <Eye size={13} />
         </button>
         <button
           onClick={(event) => {
@@ -114,10 +142,7 @@ export function SongCard({
           title="Add to Playlist"
           aria-label={`Add ${song.title} to playlist`}
         >
-          <Plus size={16} />
-        </button>
-        <button title="More actions" aria-label={`More actions for ${song.title}`}>
-          <GripVertical size={15} />
+          <Plus size={14} />
         </button>
       </div>
     </div>

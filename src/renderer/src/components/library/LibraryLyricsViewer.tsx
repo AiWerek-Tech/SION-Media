@@ -18,11 +18,11 @@ import {
   Plus,
   Grid3X3
 } from 'lucide-react'
-import { TitleBar } from '../titlebar/TitleBar'
+import { TitleBar } from '@renderer/components/titlebar/TitleBar'
 import { LibrarySearchPalette } from './LibrarySearchPalette'
-import type { Song } from '../../types'
-import { useAppStore } from '../../store/useAppStore'
-import { logger } from '../../utils/logger'
+import type { Song } from '@renderer/types'
+import { useAppStore } from '@renderer/store/useAppStore'
+import { logger } from '@renderer/utils/logger'
 import { DEFAULT_GLOBAL_ATMOSPHERE } from '../../atmosphere/presets'
 import type { AtmosphereConfig, MediaAssetRecord } from '../../atmosphere/types'
 
@@ -266,7 +266,7 @@ Key: ${song.key_note || '-'}, Tempo: ${song.tempo || '-'}, Birama: ${song.time_s
 
 ${song.lyrics_raw}
 
-© SION Media Enterprise`.trim()
+Copyright SION Media Enterprise`.trim()
 
     navigator.clipboard.writeText(text)
     setCopyFeedback(true)
@@ -740,15 +740,6 @@ ${song.lyrics_raw}
                 {song.time_signature || '-'}
               </div>
             </div>
-            <div className="flex flex-col items-start justify-center shrink-0 hidden md:flex">
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400/80">
-                Kategori
-              </div>
-              <div className="text-[13px] font-black text-white/94 mt-0.5 truncate max-w-[100px]">
-                {song.category || '-'}
-              </div>
-            </div>
-
             <div className="flex flex-col items-start justify-center shrink-0 hidden md:flex">
               <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400/80">
                 Kategori

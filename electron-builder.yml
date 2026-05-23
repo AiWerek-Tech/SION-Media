@@ -1,7 +1,8 @@
-appId: com.electron.app
-productName: sion-media
+appId: com.aiwerek.sion-media
+productName: SION Media
 directories:
   buildResources: build
+  output: dist
 files:
   - '!**/.vscode/*'
   - '!src/*'
@@ -13,11 +14,17 @@ asarUnpack:
   - resources/**
 win:
   executableName: sion-media
+  icon: resources/icon.png
+  target: nsis
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  artifactName: SION-Media-${version}-Setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+  oneClick: false
+  perMachine: true
+  allowToChangeInstallationDirectory: true
+  createStartMenuShortcut: true
 mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
@@ -33,11 +40,11 @@ linux:
     - AppImage
     - snap
     - deb
-  maintainer: electronjs.org
+  maintainer: AiWerek Tech
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
-npmRebuild: false
+npmRebuild: true
 publish:
   provider: generic
-  url: https://example.com/auto-updates
+  url: https://aiwerek-tech.github.io/sion-media-web

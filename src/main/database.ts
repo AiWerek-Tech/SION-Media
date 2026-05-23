@@ -1,7 +1,15 @@
 import Database from 'better-sqlite3'
 import { join, basename, extname } from 'path'
 import { app, nativeImage } from 'electron'
-import { copyFileSync, existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from 'fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+  statSync
+} from 'fs'
 import { randomUUID } from 'crypto'
 import { initialSongs } from './seed-data'
 import { runMigrations } from './migrations'
@@ -453,7 +461,7 @@ export function initDatabase(): void {
 
   // Copy default database from resources if it doesn't exist
   if (!existsSync(dbPath) && existsSync(resourcesPath)) {
-    console.log('Copying default database from resources...')
+    console.info('Copying default database from resources...')
     try {
       // Ensure userData directory exists
       const userDataDir = app.getPath('userData')
@@ -461,28 +469,37 @@ export function initDatabase(): void {
         mkdirSync(userDataDir, { recursive: true })
       }
       copyFileSync(resourcesPath, dbPath)
-      console.log('Default database copied successfully')
+      console.info('Default database copied successfully')
     } catch (error) {
       console.error('Failed to copy default database:', error)
       // Continue with normal initialization if copy fails
     }
   }
 
-  db = new Database(dbPath)
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
-
-  // Legacy schema handling (Non-destructive Backup)
-  // If the old schema exists (no hymnals table), move DB files aside and start fresh.
-  const hymnalTableExists = db
-    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='hymnals'")
-    .get()
-
-  if (!hymnalTableExists) {
-    console.log('Old schema detected. Backing up legacy DB for Multi-Hymnal revamp...')
+  // Legacy schema detection: check BEFORE opening the main connection so that
+  // `db` is assigned exactly once and never reassigned after IPC handlers are
+  // registered. This eliminates the race window that existed when we closed and
+  // reopened `db` mid-startup on slower machines.
+  // INVARIANT: `db` is assigned exactly once in this function.
+  let needsLegacyMigration = false
+  if (existsSync(dbPath)) {
     try {
-      db.close()
+      const probe = new Database(dbPath, { readonly: true })
+      const hymnalTableExists = probe
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='hymnals'")
+        .get()
+      probe.close()
+      if (!hymnalTableExists) {
+        needsLegacyMigration = true
+      }
+    } catch {
+      // If probe fails, proceed with normal init — migrations will handle schema
+    }
+  }
 
+  if (needsLegacyMigration) {
+    console.info('Old schema detected. Backing up legacy DB for Multi-Hymnal revamp...')
+    try {
       const ts = new Date().toISOString().replace(/[:.]/g, '-')
       const legacyBase = `${dbPath}.legacy-backup-${ts}`
       for (const suffix of ['', '-wal', '-shm']) {
@@ -504,11 +521,12 @@ export function initDatabase(): void {
     } catch (e) {
       console.error('Failed to backup legacy database:', e)
     }
-
-    db = new Database(dbPath)
-    db.pragma('journal_mode = WAL')
-    db.pragma('foreign_keys = ON')
   }
+
+  // Single assignment — `db` is set here and never reassigned.
+  db = new Database(dbPath)
+  db.pragma('journal_mode = WAL')
+  db.pragma('foreign_keys = ON')
 
   // Run migrations (non-destructive schema updates)
   runMigrations(db)
@@ -521,7 +539,7 @@ function seedDatabase(): void {
   const count = db.prepare('SELECT COUNT(*) as c FROM songs').get() as { c: number }
   if (count.c > 0) return // Already seeded or has data
 
-  console.log('Seeding Multi-Hymnal database...')
+  console.info('Seeding Multi-Hymnal database...')
 
   // Insert default hymnal: Lagu Sion Edisi Lengkap
   const hymnalResult = db
@@ -553,11 +571,11 @@ function seedDatabase(): void {
   })
 
   transaction(initialSongs)
-  console.log(`Seeded ${initialSongs.length} songs under hymnal LS (id=${lsId}).`)
+  console.info(`Seeded ${initialSongs.length} songs under hymnal LS (id=${lsId}).`)
 }
 
 export function reseedDatabase(): void {
-  console.log('Reseeding Multi-Hymnal database...')
+  console.info('Reseeding Multi-Hymnal database...')
   try {
     // 1. Drop FTS table and triggers to avoid conflicts
     db.exec(`
@@ -617,7 +635,7 @@ export function reseedDatabase(): void {
 
     checkpointWal('TRUNCATE')
 
-    console.log('Reseed complete.')
+    console.info('Reseed complete.')
   } catch (err) {
     console.error('Reseed error:', err)
     throw err
@@ -2466,4 +2484,161 @@ export function reorderGroupSlides(
   })
   transaction()
   checkpointWal()
+}
+
+// ============================================================================
+// Phase 1 — Enterprise Refactor Functions (additive only)
+// @see implementation-master-order-v1.md §3.2 Sequence 1.4
+// ============================================================================
+
+/**
+ * Lightweight song list query — excludes lyrics_raw for performance.
+ * Intended for Library Mode grid/list views where lyrics are not displayed.
+ */
+export function getSongsSummary(hymnalId?: number): unknown[] {
+  if (hymnalId !== undefined) {
+    return db
+      .prepare(
+        `SELECT s.id, s.hymnal_id, h.code as hymnal_code, h.name as hymnal_name,
+                s.number, s.title, s.alternate_title, s.category, s.language,
+                s.author, s.composer, s.key_note, s.tempo, s.tags, s.theme,
+                s.scripture_reference, s.is_favorite, s.song_background_config,
+                s.created_at, s.updated_at
+         FROM songs s
+         JOIN hymnals h ON s.hymnal_id = h.id
+         WHERE s.hymnal_id = ?
+         ORDER BY CAST(s.number AS INTEGER), s.number`
+      )
+      .all(hymnalId)
+  }
+
+  return db
+    .prepare(
+      `SELECT s.id, s.hymnal_id, h.code as hymnal_code, h.name as hymnal_name,
+              s.number, s.title, s.alternate_title, s.category, s.language,
+              s.author, s.composer, s.key_note, s.tempo, s.tags, s.theme,
+              s.scripture_reference, s.is_favorite, s.song_background_config,
+              s.created_at, s.updated_at
+       FROM songs s
+       JOIN hymnals h ON s.hymnal_id = h.id
+       ORDER BY h.code, CAST(s.number AS INTEGER), s.number`
+    )
+    .all()
+}
+
+/**
+ * Duplicate a song by ID. Creates a new song with modified number and title
+ * to clearly indicate it's a copy.
+ * @returns The newly created song row or null if source not found.
+ */
+export function duplicateSong(
+  songId: number
+): { id: number; number: string; title: string } | null {
+  const source = db
+    .prepare(
+      `SELECT hymnal_id, number, title, alternate_title, lyrics_raw, category,
+              language, author, composer, key_note, time_signature, tempo,
+              tags, theme, scripture_reference, song_background_config
+       FROM songs WHERE id = ?`
+    )
+    .get(songId) as Record<string, unknown> | undefined
+
+  if (!source) return null
+
+  const newNumber = `${source.number}-copy`
+  const newTitle = `${source.title} (Salinan)`
+
+  const result = db
+    .prepare(
+      `INSERT INTO songs (
+        hymnal_id, number, title, alternate_title, lyrics_raw, category,
+        language, author, composer, key_note, time_signature, tempo,
+        tags, theme, scripture_reference, song_background_config
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      source.hymnal_id,
+      newNumber,
+      newTitle,
+      source.alternate_title,
+      source.lyrics_raw,
+      source.category,
+      source.language,
+      source.author,
+      source.composer,
+      source.key_note,
+      source.time_signature,
+      source.tempo,
+      source.tags,
+      source.theme,
+      source.scripture_reference,
+      source.song_background_config
+    )
+
+  checkpointWal()
+
+  return {
+    id: Number(result.lastInsertRowid),
+    number: newNumber,
+    title: newTitle
+  }
+}
+
+/**
+ * Get storage statistics for the Management Mode dashboard.
+ * Returns actual database size and process memory usage.
+ */
+export function getStorageStats(): {
+  dbSizeBytes: number
+  dbSizeMB: string
+  memoryMB: string
+  songCount: number
+  hymnalCount: number
+  playlistCount: number
+} {
+  const dbPath = join(app.getPath('userData'), 'sion.db')
+
+  let dbSizeBytes = 0
+  try {
+    const stat = statSync(dbPath)
+    dbSizeBytes = stat.size
+  } catch {
+    // ignore — file might not exist yet
+  }
+
+  const songCount = (db.prepare('SELECT COUNT(*) as c FROM songs').get() as { c: number }).c
+  const hymnalCount = (db.prepare('SELECT COUNT(*) as c FROM hymnals').get() as { c: number }).c
+  const playlistCount = (db.prepare('SELECT COUNT(*) as c FROM playlists').get() as { c: number }).c
+
+  const memUsage = process.memoryUsage()
+
+  return {
+    dbSizeBytes,
+    dbSizeMB: (dbSizeBytes / (1024 * 1024)).toFixed(1),
+    memoryMB: (memUsage.heapUsed / (1024 * 1024)).toFixed(1),
+    songCount,
+    hymnalCount,
+    playlistCount
+  }
+}
+
+/**
+ * Auto-backup on startup (if >7 days since last backup)
+ */
+export function autoBackupIfNeeded(): void {
+  const settings = getSettings()
+  const lastBackupStr = settings['last_auto_backup']
+
+  const now = Date.now()
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
+
+  if (!lastBackupStr || now - parseInt(lastBackupStr, 10) > SEVEN_DAYS_MS) {
+    try {
+      createBackup()
+      updateSetting('last_auto_backup', now.toString())
+      console.info('[Backup] Auto-backup created successfully')
+    } catch (err) {
+      console.error('[Backup] Failed to create auto-backup:', err)
+    }
+  }
 }

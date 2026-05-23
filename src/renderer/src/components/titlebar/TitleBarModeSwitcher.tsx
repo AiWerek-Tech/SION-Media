@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { MonitorPlay, Library, LayoutDashboard, Settings, ChevronDown } from 'lucide-react'
 import { useModeStore, AppMode } from '../../store/useModeStore'
+import { useAppStore } from '../../store/useAppStore'
 
 const MODE_CONFIG: Record<
   AppMode,
@@ -34,6 +35,7 @@ const MODE_CONFIG: Record<
 
 export function TitleBarModeSwitcher(): React.JSX.Element {
   const { currentMode, setMode } = useModeStore()
+  const setScreen = useAppStore((s) => s.setScreen)
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -56,6 +58,7 @@ export function TitleBarModeSwitcher(): React.JSX.Element {
         className={`title-bar-mode-trigger ${isOpen ? 'is-open' : ''}`}
         aria-haspopup="menu"
         aria-expanded={isOpen}
+        aria-label={`Mode saat ini: ${config.label}. Klik untuk ganti mode`}
       >
         <span
           className={`title-bar-mode-trigger__icon ${config.colorClass} ${isOpen ? 'is-open' : ''}`}
@@ -72,31 +75,34 @@ export function TitleBarModeSwitcher(): React.JSX.Element {
 
       {isOpen && (
         <div className="title-bar-mode-dropdown animate-in fade-in zoom-in-[0.98] duration-200">
-          {(Object.keys(MODE_CONFIG) as AppMode[]).map((mode) => {
-            const item = MODE_CONFIG[mode]
-            const isActive = currentMode === mode
-            return (
-              <button
-                key={mode}
-                onClick={() => {
-                  setMode(mode)
-                  setIsOpen(false)
-                }}
-                className={`title-bar-mode-option ${isActive ? 'is-active' : ''}`}
-              >
-                <div className="title-bar-mode-option__main">
-                  <span className={`title-bar-mode-option__icon ${item.colorClass}`}>
-                    {item.icon}
-                  </span>
-                  <div className="title-bar-mode-option__content">
-                    <span className="title-bar-mode-option__label">{item.label}</span>
-                    <span className="title-bar-mode-option__sub">{item.sub}</span>
+          {(Object.keys(MODE_CONFIG) as AppMode[])
+            .filter((mode) => mode !== 'BROADCAST')
+            .map((mode) => {
+              const item = MODE_CONFIG[mode]
+              const isActive = currentMode === mode
+              return (
+                <button
+                  key={mode}
+                  onClick={() => {
+                    setMode(mode)
+                    setScreen('dashboard')
+                    setIsOpen(false)
+                  }}
+                  className={`title-bar-mode-option ${isActive ? 'is-active' : ''}`}
+                >
+                  <div className="title-bar-mode-option__main">
+                    <span className={`title-bar-mode-option__icon ${item.colorClass}`}>
+                      {item.icon}
+                    </span>
+                    <div className="title-bar-mode-option__content">
+                      <span className="title-bar-mode-option__label">{item.label}</span>
+                      <span className="title-bar-mode-option__sub">{item.sub}</span>
+                    </div>
                   </div>
-                </div>
-                {isActive && <div className="title-bar-mode-option__indicator" />}
-              </button>
-            )
-          })}
+                  {isActive && <div className="title-bar-mode-option__indicator" />}
+                </button>
+              )
+            })}
         </div>
       )}
     </div>

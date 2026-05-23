@@ -65,10 +65,13 @@ export const IPC_CONFIDENCE = {
 
 // ============================================================================
 // Display Info
+// FIX ARCH-04: standardised to colon-separated naming ('display:get-all').
+// The old underscore variant ('display_get-all') is kept as an alias in
+// ipc-handlers.ts for backward-compat but new code should use this constant.
 // ============================================================================
 
 export const IPC_DISPLAY = {
-  GET_ALL: 'display_get-all',
+  GET_ALL: 'display:get-all',
   IS_PROJECTION_VISIBLE: 'display:is-projection-visible',
   CHANGED: 'display:changed'
 } as const

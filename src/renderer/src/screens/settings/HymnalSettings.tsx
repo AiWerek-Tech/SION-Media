@@ -8,6 +8,7 @@ import { Plus, Trash2, Edit2, Download, Upload, BookOpen } from 'lucide-react'
 import type { Hymnal } from '../../types'
 import type { Song } from '../../types'
 import { useAppStore } from '../../store/useAppStore'
+import { useModalStore } from '../../store/useModalStore'
 
 interface HymnalSettingsProps {
   hymnals: Hymnal[]
@@ -624,7 +625,16 @@ export function HymnalSettings({
   }
 
   const handleDelete = async (id: number): Promise<void> => {
-    if (confirm('Hapus buku lagu ini beserta SEMUA lagunya? Tindakan ini tidak bisa dibatalkan.')) {
+    const confirmed = await useModalStore
+      .getState()
+      .openAsync<boolean>('confirm-delete-hymnal', 'confirm', {
+        title: 'Hapus Buku Lagu?',
+        description:
+          'Hapus buku lagu ini beserta SEMUA lagunya? Tindakan ini tidak bisa dibatalkan.',
+        confirmLabel: 'Hapus',
+        danger: true
+      })
+    if (confirmed) {
       await onDelete(id)
     }
   }

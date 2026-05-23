@@ -1,3 +1,4 @@
+// TitleBarMenu.tsx
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import {
   useFloating,
@@ -14,8 +15,9 @@ import { useAppStore } from '../../store/useAppStore'
 import { useModeStore } from '../../store/useModeStore'
 import { usePlaylistStore } from '../../store/usePlaylistStore'
 import { useProjectionStore } from '../../store/useProjectionStore'
+import { useModalStore } from '../../store/useModalStore'
 import { logger } from '../../utils/logger'
-import { executeRuntimeCommand } from '../../utils/runtimeCommandBus'
+import { executeRuntimeCommand } from '@renderer/utils/runtimeCommandBus'
 
 interface MenuItem {
   label?: string
@@ -169,14 +171,26 @@ function MenuBarItem({
 export function TitleBarMenu(): React.JSX.Element {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const { setScreen, isFocusMode, toggleFocusMode } = useAppStore()
-  const { currentMode } = useModeStore()
+  const { currentMode, setMode } = useModeStore()
   const projStore = useProjectionStore()
   const plStore = usePlaylistStore()
+
+  const focusPrimarySearch = (): void => {
+    const targetId = currentMode === 'LIBRARY' ? 'library-pro-search' : 'song-search-input'
+    document.getElementById(targetId)?.focus()
+  }
+
+  const openSettings = (): void => {
+    setMode('MANAGEMENT')
+    setScreen('settings')
+  }
 
   const showFocusLive = currentMode === 'PROJECTION'
   const showPlaylistMenu = currentMode === 'PROJECTION'
   const showProjectionMenu = currentMode === 'PROJECTION'
-  const showToolsMenu = currentMode === 'PROJECTION' || currentMode === 'MANAGEMENT'
+  const showToolsMenu =
+    currentMode === 'LIBRARY' || currentMode === 'PROJECTION' || currentMode === 'MANAGEMENT'
+  const showLibraryTools = currentMode === 'LIBRARY' || currentMode === 'MANAGEMENT'
 
   const menus: MenuDef[] = [
     {
@@ -187,12 +201,16 @@ export function TitleBarMenu(): React.JSX.Element {
           label: 'New Playlist',
           shortcut: 'Ctrl+N',
           action: () => {
-            /* Will be wired when playlist create dialog exists */
+            document.dispatchEvent(new CustomEvent('sion:create-playlist'))
           }
+        },
+        {
+          label: 'Search Song',
+          shortcut: 'Ctrl+F',
+          action: focusPrimarySearch
         },
         { separator: true },
         { label: 'Import / Export', shortcut: 'Ctrl+I', action: () => setScreen('import-export') },
-        { separator: true },
         {
           label: 'Backup Database',
           action: () => {
@@ -206,20 +224,9 @@ export function TitleBarMenu(): React.JSX.Element {
           }
         },
         { separator: true },
-        { label: 'Exit', shortcut: 'Alt+F4', action: () => window.api.window.close() }
-      ]
-    },
-    {
-      id: 'edit',
-      label: 'Edit',
-      items: [
-        {
-          label: 'Search Song',
-          shortcut: 'Ctrl+F',
-          action: () => document.getElementById('song-search-input')?.focus()
-        },
+        { label: 'Preferences', action: openSettings },
         { separator: true },
-        { label: 'Preferences', action: () => setScreen('settings') }
+        { label: 'Exit', shortcut: 'Alt+F4', action: () => window.api.window.close() }
       ]
     },
     {
@@ -231,6 +238,12 @@ export function TitleBarMenu(): React.JSX.Element {
           shortcut: 'Ctrl+P',
           action: () => document.dispatchEvent(new CustomEvent('sion:toggle-command-palette'))
         },
+        // DUI-003: Bible menu item
+        {
+          label: 'Bible',
+          shortcut: 'Ctrl+B',
+          action: () => setScreen('bible')
+        },
         ...(!showFocusLive
           ? []
           : [
@@ -238,21 +251,14 @@ export function TitleBarMenu(): React.JSX.Element {
                 label: isFocusMode ? 'Exit Focus Live Mode' : 'Focus Live Mode',
                 shortcut: 'Ctrl+Shift+F',
                 action: () => toggleFocusMode()
-              },
-              { separator: true }
+              }
             ]),
-        { label: 'Settings', action: () => setScreen('settings') }
-      ]
-    },
-    ...(showPlaylistMenu
-      ? [
-          {
-            id: 'playlist',
-            label: 'Playlist',
-            items: [
+        ...(showPlaylistMenu
+          ? [
+              { separator: true },
               {
                 label: 'Next Song',
-                shortcut: 'Ctrl+→',
+                shortcut: 'Ctrl+Right',
                 action: () => {
                   const ps = usePlaylistStore.getState()
                   if (ps.activeItemIndex < ps.playlistItems.length - 1) {
@@ -266,7 +272,7 @@ export function TitleBarMenu(): React.JSX.Element {
               },
               {
                 label: 'Previous Song',
-                shortcut: 'Ctrl+←',
+                shortcut: 'Ctrl+Left',
                 action: () => {
                   const ps = usePlaylistStore.getState()
                   if (ps.activeItemIndex > 0) {
@@ -279,17 +285,12 @@ export function TitleBarMenu(): React.JSX.Element {
                 disabled: !plStore.activePlaylist
               }
             ]
-          }
-        ]
-      : []),
-    ...(showProjectionMenu
-      ? [
-          {
-            id: 'projection',
-            label: 'Projection',
-            items: [
+          : []),
+        ...(showProjectionMenu
+          ? [
+              { separator: true },
               {
-                label: projStore.projectionState === 'LIVE' ? '● Projector ON' : 'Projector ON/OFF',
+                label: projStore.projectionState === 'LIVE' ? 'Projector ON' : 'Projector ON/OFF',
                 action: () => {
                   const appState = useAppStore.getState()
                   if (appState.isProjectionVisible) {
@@ -300,6 +301,11 @@ export function TitleBarMenu(): React.JSX.Element {
                     appState.setProjectionVisible(true)
                   }
                 }
+              },
+              {
+                label: 'Scene Presets Config',
+                shortcut: 'Ctrl+Shift+S',
+                action: () => useModalStore.getState().open('scene-config', 'scene-config')
               },
               { separator: true },
               {
@@ -318,9 +324,9 @@ export function TitleBarMenu(): React.JSX.Element {
                 action: () => executeRuntimeCommand('PROJ_CLEAR', undefined, 'UI_BUTTON')
               }
             ]
-          }
-        ]
-      : []),
+          : [])
+      ]
+    },
     ...(showToolsMenu
       ? [
           {
@@ -329,13 +335,49 @@ export function TitleBarMenu(): React.JSX.Element {
             items: [
               {
                 label: 'Song Manager',
-                shortcut: 'Ctrl+N',
+                shortcut: 'Ctrl+Shift+N',
                 action: () => {
+                  setMode('MANAGEMENT')
                   useAppStore.getState().setEditingSong(null)
                   setScreen('song-editor')
                 }
               },
+              ...(showLibraryTools
+                ? [
+                    {
+                      label: 'Library Search',
+                      shortcut: 'Ctrl+F',
+                      action: focusPrimarySearch
+                    },
+                    {
+                      label: 'Import / Export',
+                      shortcut: 'Ctrl+I',
+                      action: () => setScreen('import-export')
+                    }
+                  ]
+                : []),
               { separator: true },
+              {
+                label: 'Tag Manager',
+                action: () => {
+                  useModalStore.getState().open('tag-manager', 'tag-manager')
+                }
+              },
+              {
+                label: 'Cek Integritas Database',
+                action: () => {
+                  window.api.system.checkMultiHymnalIntegrity().then((result) => {
+                    const issues = (result as { issues: Array<unknown> }).issues
+                    const issueCount = issues.length
+                    useAppStore
+                      .getState()
+                      .showToast(
+                        issueCount > 0 ? `Ditemukan ${issueCount} isu` : 'Integritas database aman',
+                        issueCount > 0 ? 'error' : 'success'
+                      )
+                  })
+                }
+              },
               {
                 label: 'Reseed Database',
                 action: () => {
@@ -368,9 +410,7 @@ export function TitleBarMenu(): React.JSX.Element {
         {
           label: 'About SION Media',
           action: () =>
-            useAppStore
-              .getState()
-              .showToast('SION Media v2.1 — Worship Multimedia Platform', 'info')
+            useAppStore.getState().showToast('SION Media - Worship Multimedia Platform', 'info')
         }
       ]
     }
@@ -383,17 +423,10 @@ export function TitleBarMenu(): React.JSX.Element {
       const key = e.key.toLowerCase()
       const menuMap: Record<string, string> = {
         f: 'file',
-        e: 'edit',
         v: 'view',
         h: 'help'
       }
 
-      if (showPlaylistMenu) {
-        menuMap.l = 'playlist'
-      }
-      if (showProjectionMenu) {
-        menuMap.p = 'projection'
-      }
       if (showToolsMenu) {
         menuMap.t = 'tools'
       }
@@ -405,7 +438,7 @@ export function TitleBarMenu(): React.JSX.Element {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [showPlaylistMenu, showProjectionMenu, showToolsMenu])
+  }, [showToolsMenu])
 
   return (
     <div className="title-bar-menu no-drag">

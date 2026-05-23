@@ -1,6 +1,6 @@
 import React from 'react'
 import { CheckCircle2, Info, AlertCircle } from 'lucide-react'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore } from '@renderer/store/useAppStore'
 
 export function Toast(): React.JSX.Element | null {
   const { toast } = useAppStore()

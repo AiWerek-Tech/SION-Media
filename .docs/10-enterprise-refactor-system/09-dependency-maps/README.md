@@ -1,66 +1,54 @@
 # Dependency Maps
 
-This directory contains dependency graphs and maps updated as the architecture evolves.
+> **Status:** Dependency maps sudah terdefinisi di dokumen arsitektur. High-risk chains terdokumentasi di bawah.
 
-## Purpose
+This directory contains dependency graphs and maps.
 
-Dependency maps provide a visual and structured reference for understanding how components, stores, IPC channels, and runtime systems relate to each other. They are updated when the architecture changes.
-
-## Document Naming Convention
-
-```
-dep-map-[domain]-v[N].md
-
-Examples:
-  dep-map-stores-v1.md
-  dep-map-ipc-v1.md
-  dep-map-components-v1.md
-  dep-map-projection-runtime-v1.md
-```
-
-## Current Dependency Maps
-
-The initial dependency maps are defined in the architecture documents:
-
-| Map                       | Location                                                   | Status     |
-| ------------------------- | ---------------------------------------------------------- | ---------- |
-| Component dependency tree | `implementation-master-order-v1.md` Part 6                 | ✅ Defined |
-| Store ownership rules     | `02-runtime-architecture/01-functional-refactor.md` Part 4 | ✅ Defined |
-| IPC dependency map        | `implementation-master-order-v1.md` Part 6                 | ✅ Defined |
-| Critical projection chain | `implementation-master-order-v1.md` Part 6                 | ✅ Defined |
-| Modal dependency map      | `02-runtime-architecture/01-functional-refactor.md` Part 3 | ✅ Defined |
-
-## When to Update Dependency Maps
-
-Update a dependency map when:
-
-- A new store is created
-- A new IPC channel group is added
-- A new component category is added
-- A store is decomposed into multiple stores
-- A circular dependency is detected and resolved
-
-## Circular Dependency Detection
-
-Run this check before any store or module creation:
-
-```bash
-# Check for circular imports in renderer
-npx madge --circular src/renderer/src/
-
-# Check for circular imports in main
-npx madge --circular src/main/
-```
-
-If circular dependencies are found, they must be resolved before merging.
-
-## High-Risk Dependencies (Do Not Break)
-
-The following dependency chains are critical and must never be broken:
+## High-Risk Dependency Chains (Jangan Diputus)
 
 ```
 1. Keyboard → RuntimeCommandBus → useProjectionStore → sendLiveSlide → IPC → projectionWindow
-2. useAppBootstrap → registerCommandHandlers → commandBus (must run before any projection command)
-3. initDatabase → runMigrations → seedDatabase (must run in this order)
-4. createMainWindow → createProjectionWindow (projection window needs main window reference)
+2. useAppBootstrap → registerCommandHandlers → commandBus (harus jalan sebelum projection command)
+3. initDatabase → runMigrations → seedDatabase (harus berurutan)
+4. createMainWindow → createProjectionWindow (projection window butuh main window reference)
+```
+
+## Store Dependency Map (Post Phase 9)
+
+```
+useAppStore (compatibility layer)
+  ├── useSongStore      ← extracted Phase 9
+  ├── useHymnalStore    ← extracted Phase 9
+  └── useDisplayStore   ← extracted Phase 9
+
+useProjectionStore (independent — JANGAN tambah cross-store reads)
+usePlaylistStore (persisted via localStorage)
+useModalStore (stack-based, max depth 3)
+useAtmosphereStore (independent)
+```
+
+## IPC Channel Groups
+
+```
+IPC_WINDOW    → window controls
+IPC_SYSTEM    → system ops, backup, reseed
+IPC_PROJECTION → slide update, state change, theme
+IPC_STAGE     → stage display show/hide
+IPC_CONFIDENCE → confidence monitor
+IPC_DISPLAY   → display info
+IPC_HYMNALS   → hymnal CRUD
+IPC_SONGS     → song CRUD + search + relations
+IPC_PLAYLISTS → playlist CRUD + items
+IPC_SETTINGS  → settings get/update
+IPC_RECOVERY  → crash recovery
+IPC_FILE      → file operations
+IPC_BIBLE     → bible CRUD + search
+IPC_SLIDES    → custom slides + groups
+```
+
+## Circular Dependency Check
+
+```bash
+npx madge --circular src/renderer/src/
+npx madge --circular src/main/
 ```

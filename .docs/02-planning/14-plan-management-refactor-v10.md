@@ -1,5 +1,7 @@
 # Plan — Management Mode Refactor v10 (Enterprise Content Hub)
 
+> **Status:** ✅ IMPLEMENTED — Lihat `04-implementation/17-log-impl-management-refactor-v10.md` dan `18-log-impl-management-ui-v10.1.md`
+
 ## Phase 0 — Audit & Planning (Stability First)
 
 ### Scope

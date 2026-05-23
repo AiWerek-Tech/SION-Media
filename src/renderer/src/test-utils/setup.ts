@@ -31,6 +31,11 @@ const mockApi = {
     onUpdated: vi.fn().mockReturnValue(() => {})
   },
 
+  app: {
+    notifyShellReady: vi.fn(),
+    isSafeMode: vi.fn().mockResolvedValue(false)
+  },
+
   projection: {
     slideUpdate: vi.fn(),
     stateChange: vi.fn(),
@@ -39,7 +44,9 @@ const mockApi = {
     hide: vi.fn(),
     onSlideUpdate: vi.fn().mockReturnValue(() => {}),
     onStateChange: vi.fn().mockReturnValue(() => {}),
-    onThemeUpdate: vi.fn().mockReturnValue(() => {})
+    onThemeUpdate: vi.fn().mockReturnValue(() => {}),
+    emergencyUpdate: vi.fn(),
+    onEmergencyUpdate: vi.fn().mockReturnValue(() => {})
   },
 
   stage: {
@@ -81,7 +88,10 @@ const mockApi = {
     toggleFavorite: vi.fn().mockResolvedValue({}),
     getRelations: vi.fn().mockResolvedValue([]),
     addRelation: vi.fn().mockResolvedValue({}),
-    deleteRelation: vi.fn().mockResolvedValue(true)
+    deleteRelation: vi.fn().mockResolvedValue(true),
+    // Phase 1 — Enterprise Refactor
+    duplicate: vi.fn().mockResolvedValue({ id: 2, number: '1a', title: 'Copy' }),
+    getSummary: vi.fn().mockResolvedValue([])
   },
 
   playlists: {
@@ -126,7 +136,11 @@ const mockApi = {
       hymnals: []
     }),
     getMemory: vi.fn().mockResolvedValue({ private: 0, shared: 0 }),
-    setMode: vi.fn().mockResolvedValue(undefined)
+    setMode: vi.fn().mockResolvedValue(undefined),
+    // Phase 1 — Enterprise Refactor
+    getStorageStats: vi
+      .fn()
+      .mockResolvedValue({ dbSizeBytes: 0, dbSizeMB: '0.00', memoryMB: '0.00' })
   },
 
   file: {
@@ -186,6 +200,12 @@ const mockApi = {
     getStatus: vi.fn().mockResolvedValue([]),
     onStatusUpdate: vi.fn().mockReturnValue(() => {}),
     onHeartbeatAck: vi.fn().mockReturnValue(() => {})
+  },
+
+  // Phase 1 — Enterprise Refactor
+  confidence: {
+    update: vi.fn(),
+    onUpdate: vi.fn().mockReturnValue(() => {})
   }
 }
 

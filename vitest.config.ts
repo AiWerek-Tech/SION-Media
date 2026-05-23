@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@renderer': resolve(__dirname, 'src/renderer/src')
+      '@renderer': resolve(__dirname, 'src/renderer/src'),
+      '@core': resolve(__dirname, 'src/renderer/src/core')
     }
   },
   test: {
@@ -24,7 +25,8 @@ export default defineConfig({
         plugins: [react()],
         resolve: {
           alias: {
-            '@renderer': resolve(__dirname, 'src/renderer/src')
+            '@renderer': resolve(__dirname, 'src/renderer/src'),
+            '@core': resolve(__dirname, 'src/renderer/src/core')
           }
         },
         test: {

@@ -1,5 +1,7 @@
 # Rencana Implementasi: Sistem Theme Light / Dark / System (Operator UI + Stage Display + Projection)
 
+> **Status:** ✅ IMPLEMENTED — Lihat `04-implementation/04-impl-theme-light-dark-system.md`
+
 Dokumen ini merangkum audit dan rencana implementasi sistem tema aplikasi agar mendukung **3 mode tema**:
 
 - Dark

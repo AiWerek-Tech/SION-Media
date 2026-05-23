@@ -1,5 +1,8 @@
 # Plan Roadmap Audit & Hardening v1
 
+> **Status:** Aktif — Sprint 1 sedang berjalan  
+> **Terakhir diperbarui:** 2026-05-23
+
 ## Ringkasan
 
 Dokumen ini adalah roadmap eksekusi pasca audit menyeluruh kode SION Media. Fokus utama adalah:

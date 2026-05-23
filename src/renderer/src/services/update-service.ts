@@ -31,8 +31,9 @@ export const UpdateService = {
       const response = await fetch(UPDATE_URL, {
         cache: 'no-store', // Always get fresh metadata
         headers: {
-          'Accept': 'application/json'
-        }
+          Accept: 'application/json'
+        },
+        signal: AbortSignal.timeout(3000)
       })
 
       if (!response.ok) {
@@ -40,7 +41,7 @@ export const UpdateService = {
       }
 
       const metadata: UpdateMetadata = await response.json()
-      
+
       if (!metadata.version) {
         throw new Error('Invalid update metadata: missing version')
       }

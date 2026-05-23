@@ -28,6 +28,10 @@ const api = {
       return () => ipcRenderer.removeListener('app:theme-updated', listener)
     }
   },
+  app: {
+    notifyShellReady: (): void => ipcRenderer.send('app:renderer-shell-ready'),
+    isSafeMode: (): Promise<boolean> => ipcRenderer.invoke('app:get-safe-mode')
+  },
 
   // Projection
   projection: {
@@ -51,6 +55,18 @@ const api = {
       const listener = (_e: IpcRendererEvent, theme: unknown): void => callback(theme)
       ipcRenderer.on('projection:theme-update', listener)
       return () => ipcRenderer.removeListener('projection:theme-update', listener)
+    },
+    emergencyUpdate: (payload: { active: boolean; message?: string; subMessage?: string }): void =>
+      ipcRenderer.send('projection:emergency', payload),
+    onEmergencyUpdate: (
+      callback: (payload: { active: boolean; message?: string; subMessage?: string }) => void
+    ): (() => void) => {
+      const listener = (
+        _e: IpcRendererEvent,
+        payload: { active: boolean; message?: string; subMessage?: string }
+      ): void => callback(payload)
+      ipcRenderer.on('projection:emergency', listener)
+      return () => ipcRenderer.removeListener('projection:emergency', listener)
     }
   },
 
@@ -62,7 +78,8 @@ const api = {
 
   // Display
   display: {
-    getAll: (): Promise<unknown[]> => ipcRenderer.invoke('display_get-all'),
+    // FIX ARCH-04: updated to use the standardised colon-separated channel name
+    getAll: (): Promise<unknown[]> => ipcRenderer.invoke('display:get-all'),
     isProjectionVisible: (): Promise<boolean> =>
       ipcRenderer.invoke('display:is-projection-visible'),
     onDisplayChanged: (callback: (count: number) => void): (() => void) => {
@@ -105,7 +122,11 @@ const api = {
     addRelation: (relation: unknown): Promise<unknown> =>
       ipcRenderer.invoke('db:add-song-relation', relation),
     deleteRelation: (id: number): Promise<boolean> =>
-      ipcRenderer.invoke('db:delete-song-relation', id)
+      ipcRenderer.invoke('db:delete-song-relation', id),
+    // Phase 1 — Enterprise Refactor
+    duplicate: (id: number): Promise<unknown> => ipcRenderer.invoke('db:duplicate-song', id),
+    getSummary: (hymnalId?: number): Promise<unknown[]> =>
+      ipcRenderer.invoke('db:get-songs-summary', hymnalId)
   },
 
   // Playlists
@@ -150,7 +171,11 @@ const api = {
       ipcRenderer.invoke('db:check-multi-hymnal-integrity', hymnalId),
     getMemory: (): Promise<unknown> => ipcRenderer.invoke('system:get-memory'),
     setMode: (mode: string): Promise<void> => ipcRenderer.invoke('system:set-mode', mode),
-    openExternal: (url: string): Promise<void> => ipcRenderer.invoke('system:open-external', url)
+    openExternal: (url: string): Promise<void> => ipcRenderer.invoke('system:open-external', url),
+    // Phase 1 — Enterprise Refactor
+    getStorageStats: (): Promise<unknown> => ipcRenderer.invoke('system:get-storage-stats'),
+    // Beta debug report export
+    exportDebugReport: (): Promise<unknown> => ipcRenderer.invoke('system:export-debug-report')
   },
 
   // File System
@@ -267,6 +292,21 @@ const api = {
         callback(data)
       ipcRenderer.on('health:heartbeat-ack', listener)
       return () => ipcRenderer.removeListener('health:heartbeat-ack', listener)
+    }
+  },
+
+  // ════════════════════════════════════════════════════════════════
+  // Phase 1 — Enterprise Refactor Bridge Entries (additive only)
+  // @see implementation-master-order-v1.md §3.2 Sequence 1.6
+  // ════════════════════════════════════════════════════════════════
+
+  // Confidence Monitor
+  confidence: {
+    update: (payload: unknown): void => ipcRenderer.send('confidence:update', payload),
+    onUpdate: (callback: (data: unknown) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, data: unknown): void => callback(data)
+      ipcRenderer.on('confidence:update', listener)
+      return () => ipcRenderer.removeListener('confidence:update', listener)
     }
   }
 }

@@ -1,8 +1,8 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import type { ProjectionState, SlideData } from '../types'
-import { AtmosphereRenderer } from '../atmosphere/AtmosphereRenderer'
-import type { AtmosphereConfig } from '../atmosphere/types'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import type { ProjectionState, SlideData } from '@renderer/types'
+import { AtmosphereRenderer } from '@renderer/atmosphere/AtmosphereRenderer'
+import { useAtmosphereStore } from '@renderer/store/useAtmosphereStore'
 
 interface PresentationCanvasProps {
   slide: SlideData | null
@@ -12,6 +12,16 @@ interface PresentationCanvasProps {
   showMetadata?: boolean
   fit?: boolean
   className?: string
+  lyricsFontSizePercent?: number
+  /** When false, suppresses the idle "SION PRESENTER" watermark text.
+   *  Set to false when used inside MonitorFrame which has its own SVG watermark. */
+  showIdleWatermark?: boolean
+  /** AnimatePresence mode: 'wait' (projector, sequential) or 'sync' (operator, simultaneous).
+   *  'sync' runs exit and enter in parallel, eliminating perceived delay on small monitors. */
+  transitionMode?: 'wait' | 'sync' | 'popLayout'
+  /** Multiplier for transition duration. Defaults to 1.0 (full speed).
+   *  Use 0.5 for operator monitors where full duration feels sluggish. */
+  transitionSpeedMultiplier?: number
 }
 
 interface TransitionConfig {
@@ -64,6 +74,13 @@ function getTransitionConfig(type: string, duration: number): TransitionConfig {
         exit: { opacity: 0 },
         transition: { duration: duration * 1.5, ease: [0.4, 0, 0.2, 1] }
       }
+    case 'premium-slide':
+      return {
+        initial: { opacity: 0, y: 48, scale: 0.98 },
+        animate: { opacity: 1, y: 0, scale: 1 },
+        exit: { opacity: 0, y: -48, scale: 1.02 },
+        transition: { duration, ease: [0.22, 1, 0.36, 1] }
+      }
     case 'dissolve':
     default:
       return {
@@ -76,59 +93,8 @@ function getTransitionConfig(type: string, duration: number): TransitionConfig {
 }
 
 function toFileUrl(path: string): string {
-  if (path.startsWith('http')) return path
+  if (path.startsWith('http') || path.startsWith('file://')) return path
   return `file://${path.replace(/\\/g, '/')}`
-}
-
-function parseAtmosphereConfig(raw?: string): AtmosphereConfig | null {
-  if (!raw) return null
-  try {
-    return JSON.parse(raw) as AtmosphereConfig
-  } catch {
-    return null
-  }
-}
-
-function buildLegacyAtmosphere(theme: Record<string, string>): AtmosphereConfig {
-  const bgImage = theme.projection_bg_image || ''
-  const isVideo = Boolean(bgImage.match(/\.(mp4|webm)$/i))
-
-  return {
-    id: 'legacy-theme-fallback',
-    name: 'Legacy Theme Fallback',
-    mode: bgImage ? (isVideo ? 'video' : 'image') : 'solid',
-    solidColor: theme.projection_bg_color || '#090b14',
-    media: bgImage
-      ? {
-          path: bgImage,
-          fit: 'cover',
-          loop: true,
-          muted: true
-        }
-      : undefined,
-    overlay: {
-      dim: Number(theme.projection_bg_opacity || 0.48),
-      blur: Number(theme.projection_bg_blur || 0),
-      vignette: 0.24,
-      glow: 0.1,
-      textShieldOpacity: 0.22
-    },
-    readability: {
-      smartDimming: true,
-      contrastBoost: 0.18,
-      blurBehindLyrics: true,
-      lyricSafeMode: true
-    }
-  }
-}
-
-function resolveAtmosphere(theme: Record<string, string>): AtmosphereConfig {
-  return (
-    parseAtmosphereConfig(theme.projection_atmosphere_live_override) ||
-    parseAtmosphereConfig(theme.song_background_config) ||
-    parseAtmosphereConfig(theme.projection_default_atmosphere) ||
-    buildLegacyAtmosphere(theme)
-  )
 }
 
 export function PresentationCanvas({
@@ -138,10 +104,15 @@ export function PresentationCanvas({
   animated = true,
   showMetadata = true,
   fit = false,
-  className
+  className,
+  lyricsFontSizePercent = 100,
+  showIdleWatermark = true,
+  transitionMode = 'wait',
+  transitionSpeedMultiplier = 1.0
 }: PresentationCanvasProps): React.JSX.Element {
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const [scale, setScale] = useState(1)
+  const prefersReducedMotion = useReducedMotion()
 
   useLayoutEffect(() => {
     if (!fit || !wrapperRef.current) return undefined
@@ -159,11 +130,19 @@ export function PresentationCanvas({
   const showBlack = projectionState === 'BLACK'
   const showLive = projectionState === 'LIVE' || projectionState === 'FREEZE'
   const showLogo = Boolean(
-    projectionState === 'LOGO' || (projectionState === 'CLEAR' && theme.projection_logo)
+    theme.projection_logo &&
+    (projectionState === 'LOGO' ||
+      projectionState === 'CLEAR' ||
+      ((projectionState === 'LIVE' || projectionState === 'FREEZE') &&
+        (theme.projection_logo_show_on_live ?? '1') === '1'))
   )
   const fontFamily = theme.projection_font_family || 'Inter'
-  const fontSize = Number(theme.projection_font_size || 86)
+  const baseFontSize = Number(theme.projection_font_size || 86)
+  const fontSize = Math.round(baseFontSize * (lyricsFontSizePercent / 100))
+  const fontWeight = Number(theme.projection_font_weight || 650)
+  const lineHeight = Number(theme.projection_line_height || theme.projection_line_spacing || 1.15)
   const textColor = theme.projection_text_color || '#ffffff'
+  const textOutline = theme.projection_text_outline === '1'
   const textShadow =
     theme.projection_text_shadow === '1'
       ? '0 8px 34px rgba(0,0,0,0.88), 0 2px 10px rgba(0,0,0,0.72)'
@@ -171,13 +150,22 @@ export function PresentationCanvas({
   const textAlign = (theme.projection_text_align || 'center') as React.CSSProperties['textAlign']
   const transitionType = theme.transition_type || 'smooth-blur'
   const transitionDuration = Number(theme.transition_duration || 0.5)
+  const effectiveDuration = transitionDuration * transitionSpeedMultiplier
   const transition = useMemo(
-    () => getTransitionConfig(transitionType, transitionDuration),
-    [transitionType, transitionDuration]
+    () =>
+      prefersReducedMotion
+        ? getTransitionConfig('dissolve', 0.1)
+        : getTransitionConfig(transitionType, effectiveDuration),
+    [transitionType, effectiveDuration, prefersReducedMotion]
   )
   const hasLyrics = showLive && slide && slide.text.trim().length > 0 && !showBlack
   const contentKey = slide ? `${slide.songId}-${slide.slideIndex}-${slide.text}` : 'empty'
-  const resolvedAtmosphere = useMemo(() => resolveAtmosphere(theme), [theme])
+  const getResolvedAtmosphere = useAtmosphereStore((s) => s.getResolvedAtmosphere)
+  const resolvedAtmosphere = useMemo(() => {
+    // Use centralized store resolution with legacy theme fallback
+    const resolved = getResolvedAtmosphere(theme)
+    return resolved.active
+  }, [theme, getResolvedAtmosphere])
 
   const canvas = (
     <div
@@ -203,22 +191,116 @@ export function PresentationCanvas({
         />
       )}
 
-      <AnimatePresence mode="wait">
-        {hasLyrics && (
-          <motion.div
-            key={contentKey}
-            initial={animated ? transition.initial : false}
-            animate={animated ? transition.animate : undefined}
-            exit={animated ? transition.exit : undefined}
-            transition={animated ? transition.transition : undefined}
+      {animated ? (
+        <AnimatePresence mode={transitionMode}>
+          {hasLyrics && (
+            <motion.div
+              key={contentKey}
+              initial={transition.initial}
+              animate={transition.animate}
+              exit={transition.exit}
+              transition={transition.transition}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '118px 190px',
+                willChange: 'transform, opacity, filter'
+              }}
+            >
+              <div
+                style={{
+                  maxWidth: 1440,
+                  width: '75%',
+                  textAlign
+                }}
+              >
+                <p
+                  style={{
+                    margin: 0,
+                    color: textColor,
+                    fontFamily: `var(--font-heading), ${fontFamily}`,
+                    fontSize,
+                    fontWeight,
+                    letterSpacing: 0,
+                    lineHeight,
+                    whiteSpace: 'pre-line',
+                    textAlign,
+                    textShadow,
+                    WebkitTextStroke: textOutline ? '2px rgba(0,0,0,0.58)' : undefined
+                  }}
+                >
+                  {slide.text.split(/(\[\d+\])/g).map((part, i) => {
+                    if (part.match(/\[\d+\]/)) {
+                      return (
+                        <sup
+                          key={i}
+                          style={{ fontSize: '0.6em', opacity: 0.8, marginRight: '4px' }}
+                        >
+                          {part.replace(/\[|\]/g, '')}
+                        </sup>
+                      )
+                    }
+                    return <span key={i}>{part}</span>
+                  })}
+                </p>
+
+                {slide.bibleReference && (
+                  <div
+                    style={{
+                      marginTop: 48,
+                      color: 'rgba(255,255,255,0.9)',
+                      fontFamily,
+                      fontSize: fontSize * 0.45,
+                      fontWeight: 800,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                      textAlign:
+                        textAlign === 'left' ? 'left' : textAlign === 'right' ? 'right' : 'center',
+                      textShadow
+                    }}
+                  >
+                    — {slide.bibleReference} —
+                  </div>
+                )}
+
+                {showMetadata && (slide.keyNote || slide.timeSignature || slide.tempo) && (
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 24,
+                      marginTop: 50,
+                      padding: '14px 32px',
+                      borderRadius: 999,
+                      background: 'rgba(0,0,0,0.42)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      backdropFilter: 'blur(16px)',
+                      color: 'rgba(255,255,255,0.72)',
+                      fontFamily
+                    }}
+                  >
+                    {slide.keyNote && <strong>Nada {slide.keyNote}</strong>}
+                    {slide.timeSignature && <strong>{slide.timeSignature}</strong>}
+                    {slide.tempo && <strong>{slide.tempo} BPM</strong>}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      ) : (
+        hasLyrics && (
+          <div
             style={{
               position: 'absolute',
               inset: 0,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: '118px 190px',
-              willChange: 'transform, opacity, filter'
+              padding: '118px 190px'
             }}
           >
             <div
@@ -232,18 +314,47 @@ export function PresentationCanvas({
                 style={{
                   margin: 0,
                   color: textColor,
-                  fontFamily,
+                  fontFamily: `var(--font-heading), ${fontFamily}`,
                   fontSize,
-                  fontWeight: 560,
-                  letterSpacing: '-0.01em',
-                  lineHeight: 1.25,
+                  fontWeight,
+                  letterSpacing: 0,
+                  lineHeight,
                   whiteSpace: 'pre-line',
                   textAlign,
-                  textShadow
+                  textShadow,
+                  WebkitTextStroke: textOutline ? '2px rgba(0,0,0,0.58)' : undefined
                 }}
               >
-                {slide.text}
+                {slide.text.split(/(\[\d+\])/g).map((part, i) => {
+                  if (part.match(/\[\d+\]/)) {
+                    return (
+                      <sup key={i} style={{ fontSize: '0.6em', opacity: 0.8, marginRight: '4px' }}>
+                        {part.replace(/\[|\]/g, '')}
+                      </sup>
+                    )
+                  }
+                  return <span key={i}>{part}</span>
+                })}
               </p>
+
+              {slide.bibleReference && (
+                <div
+                  style={{
+                    marginTop: 48,
+                    color: 'rgba(255,255,255,0.9)',
+                    fontFamily,
+                    fontSize: fontSize * 0.45,
+                    fontWeight: 800,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    textAlign:
+                      textAlign === 'left' ? 'left' : textAlign === 'right' ? 'right' : 'center',
+                    textShadow
+                  }}
+                >
+                  — {slide.bibleReference} —
+                </div>
+              )}
 
               {showMetadata && (slide.keyNote || slide.timeSignature || slide.tempo) && (
                 <div
@@ -267,11 +378,11 @@ export function PresentationCanvas({
                 </div>
               )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        )
+      )}
 
-      {!hasLyrics && !showBlack && (
+      {!hasLyrics && !showBlack && showIdleWatermark && (
         <div
           style={{
             position: 'absolute',
@@ -290,26 +401,54 @@ export function PresentationCanvas({
         </div>
       )}
 
-      {showLogo && theme.projection_logo && !showBlack && (
-        <motion.img
-          initial={animated ? { opacity: 0, scale: 0.95 } : false}
-          animate={animated ? { opacity: 1, scale: 1 } : undefined}
-          exit={animated ? { opacity: 0, scale: 0.95 } : undefined}
-          transition={{ duration: 0.8 }}
-          src={toFileUrl(theme.projection_logo)}
-          style={{
-            position: 'absolute',
-            maxWidth: theme.projection_logo_position === 'center' ? 960 : 384,
-            maxHeight: theme.projection_logo_position === 'center' ? 540 : 216,
-            objectFit: 'contain',
-            ...(theme.projection_logo_position === 'center'
-              ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
-              : theme.projection_logo_position === 'top-left'
-                ? { top: 80, left: 90 }
-                : { bottom: 80, right: 90 })
-          }}
-        />
-      )}
+      {showLogo &&
+        theme.projection_logo &&
+        !showBlack &&
+        (animated ? (
+          <motion.img
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.8 }}
+            src={toFileUrl(theme.projection_logo)}
+            style={{
+              position: 'absolute',
+              maxWidth: theme.projection_logo_position === 'center' ? 960 : 384,
+              maxHeight: theme.projection_logo_position === 'center' ? 540 : 216,
+              objectFit: 'contain',
+              opacity: Number(theme.projection_logo_opacity || 0.85),
+              ...(theme.projection_logo_position === 'center'
+                ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
+                : theme.projection_logo_position === 'top-left'
+                  ? { top: 80, left: 90 }
+                  : theme.projection_logo_position === 'top-right'
+                    ? { top: 80, right: 90 }
+                    : theme.projection_logo_position === 'bottom-left'
+                      ? { bottom: 80, left: 90 }
+                      : { bottom: 80, right: 90 })
+            }}
+          />
+        ) : (
+          <img
+            src={toFileUrl(theme.projection_logo)}
+            style={{
+              position: 'absolute',
+              maxWidth: theme.projection_logo_position === 'center' ? 960 : 384,
+              maxHeight: theme.projection_logo_position === 'center' ? 540 : 216,
+              objectFit: 'contain',
+              opacity: Number(theme.projection_logo_opacity || 0.85),
+              ...(theme.projection_logo_position === 'center'
+                ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
+                : theme.projection_logo_position === 'top-left'
+                  ? { top: 80, left: 90 }
+                  : theme.projection_logo_position === 'top-right'
+                    ? { top: 80, right: 90 }
+                    : theme.projection_logo_position === 'bottom-left'
+                      ? { bottom: 80, left: 90 }
+                      : { bottom: 80, right: 90 })
+            }}
+          />
+        ))}
 
       <div
         style={{

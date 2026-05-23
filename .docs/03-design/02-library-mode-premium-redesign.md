@@ -1,6 +1,9 @@
 ---
 description: Premium Library Mode redesign (design system + layout foundation)
+status: implemented
 ---
+
+> **Status:** ✅ IMPLEMENTED — Library Mode sudah di-redesign. Lihat `04-implementation/03-impl-library-mode-redesign.md`
 
 # Library Mode — Premium Redesign
 

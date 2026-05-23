@@ -24,6 +24,7 @@ export function TitleBarControls(): React.JSX.Element {
         className="window-control-btn"
         onClick={() => window.api.window.minimize()}
         title="Minimize"
+        aria-label="Minimize window"
       >
         <Minus size={14} />
       </button>
@@ -31,6 +32,7 @@ export function TitleBarControls(): React.JSX.Element {
         className="window-control-btn"
         onClick={() => window.api.window.maximize()}
         title={isMaximized ? 'Restore' : 'Maximize'}
+        aria-label={isMaximized ? 'Restore window' : 'Maximize window'}
       >
         {isMaximized ? <Copy size={11} className="rotate-180" /> : <Square size={11} />}
       </button>
@@ -38,6 +40,7 @@ export function TitleBarControls(): React.JSX.Element {
         className="window-control-btn close"
         onClick={() => window.api.window.close()}
         title="Close"
+        aria-label="Close window"
       >
         <X size={15} />
       </button>

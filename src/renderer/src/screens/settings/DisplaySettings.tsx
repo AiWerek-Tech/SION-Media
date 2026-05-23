@@ -20,7 +20,7 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react'
-import type { DisplayInfo } from '../../../../shared/types'
+import type { DisplayInfo } from '@shared/types'
 
 interface DisplaySettingsProps {
   displays: DisplayInfo[]
@@ -41,8 +41,16 @@ export function DisplaySettings({
   settings,
   updateSetting
 }: DisplaySettingsProps): React.JSX.Element {
+  const [displayList, setDisplayList] = useState(displays)
   const [projectionVisible, setProjectionVisible] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDisplayList(displays)
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [displays])
 
   useEffect(() => {
     window.api.display
@@ -51,10 +59,25 @@ export function DisplaySettings({
       .catch(() => {})
   }, [])
 
+  useEffect(() => {
+    const unsubscribe = window.api.display.onDisplayChanged?.(() => {
+      window.api.display
+        .getAll()
+        .then((nextDisplays) => setDisplayList(nextDisplays as DisplayInfo[]))
+        .catch(() => {})
+    })
+    return () => unsubscribe?.()
+  }, [])
+
   const handleRefreshDisplays = async (): Promise<void> => {
     setRefreshing(true)
-    await new Promise((r) => setTimeout(r, 600))
-    setRefreshing(false)
+    try {
+      const nextDisplays = (await window.api.display.getAll()) as DisplayInfo[]
+      setDisplayList(nextDisplays)
+      setProjectionVisible(await window.api.display.isProjectionVisible())
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   const handleToggleProjection = (): void => {
@@ -72,8 +95,8 @@ export function DisplaySettings({
   const displayRefreshRate = settings.display_refresh_rate || '60'
   const projectionMonitorId = settings.projection_monitor_id || ''
 
-  const primaryDisplay = displays.find((d) => d.isPrimary) || displays[0]
-  const projectorDisplay = displays.find((d) => !d.isPrimary) || displays[0]
+  const primaryDisplay = displayList.find((d) => d.isPrimary) || displayList[0]
+  const projectorDisplay = displayList.find((d) => !d.isPrimary) || displayList[0]
   const activeDisplay = projectorDisplay || primaryDisplay
 
   return (
@@ -133,7 +156,7 @@ export function DisplaySettings({
             Daftar monitor yang terhubung ke sistem. Proyektor harus dalam mode Extend.
           </p>
         </div>
-        {displays.length === 0 ? (
+        {displayList.length === 0 ? (
           <div className="sp-empty-state">
             <Monitor size={32} />
             <strong>Tidak ada monitor terdeteksi</strong>
@@ -141,7 +164,7 @@ export function DisplaySettings({
           </div>
         ) : (
           <div className="settings-display-monitors-list">
-            {displays.map((d) => (
+            {displayList.map((d) => (
               <div key={d.id} className="settings-display-monitor-card">
                 <div className="settings-display-monitor-card__glow" />
                 <div className="settings-display-monitor-card__visual">
@@ -466,7 +489,7 @@ export function DisplaySettings({
           <span>Sistem display siap</span>
         </div>
         <div className="settings-display-connection-status__right">
-          <span>{displays.length} monitor terdeteksi</span>
+          <span>{displayList.length} monitor terdeteksi</span>
           <span className="settings-display-connection-status__dot" />
           <span>{projectionVisible ? 'Output aktif' : 'Output tersembunyi'}</span>
           {projectionMonitorId && (

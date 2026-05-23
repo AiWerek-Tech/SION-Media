@@ -190,7 +190,7 @@ export const migrations: Migration[] = [
         ['projection_logo', ''],
         ['projection_logo_position', 'bottom-right'],
         ['projection_logo_opacity', '0.5'],
-        ['transition_type', 'dissolve'],
+        ['transition_type', 'smooth-blur'],
         ['transition_duration', '0.5']
       ]
 
@@ -484,6 +484,94 @@ export const migrations: Migration[] = [
           ON media_collection_items(collection_id, sort_order);
       `)
     }
+  },
+  // ═══════════════════════════════════════════════════════════════
+  // Phase 1 — Enterprise Refactor Migrations
+  // @see implementation-master-order-v1.md §3.2 Sequence 1.3
+  // ═══════════════════════════════════════════════════════════════
+
+  {
+    version: 14,
+    name: 'enterprise_service_state_and_sessions',
+    up: (db) => {
+      // Service state persistence for crash recovery and session continuity
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS service_state (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS service_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL DEFAULT '',
+          service_date TEXT DEFAULT '',
+          notes TEXT DEFAULT '',
+          is_active INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+      `)
+    }
+  },
+  {
+    version: 15,
+    name: 'enterprise_song_notes_and_notification_log',
+    up: (db) => {
+      // Operator notes per song (e.g., "use for baptism service")
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS song_notes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          song_id INTEGER NOT NULL,
+          note_text TEXT NOT NULL,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_song_notes_song_id ON song_notes(song_id);
+
+        CREATE TABLE IF NOT EXISTS notification_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          type TEXT NOT NULL DEFAULT 'info',
+          title TEXT NOT NULL DEFAULT '',
+          message TEXT DEFAULT '',
+          is_read INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_notification_log_is_read ON notification_log(is_read);
+        CREATE INDEX IF NOT EXISTS idx_notification_log_created_at ON notification_log(created_at DESC);
+      `)
+    }
+  },
+  {
+    version: 16,
+    name: 'enterprise_notification_preferences_and_settings',
+    up: (db) => {
+      // Notification preference settings + storage stats
+      const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
+      insertSetting.run('notification_enabled', 'true')
+      insertSetting.run('notification_sound', 'false')
+      insertSetting.run('notification_projection_alerts', 'true')
+      insertSetting.run('storage_stats_last_checked', '')
+    }
+  },
+  {
+    version: 17,
+    name: 'enterprise_performance_indexes',
+    up: (db) => {
+      // All performance indexes (including songs_summary composite)
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_songs_favorite ON songs(is_favorite);
+        CREATE INDEX IF NOT EXISTS idx_songs_category ON songs(category);
+        CREATE INDEX IF NOT EXISTS idx_songs_updated_at ON songs(updated_at);
+        CREATE INDEX IF NOT EXISTS idx_playlist_items_playlist ON playlist_items(playlist_id, sort_order);
+        CREATE INDEX IF NOT EXISTS idx_song_history_played_at ON song_history(played_at);
+        CREATE INDEX IF NOT EXISTS idx_songs_summary
+          ON songs(hymnal_id, id, number, title, alternate_title, is_favorite, category, language);
+      `)
+    }
   }
 ]
 
@@ -540,21 +628,21 @@ export function runMigrations(db: Database.Database): number {
   const pendingMigrations = migrations.filter((m) => m.version > currentVersion)
 
   if (pendingMigrations.length === 0) {
-    console.log('Database schema is up to date (version ' + currentVersion + ')')
+    console.info('Database schema is up to date (version ' + currentVersion + ')')
     return 0
   }
 
-  console.log(
+  console.info(
     `Running ${pendingMigrations.length} pending migration(s) (from version ${currentVersion} to version ${migrations[migrations.length - 1].version})...`
   )
 
   const transaction = db.transaction(() => {
     for (const migration of pendingMigrations) {
       try {
-        console.log(`Applying migration ${migration.version}: ${migration.name}...`)
+        console.info(`Applying migration ${migration.version}: ${migration.name}...`)
         migration.up(db)
         recordMigration(db, migration.version, migration.name)
-        console.log(`Migration ${migration.version} applied successfully.`)
+        console.info(`Migration ${migration.version} applied successfully.`)
       } catch (err) {
         console.error(`Migration ${migration.version} failed:`, err)
         throw err

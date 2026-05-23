@@ -12,14 +12,14 @@ import '../assets/main.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { StageDisplayApp } from './StageDisplayApp'
-import { ErrorBoundary } from '../components/ErrorBoundary'
+import { ErrorBoundary } from '@renderer/components/ErrorBoundary'
 import {
   applyEffectiveTheme,
   buildThemeSyncPayload,
   isAppThemeMode,
   resolveEffectiveTheme,
   watchSystemThemeChanges
-} from '../utils/app-theme'
+} from '@renderer/utils/app-theme'
 
 async function initTheme(): Promise<void> {
   try {
