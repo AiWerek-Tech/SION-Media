@@ -1,10 +1,10 @@
 import React, { useState } from 'react'
-import { AlertTriangle, GripVertical, Radio, Tag, X } from 'lucide-react'
+import { AlertTriangle, BookOpen, GripVertical, Megaphone, Radio, Tag, X } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { generateSlidesForPlaylistItem } from '../engine/slideEngine'
-import { usePlaylistStore } from '../store/usePlaylistStore'
-import type { PlaylistItem } from '../types'
+import { generateSlidesForPlaylistItem } from '@renderer/engine/slideEngine'
+import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
+import type { PlaylistItem } from '@renderer/types'
 
 interface PlaylistItemCardProps {
   item: PlaylistItem
@@ -31,8 +31,25 @@ export default function PlaylistItemCard({
   const [tempLabel, setTempLabel] = useState(item.section_label || '')
   const updateItemLabel = usePlaylistStore((s) => s.updateItemLabel)
   const slideCount = generateSlidesForPlaylistItem(item).length
-  const hasEmptyLyrics = !item.lyrics_raw?.trim()
+  const isBible = item.item_type === 'bible'
+  const isInfo = item.item_type === 'info'
+  const hasEmptyLyrics = !isBible && !isInfo && !item.lyrics_raw?.trim()
   const meta = [item.key_note ? `Nada ${item.key_note}` : '', item.tempo || ''].filter(Boolean)
+
+  let snippet = ''
+  if (isBible && item.bible_text_json) {
+    try {
+      const parsed = JSON.parse(item.bible_text_json)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        snippet = parsed[0].text
+        if (snippet.length > 50) {
+          snippet = snippet.slice(0, 50) + '...'
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -68,9 +85,13 @@ export default function PlaylistItemCard({
           isDragging
             ? 'bg-white/[0.08] ring-2 ring-brand-primary/30 shadow-[0_16px_48px_rgba(0,0,0,0.35)] scale-[1.02]'
             : isActive
-              ? 'bg-white/[0.06] ring-1 ring-brand-primary/25 shadow-[0_4px_20px_rgba(0,0,0,0.2)]'
+              ? isBible
+                ? 'bg-white/[0.06] ring-1 ring-indigo-500/45 shadow-[0_4px_20px_rgba(99,102,241,0.15)]'
+                : 'bg-white/[0.06] ring-1 ring-brand-primary/25 shadow-[0_4px_20px_rgba(0,0,0,0.2)]'
               : isProjected
-                ? 'bg-white/[0.04] ring-1 ring-brand-primary/15 shadow-[0_2px_12px_rgba(0,0,0,0.15)]'
+                ? isBible
+                  ? 'bg-white/[0.04] ring-1 ring-indigo-500/25 shadow-[0_2px_12px_rgba(99,102,241,0.1)]'
+                  : 'bg-white/[0.04] ring-1 ring-brand-primary/15 shadow-[0_2px_12px_rgba(0,0,0,0.15)]'
                 : 'bg-white/[0.02] ring-1 ring-white/5 hover:bg-white/[0.04] hover:ring-white/10'
         }`}
         onClick={onClick}
@@ -87,26 +108,40 @@ export default function PlaylistItemCard({
           <div
             className={`flex h-7 w-7 items-center justify-center rounded-lg text-[11px] font-bold tabular-nums transition-colors ${
               isActive
-                ? 'bg-brand-primary/15 text-brand-primary'
+                ? isBible
+                  ? 'bg-indigo-500/25 text-indigo-400'
+                  : 'bg-brand-primary/15 text-brand-primary'
                 : isProjected
-                  ? 'bg-brand-primary/10 text-brand-primary/70'
+                  ? isBible
+                    ? 'bg-indigo-500/15 text-indigo-400/80'
+                    : 'bg-brand-primary/10 text-brand-primary/70'
                   : 'bg-white/[0.04] text-text-muted'
             }`}
           >
             {index + 1}
           </div>
           {isProjected && (
-            <div className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-brand-primary animate-pulse" />
+            <div
+              className={`absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full animate-pulse ${isBible ? 'bg-indigo-400' : 'bg-brand-primary'}`}
+            />
           )}
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
+            {isBible && <BookOpen size={13} className="text-indigo-400/80 shrink-0" />}
+            {isInfo && <Megaphone size={13} className="shrink-0 text-cyan-400/80" />}
             <span className="truncate text-[13px] font-semibold text-text-primary">
               {item.title}
             </span>
             {isProjected && (
-              <span className="flex items-center gap-1 rounded-md bg-brand-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand-primary ring-1 ring-brand-primary/15">
+              <span
+                className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1 ${
+                  isBible
+                    ? 'bg-indigo-500/15 text-indigo-400 ring-indigo-500/20'
+                    : 'bg-brand-primary/10 text-brand-primary ring-brand-primary/15'
+                }`}
+              >
                 <Radio size={8} className="animate-pulse" />
                 Live
               </span>
@@ -119,19 +154,55 @@ export default function PlaylistItemCard({
             )}
           </div>
           <div className="mt-0.5 flex items-center gap-2">
-            <span className="text-[11px] font-medium text-text-muted">
-              {item.hymnal_code || 'LS'} {item.number}
-            </span>
-            <span className="text-[10px] text-text-disabled">·</span>
-            <span className="text-[11px] text-text-disabled">{slideCount} slide</span>
-            {meta.map((itemMeta) => (
-              <span
-                key={itemMeta}
-                className="text-[10px] font-medium text-text-disabled bg-white/[0.03] px-1.5 py-0.5 rounded-md"
-              >
-                {itemMeta}
-              </span>
-            ))}
+            {isBible ? (
+              <>
+                <span className="text-[11px] font-semibold text-indigo-400 uppercase tracking-wide">
+                  {item.bible_version_short_name || item.bible_version_code || 'Alkitab'}
+                </span>
+                <span className="text-[10px] text-text-disabled">·</span>
+                <span className="text-[11px] text-text-muted">{slideCount} slide</span>
+                {snippet && (
+                  <>
+                    <span className="text-[10px] text-text-disabled">·</span>
+                    <span className="truncate text-[11px] text-text-disabled italic max-w-[200px]">
+                      &ldquo;{snippet}&rdquo;
+                    </span>
+                  </>
+                )}
+              </>
+            ) : isInfo ? (
+              <>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-cyan-400">
+                  Info
+                </span>
+                <span className="text-[10px] text-text-disabled">·</span>
+                <span className="text-[11px] text-text-muted">{slideCount} slide</span>
+                {item.notes && (
+                  <>
+                    <span className="text-[10px] text-text-disabled">·</span>
+                    <span className="max-w-[200px] truncate text-[11px] text-text-disabled">
+                      {item.notes}
+                    </span>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <span className="text-[11px] font-medium text-text-muted">
+                  {item.hymnal_code || 'LS'} {item.number}
+                </span>
+                <span className="text-[10px] text-text-disabled">·</span>
+                <span className="text-[11px] text-text-disabled">{slideCount} slide</span>
+                {meta.map((itemMeta) => (
+                  <span
+                    key={itemMeta}
+                    className="text-[10px] font-medium text-text-disabled bg-white/[0.03] px-1.5 py-0.5 rounded-md"
+                  >
+                    {itemMeta}
+                  </span>
+                ))}
+              </>
+            )}
           </div>
         </div>
 

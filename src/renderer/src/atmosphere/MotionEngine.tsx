@@ -30,7 +30,80 @@ export const MotionEngine: React.FC<MotionEngineProps> = ({ config, className })
       {preset === 'cloud-drift' && (
         <CloudDriftEffect intensity={intensity} speed={speed} tint={tint} />
       )}
+      {preset === 'sabbath-dawn' && (
+        <CssMotionEffect variant="sabbath-dawn" intensity={intensity} speed={speed} tint={tint} />
+      )}
+      {preset === 'three-angels' && (
+        <CssMotionEffect variant="three-angels" intensity={intensity} speed={speed} tint={tint} />
+      )}
+      {preset === 'sanctuary-light' && (
+        <CssMotionEffect
+          variant="sanctuary-light"
+          intensity={intensity}
+          speed={speed}
+          tint={tint}
+        />
+      )}
+      {preset === 'living-water' && (
+        <CssMotionEffect variant="living-water" intensity={intensity} speed={speed} tint={tint} />
+      )}
+      {preset === 'second-advent' && (
+        <CssMotionEffect variant="second-advent" intensity={intensity} speed={speed} tint={tint} />
+      )}
+      {preset === 'scripture-glow' && (
+        <CssMotionEffect variant="scripture-glow" intensity={intensity} speed={speed} tint={tint} />
+      )}
     </div>
+  )
+}
+
+type CssMotionVariant =
+  | 'sabbath-dawn'
+  | 'three-angels'
+  | 'sanctuary-light'
+  | 'living-water'
+  | 'second-advent'
+  | 'scripture-glow'
+
+const cssMotionBackground: Record<CssMotionVariant, string> = {
+  'sabbath-dawn':
+    'radial-gradient(circle at 20% 18%, var(--motion-tint) 0%, transparent 24%), radial-gradient(circle at 78% 30%, rgba(125,211,252,0.32) 0%, transparent 28%), linear-gradient(135deg, rgba(3,7,18,0), rgba(14,165,233,0.22), rgba(2,6,23,0))',
+  'three-angels':
+    'conic-gradient(from 180deg at 50% 50%, transparent 0deg, var(--motion-tint) 54deg, transparent 108deg, rgba(14,165,233,0.28) 180deg, transparent 260deg, rgba(250,204,21,0.2) 320deg, transparent 360deg)',
+  'sanctuary-light':
+    'linear-gradient(105deg, transparent 0%, rgba(255,255,255,0.08) 38%, var(--motion-tint) 50%, rgba(255,255,255,0.08) 62%, transparent 100%)',
+  'living-water':
+    'repeating-radial-gradient(ellipse at 50% 100%, rgba(255,255,255,0.1) 0 2px, transparent 2px 22px), linear-gradient(180deg, transparent, var(--motion-tint))',
+  'second-advent':
+    'radial-gradient(circle at 50% 18%, rgba(254,243,199,0.6), transparent 20%), linear-gradient(115deg, transparent 18%, var(--motion-tint) 48%, transparent 78%)',
+  'scripture-glow':
+    'linear-gradient(90deg, transparent, var(--motion-tint), transparent), radial-gradient(circle at 50% 55%, rgba(255,255,255,0.12), transparent 42%)'
+}
+
+const CssMotionEffect: React.FC<Omit<MotionConfig, 'preset'> & { variant: CssMotionVariant }> = ({
+  variant,
+  intensity,
+  speed,
+  tint
+}) => {
+  const duration = `${Math.max(16 / Math.max(speed, 0.1), 8).toFixed(1)}s`
+  const opacity = Math.min(Math.max(0.16 + intensity * 0.52, 0.12), 0.72)
+
+  return (
+    <div
+      className="absolute inset-[-10%] mix-blend-screen"
+      style={
+        {
+          '--motion-tint': tint || '#93c5fd',
+          '--motion-duration': duration,
+          background: cssMotionBackground[variant],
+          backgroundSize: '220% 220%',
+          opacity,
+          filter: `blur(${Math.round(18 + intensity * 44)}px)`,
+          animation: 'sion-css-motion var(--motion-duration) ease-in-out infinite alternate'
+        } as React.CSSProperties
+      }
+    />
   )
 }
 

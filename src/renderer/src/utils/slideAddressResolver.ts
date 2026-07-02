@@ -13,7 +13,7 @@ import type {
   ResolvedSlideTarget,
   SectionIndexMap,
   QuickJumpTarget
-} from '../types'
+} from '@renderer/types'
 
 /**
  * Parse a raw input string into a SlideAddress

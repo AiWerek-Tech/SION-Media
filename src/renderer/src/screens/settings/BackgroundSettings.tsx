@@ -19,12 +19,20 @@ import {
   Upload,
   X
 } from 'lucide-react'
-import { DEFAULT_GLOBAL_ATMOSPHERE, DEFAULT_SCENE_PRESETS } from '../../atmosphere/presets'
+import {
+  DEFAULT_GLOBAL_ATMOSPHERE,
+  DEFAULT_OVERLAY,
+  DEFAULT_SCENE_PRESETS
+} from '@renderer/atmosphere/presets'
 import type {
   AtmosphereConfig,
+  AtmosphereScenePreset,
+  AtmosphereThemePack,
   MediaAssetRecord,
   MediaCollectionRecord
-} from '../../atmosphere/types'
+} from '@renderer/atmosphere/types'
+import { useModalStore } from '@renderer/store/useModalStore'
+import { useAppStore } from '@renderer/store/useAppStore'
 
 interface BackgroundSettingsProps {
   settings: Record<string, string>
@@ -33,6 +41,78 @@ interface BackgroundSettingsProps {
 
 const ALL_COLLECTIONS = '__all__'
 const UNASSIGNED_COLLECTIONS = '__unassigned__'
+
+const ATMOSPHERE_THEME_TEMPLATE: AtmosphereThemePack = {
+  schema: 'sion.atmosphere.theme-pack.v1',
+  name: 'SION Atmosphere Theme Pack',
+  version: '1.0.0',
+  author: 'Developer Name',
+  presets: [
+    {
+      id: 'custom-sabbath-evening',
+      name: 'Sabat Senja',
+      description: 'Template tema animasi CSS/code-only tanpa video.',
+      config: {
+        id: 'custom-sabbath-evening',
+        name: 'Sabat Senja',
+        mode: 'motion',
+        solidColor: '#07111f',
+        gradient: {
+          kind: 'linear',
+          angle: 145,
+          animated: true,
+          speed: 0.24,
+          stops: [
+            { color: '#020617', position: 0 },
+            { color: '#0f172a', position: 48 },
+            { color: '#2563eb', position: 100 }
+          ]
+        },
+        motion: {
+          preset: 'sabbath-dawn',
+          intensity: 0.26,
+          speed: 0.24,
+          tint: '#93c5fd'
+        },
+        overlay: {
+          dim: 0.58,
+          blur: 0,
+          vignette: 0.22,
+          glow: 0.1,
+          textShieldOpacity: 0.28
+        },
+        readability: {
+          smartDimming: true,
+          contrastBoost: 0.22,
+          blurBehindLyrics: true,
+          lyricSafeMode: true
+        },
+        tags: ['gm ahk', 'sabbath', 'css-motion']
+      }
+    }
+  ]
+}
+
+const ALLOWED_MOTION_PRESETS = new Set([
+  'aurora',
+  'soft-particles',
+  'cinematic-haze',
+  'volumetric-light',
+  'cloud-drift',
+  'animated-gradient',
+  'sabbath-dawn',
+  'three-angels',
+  'sanctuary-light',
+  'living-water',
+  'second-advent',
+  'scripture-glow'
+])
+
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp']
+const VIDEO_EXTENSIONS = ['.mp4', '.webm']
+const MAX_IMAGE_SIZE_BYTES = 25 * 1024 * 1024
+const MAX_VIDEO_SIZE_BYTES = 500 * 1024 * 1024
+const MAX_THEME_PACK_BYTES = 1024 * 1024
 
 function toFileUrl(path?: string): string {
   if (!path) return ''
@@ -47,6 +127,92 @@ function parseAtmosphereConfig(raw?: string): AtmosphereConfig | null {
   } catch {
     return null
   }
+}
+
+function parseCustomPresets(raw?: string): AtmosphereScenePreset[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    return Array.isArray(parsed) ? sanitizeScenePresets(parsed) : []
+  } catch {
+    return []
+  }
+}
+
+function sanitizeScenePresets(value: unknown): AtmosphereScenePreset[] {
+  if (!Array.isArray(value)) return []
+  return value.reduce<AtmosphereScenePreset[]>((presets, item) => {
+    const preset = item as Partial<AtmosphereScenePreset>
+    const config = preset.config as AtmosphereConfig | undefined
+    if (!preset.id || !preset.name || !preset.description || !config?.mode) return presets
+    if (config.mode === 'video') return presets
+    if (config.motion?.preset && !ALLOWED_MOTION_PRESETS.has(config.motion.preset)) return presets
+
+    const id = String(preset.id).trim()
+    const name = String(preset.name).trim()
+    const description = String(preset.description).trim()
+    if (!id || !name || !description) return presets
+
+    presets.push({
+      id,
+      name,
+      description,
+      icon: preset.icon ? String(preset.icon) : undefined,
+      config: {
+        ...config,
+        id: config.id || id,
+        name: config.name || name,
+        media: undefined
+      }
+    })
+    return presets
+  }, [])
+}
+
+function parseThemePack(raw: string): AtmosphereScenePreset[] {
+  const parsed = JSON.parse(raw) as Partial<AtmosphereThemePack> | AtmosphereScenePreset[]
+  if (Array.isArray(parsed)) return sanitizeScenePresets(parsed)
+  if (parsed.schema !== 'sion.atmosphere.theme-pack.v1') {
+    throw new Error('Schema theme pack tidak dikenal.')
+  }
+  return sanitizeScenePresets(parsed.presets)
+}
+
+function getFilePath(file: File): string {
+  return 'path' in file ? String((file as File & { path: string }).path) : ''
+}
+
+function getExtension(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, '/')
+  const name = normalized.split('/').pop() || ''
+  const dot = name.lastIndexOf('.')
+  return dot >= 0 ? name.slice(dot).toLowerCase() : ''
+}
+
+function validateDesktopMediaFile(
+  file: File,
+  expected: 'image' | 'background'
+): { filePath: string; type: 'image' | 'video' } {
+  const filePath = getFilePath(file)
+  if (!filePath) throw new Error('Path file tidak tersedia dari sistem.')
+  const ext = getExtension(filePath)
+  const isImage = IMAGE_EXTENSIONS.includes(ext)
+  const isVideo = VIDEO_EXTENSIONS.includes(ext)
+
+  if (expected === 'image' && !isImage) {
+    throw new Error('Logo harus berupa gambar JPG, PNG, atau WEBP.')
+  }
+  if (expected === 'background' && !isImage && !isVideo) {
+    throw new Error('Background harus berupa gambar JPG/PNG/WEBP atau video MP4/WEBM.')
+  }
+  if (isImage && file.size > MAX_IMAGE_SIZE_BYTES) {
+    throw new Error('Ukuran gambar maksimal 25 MB.')
+  }
+  if (isVideo && file.size > MAX_VIDEO_SIZE_BYTES) {
+    throw new Error('Ukuran video maksimal 500 MB.')
+  }
+
+  return { filePath, type: isVideo ? 'video' : 'image' }
 }
 
 function buildCurrentAtmosphere(settings: Record<string, string>): AtmosphereConfig {
@@ -109,6 +275,8 @@ export function BackgroundSettings({
   const bgInputRef = useRef<HTMLInputElement>(null)
   const logoInputRef = useRef<HTMLInputElement>(null)
   const libraryInputRef = useRef<HTMLInputElement>(null)
+  const themePackInputRef = useRef<HTMLInputElement>(null)
+  const showToast = useAppStore((s) => s.showToast)
 
   const [assets, setAssets] = useState<MediaAssetRecord[]>([])
   const [collections, setCollections] = useState<MediaCollectionRecord[]>([])
@@ -124,6 +292,8 @@ export function BackgroundSettings({
   const [collectionDescriptionDraft, setCollectionDescriptionDraft] = useState('')
   const [bulkCategoryDraft, setBulkCategoryDraft] = useState('')
   const [isBusy, setIsBusy] = useState(false)
+  const [backgroundPathDraft, setBackgroundPathDraft] = useState(settings.projection_bg_image || '')
+  const [logoPathDraft, setLogoPathDraft] = useState(settings.projection_logo || '')
   const [draggingCollectionAssetId, setDraggingCollectionAssetId] = useState<string | null>(null)
   const [dragOverCollectionAssetId, setDragOverCollectionAssetId] = useState<string | null>(null)
 
@@ -131,6 +301,18 @@ export function BackgroundSettings({
     const config = parseAtmosphereConfig(settings.projection_default_atmosphere)
     return config?.media?.assetId || ''
   }, [settings.projection_default_atmosphere])
+
+  const customScenePresets = useMemo(
+    () => parseCustomPresets(settings.projection_scene_presets),
+    [settings.projection_scene_presets]
+  )
+
+  const scenePresets = useMemo(() => {
+    const byId = new Map<string, AtmosphereScenePreset>()
+    DEFAULT_SCENE_PRESETS.forEach((preset) => byId.set(preset.id, preset))
+    customScenePresets.forEach((preset) => byId.set(preset.id, preset))
+    return Array.from(byId.values())
+  }, [customScenePresets])
 
   const selectedAsset = useMemo(
     () => assets.find((asset) => asset.id === selectedAssetId) || null,
@@ -167,6 +349,20 @@ export function BackgroundSettings({
       return haystack.toLowerCase().includes(searchQuery.toLowerCase())
     })
   }, [assets, searchQuery, typeFilter, collectionFilterId])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setBackgroundPathDraft(settings.projection_bg_image || '')
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [settings.projection_bg_image])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setLogoPathDraft(settings.projection_logo || '')
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [settings.projection_logo])
 
   useEffect(() => {
     const loadLibrary = async (): Promise<void> => {
@@ -228,7 +424,7 @@ export function BackgroundSettings({
   }
 
   const handleApplyAtmospherePreset = async (presetId: string): Promise<void> => {
-    const preset = DEFAULT_SCENE_PRESETS.find((item) => item.id === presetId)
+    const preset = scenePresets.find((item) => item.id === presetId)
     if (!preset) return
 
     await updateSetting('projection_default_atmosphere', JSON.stringify(preset.config))
@@ -242,11 +438,177 @@ export function BackgroundSettings({
     }
   }
 
-  const handleFileSelect = (key: string, e: React.ChangeEvent<HTMLInputElement>): void => {
+  const handleBaseColorChange = async (color: string): Promise<void> => {
+    await updateSetting('projection_bg_color', color)
+    const currentConfig = buildCurrentAtmosphere(settings)
+    if (currentConfig.mode === 'solid' || currentConfig.mode === 'motion') {
+      await updateSetting(
+        'projection_default_atmosphere',
+        JSON.stringify({ ...currentConfig, solidColor: color })
+      )
+    }
+  }
+
+  const handleOverlayChange = async (opacity: string): Promise<void> => {
+    await updateSetting('projection_bg_opacity', opacity)
+    const currentConfig = buildCurrentAtmosphere(settings)
+    await updateSetting(
+      'projection_default_atmosphere',
+      JSON.stringify({
+        ...currentConfig,
+        overlay: {
+          ...(currentConfig.overlay || DEFAULT_OVERLAY),
+          dim: Number(opacity)
+        }
+      })
+    )
+  }
+
+  const handleThemePackImport = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ): Promise<void> => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    try {
+      if (file.size > MAX_THEME_PACK_BYTES) {
+        throw new Error('Theme pack maksimal 1 MB.')
+      }
+      const filePath = getFilePath(file)
+      if (filePath && getExtension(filePath) !== '.json') {
+        throw new Error('Theme pack harus berupa file JSON.')
+      }
+      const importedPresets = parseThemePack(await file.text())
+      if (importedPresets.length === 0) {
+        showToast('Theme pack tidak berisi preset valid', 'error')
+        return
+      }
+      const merged = new Map<string, AtmosphereScenePreset>()
+      customScenePresets.forEach((preset) => merged.set(preset.id, preset))
+      importedPresets.forEach((preset) => merged.set(preset.id, preset))
+      await updateSetting('projection_scene_presets', JSON.stringify(Array.from(merged.values())))
+      showToast(`${importedPresets.length} preset theme berhasil diimport`, 'success')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal import theme pack', 'error')
+    } finally {
+      event.target.value = ''
+    }
+  }
+
+  const handleDownloadThemeTemplate = (): void => {
+    const blob = new Blob([JSON.stringify(ATMOSPHERE_THEME_TEMPLATE, null, 2)], {
+      type: 'application/json'
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'sion-atmosphere-theme-pack.template.json'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleBackgroundFileSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ): Promise<void> => {
     const file = e.target.files?.[0]
-    if (file && 'path' in file) {
-      const filePath = (file as File & { path: string }).path
-      void updateSetting(key, filePath)
+    if (!file) return
+
+    setIsBusy(true)
+    try {
+      const { filePath } = validateDesktopMediaFile(file, 'background')
+      const imported = (await window.api.media.importAssets({
+        filePaths: [filePath],
+        category: 'Projection Background',
+        tags: ['projection', 'background']
+      })) as MediaAssetRecord[]
+      const asset = imported[0]
+      if (!asset) throw new Error('Gagal mengimport background.')
+      await handleApplyAsset(asset)
+      setBackgroundPathDraft(asset.localPath)
+      showToast('Background berhasil disimpan ke library aplikasi', 'success')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal import background', 'error')
+    } finally {
+      setIsBusy(false)
+      e.target.value = ''
+    }
+  }
+
+  const handleLogoFileSelect = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsBusy(true)
+    try {
+      const { filePath } = validateDesktopMediaFile(file, 'image')
+      const imported = (await window.api.media.importAssets({
+        filePaths: [filePath],
+        category: 'Church Logo',
+        tags: ['projection', 'logo', 'church']
+      })) as MediaAssetRecord[]
+      const asset = imported[0]
+      if (!asset) throw new Error('Gagal mengimport logo.')
+      await updateSetting('projection_logo', asset.localPath)
+      setLogoPathDraft(asset.localPath)
+      await reloadLibrary(asset.id)
+      showToast('Logo jemaat berhasil disimpan permanen di aplikasi', 'success')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal import logo', 'error')
+    } finally {
+      setIsBusy(false)
+      e.target.value = ''
+    }
+  }
+
+  const handleSaveManualBackgroundPath = async (): Promise<void> => {
+    const filePath = backgroundPathDraft.trim()
+    if (!filePath) {
+      await updateSetting('projection_bg_image', '')
+      showToast('Background manual dikosongkan', 'success')
+      return
+    }
+    try {
+      const ext = getExtension(filePath)
+      if (!IMAGE_EXTENSIONS.includes(ext) && !VIDEO_EXTENSIONS.includes(ext)) {
+        throw new Error('Background harus berupa gambar JPG/PNG/WEBP atau video MP4/WEBM.')
+      }
+      const imported = (await window.api.media.importAssets({
+        filePaths: [filePath],
+        category: 'Projection Background',
+        tags: ['projection', 'background', 'manual']
+      })) as MediaAssetRecord[]
+      const asset = imported[0]
+      if (!asset) throw new Error('File background tidak valid.')
+      await handleApplyAsset(asset)
+      showToast('Background berhasil disimpan ke library aplikasi', 'success')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal menyimpan background', 'error')
+    }
+  }
+
+  const handleSaveManualLogoPath = async (): Promise<void> => {
+    const filePath = logoPathDraft.trim()
+    if (!filePath) {
+      await updateSetting('projection_logo', '')
+      showToast('Logo jemaat dikosongkan', 'success')
+      return
+    }
+    try {
+      const ext = getExtension(filePath)
+      if (!IMAGE_EXTENSIONS.includes(ext)) {
+        throw new Error('Logo harus berupa gambar JPG, PNG, atau WEBP.')
+      }
+      const imported = (await window.api.media.importAssets({
+        filePaths: [filePath],
+        category: 'Church Logo',
+        tags: ['projection', 'logo', 'manual']
+      })) as MediaAssetRecord[]
+      const asset = imported[0]
+      if (!asset || asset.type !== 'image') throw new Error('Logo harus berupa file gambar valid.')
+      await updateSetting('projection_logo', asset.localPath)
+      await reloadLibrary(asset.id)
+      showToast('Logo jemaat berhasil disimpan permanen di aplikasi', 'success')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal menyimpan logo', 'error')
     }
   }
 
@@ -291,7 +653,14 @@ export function BackgroundSettings({
   }
 
   const handleDeleteAsset = async (asset: MediaAssetRecord): Promise<void> => {
-    const confirmed = window.confirm(`Hapus asset "${asset.name}" dari Media Library?`)
+    const confirmed = await useModalStore
+      .getState()
+      .openAsync<boolean>('confirm-delete-asset', 'confirm', {
+        title: 'Hapus Asset',
+        description: `Hapus asset "${asset.name}" dari Media Library?`,
+        confirmLabel: 'Hapus',
+        danger: true
+      })
     if (!confirmed) return
 
     if (asset.id === activeAssetId) {
@@ -357,7 +726,14 @@ export function BackgroundSettings({
   const handleBulkDelete = async (): Promise<void> => {
     const ids = Array.from(selectedAssetIds)
     if (ids.length === 0) return
-    const confirmed = window.confirm(`Hapus ${ids.length} asset terpilih dari Media Library?`)
+    const confirmed = await useModalStore
+      .getState()
+      .openAsync<boolean>('confirm-bulk-delete-assets', 'confirm', {
+        title: 'Hapus Asset',
+        description: `Hapus ${ids.length} asset terpilih dari Media Library?`,
+        confirmLabel: 'Hapus Semua',
+        danger: true
+      })
     if (!confirmed) return
     setIsBusy(true)
     try {
@@ -388,7 +764,14 @@ export function BackgroundSettings({
   }
 
   const handleDeleteCollection = async (collection: MediaCollectionRecord): Promise<void> => {
-    const confirmed = window.confirm(`Hapus koleksi "${collection.name}"?`)
+    const confirmed = await useModalStore
+      .getState()
+      .openAsync<boolean>('confirm-delete-collection', 'confirm', {
+        title: 'Hapus Koleksi',
+        description: `Hapus koleksi "${collection.name}"?`,
+        confirmLabel: 'Hapus',
+        danger: true
+      })
     if (!confirmed) return
     setIsBusy(true)
     try {
@@ -493,6 +876,22 @@ export function BackgroundSettings({
             <Upload size={14} />
             Import Asset
           </button>
+          <button
+            onClick={() => themePackInputRef.current?.click()}
+            disabled={isBusy}
+            className="sp-btn sp-btn--ghost"
+          >
+            <Upload size={14} />
+            Import Theme
+          </button>
+          <button
+            onClick={handleDownloadThemeTemplate}
+            disabled={isBusy}
+            className="sp-btn sp-btn--ghost"
+          >
+            <Save size={14} />
+            Template
+          </button>
           <input
             ref={libraryInputRef}
             type="file"
@@ -500,6 +899,13 @@ export function BackgroundSettings({
             multiple
             accept="image/*,video/mp4,video/webm"
             onChange={(e) => void handleLibraryImport(e)}
+          />
+          <input
+            ref={themePackInputRef}
+            type="file"
+            className="hidden"
+            accept="application/json,.json"
+            onChange={(e) => void handleThemePackImport(e)}
           />
         </div>
       </div>
@@ -559,7 +965,7 @@ export function BackgroundSettings({
             <div className="sp-field">
               <label className="sp-field__label">Atmosphere Presets</label>
               <div className="sp-bg-preset-grid">
-                {DEFAULT_SCENE_PRESETS.map((preset) => (
+                {scenePresets.map((preset) => (
                   <button
                     key={preset.id}
                     onClick={() => void handleApplyAtmospherePreset(preset.id)}
@@ -571,6 +977,10 @@ export function BackgroundSettings({
                   </button>
                 ))}
               </div>
+              <p className="sp-field-hint">
+                Preset bawaan memakai animasi CSS/code-only. Developer dapat menambah theme pack
+                JSON melalui tombol Import Theme.
+              </p>
             </div>
             <div className="sp-field">
               <label className="sp-field__label">Warna Dasar</label>
@@ -582,7 +992,7 @@ export function BackgroundSettings({
                   <input
                     type="color"
                     value={settings.projection_bg_color || '#0a0c12'}
-                    onChange={(e) => void updateSetting('projection_bg_color', e.target.value)}
+                    onChange={(e) => void handleBaseColorChange(e.target.value)}
                     className="sp-color-input"
                   />
                 </div>
@@ -599,16 +1009,25 @@ export function BackgroundSettings({
               <div className="sp-bg-file-row">
                 <input
                   type="text"
-                  value={settings.projection_bg_image || ''}
-                  onChange={(e) => void updateSetting('projection_bg_image', e.target.value)}
+                  value={backgroundPathDraft}
+                  onChange={(e) => setBackgroundPathDraft(e.target.value)}
                   placeholder="C:\Path\ke\media..."
                   className="sp-input"
                   style={{ flex: 1 }}
                 />
                 <button
+                  onClick={() => void handleSaveManualBackgroundPath()}
+                  className="sp-icon-btn"
+                  title="Simpan background ke library aplikasi"
+                  disabled={isBusy}
+                >
+                  <Save size={15} />
+                </button>
+                <button
                   onClick={() => bgInputRef.current?.click()}
                   className="sp-icon-btn"
                   title="Pilih File"
+                  disabled={isBusy}
                 >
                   <FolderOpen size={16} />
                 </button>
@@ -617,11 +1036,11 @@ export function BackgroundSettings({
                   type="file"
                   className="hidden"
                   accept="image/*,video/*"
-                  onChange={(e) => handleFileSelect('projection_bg_image', e)}
+                  onChange={(e) => void handleBackgroundFileSelect(e)}
                 />
               </div>
               <p className="sp-field-hint">
-                Digunakan sebagai fallback kompatibilitas untuk workflow lama.
+                File disalin ke media library aplikasi sebelum dipakai di projector.
               </p>
             </div>
           </div>
@@ -640,7 +1059,7 @@ export function BackgroundSettings({
                 max="1"
                 step="0.05"
                 value={settings.projection_bg_opacity || '0.7'}
-                onChange={(e) => void updateSetting('projection_bg_opacity', e.target.value)}
+                onChange={(e) => void handleOverlayChange(e.target.value)}
                 className="sp-range"
               />
               <div className="sp-range-labels">
@@ -656,13 +1075,26 @@ export function BackgroundSettings({
               <div className="sp-bg-file-row">
                 <input
                   type="text"
-                  value={settings.projection_logo || ''}
-                  onChange={(e) => void updateSetting('projection_logo', e.target.value)}
+                  value={logoPathDraft}
+                  onChange={(e) => setLogoPathDraft(e.target.value)}
                   placeholder="Path ke logo..."
                   className="sp-input"
                   style={{ flex: 1 }}
                 />
-                <button onClick={() => logoInputRef.current?.click()} className="sp-icon-btn">
+                <button
+                  onClick={() => void handleSaveManualLogoPath()}
+                  className="sp-icon-btn"
+                  title="Simpan logo ke aplikasi"
+                  disabled={isBusy}
+                >
+                  <Save size={15} />
+                </button>
+                <button
+                  onClick={() => logoInputRef.current?.click()}
+                  className="sp-icon-btn"
+                  title="Import logo"
+                  disabled={isBusy}
+                >
                   <FolderOpen size={15} />
                 </button>
                 <input
@@ -670,8 +1102,37 @@ export function BackgroundSettings({
                   type="file"
                   className="hidden"
                   accept="image/*"
-                  onChange={(e) => handleFileSelect('projection_logo', e)}
+                  onChange={(e) => void handleLogoFileSelect(e)}
                 />
+              </div>
+              {settings.projection_logo && (
+                <div className="sp-bg-inspector__preview" style={{ marginTop: 10, height: 110 }}>
+                  <img
+                    src={toFileUrl(settings.projection_logo)}
+                    alt="Logo jemaat"
+                    className="sp-bg-inspector__media"
+                    style={{ objectFit: 'contain', padding: 12 }}
+                  />
+                </div>
+              )}
+              <div className="sp-toggle-row" style={{ marginTop: 10 }}>
+                <div className="sp-toggle-row__text">
+                  <span className="sp-toggle-row__label">Tampilkan Logo Saat Live</span>
+                  <span className="sp-toggle-row__desc">
+                    Logo muncul di output projector sesuai posisi dan opacity.
+                  </span>
+                </div>
+                <button
+                  className={`sp-toggle ${(settings.projection_logo_show_on_live ?? '1') === '1' ? 'is-on' : ''}`}
+                  onClick={() =>
+                    void updateSetting(
+                      'projection_logo_show_on_live',
+                      (settings.projection_logo_show_on_live ?? '1') === '1' ? '0' : '1'
+                    )
+                  }
+                >
+                  <span className="sp-toggle__thumb" />
+                </button>
               </div>
               <div className="sp-field" style={{ marginTop: 10 }}>
                 <label className="sp-field__label">Posisi Logo</label>
@@ -701,6 +1162,23 @@ export function BackgroundSettings({
                     <polyline points="6 9 12 15 18 9" />
                   </svg>
                 </div>
+              </div>
+              <div className="sp-field" style={{ marginTop: 10 }}>
+                <label className="sp-field__label sp-field__label--between">
+                  <span>Opacity Logo</span>
+                  <span className="sp-field__value-badge">
+                    {Math.round(parseFloat(settings.projection_logo_opacity || '0.85') * 100)}%
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min="0.2"
+                  max="1"
+                  step="0.05"
+                  value={settings.projection_logo_opacity || '0.85'}
+                  onChange={(e) => void updateSetting('projection_logo_opacity', e.target.value)}
+                  className="sp-range"
+                />
               </div>
             </div>
           </div>

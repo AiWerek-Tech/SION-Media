@@ -1,0 +1,17 @@
+[
+  {
+    "group": ["**/verification/**"],
+    "message": "Runtime cannot import verification code",
+    "allowTypeImports": false
+  },
+  {
+    "group": ["instrumentation.ts"],
+    "message": "Runtime cannot import instrumentation code",
+    "allowTypeImports": false
+  },
+  {
+    "group": ["**/verification/**"],
+    "message": "Instrumentation cannot import verification code",
+    "allowTypeImports": false
+  }
+]

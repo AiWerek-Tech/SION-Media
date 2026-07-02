@@ -190,7 +190,7 @@ export const migrations: Migration[] = [
         ['projection_logo', ''],
         ['projection_logo_position', 'bottom-right'],
         ['projection_logo_opacity', '0.5'],
-        ['transition_type', 'dissolve'],
+        ['transition_type', 'smooth-blur'],
         ['transition_duration', '0.5']
       ]
 
@@ -484,6 +484,208 @@ export const migrations: Migration[] = [
           ON media_collection_items(collection_id, sort_order);
       `)
     }
+  },
+  // ═══════════════════════════════════════════════════════════════
+  // Phase 1 — Enterprise Refactor Migrations
+  // @see implementation-master-order-v1.md §3.2 Sequence 1.3
+  // ═══════════════════════════════════════════════════════════════
+
+  {
+    version: 14,
+    name: 'enterprise_service_state_and_sessions',
+    up: (db) => {
+      // Service state persistence for crash recovery and session continuity
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS service_state (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS service_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL DEFAULT '',
+          service_date TEXT DEFAULT '',
+          notes TEXT DEFAULT '',
+          is_active INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+      `)
+    }
+  },
+  {
+    version: 15,
+    name: 'enterprise_song_notes_and_notification_log',
+    up: (db) => {
+      // Operator notes per song (e.g., "use for baptism service")
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS song_notes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          song_id INTEGER NOT NULL,
+          note_text TEXT NOT NULL,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_song_notes_song_id ON song_notes(song_id);
+
+        CREATE TABLE IF NOT EXISTS notification_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          type TEXT NOT NULL DEFAULT 'info',
+          title TEXT NOT NULL DEFAULT '',
+          message TEXT DEFAULT '',
+          is_read INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_notification_log_is_read ON notification_log(is_read);
+        CREATE INDEX IF NOT EXISTS idx_notification_log_created_at ON notification_log(created_at DESC);
+      `)
+    }
+  },
+  {
+    version: 16,
+    name: 'enterprise_notification_preferences_and_settings',
+    up: (db) => {
+      // Notification preference settings + storage stats
+      const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
+      insertSetting.run('notification_enabled', 'true')
+      insertSetting.run('notification_sound', 'false')
+      insertSetting.run('notification_projection_alerts', 'true')
+      insertSetting.run('storage_stats_last_checked', '')
+    }
+  },
+  {
+    version: 17,
+    name: 'enterprise_performance_indexes',
+    up: (db) => {
+      // All performance indexes (including songs_summary composite)
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_songs_favorite ON songs(is_favorite);
+        CREATE INDEX IF NOT EXISTS idx_songs_category ON songs(category);
+        CREATE INDEX IF NOT EXISTS idx_songs_updated_at ON songs(updated_at);
+        CREATE INDEX IF NOT EXISTS idx_playlist_items_playlist ON playlist_items(playlist_id, sort_order);
+        CREATE INDEX IF NOT EXISTS idx_song_history_played_at ON song_history(played_at);
+        CREATE INDEX IF NOT EXISTS idx_songs_summary
+          ON songs(hymnal_id, id, number, title, alternate_title, is_favorite, category, language);
+      `)
+    }
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // Content Pack Registry — External SQLite Content Pack System
+  // Stores metadata/registry for external content packs (Bible, hymnal, etc.)
+  // Actual content resides in external SQLite files, not in this database.
+  // ═══════════════════════════════════════════════════════════════
+
+  {
+    version: 18,
+    name: 'content_packs_registry',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS content_packs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          pack_id TEXT NOT NULL UNIQUE,
+          pack_type TEXT NOT NULL DEFAULT 'bible',
+          version_code TEXT NOT NULL,
+          name TEXT NOT NULL,
+          short_name TEXT NOT NULL DEFAULT '',
+          language TEXT NOT NULL DEFAULT 'id',
+          publisher TEXT DEFAULT '',
+          copyright TEXT DEFAULT '',
+          license_status TEXT DEFAULT '',
+          source_type TEXT DEFAULT '',
+          source_base_url TEXT DEFAULT '',
+          installed_path TEXT NOT NULL,
+          sqlite_filename TEXT NOT NULL,
+          manifest_filename TEXT DEFAULT '',
+          books_filename TEXT DEFAULT '',
+          import_report_filename TEXT DEFAULT '',
+          is_active INTEGER DEFAULT 1,
+          is_default INTEGER DEFAULT 0,
+          is_offline_available INTEGER DEFAULT 1,
+          validation_ok INTEGER DEFAULT 0,
+          fts5_created INTEGER DEFAULT 0,
+          books_count INTEGER DEFAULT 0,
+          chapters_count INTEGER DEFAULT 0,
+          verses_count INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_content_packs_pack_type ON content_packs(pack_type);
+        CREATE INDEX IF NOT EXISTS idx_content_packs_is_active ON content_packs(is_active);
+        CREATE INDEX IF NOT EXISTS idx_content_packs_is_default ON content_packs(is_default);
+      `)
+    }
+  },
+  {
+    version: 19,
+    name: 'mixed_rundown_support',
+    up: (db) => {
+      // Recreate playlist_items table to remove NOT NULL constraint on song_id and add bible fields
+      db.exec(`
+        ALTER TABLE playlist_items RENAME TO playlist_items_old;
+
+        CREATE TABLE playlist_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          playlist_id INTEGER NOT NULL,
+          song_id INTEGER,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          section_label TEXT DEFAULT '',
+          item_type TEXT NOT NULL DEFAULT 'song',
+          title TEXT DEFAULT '',
+          notes TEXT DEFAULT '',
+          bible_version_code TEXT DEFAULT '',
+          bible_version_short_name TEXT DEFAULT '',
+          bible_book_code TEXT DEFAULT '',
+          bible_book_name TEXT DEFAULT '',
+          bible_chapter INTEGER,
+          bible_verse_start INTEGER,
+          bible_verse_end INTEGER,
+          bible_reference TEXT DEFAULT '',
+          bible_text_json TEXT DEFAULT '',
+          bible_copyright TEXT DEFAULT '',
+          FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
+          FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
+        );
+
+        INSERT INTO playlist_items (
+          id, playlist_id, song_id, sort_order, section_label, item_type
+        )
+        SELECT id, playlist_id, song_id, sort_order, section_label, 'song'
+        FROM playlist_items_old;
+
+        DROP TABLE playlist_items_old;
+
+        CREATE INDEX IF NOT EXISTS idx_playlist_items_playlist ON playlist_items(playlist_id, sort_order);
+        CREATE INDEX IF NOT EXISTS idx_playlist_items_type ON playlist_items(item_type);
+        CREATE INDEX IF NOT EXISTS idx_playlist_items_bible_ref ON playlist_items(bible_version_code, bible_book_code, bible_chapter);
+      `)
+    }
+  },
+  {
+    version: 20,
+    name: 'bible_notes_and_highlights',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS bible_notes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          book_code TEXT NOT NULL,
+          chapter INTEGER NOT NULL,
+          verse INTEGER NOT NULL,
+          note_text TEXT NOT NULL DEFAULT '',
+          highlight_color TEXT DEFAULT '',
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_bible_notes_ref ON bible_notes(book_code, chapter, verse);
+        CREATE INDEX IF NOT EXISTS idx_bible_notes_chapter ON bible_notes(book_code, chapter);
+      `)
+    }
   }
 ]
 
@@ -540,21 +742,21 @@ export function runMigrations(db: Database.Database): number {
   const pendingMigrations = migrations.filter((m) => m.version > currentVersion)
 
   if (pendingMigrations.length === 0) {
-    console.log('Database schema is up to date (version ' + currentVersion + ')')
+    console.info('Database schema is up to date (version ' + currentVersion + ')')
     return 0
   }
 
-  console.log(
+  console.info(
     `Running ${pendingMigrations.length} pending migration(s) (from version ${currentVersion} to version ${migrations[migrations.length - 1].version})...`
   )
 
   const transaction = db.transaction(() => {
     for (const migration of pendingMigrations) {
       try {
-        console.log(`Applying migration ${migration.version}: ${migration.name}...`)
+        console.info(`Applying migration ${migration.version}: ${migration.name}...`)
         migration.up(db)
         recordMigration(db, migration.version, migration.name)
-        console.log(`Migration ${migration.version} applied successfully.`)
+        console.info(`Migration ${migration.version} applied successfully.`)
       } catch (err) {
         console.error(`Migration ${migration.version} failed:`, err)
         throw err

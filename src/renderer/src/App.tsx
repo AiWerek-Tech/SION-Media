@@ -1,58 +1,97 @@
-import React, { useEffect, useState } from 'react'
+import React, { Suspense, lazy, useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from './store/useAppStore'
 import { usePlaylistStore } from './store/usePlaylistStore'
-import { SplashScreen } from './screens/SplashScreen'
-import { SongEditorScreen } from './screens/SongEditorScreen'
-import { SettingsScreen } from './screens/SettingsScreen'
-import { ImportExportScreen } from './screens/ImportExportScreen'
-import { BibleScreen } from './screens/BibleScreen'
-import { ProjectionMode } from './screens/modes/ProjectionMode'
-import { LibraryMode } from './screens/modes/LibraryModeRedesigned'
-import { ManagementMode } from './screens/modes/ManagementMode'
-import { BroadcastMode } from './screens/modes/BroadcastMode'
-import { WelcomeScreen } from './screens/WelcomeScreen'
 import { useModeStore } from './store/useModeStore'
+import { useDisplayStore } from './store/useDisplayStore'
 import { Toast } from './components/Toast'
 import { CommandPalette } from './components/CommandPalette'
 import { KeyboardCheatSheet } from './components/KeyboardCheatSheet'
 import { QuickJumpOverlay } from './components/QuickJumpOverlay'
 import { RuntimeInspector } from './components/RuntimeInspector'
+import { EmergencyPanel } from './components/projection/EmergencyPanel'
 import { TitleBar } from './components/titlebar/TitleBar'
+import { ModalRegistry } from './components/modals/ModalRegistry'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { useAppBootstrap } from './hooks/useAppBootstrap'
+import { useTimerTick } from './hooks/useTimerTick'
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts'
 import { useCrashRecovery } from './hooks/useCrashRecovery'
+import { useModePreloader } from './startup/useModePreloader'
+import { useBootStore } from './startup/bootStore'
+import { SplashScreen } from './startup/SplashScreen'
+import { RendererBootScreen } from './startup/RendererBootScreen'
+import { LoadingSkeleton, SkeletonVariant } from './components/design-system/LoadingSkeleton'
+
+const ProjectionMode = lazy(() =>
+  import('./screens/modes/ProjectionMode').then((module) => ({ default: module.ProjectionMode }))
+)
+const LibraryMode = lazy(() =>
+  import('./screens/modes/LibraryModeRedesigned').then((module) => ({
+    default: module.LibraryMode
+  }))
+)
+const ManagementMode = lazy(() =>
+  import('./screens/modes/ManagementMode').then((module) => ({ default: module.ManagementMode }))
+)
+const BroadcastMode = lazy(() =>
+  import('./screens/modes/BroadcastMode').then((module) => ({ default: module.BroadcastMode }))
+)
+const WelcomeScreen = lazy(() =>
+  import('./screens/WelcomeScreen').then((module) => ({ default: module.WelcomeScreen }))
+)
+const SongEditorScreen = lazy(() =>
+  import('./screens/SongEditorScreen').then((module) => ({ default: module.SongEditorScreen }))
+)
+const SettingsScreen = lazy(() =>
+  import('./screens/SettingsScreen').then((module) => ({ default: module.SettingsScreen }))
+)
+const ImportExportScreen = lazy(() =>
+  import('./screens/ImportExportScreen').then((module) => ({ default: module.ImportExportScreen }))
+)
+const BibleScreen = lazy(() =>
+  import('./screens/BibleScreen').then((module) => ({ default: module.BibleScreen }))
+)
 
 function App(): React.JSX.Element {
-  const { isLoading, currentScreen, setScreen } = useAppStore()
-  const isLyricsFullscreen = useAppStore((s) => s.isLyricsFullscreen)
+  const { currentScreen, setScreen } = useAppStore()
+  const isLyricsFullscreen = useDisplayStore((s) => s.isLyricsFullscreen)
+  const isBibleFullscreen = useDisplayStore((s) => s.isBibleFullscreen)
   const { playlistItems, activePlaylist } = usePlaylistStore()
   const { currentMode, isFirstInstall } = useModeStore()
-  const [splashDone, setSplashDone] = useState(false)
+  const phase = useBootStore((s) => s.phase)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showQuickJump, setShowQuickJump] = useState(false)
   const [showRuntimeInspector, setShowRuntimeInspector] = useState(false)
-
-  useAppBootstrap()
-  useCrashRecovery()
+  const [showEmergencyPanel, setShowEmergencyPanel] = useState(false)
+  const [isStoreHydrated, setIsStoreHydrated] = useState(() => useModeStore.persist.hasHydrated())
 
   useEffect(() => {
-    if (isFirstInstall) {
-      // Onboarding handles its own splash in Phase 1 (IntroPhase)
-      const timer = setTimeout(() => setSplashDone(true), 0)
-      return (): void => {
-        clearTimeout(timer)
-      }
-    }
-    if (!isLoading) {
-      const timer = setTimeout(() => setSplashDone(true), 800)
-      return (): void => {
-        clearTimeout(timer)
-      }
-    }
-    return undefined
-  }, [isLoading, isFirstInstall])
+    if (isStoreHydrated) return undefined
+    const unsub = useModeStore.persist.onFinishHydration(() => {
+      setIsStoreHydrated(true)
+    })
+    return unsub
+  }, [isStoreHydrated])
+
+  const getSkeletonVariant = (): SkeletonVariant => {
+    if (currentScreen === 'song-editor') return 'editor'
+    if (currentScreen === 'settings') return 'settings'
+    if (currentScreen === 'import-export') return 'import-export'
+    if (currentScreen === 'bible') return 'bible'
+    if (isFirstInstall) return 'welcome'
+    if (currentMode === 'PROJECTION') return 'projection'
+    if (currentMode === 'LIBRARY') return 'library'
+    if (currentMode === 'MANAGEMENT') return 'management'
+    if (currentMode === 'BROADCAST') return 'projection'
+    return 'default'
+  }
+
+  useAppBootstrap()
+  useTimerTick()
+  useCrashRecovery()
+  useModePreloader(currentMode)
 
   useGlobalShortcuts({
     currentScreen,
@@ -62,133 +101,142 @@ function App(): React.JSX.Element {
     setShowCommandPalette,
     setShowShortcuts,
     setShowQuickJump,
-    setShowRuntimeInspector
+    setShowRuntimeInspector,
+    setShowEmergencyPanel
   })
 
-  if (!splashDone) {
-    return <SplashScreen isLoading={isLoading} />
+  const renderScreen = (): React.JSX.Element | null => {
+    if (!isStoreHydrated) return null
+    if (currentScreen === 'song-editor') {
+      return (
+        <ErrorBoundary mode="Song Editor">
+          <SongEditorScreen />
+        </ErrorBoundary>
+      )
+    }
+    if (currentScreen === 'settings') {
+      return (
+        <ErrorBoundary mode="Settings">
+          <SettingsScreen />
+        </ErrorBoundary>
+      )
+    }
+    if (currentScreen === 'import-export') {
+      return (
+        <ErrorBoundary mode="Import/Export">
+          <ImportExportScreen />
+        </ErrorBoundary>
+      )
+    }
+    if (currentScreen === 'bible') {
+      return (
+        <ErrorBoundary mode="Bible">
+          <BibleScreen />
+        </ErrorBoundary>
+      )
+    }
+    if (isFirstInstall) {
+      return <WelcomeScreen />
+    }
+    if (currentMode === 'PROJECTION') {
+      return (
+        <ErrorBoundary mode="Projection">
+          <ProjectionMode />
+        </ErrorBoundary>
+      )
+    }
+    if (currentMode === 'LIBRARY') {
+      return (
+        <ErrorBoundary mode="Library">
+          <LibraryMode />
+        </ErrorBoundary>
+      )
+    }
+    if (currentMode === 'MANAGEMENT') {
+      return (
+        <ErrorBoundary mode="Management">
+          <ManagementMode />
+        </ErrorBoundary>
+      )
+    }
+    if (currentMode === 'BROADCAST') {
+      return (
+        <ErrorBoundary mode="Broadcast">
+          <BroadcastMode />
+        </ErrorBoundary>
+      )
+    }
+    return null
   }
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-bg-base overflow-hidden">
-      {!isLyricsFullscreen && <TitleBar />}
-      <div className="flex-1 relative min-h-0">
-        <Toast />
-        <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} />
-        <KeyboardCheatSheet isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
-        <QuickJumpOverlay
-          isOpen={showQuickJump}
-          onClose={() => setShowQuickJump(false)}
-          mode="preview"
+    <>
+      <SplashScreen />
+      <div
+        className="flex flex-col h-screen w-screen bg-bg-base overflow-hidden"
+        role="application"
+        aria-label="SION Media"
+      >
+        <a href="#main-content" className="skip-to-content">
+          Skip to content
+        </a>
+        <div
+          id="aria-announcements"
+          className="aria-live-region"
+          aria-live="polite"
+          aria-atomic="true"
         />
-        <AnimatePresence mode="wait">
-          {currentScreen === 'song-editor' ? (
-            <motion.div
-              key="song-editor"
-              initial={{ opacity: 0, scale: 1.05 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute inset-0 z-50"
-            >
-              <SongEditorScreen />
-            </motion.div>
-          ) : currentScreen === 'settings' ? (
-            <motion.div
-              key="settings"
-              initial={{ opacity: 0, x: 100 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 100 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute inset-0 z-50"
-            >
-              <SettingsScreen />
-            </motion.div>
-          ) : currentScreen === 'import-export' ? (
-            <motion.div
-              key="import-export"
-              initial={{ opacity: 0, y: 100 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 100 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute inset-0 bg-bg-base z-50"
-            >
-              <ImportExportScreen />
-            </motion.div>
-          ) : currentScreen === 'bible' ? (
-            <motion.div
-              key="bible"
-              initial={{ opacity: 0, x: 100 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 100 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute inset-0 z-50"
-            >
-              <BibleScreen />
-            </motion.div>
-          ) : isFirstInstall ? (
-            <motion.div
-              key="welcome"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0, y: -40 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute inset-0 z-50 bg-bg-base"
-            >
-              <WelcomeScreen />
-            </motion.div>
-          ) : currentMode === 'PROJECTION' ? (
-            <motion.div
-              key="projection"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              className="absolute inset-0"
-            >
-              <ProjectionMode />
-            </motion.div>
-          ) : currentMode === 'LIBRARY' ? (
-            <motion.div
-              key="library"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              className="absolute inset-0"
-            >
-              <LibraryMode />
-            </motion.div>
-          ) : currentMode === 'MANAGEMENT' ? (
-            <motion.div
-              key="management"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              className="absolute inset-0"
-            >
-              <ManagementMode />
-            </motion.div>
-          ) : currentMode === 'BROADCAST' ? (
-            <motion.div
-              key="broadcast"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              className="absolute inset-0"
-            >
-              <BroadcastMode />
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+        {!isLyricsFullscreen && !isBibleFullscreen && <TitleBar />}
+        <div id="main-content" className="flex-1 relative min-h-0" role="main" tabIndex={-1}>
+          <Toast />
+          <ModalRegistry />
+          <CommandPalette
+            isOpen={showCommandPalette}
+            onClose={() => setShowCommandPalette(false)}
+          />
+          <KeyboardCheatSheet isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+          <QuickJumpOverlay
+            isOpen={showQuickJump}
+            onClose={() => setShowQuickJump(false)}
+            mode="preview"
+          />
+
+          <Suspense
+            fallback={
+              <div className="absolute inset-0 z-10 bg-bg-base overflow-hidden">
+                <LoadingSkeleton variant={getSkeletonVariant()} />
+              </div>
+            }
+          >
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={
+                  currentScreen !== 'dashboard'
+                    ? currentScreen
+                    : isFirstInstall
+                      ? 'welcome'
+                      : currentMode
+                }
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0"
+              >
+                {renderScreen()}
+              </motion.div>
+            </AnimatePresence>
+          </Suspense>
+
+          {!isFirstInstall && phase === 'failed' && <RendererBootScreen />}
+        </div>
+        <RuntimeInspector
+          isOpen={showRuntimeInspector}
+          onClose={() => setShowRuntimeInspector(false)}
+        />
+        <EmergencyPanel isOpen={showEmergencyPanel} onClose={() => setShowEmergencyPanel(false)} />
       </div>
-      <RuntimeInspector
-        isOpen={showRuntimeInspector}
-        onClose={() => setShowRuntimeInspector(false)}
-      />
-    </div>
+    </>
   )
 }
 

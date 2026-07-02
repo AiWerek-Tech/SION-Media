@@ -21,6 +21,10 @@ export const AtmosphereRenderer: React.FC<AtmosphereRendererProps> = ({
   const backgroundStyle = useMemo(() => {
     if (mode === 'solid') return { backgroundColor: solidColor || '#000' }
     if (mode === 'gradient' && gradient) return { background: getGradientCss(gradient) }
+    // Motion mode may still provide a static gradient base; the animated layer
+    // stays code/CSS-only and renders on top of this readable foundation.
+    if (mode === 'motion' && gradient) return { background: getGradientCss(gradient) }
+    if (mode === 'motion') return { backgroundColor: solidColor || '#000' }
     return { backgroundColor: '#000' }
   }, [mode, solidColor, gradient])
 
@@ -78,19 +82,17 @@ export const AtmosphereRenderer: React.FC<AtmosphereRendererProps> = ({
 
 const getGradientCss = (config: GradientConfig): string => {
   const { kind, angle = 180, stops } = config
-  const stopsCss = stops
-    .sort((a, b) => a.position - b.position)
-    .map((s) => `${s.color} ${s.position}%`)
-    .join(', ')
+  const sortedStops = [...stops].sort((a, b) => a.position - b.position)
+  const stopsCss = sortedStops.map((s) => `${s.color} ${s.position}%`).join(', ')
 
   if (kind === 'radial') return `radial-gradient(circle at center, ${stopsCss})`
   if (kind === 'aurora') {
     // Aurora is a complex multi-radial gradient
     return `
-      radial-gradient(circle at 20% 30%, ${stops[0]?.color || 'transparent'} 0%, transparent 70%),
-      radial-gradient(circle at 80% 20%, ${stops[1]?.color || 'transparent'} 0%, transparent 70%),
-      radial-gradient(circle at 50% 80%, ${stops[2]?.color || 'transparent'} 0%, transparent 70%),
-      ${stops[3]?.color || '#000'}
+      radial-gradient(circle at 20% 30%, ${sortedStops[0]?.color || 'transparent'} 0%, transparent 70%),
+      radial-gradient(circle at 80% 20%, ${sortedStops[1]?.color || 'transparent'} 0%, transparent 70%),
+      radial-gradient(circle at 50% 80%, ${sortedStops[2]?.color || 'transparent'} 0%, transparent 70%),
+      ${sortedStops[3]?.color || '#000'}
     `
   }
   return `linear-gradient(${angle}deg, ${stopsCss})`
@@ -131,15 +133,31 @@ const AtmosphericOverlay: React.FC<{ config: OverlayConfig }> = ({ config }) => 
   )
 }
 
+/**
+ * FIX BUG-12: The previous implementation applied backdropFilter and contrast
+ * to a full-canvas overlay div, which:
+ *   1. Blurred the entire background (not just behind lyrics)
+ *   2. Applied contrast() to an empty div — no visual effect
+ *
+ * The corrected version applies a subtle dark gradient scrim in the lower
+ * third (where lyrics live) to improve readability without blurring the whole
+ * background. The contrastBoost is removed from this layer — contrast is
+ * better handled at the text rendering level (text-shadow in PresentationCanvas).
+ */
 const ReadabilityGuard: React.FC<{ config: ReadabilityConfig }> = ({ config }) => {
-  const { contrastBoost, blurBehindLyrics } = config
+  const { contrastBoost } = config
 
   return (
     <div
       className="absolute inset-0 pointer-events-none"
       style={{
-        backdropFilter: blurBehindLyrics ? 'blur(4px)' : 'none',
-        filter: `contrast(${1 + contrastBoost})`
+        // Gradient scrim focused on the lower 60% where lyrics appear
+        background: `linear-gradient(
+          to top,
+          rgba(0,0,0,${Math.min(0.55 + contrastBoost * 0.5, 0.85)}) 0%,
+          rgba(0,0,0,${Math.min(0.25 + contrastBoost * 0.25, 0.55)}) 40%,
+          transparent 70%
+        )`
       }}
     />
   )

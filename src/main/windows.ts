@@ -3,11 +3,13 @@
  * Handles creation and lifecycle of all application windows
  */
 
-import { BrowserWindow, shell, screen } from 'electron'
+import { BrowserWindow, shell, screen, type Display } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { getLatestProjectionTheme, mergeProjectionTheme } from './theme-manager'
+import { getSettings } from './database'
+import { normalizeSafeExternalUrl } from './safe-external-url'
 
 type EffectiveTheme = 'dark' | 'light'
 // Sandbox is desirable, but this app currently relies on preload behaviors that
@@ -23,6 +25,51 @@ let stageDisplayWindow: BrowserWindow | null = null
 // Projection state tracking
 let latestSlideData: unknown = null
 let latestProjectionState = 'CLEAR'
+
+function denyWindowOpen(details: { url: string }): { action: 'deny' } {
+  const safeUrl = normalizeSafeExternalUrl(details.url)
+  if (safeUrl) {
+    void shell.openExternal(safeUrl).catch((error) => {
+      console.error('[windows] Unable to open external URL:', error)
+    })
+  } else {
+    console.warn('[windows] Blocked unsafe external URL')
+  }
+  return { action: 'deny' }
+}
+
+function getProjectionWindowOptions(): {
+  targetDisplay: Display
+  fullscreen: boolean
+} {
+  const displays = screen.getAllDisplays()
+  const settings = getSettings()
+  const selectedDisplayId = Number(settings['projection_monitor_id'] || 0)
+  const configuredDisplay = Number.isFinite(selectedDisplayId)
+    ? displays.find((display) => display.id === selectedDisplayId)
+    : undefined
+  const externalDisplay = displays.find((display) => display.id !== screen.getPrimaryDisplay().id)
+  return {
+    targetDisplay: configuredDisplay || externalDisplay || screen.getPrimaryDisplay(),
+    fullscreen: (settings['display_fullscreen'] ?? '1') === '1'
+  }
+}
+
+export function repositionProjectionWindowFromSettings(): void {
+  if (!projectionWindow || projectionWindow.isDestroyed()) return
+  const { targetDisplay, fullscreen } = getProjectionWindowOptions()
+  projectionWindow.setFullScreen(false)
+  projectionWindow.setBounds(targetDisplay.bounds)
+  projectionWindow.setFullScreen(fullscreen)
+}
+
+export function showMainWindow(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (!mainWindow.isVisible()) {
+    mainWindow.show()
+  }
+  mainWindow.focus()
+}
 
 /**
  * Send current projection state snapshot to a window
@@ -131,6 +178,7 @@ export function createMainWindow(): void {
     minWidth: 1024,
     minHeight: 700,
     show: false,
+    backgroundColor: '#050714',
     frame: false,
     titleBarStyle: 'hidden',
     titleBarOverlay:
@@ -154,6 +202,10 @@ export function createMainWindow(): void {
     }
   })
 
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show()
+  })
+
   if (is.dev) {
     mainWindow.webContents.openDevTools({ mode: 'detach' })
   }
@@ -173,10 +225,6 @@ export function createMainWindow(): void {
     console.error('[mainWindow] render-process-gone', details)
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow?.show()
-  })
-
   // Notify renderer on maximize state changes
   mainWindow.on('maximize', () => {
     mainWindow?.webContents.send('window:maximized-changed', true)
@@ -185,10 +233,7 @@ export function createMainWindow(): void {
     mainWindow?.webContents.send('window:maximized-changed', false)
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
+  mainWindow.webContents.setWindowOpenHandler(denyWindowOpen)
 
   // Block navigations away from the app shell.
   mainWindow.webContents.on('will-navigate', (e) => {
@@ -216,16 +261,14 @@ export function createMainWindow(): void {
  * Create the projection window for external display
  */
 export function createProjectionWindow(): void {
-  const displays = screen.getAllDisplays()
-  const externalDisplay = displays.find((d) => d.id !== screen.getPrimaryDisplay().id)
-  const targetDisplay = externalDisplay || screen.getPrimaryDisplay()
+  const { targetDisplay, fullscreen } = getProjectionWindowOptions()
 
   projectionWindow = new BrowserWindow({
     x: targetDisplay.bounds.x,
     y: targetDisplay.bounds.y,
     width: targetDisplay.bounds.width,
     height: targetDisplay.bounds.height,
-    fullscreen: true,
+    fullscreen,
     frame: false,
     autoHideMenuBar: true,
     show: false,
@@ -239,10 +282,7 @@ export function createProjectionWindow(): void {
     }
   })
 
-  projectionWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
+  projectionWindow.webContents.setWindowOpenHandler(denyWindowOpen)
 
   projectionWindow.webContents.on('will-navigate', (e) => {
     e.preventDefault()
@@ -295,10 +335,7 @@ export function createStageDisplayWindow(): void {
     }
   })
 
-  stageDisplayWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
+  stageDisplayWindow.webContents.setWindowOpenHandler(denyWindowOpen)
 
   stageDisplayWindow.webContents.on('will-navigate', (e) => {
     e.preventDefault()
@@ -320,15 +357,46 @@ export function createStageDisplayWindow(): void {
 }
 
 /**
- * Show the projection window
+ * Check if an external display (non-primary) is available.
+ * When the user has configured a specific monitor via projection_monitor_id,
+ * that monitor is treated as "external" even if it happens to be the primary.
+ */
+export function hasExternalDisplay(): boolean {
+  const displays = screen.getAllDisplays()
+  if (displays.length <= 1) return false
+  const settings = getSettings()
+  const selectedDisplayId = Number(settings['projection_monitor_id'] || 0)
+  if (selectedDisplayId) {
+    // A specific monitor was configured — check it still exists and isn't the primary
+    const configured = displays.find((d) => d.id === selectedDisplayId)
+    if (configured && configured.id !== screen.getPrimaryDisplay().id) return true
+  }
+  // Fallback: any non-primary display counts
+  return displays.some((d) => d.id !== screen.getPrimaryDisplay().id)
+}
+
+/**
+ * Show the projection window — smart display detection
+ *
+ * If an external display is available, the projection window opens on it (fullscreen).
+ * If only the primary display is present, the projection window is NOT shown to
+ * prevent it from covering the operator's main app. The slide data and state still
+ * update via IPC, so the operator sees the live output in the LIVE monitor frame
+ * within the dashboard.
  */
 export function showProjectionWindow(): void {
+  if (!hasExternalDisplay()) {
+    // Single-monitor mode: do NOT open a covering fullscreen window.
+    // Slide data still flows via IPC to the LIVE preview inside the app.
+    return
+  }
+
   if (!projectionWindow || projectionWindow.isDestroyed()) {
     createProjectionWindow()
   }
   if (projectionWindow && !projectionWindow.isDestroyed()) {
+    repositionProjectionWindowFromSettings()
     projectionWindow.show()
-    projectionWindow.setFullScreen(true)
   }
 }
 

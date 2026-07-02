@@ -63,18 +63,31 @@ export interface Playlist {
 export interface PlaylistItem {
   id: number
   playlist_id: number
-  song_id: number
+  song_id: number | null
   sort_order: number
   section_label: string
-  number: string
+  item_type?: 'song' | 'bible' | 'info'
   title: string
-  alternate_title: string
-  lyrics_raw: string
-  category: string
+  notes?: string
+  number?: string
+  alternate_title?: string
+  lyrics_raw?: string
+  category?: string
   key_note?: string
+  time_signature?: string
   tempo?: string
   hymnal_code?: string
   hymnal_name?: string
+  bible_version_code?: string
+  bible_version_short_name?: string
+  bible_book_code?: string
+  bible_book_name?: string
+  bible_chapter?: number
+  bible_verse_start?: number
+  bible_verse_end?: number
+  bible_reference?: string
+  bible_text_json?: string
+  bible_copyright?: string
 }
 
 export interface SongRelation {
@@ -125,11 +138,15 @@ export interface BibleVerse {
 export type ProjectionState = 'LIVE' | 'BLACK' | 'FREEZE' | 'CLEAR' | 'LOGO'
 
 export interface SlideData {
-  songId: number
+  contentType?: 'song' | 'bible' | 'reading' | 'custom'
+  songId?: number | null
+  playlistItemId?: number | null
   slideIndex: number
   text: string
   sectionLabel: string
   nextSlideText?: string
+  bibleReference?: string
+  bibleCopyright?: string
 }
 
 export interface ProjectionTheme {
@@ -386,4 +403,186 @@ export interface AddSlideToGroupRequest {
   group_id: number
   slide_id: number
   sort_order?: number
+}
+
+// ============================================================================
+// Content Pack Types (External SQLite Content Pack System)
+// ============================================================================
+
+export type ContentPackType = 'bible' | 'hymnal' | 'reading' | 'media'
+
+export interface ContentPackRecord {
+  id: number
+  pack_id: string
+  pack_type: ContentPackType
+  version_code: string
+  name: string
+  short_name: string
+  language: string
+  publisher: string
+  copyright: string
+  license_status: string
+  source_type: string
+  source_base_url: string
+  installed_path: string
+  sqlite_filename: string
+  manifest_filename: string
+  books_filename: string
+  import_report_filename: string
+  is_active: number
+  is_default: number
+  is_offline_available: number
+  validation_ok: number
+  fts5_created: number
+  books_count: number
+  chapters_count: number
+  verses_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface BiblePackManifest {
+  pack_type: string
+  format_version: number
+  generated_at: string
+  version_code: string
+  version_name: string
+  short_name: string
+  language: string
+  publisher: string
+  copyright: string
+  license_status: string
+  source_type: string
+  source_base_url: string
+  books: number
+  chapters: number
+  verses: number
+  validation_ok: boolean
+  fts5_created: boolean
+  fts5_error: string | null
+  files: Array<{
+    filename: string
+    size_bytes: number
+    sha256: string
+  }>
+}
+
+export interface BiblePackImportReport {
+  ok: boolean
+  generated_at: string
+  version_code: string
+  book_count: number
+  chapter_count: number
+  verse_count: number
+  expected: {
+    books: number
+    chapters: number
+    verses: number
+  }
+  warnings: string[]
+  failed_chapters: string[]
+  missing_chapters: string[]
+  empty_verses: string[]
+  non_sequential: string[]
+}
+
+export interface BiblePackBookEntry {
+  code: string
+  osis_id: string
+  name: string
+  url_name: string
+  testament: 'OT' | 'NT'
+  order: number
+  chapters: number
+}
+
+export interface BiblePackPreview {
+  valid: boolean
+  errors: string[]
+  manifest: BiblePackManifest | null
+  importReport: BiblePackImportReport | null
+  books: BiblePackBookEntry[]
+  packId: string
+}
+
+// ============================================================================
+// Bible External Query Types
+// ============================================================================
+
+export interface BibleExternalBook {
+  code: string
+  osis_id: string
+  name: string
+  testament: 'OT' | 'NT'
+  order: number
+  chapters: number
+}
+
+export interface BibleExternalVerse {
+  book_code: string
+  book_name: string
+  chapter: number
+  verse: number
+  text: string
+}
+
+export interface BibleSearchResult {
+  book_code: string
+  book_name: string
+  chapter: number
+  verse: number
+  text: string
+  snippet: string
+}
+
+export interface BibleParsedReference {
+  valid: boolean
+  bookCode: string
+  bookName: string
+  chapter: number
+  verseStart: number
+  verseEnd: number | null
+  error: string | null
+}
+
+export interface BibleVersionInfo {
+  versionCode: string
+  name: string
+  shortName: string
+  language: string
+  publisher: string
+  copyright: string
+  booksCount: number
+  chaptersCount: number
+  versesCount: number
+  fts5Created: boolean
+  isDefault: boolean
+  packId: string
+}
+
+// ============================================================================
+// Bible Projection Type
+// ============================================================================
+
+export interface BibleProjectionItem {
+  id: string
+  type: 'bible'
+  versionCode: string
+  versionShortName: string
+  reference: string
+  copyright: string
+  verses: Array<{
+    bookCode: string
+    bookName: string
+    chapter: number
+    verse: number
+    text: string
+  }>
+  displayOptions: {
+    showReference: boolean
+    showVersion: boolean
+    showCopyright: boolean
+    fontScale: number
+    splitMode: 'auto' | 'verse' | 'paragraph'
+  }
 }

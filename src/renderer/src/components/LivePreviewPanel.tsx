@@ -1,13 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
   AlertTriangle,
   Expand,
   Gauge,
+  Image,
   Monitor,
+  Music2,
   Pause,
+  Play,
   Radio,
-  ScreenShare,
+  RotateCcw,
   Settings,
   SkipBack,
   SkipForward,
@@ -22,10 +25,15 @@ import { useAppStore } from '../store/useAppStore'
 import { DEFAULT_SCENE_PRESETS } from '../atmosphere/presets'
 import { useProjectionStore } from '../store/useProjectionStore'
 import { useAtmosphereStore } from '../store/useAtmosphereStore'
-import type { SlideData } from '../types'
+import type { ProjectionState, SlideData } from '@renderer/types'
+import sionLogoMono from '../assets/sion-logo-mono.svg'
 import { PresentationCanvas } from './PresentationCanvas'
-import { executeRuntimeCommand } from '../utils/runtimeCommandBus'
+import { LiveProjectionCanvas } from './LiveProjectionCanvas'
+import { LyricsZoomControl } from './projection/LyricsZoomControl'
+import { WorshipFlowIndicator } from './projection/WorshipFlowIndicator'
+import { executeRuntimeCommand } from '@renderer/utils/runtimeCommandBus'
 import { logger } from '../utils/logger'
+import { STATE_CONFIG, TitleBarTimer } from './titlebar/TitleBarStatus'
 
 const TRANSITION_SPEEDS = [
   { label: '0.1s', value: 0.1 },
@@ -41,10 +49,14 @@ interface MonitorFrameProps {
   isLive?: boolean
   isBlack?: boolean
   isClear?: boolean
+  projectionState?: ProjectionState
   isProjectorLost?: boolean
   theme: Record<string, string>
   songBackgroundConfig?: string
   programLockState?: 'UNLOCKED' | 'LIVE_LOCK' | 'LIVE_DIRTY'
+  lyricsFontSizePercent?: number
+  /** Resolusi output aktual dari display yang terhubung */
+  outputResolution?: { width: number; height: number }
   onExpand: () => void
   onSettings: () => void
 }
@@ -56,10 +68,13 @@ function MonitorFrame({
   isLive = false,
   isBlack = false,
   isClear = false,
+  projectionState = 'CLEAR',
   isProjectorLost = false,
   theme,
   songBackgroundConfig = '',
   programLockState = 'UNLOCKED',
+  lyricsFontSizePercent = 100,
+  outputResolution,
   onExpand,
   onSettings
 }: MonitorFrameProps): React.JSX.Element {
@@ -67,82 +82,192 @@ function MonitorFrame({
   const emptyLyrics = slide !== null && slide.text.trim().length === 0
   const accent = isProgram ? 'program' : 'preview'
   const showLyrics = !isBlack && !isClear && slide && !emptyLyrics
-  const canvasState = isProgram ? (isBlack ? 'BLACK' : isClear ? 'CLEAR' : 'LIVE') : 'LIVE'
+
+  // Derive clean state label for program
+  const stateKey = stateLabel.split(' ')[0]
+  const stateConf = STATE_CONFIG[stateKey] ?? STATE_CONFIG.CLEAR
 
   return (
-    <div className={`broadcast-monitor broadcast-monitor--${accent}`}>
+    <div
+      className={`broadcast-monitor broadcast-monitor--${accent}${isProgram && isLive ? ' is-live' : ''}${!isProgram && isProjectorLost ? ' is-sim' : ''}${isProgram && isProjectorLost ? ' is-no-output' : ''}`}
+    >
+      {/* ── Header ── */}
       <div className="broadcast-monitor__header">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="broadcast-monitor__dot" />
-          <span className="truncate font-heading text-[13px] font-black uppercase tracking-[0.18em] text-text-primary">
-            {isProgram ? 'Program / Live' : 'Preview / Cue'}
+        {/* Left: dot + label + state badge */}
+        <div className="flex min-w-0 items-center gap-1.5 flex-1 overflow-hidden">
+          <span className="broadcast-monitor__dot flex-shrink-0" />
+          <span className="truncate text-[11px] font-black uppercase tracking-[0.14em] text-text-primary">
+            {isProgram ? 'Program' : 'Preview'}
           </span>
-          <span className="broadcast-monitor__state">{stateLabel}</span>
+
+          {/* State badge */}
+          {isProgram ? (
+            <div
+              className="broadcast-monitor__state-badge flex-shrink-0"
+              style={{ '--state-color': stateConf.color } as React.CSSProperties}
+            >
+              <span className={`status-dot ${stateConf.dotClass}`} />
+              <span>{stateKey}</span>
+            </div>
+          ) : (
+            <span className="broadcast-monitor__state flex-shrink-0">{stateLabel}</span>
+          )}
+
+          {/* Slide position — tampil saat ada slide di program */}
+          {isProgram && stateLabel.includes('/') && (
+            <span className="broadcast-monitor__slide-pos flex-shrink-0">
+              {stateLabel.split(' ').slice(1).join(' ')}
+            </span>
+          )}
+
+          {/* Simulasi warning — inline di header, hanya untuk preview saat proyektor tidak terdeteksi */}
+          {!isProgram && isProjectorLost && (
+            <span
+              className="broadcast-monitor__sim-warning flex-shrink-0"
+              title="Proyektor eksternal tidak terdeteksi — mode simulasi aktif"
+            >
+              <AlertTriangle size={9} />
+              Simulasi
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-1.5">
+        {/* Right: status badges + timer */}
+        <div className="flex items-center gap-1 flex-shrink-0 ml-1">
+          {/* Timer — compact, only on program */}
+          {isProgram && (
+            <div
+              className="broadcast-monitor__timer-wrap"
+              title="Timer ibadah — klik untuk start/stop"
+            >
+              <TitleBarTimer />
+            </div>
+          )}
+
+          {/* Lock state */}
           {isProgram && programLockState === 'LIVE_LOCK' && (
-            <span className="broadcast-status broadcast-status--green">Live Lock</span>
+            <span
+              className="broadcast-status broadcast-status--green"
+              title="Program terkunci — slide aktif di output live"
+            >
+              Lock
+            </span>
           )}
           {isProgram && programLockState === 'LIVE_DIRTY' && (
-            <span className="broadcast-status broadcast-status--amber">
-              <AlertCircle size={11} />
+            <span
+              className="broadcast-status broadcast-status--amber"
+              title="Ada perubahan yang belum diterapkan ke output live"
+            >
+              <AlertCircle size={10} />
               Dirty
             </span>
           )}
-          {isProgram && isProjectorLost && (
-            <span className="broadcast-status broadcast-status--red">
-              <AlertTriangle size={11} />
-              Projector Lost
-            </span>
-          )}
+
+          {/* Empty lyrics warning */}
           {emptyLyrics && (
             <span className="broadcast-status broadcast-status--amber">
-              <AlertTriangle size={11} />
+              <AlertTriangle size={10} />
               Empty
             </span>
           )}
+
+          {/* Live indicator */}
           {isProgram && isLive && programLockState !== 'LIVE_DIRTY' && (
             <span className="broadcast-status broadcast-status--red">
-              <Radio size={10} className="animate-pulse" />
+              <Radio size={9} className="animate-pulse" />
               Live
+            </span>
+          )}
+
+          {/* No output warning */}
+          {isProgram && isProjectorLost && (
+            <span
+              className="broadcast-status broadcast-status--amber"
+              title="Proyektor eksternal tidak terdeteksi"
+            >
+              <AlertTriangle size={10} />
+              No Output
             </span>
           )}
         </div>
       </div>
 
+      {/* ── Screen ── */}
       <div className="broadcast-monitor__frame">
         <div className="broadcast-monitor__screen">
-          <PresentationCanvas
-            slide={slide}
-            projectionState={canvasState}
-            theme={{ ...theme, song_background_config: songBackgroundConfig }}
-            animated={false}
-            showMetadata={false}
-            fit
-          />
+          {isProgram ? (
+            <LiveProjectionCanvas
+              slide={slide}
+              projectionState={projectionState}
+              theme={{ ...theme, song_background_config: songBackgroundConfig }}
+              showMetadata={false}
+              fit
+              lyricsFontSizePercent={lyricsFontSizePercent}
+            />
+          ) : (
+            <PresentationCanvas
+              slide={slide}
+              projectionState="LIVE"
+              theme={{ ...theme, song_background_config: songBackgroundConfig }}
+              animated={false}
+              showMetadata={false}
+              showIdleWatermark={false}
+              fit
+              lyricsFontSizePercent={lyricsFontSizePercent}
+            />
+          )}
 
-          {!showLyrics && !isBlack && !isClear && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 text-white/12">
-              <ScreenShare size={isProgram ? 48 : 40} />
-              <span className="font-heading text-[12px] font-black uppercase tracking-[0.28em]">
-                SION PRESENTER
-              </span>
+          {/* Empty preview guidance overlay */}
+          {!isProgram && !slide && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 text-center bg-[#020617]/75 backdrop-blur-[2px]">
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary mb-2.5">
+                <Music2 size={20} />
+              </div>
+              <h4 className="text-[12px] font-bold text-text-primary mb-1">Preview Kosong</h4>
+              <p className="text-[10px] text-text-muted leading-relaxed max-w-[200px]">
+                Klik ganda lagu dari perpustakaan atau rundown di bawah untuk memuat slide di sini.
+              </p>
+            </div>
+          )}
+
+          {/* Watermark logo — tampil saat tidak ada lirik aktif DAN bukan BLACK */}
+          {!isProgram && !showLyrics && !isBlack && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 pointer-events-none">
+              <img
+                src={sionLogoMono}
+                alt=""
+                role="presentation"
+                className="monitor-watermark"
+                style={{
+                  width: isProgram ? 80 : 64,
+                  height: 'auto',
+                  opacity: 0.1,
+                  filter: 'brightness(10) saturate(0)',
+                  userSelect: 'none',
+                  pointerEvents: 'none'
+                }}
+                draggable={false}
+              />
             </div>
           )}
 
           <div className="broadcast-monitor__tools">
-            <button title="Focus monitor workspace" onClick={onExpand}>
-              <Expand size={15} />
+            <button title="Perbesar monitor" onClick={onExpand}>
+              <Expand size={14} />
             </button>
-            <button title="Monitor settings" onClick={onSettings}>
-              <Settings size={15} />
+            <button title="Pengaturan output" onClick={onSettings}>
+              <Settings size={14} />
             </button>
           </div>
 
+          {/* Meta bar — position absolute di pojok kanan bawah screen */}
           <div className="broadcast-monitor__meta">
             <span>16:9</span>
-            <span>1920x1080</span>
+            <span>
+              {outputResolution
+                ? `${outputResolution.width}×${outputResolution.height}`
+                : '1920×1080'}
+            </span>
             <span>60 FPS</span>
           </div>
         </div>
@@ -160,160 +285,342 @@ function TransitionColumn(): React.JSX.Element {
     programSlideIndex,
     projectionState,
     fadeSpeed,
-    setFadeSpeed
+    setFadeSpeed,
+    transitionType,
+    setTransitionType,
+    navigationFlow,
+    flowPosition,
+    isSmartMode
   } = useProjectionStore()
 
   const hasCue = slides.length > 0
   const hasProgram = programSlides.length > 0 && programSlide !== null
   const previewSlide = slides[currentSlideIndex]
   const isLive = projectionState === 'LIVE' || projectionState === 'FREEZE'
+
+  // FIX BUG-08: compare both songId AND the actual text content to avoid
+  // false-positives when two different songs share the same slideIndex value.
   const isCueSameAsProgram =
     hasCue &&
     hasProgram &&
     previewSlide?.songId === programSlide?.songId &&
-    previewSlide?.slideIndex === programSlide?.slideIndex
+    previewSlide?.slideIndex === programSlide?.slideIndex &&
+    previewSlide?.text === programSlide?.text
+
+  // Derive TAKE disabled state and tooltip contextually
+  const isTakeDisabled = !hasCue || (isCueSameAsProgram && isLive)
+  const takeTitle = !hasCue
+    ? 'Tidak ada cue — pilih lagu terlebih dahulu'
+    : isCueSameAsProgram && isLive
+      ? 'Slide ini sudah tayang di Program'
+      : 'Tayangkan (Take) lirik ke Program (Space)'
 
   const takeCue = (): void => {
     executeRuntimeCommand('PROJ_TAKE_CUE', undefined, 'UI_BUTTON')
   }
 
+  // FIX BUG-07: cutCue must NOT permanently change the stored fade speed.
   const cutCue = (): void => {
-    setFadeSpeed(0.1)
-    takeCue()
+    window.api.projection.themeUpdate({ transition_duration: '0.1', transition_type: 'fast-cut' })
+    executeRuntimeCommand('PROJ_TAKE_CUE', undefined, 'UI_BUTTON')
+    setTimeout(() => {
+      window.api.projection.themeUpdate({
+        transition_duration: fadeSpeed.toString(),
+        transition_type: transitionType
+      })
+    }, 150)
   }
+
+  // FIX SMART-NAV: canNavNext/Prev must be Smart Navigation aware.
+  // In Smart_Mode, the flow can jump to chorus slides that are "before" the
+  // current linear index — so we cannot use programSlideIndex < length-1.
+  // Instead: check if computeSmartNext returns a valid target.
+  const canNavPrev = (() => {
+    if (!hasProgram) return false
+    if (isSmartMode && navigationFlow && flowPosition >= 0) {
+      // In Smart_Mode: can go prev if not at the very first step AND not at
+      // the first slide within the first step
+      const currentStep = navigationFlow.steps[flowPosition]
+      if (!currentStep) return programSlideIndex > 0
+      // Can go prev if: within section (not at first slide) OR there's a prev step
+      return programSlideIndex > currentStep.firstSlideIndex || flowPosition > 0
+    }
+    // Linear_Mode: standard check
+    return programSlideIndex > 0
+  })()
+
+  const canNavNext = (() => {
+    if (!hasProgram) return false
+    if (isSmartMode && navigationFlow && flowPosition >= 0) {
+      // In Smart_Mode: can go next if not at the very last step AND not at
+      // the last slide within the last step
+      const currentStep = navigationFlow.steps[flowPosition]
+      if (!currentStep) return programSlideIndex < programSlides.length - 1
+      // Can go next if: within section (not at last slide) OR there's a next step
+      return (
+        programSlideIndex < currentStep.lastSlideIndex ||
+        flowPosition < navigationFlow.steps.length - 1
+      )
+    }
+    // Linear_Mode: standard check
+    return programSlideIndex < programSlides.length - 1
+  })()
 
   return (
     <aside className="transition-rack">
       <div className="transition-rack__header">
         <span>Transition</span>
-        <select
-          value={fadeSpeed}
-          onChange={(event) => setFadeSpeed(Number(event.target.value))}
-          className="transition-rack__select"
-          title="Transition speed"
-        >
-          {TRANSITION_SPEEDS.map((speed) => (
-            <option key={speed.value} value={speed.value}>
-              Fade {speed.label}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-col gap-1 w-full mt-1">
+          {/* FIX UX-DROPDOWN: wrapper provides custom chevron so text is never clipped */}
+          <div className="transition-rack__select-wrap">
+            <select
+              value={transitionType}
+              onChange={(event) => setTransitionType(event.target.value)}
+              className="transition-rack__select w-full"
+              title="Jenis transisi"
+              aria-label="Jenis transisi"
+            >
+              <option value="dissolve">Fade</option>
+              <option value="crossfade">Crossfade</option>
+              <option value="fast-cut">Fast Cut</option>
+              <option value="slide">Slide Up</option>
+              <option value="smooth-blur">Smooth Blur</option>
+              <option value="premium-slide">Premium Slide</option>
+            </select>
+          </div>
+          <div className="transition-rack__select-wrap">
+            <select
+              value={fadeSpeed}
+              onChange={(event) => setFadeSpeed(Number(event.target.value))}
+              className="transition-rack__select w-full"
+              title="Kecepatan transisi"
+              aria-label="Kecepatan transisi"
+            >
+              {TRANSITION_SPEEDS.map((speed) => (
+                <option key={speed.value} value={speed.value}>
+                  Speed: {speed.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
       <button
         className={`transition-rack__take ${isLive ? 'is-live' : ''}`}
         onClick={takeCue}
-        disabled={!hasCue || (isCueSameAsProgram && isLive)}
-        title="TAKE cue ke Program (Space)"
+        disabled={isTakeDisabled}
+        title={takeTitle}
+        aria-label={takeTitle}
       >
         <Zap size={27} fill="currentColor" />
-        <span>Take</span>
+        <span>Tayangkan</span>
       </button>
 
+      {/* FIX UX-01: CUT is a distinct instant-take (always 0.1s fast-cut),
+          clearly differentiated from TAKE which uses the selected transition. */}
       <button
         className="transition-rack__auto"
-        onClick={takeCue}
-        disabled={!hasCue || (isCueSameAsProgram && isLive)}
-        title="Auto transition"
+        onClick={cutCue}
+        disabled={isTakeDisabled}
+        title="Tayangkan instan tanpa efek transisi (0.1s)"
+        aria-label="Tayangkan instan tanpa efek transisi"
       >
-        <span>Auto</span>
-        <strong>{fadeSpeed.toFixed(1)}s</strong>
+        <span>Instan</span>
+        <strong>0.1s</strong>
       </button>
 
+      {/* FIX NAV-01: Both transport buttons now navigate the live/program output.
+          Prev = NAV_PREV_SLIDE (live back), Freeze = toggle, Next = NAV_NEXT_SLIDE (live forward).
+          Previously prev used NAV_CUE_PREV (preview) while next used NAV_NEXT_SLIDE (live) — inconsistent. */}
       <div className="transition-rack__transport">
         <button
-          onClick={() => executeRuntimeCommand('NAV_CUE_PREV', undefined, 'UI_BUTTON')}
-          disabled={currentSlideIndex <= 0 || !hasCue}
-          title="Cue sebelumnya"
+          onClick={() => executeRuntimeCommand('NAV_PREV_SLIDE', undefined, 'UI_BUTTON')}
+          disabled={!canNavPrev}
+          title={canNavPrev ? 'Slide live sebelumnya (←)' : 'Sudah di slide pertama'}
+          aria-label="Slide live sebelumnya"
         >
           <SkipBack size={14} />
         </button>
         <button
           onClick={() => executeRuntimeCommand('PROJ_FREEZE', undefined, 'UI_BUTTON')}
           className={projectionState === 'FREEZE' ? 'is-active' : ''}
-          title="Freeze Screen (F)"
+          title={
+            projectionState === 'FREEZE'
+              ? 'Unfreeze — lanjutkan output (F)'
+              : 'Freeze Screen — bekukan output (F)'
+          }
+          aria-label={projectionState === 'FREEZE' ? 'Unfreeze output' : 'Freeze output'}
         >
           {projectionState === 'FREEZE' ? <Pause size={14} /> : <Snowflake size={14} />}
         </button>
         <button
           onClick={() => executeRuntimeCommand('NAV_NEXT_SLIDE', undefined, 'UI_BUTTON')}
-          disabled={!hasProgram || programSlideIndex >= programSlides.length - 1}
-          title="Live slide berikutnya"
+          disabled={!canNavNext}
+          title={canNavNext ? 'Slide live berikutnya (→)' : 'Sudah di slide terakhir'}
+          aria-label="Slide live berikutnya"
         >
           <SkipForward size={14} />
         </button>
       </div>
-
-      <button
-        className="transition-rack__cut"
-        onClick={cutCue}
-        disabled={!hasCue || (isCueSameAsProgram && isLive)}
-        title="Cut instantly"
-      >
-        Cut
-      </button>
     </aside>
   )
 }
 
+/**
+ * Audio Output Panel — 4th column in the broadcast monitor grid.
+ * Compact service timer. Timer driven by global useTimerTick.
+ */
 function AudioOutputPanel(): React.JSX.Element {
-  const { timerElapsed, timerRunning, timerStart, timerStop, timerReset, timerTick } =
-    useProjectionStore()
-  const meters = [
-    { label: 'Master', value: '0.0 dB', level: '92%' },
-    { label: 'Mic / Aux', value: '-3.2 dB', level: '76%' },
-    { label: 'BGM', value: '-6.1 dB', level: '64%' }
-  ]
-  const timerValue = new Date(timerElapsed * 1000).toISOString().slice(11, 19)
+  const { timerElapsed, timerRunning, timerStart, timerStop, timerReset } = useProjectionStore()
 
-  useEffect(() => {
-    if (!timerRunning) return undefined
-    const interval = window.setInterval(timerTick, 1000)
-    return () => window.clearInterval(interval)
-  }, [timerRunning, timerTick])
+  const h = Math.floor(timerElapsed / 3600)
+  const m = Math.floor((timerElapsed % 3600) / 60)
+  const s = timerElapsed % 60
+  const timerValue =
+    h > 0
+      ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+      : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  const isLong = timerElapsed >= 3600
 
   return (
     <aside className="output-rack">
       <div className="output-rack__header">
-        <span>Audio Mixer</span>
-        <Settings size={15} />
+        <span>Timer</span>
+        <Settings size={12} className="opacity-30" />
       </div>
 
-      <div className="space-y-5">
-        {meters.map((meter) => (
-          <div key={meter.label} className="audio-meter">
-            <div className="flex items-center justify-between">
-              <span>{meter.label}</span>
-              <strong>{meter.value}</strong>
-            </div>
-            <div className="audio-meter__track">
-              <div className="audio-meter__fill" style={{ width: meter.level }} />
-              <div className="audio-meter__knob" style={{ left: meter.level }} />
-            </div>
-            <div className="flex items-center justify-between text-[10px] font-semibold text-text-disabled">
-              <span>L</span>
-              <span>R</span>
-              <Volume2 size={12} />
-            </div>
-          </div>
-        ))}
+      {/* Timer display */}
+      <div
+        className={`audio-panel__timer ${timerRunning ? 'is-running' : ''} ${isLong ? 'is-long' : ''}`}
+        style={{ margin: '0 -2px' }}
+      >
+        {timerRunning && <span className="audio-panel__timer-dot" />}
+        <span className="audio-panel__timer-value" style={{ fontSize: isLong ? 16 : 20 }}>
+          {timerValue}
+        </span>
       </div>
 
-      <div className="output-rack__timer">
-        <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.12em] text-text-muted">
-          <span>Timer</span>
-          <button onClick={timerReset}>Reset</button>
-        </div>
-        <div className="mt-3 font-mono text-[22px] font-black text-text-primary">{timerValue}</div>
+      {/* Controls */}
+      <div className="flex gap-1.5">
         <button
-          className="mt-3 w-full"
+          className={`audio-panel__btn-primary flex-1 ${timerRunning ? 'is-stop' : 'is-start'}`}
+          style={{ height: 28, fontSize: 10 }}
           onClick={timerRunning ? timerStop : timerStart}
-          title={timerRunning ? 'Stop timer' : 'Start timer'}
         >
-          {timerRunning ? 'Stop Timer' : 'Start Timer'}
+          {timerRunning ? <Pause size={10} /> : <Play size={10} />}
+          {timerRunning ? 'Pause' : 'Start'}
+        </button>
+        <button
+          className="audio-panel__btn-reset"
+          style={{ width: 28, height: 28 }}
+          onClick={timerReset}
+          title="Reset"
+        >
+          <RotateCcw size={10} />
         </button>
       </div>
+
+      {/* Audio monitoring placeholder */}
+      <div className="audio-panel__monitoring" style={{ padding: '8px 0 0' }}>
+        <div className="audio-panel__vu">
+          {[2, 4, 6, 3, 5, 7, 4, 2].map((barH, i) => (
+            <div
+              key={i}
+              className={`audio-panel__vu-bar ${timerRunning ? 'is-active' : ''}`}
+              style={{
+                height: `${barH * 2.5}px`,
+                // FIX: animate bars when timer is running to give visual feedback
+                animationDelay: timerRunning ? `${i * 80}ms` : '0ms'
+              }}
+            />
+          ))}
+        </div>
+        <p className="audio-panel__monitoring-label">
+          <Volume2 size={9} />
+          Audio
+        </p>
+      </div>
     </aside>
+  )
+}
+
+/**
+ * Scene strip Clear button.
+ * - Saat LIVE: double-click guard (2s window)
+ * - Saat tidak LIVE dan tidak CLEAR: langsung clear
+ * - Saat CLEAR: tombol menunjukkan state aktif, tidak disabled
+ *   (user bisa take cue dari preview untuk keluar dari CLEAR)
+ */
+function SceneStripClearButton({
+  isLive,
+  isClear
+}: {
+  isLive: boolean
+  isClear: boolean
+}): React.JSX.Element {
+  const [armed, setArmed] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Reset armed state saat isClear berubah
+  useEffect(() => {
+    if (isClear && armed) {
+      // Use timeout to avoid calling setState synchronously within effect
+      const id = setTimeout(() => {
+        setArmed(false)
+        if (timerRef.current) {
+          clearTimeout(timerRef.current)
+          timerRef.current = null
+        }
+      }, 0)
+      return () => clearTimeout(id)
+    }
+    return undefined
+  }, [isClear, armed])
+
+  const handleClick = useCallback(() => {
+    if (isClear) {
+      // Saat sudah CLEAR, klik Clear lagi akan restore ke LIVE jika ada slide
+      executeRuntimeCommand('PROJ_TAKE_CUE', undefined, 'UI_BUTTON')
+      return
+    }
+    if (!isLive) {
+      executeRuntimeCommand('PROJ_CLEAR', undefined, 'UI_BUTTON')
+      return
+    }
+    if (!armed) {
+      setArmed(true)
+      timerRef.current = setTimeout(() => {
+        setArmed(false)
+        timerRef.current = null
+      }, 2000)
+    } else {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+      setArmed(false)
+      executeRuntimeCommand('PROJ_CLEAR', undefined, 'UI_BUTTON')
+    }
+  }, [isLive, isClear, armed])
+
+  return (
+    <button
+      onClick={handleClick}
+      className={`scene-strip__state-btn scene-strip__state-btn--clear ${armed ? 'is-armed' : ''} ${isClear ? 'is-clear-active' : ''}`}
+      title={
+        isClear
+          ? 'Restore — tampilkan kembali teks lirik ke output'
+          : isLive
+            ? armed
+              ? 'Klik lagi untuk konfirmasi Clear (Kosongkan Lirik)'
+              : 'Clear Output — klik 2× saat LIVE (Sembunyikan teks lirik saja) (Esc)'
+            : 'Clear Output (Sembunyikan teks lirik saja) (Esc)'
+      }
+    >
+      <XCircle size={13} />
+      <span>{isClear ? 'Restore' : armed ? 'Konfirmasi?' : 'Clear (Kosongkan)'}</span>
+    </button>
   )
 }
 
@@ -334,7 +641,12 @@ export function LivePreviewPanel(): React.JSX.Element {
     hasNextSong,
     nextReadyState,
     cuedSongBackgroundConfig,
-    programSongBackgroundConfig
+    programSongBackgroundConfig,
+    lyricsFontSizePercent,
+    navigationFlow,
+    flowPosition,
+    isSmartMode,
+    goToLiveSlide
   } = useProjectionStore()
   const {
     displayCount,
@@ -348,16 +660,73 @@ export function LivePreviewPanel(): React.JSX.Element {
   const [theme, setTheme] = useState<Record<string, string>>({})
   const { liveOverride, applyScenePreset, clearLiveOverride } = useAtmosphereStore()
 
+  // Resolusi output aktual — diambil dari display non-primary (proyektor) jika ada
+  const [outputResolution, setOutputResolution] = useState<{ width: number; height: number }>({
+    width: 1920,
+    height: 1080
+  })
+
+  // Re-fetch resolusi setiap kali displayCount berubah (sudah di-track oleh bootstrap)
+  useEffect(() => {
+    window.api.display
+      .getAll()
+      .then((displays) => {
+        const typed = displays as Array<{
+          id: number
+          width: number
+          height: number
+          isPrimary: boolean
+        }>
+        // Gunakan display non-primary (proyektor) jika ada, fallback ke primary
+        const projector = typed.find((d) => !d.isPrimary) ?? typed[0]
+        if (projector) {
+          setOutputResolution({ width: projector.width, height: projector.height })
+        }
+      })
+      .catch(() => {
+        /* fallback ke default 1920×1080 */
+      })
+  }, [displayCount])
+
   useEffect(() => {
     let mounted = true
     window.api.settings
       .getAll()
       .then((settings) => {
-        if (mounted) setTheme(settings)
+        if (mounted) {
+          setTheme(settings)
+          // Initialize projection store with saved settings without triggering side effects
+          if (settings.transition_duration) {
+            useProjectionStore.setState({ fadeSpeed: Number(settings.transition_duration) })
+          }
+          if (settings.transition_type) {
+            useProjectionStore.setState({ transitionType: settings.transition_type })
+          }
+          // Restore persisted UI preferences
+          if (settings.ui_lyrics_font_size) {
+            const size = Number(settings.ui_lyrics_font_size)
+            if (size >= 50 && size <= 300) {
+              useProjectionStore.setState({ lyricsFontSizePercent: size })
+            }
+          }
+          if (settings.ui_audio_panel_visible === '1') {
+            useProjectionStore.setState({ isAudioPanelVisible: true })
+          }
+        }
       })
       .catch((err) => logger.error('Failed to load theme:', err))
     const unsubscribeTheme = window.api.projection.onThemeUpdate((data) => {
-      setTheme((currentTheme) => ({ ...currentTheme, ...(data as Record<string, string>) }))
+      const updates = data as Record<string, string>
+      setTheme((currentTheme) => ({ ...currentTheme, ...updates }))
+
+      // Keep store UI in sync with external theme changes without triggering side effects
+      const store = useProjectionStore.getState()
+      if (updates.transition_duration && Number(updates.transition_duration) !== store.fadeSpeed) {
+        useProjectionStore.setState({ fadeSpeed: Number(updates.transition_duration) })
+      }
+      if (updates.transition_type && updates.transition_type !== store.transitionType) {
+        useProjectionStore.setState({ transitionType: updates.transition_type })
+      }
     })
     return () => {
       mounted = false
@@ -377,9 +746,12 @@ export function LivePreviewPanel(): React.JSX.Element {
   }, [currentSlideIndex, slides.length])
 
   const programState = useMemo(() => {
-    if (!programSlide || programSlides.length === 0) return projectionState
-    return `${projectionState} ${programSlideIndex + 1}/${programSlides.length}`
-  }, [programSlide, programSlideIndex, programSlides.length, projectionState])
+    // Selalu tampilkan state + slide position jika ada slides di program
+    if (programSlides.length > 0 && programSlideIndex >= 0) {
+      return `${projectionState} ${programSlideIndex + 1}/${programSlides.length}`
+    }
+    return projectionState
+  }, [programSlideIndex, programSlides.length, projectionState])
 
   const nextSlideLabel = useMemo(() => {
     if (!hasNextSlide || nextSlideIndex === null) return null
@@ -391,12 +763,20 @@ export function LivePreviewPanel(): React.JSX.Element {
     return `${nextSong.number} - ${nextSong.title}`
   }, [hasNextSong, nextSong])
 
-  const handleToggleProjection = (): void => {
+  const handleToggleProjection = async (): Promise<void> => {
     try {
       if (isProjectionVisible) {
         window.api.projection.hide()
         setProjectionVisible(false)
       } else {
+        const hasExternal = await window.api.display.hasExternal()
+        if (!hasExternal) {
+          showToast(
+            'Layar output eksternal tidak terdeteksi. Lirik sudah tampil di monitor LIVE di dashboard.',
+            'info'
+          )
+          return
+        }
         window.api.projection.show()
         setProjectionVisible(true)
       }
@@ -438,8 +818,11 @@ export function LivePreviewPanel(): React.JSX.Element {
           mode="preview"
           slide={previewSlide}
           stateLabel={previewState}
+          isProjectorLost={isProjectorLost}
           theme={theme}
           songBackgroundConfig={cuedSongBackgroundConfig}
+          lyricsFontSizePercent={lyricsFontSizePercent}
+          outputResolution={outputResolution}
           onExpand={toggleFocusMode}
           onSettings={() => setScreen('settings')}
         />
@@ -453,76 +836,174 @@ export function LivePreviewPanel(): React.JSX.Element {
           isLive={isLive}
           isBlack={isBlack}
           isClear={isClear}
+          projectionState={projectionState}
           isProjectorLost={isProjectorLost}
           theme={theme}
           songBackgroundConfig={programSongBackgroundConfig}
           programLockState={programLockState}
+          lyricsFontSizePercent={lyricsFontSizePercent}
+          outputResolution={outputResolution}
           onExpand={toggleFocusMode}
           onSettings={() => setScreen('settings')}
         />
 
+        {/* Audio panel — always visible in the 4th grid column.
+            The collapsible AudioPanel in ProjectionMode is for the bottom workspace.
+            This panel shows the timer and audio monitoring status inline with monitors. */}
         <AudioOutputPanel />
       </div>
 
-      <div className="projection-scene-strip">
-        <div className="flex items-center gap-3">
-          <span className="text-[11px] font-black uppercase tracking-[0.14em] text-text-muted">
-            Atmosphere
-          </span>
-          {DEFAULT_SCENE_PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              className={activeSceneId === preset.id ? 'is-active' : ''}
-              onClick={() => handleSceneSelect(preset.id)}
-              title={preset.description}
-            >
-              <strong>{preset.name}</strong>
-              <small>{preset.id}</small>
-            </button>
-          ))}
-          <button onClick={handleClearAtmosphereOverride}>Clear</button>
+      {/* ═══════════════════════════════════════════════════════════
+          SCENE STRIP — 4-zone control bar
+          Left:   Atmosphere selector + Lyrics zoom
+          Flow:   Worship Flow Indicator (Smart Navigation badges)
+          Center: Monitor utility controls
+          Right:  Output state controls (Safe / Logo / Black / Clear)
+          ═══════════════════════════════════════════════════════════ */}
+      <div className="scene-strip">
+        {/* ── Zone Left: Atmosphere + Zoom ── */}
+        <div className="scene-strip__zone scene-strip__zone--left">
+          {/* Atmosphere label + select */}
+          <div className="scene-strip__group">
+            <span className="scene-strip__label">Atmosfer</span>
+            <div className="scene-strip__select-wrap">
+              <select
+                className="scene-strip__select"
+                value={activeSceneId || ''}
+                onChange={(e) => {
+                  const val = e.target.value
+                  if (val === '') handleClearAtmosphereOverride()
+                  else handleSceneSelect(val)
+                }}
+                title="Pilih atmosfer proyeksi"
+              >
+                <option value="" className="bg-[#0f1724] text-white">
+                  Default
+                </option>
+                {DEFAULT_SCENE_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id} className="bg-[#0f1724] text-white">
+                    {preset.name}
+                  </option>
+                ))}
+              </select>
+              {activeSceneId && (
+                <button
+                  className="scene-strip__select-clear"
+                  onClick={handleClearAtmosphereOverride}
+                  title="Reset atmosfer"
+                >
+                  <XCircle size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="scene-strip__divider" />
+
+          {/* Lyrics zoom */}
+          <LyricsZoomControl />
         </div>
 
-        <div className="flex items-center gap-2">
-          <button title="Output settings" onClick={() => setScreen('settings')}>
-            <SlidersHorizontal size={15} />
+        {/* ── Zone Flow: Worship Flow Indicator ── */}
+        <div className="scene-strip__zone scene-strip__zone--flow">
+          <WorshipFlowIndicator
+            navigationFlow={navigationFlow}
+            flowPosition={flowPosition}
+            isSmartMode={isSmartMode}
+            projectionState={projectionState}
+            onBadgeClick={(step) => goToLiveSlide(step.firstSlideIndex)}
+          />
+        </div>
+
+        {/* ── Zone Center: Monitor utilities ── */}
+        <div className="scene-strip__zone scene-strip__zone--center">
+          <button
+            className="scene-strip__icon-btn"
+            title="Pengaturan output"
+            onClick={() => setScreen('settings')}
+          >
+            <SlidersHorizontal size={14} />
           </button>
           <button
-            title={isProjectionVisible ? 'Hide projection window' : 'Show projection window'}
+            className={`scene-strip__icon-btn ${isProjectionVisible ? 'is-on' : ''}`}
+            title={
+              isProjectionVisible ? 'Sembunyikan jendela proyeksi' : 'Tampilkan jendela proyeksi'
+            }
             onClick={handleToggleProjection}
-            className={isProjectionVisible ? 'is-active' : ''}
           >
-            <Monitor size={15} />
+            <Monitor size={14} />
           </button>
           <button
-            title={isFocusMode ? 'Exit focus mode' : 'Focus monitors'}
+            className={`scene-strip__icon-btn ${isFocusMode ? 'is-on' : ''}`}
+            title={isFocusMode ? 'Keluar Focus Mode' : 'Focus Mode — perbesar monitor'}
             onClick={toggleFocusMode}
-            className={isFocusMode ? 'is-active' : ''}
           >
-            <Gauge size={15} />
+            <Gauge size={14} />
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button onClick={() => handleSceneSelect('sermon')} title="Emergency safe mode">
-            Safe Mode
-          </button>
+        {/* ── Zone Right: Output state controls ── */}
+        <div className="scene-strip__zone scene-strip__zone--right">
+          {/* Safe Mode */}
           <button
+            className={`scene-strip__state-btn ${activeSceneId === 'sermon' ? 'is-safe-active' : ''}`}
+            onClick={() => {
+              if (activeSceneId === 'sermon') handleClearAtmosphereOverride()
+              else handleSceneSelect('sermon')
+            }}
+            title={
+              activeSceneId === 'sermon'
+                ? 'Safe Mode aktif — klik untuk matikan'
+                : 'Safe Mode (Atmosfer gelap minimalis untuk Khotbah)'
+            }
+          >
+            <Snowflake size={13} />
+            <span>Safe (Polos)</span>
+          </button>
+
+          {/* Logo */}
+          <button
+            className={`scene-strip__state-btn ${projectionState === 'LOGO' ? 'is-logo-active' : ''}`}
+            onClick={() => {
+              if (projectionState === 'LOGO') {
+                // Toggle off — kembali ke CLEAR
+                useProjectionStore.getState().setProjectionState('CLEAR')
+                window.api.projection.stateChange('CLEAR')
+              } else {
+                useProjectionStore.getState().setProjectionState('LOGO')
+                window.api.projection.stateChange('LOGO')
+              }
+            }}
+            title={
+              projectionState === 'LOGO'
+                ? 'Logo aktif — klik untuk kembali ke Clear'
+                : 'Logo Standby (L)'
+            }
+          >
+            <Image size={13} />
+            <span>{projectionState === 'LOGO' ? 'Logo ✓' : 'Logo'}</span>
+          </button>
+
+          {/* Divider */}
+          <div className="scene-strip__divider" />
+
+          {/* Black Out */}
+          <button
+            className={`scene-strip__state-btn scene-strip__state-btn--black ${projectionState === 'BLACK' ? 'is-black-active' : ''}`}
             onClick={() => executeRuntimeCommand('PROJ_BLACK', undefined, 'UI_BUTTON')}
-            className={projectionState === 'BLACK' ? 'is-danger-active' : ''}
-            title="Black Out (B)"
+            title={
+              projectionState === 'BLACK'
+                ? 'Black Out aktif — klik untuk restore (B)'
+                : 'Black (Padamkan layar total) (B)'
+            }
           >
-            <Square size={14} fill={projectionState === 'BLACK' ? 'currentColor' : 'none'} />
-            Black Out
+            <Square size={13} fill={projectionState === 'BLACK' ? 'currentColor' : 'none'} />
+            <span>{projectionState === 'BLACK' ? 'Restore' : 'Black (Padam)'}</span>
           </button>
-          <button
-            onClick={() => executeRuntimeCommand('PROJ_CLEAR', undefined, 'UI_BUTTON')}
-            className="is-clear"
-            title="Clear Output (Esc)"
-          >
-            <XCircle size={14} />
-            Clear
-          </button>
+
+          {/* Clear */}
+          <SceneStripClearButton isLive={isLive} isClear={isClear} />
         </div>
       </div>
 
@@ -531,32 +1012,28 @@ export function LivePreviewPanel(): React.JSX.Element {
           <span>Next</span>
           {hasNextSlide && nextSlideLabel && nextSlideData && (
             <strong>
-              {nextSlideLabel} / {nextSlideData.sectionLabel}
+              {/* FIX: guard against undefined/empty sectionLabel */}
+              {nextSlideLabel}
+              {nextSlideData.sectionLabel ? ` · ${nextSlideData.sectionLabel}` : ''}
             </strong>
           )}
           {hasNextSong && nextSongLabel && <strong>{nextSongLabel}</strong>}
         </div>
       )}
 
-      {isProjectorLost && (
-        <div className="projection-warning">
-          Simulasi preview aktif karena proyektor eksternal tidak terdeteksi.
-        </div>
-      )}
-
       {programLockState === 'LIVE_DIRTY' && hasPendingLiveChanges && (
         <div className="projection-dirty-bar">
           <AlertCircle size={16} className="animate-pulse" />
-          <span>Pending changes detected. Apply to live output?</span>
+          <span>Ada perubahan yang belum diterapkan ke output live.</span>
           <button
             onClick={() => executeRuntimeCommand('PROTECTION_UPDATE_LIVE', undefined, 'UI_BUTTON')}
           >
-            Update Live
+            Terapkan
           </button>
           <button
             onClick={() => executeRuntimeCommand('PROTECTION_DISCARD', undefined, 'UI_BUTTON')}
           >
-            Discard
+            Batalkan
           </button>
         </div>
       )}

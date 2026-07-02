@@ -1,0 +1,21 @@
+# Tasks: Peningkatan UI/UX Dashboard Mode Perpustakaan
+
+- `[x]` Hapus Panel Diagnostik Sistem (System Diagnostics) dari Dashboard
+  - `[x]` Ubah [App.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/App.tsx) agar tidak memuat `<DiagnosticsPanel />`.
+- `[x]` Implementasikan Panel Pengelola Playlist Langsung di Library Mode
+  - `[x]` Tambahkan dropdown pemilih playlist aktif jika terdapat lebih dari satu playlist di database.
+  - `[x]` Tambahkan tombol cepat **"Buat Playlist" (+)**.
+  - `[x]` Hubungkan tombol ke modal/input untuk membuat playlist baru menggunakan `createPlaylist`.
+  - `[x]` Integrasikan agar ketika playlist kosong/belum ada, menambah lagu otomatis memicu pembuatan playlist.
+- `[x]` Tambahkan Interaktivitas pada Ubin Nomor (Number Tiles)
+  - `[x]` Aktifkan HTML5 drag-and-drop pada `NumberTile` untuk menyeret lagu ke rundown playlist.
+  - `[x]` Tambahkan handler `onDoubleClick` pada `NumberTile` agar lagu dapat langsung diputar di full-screen lyrics viewer.
+- `[x]` Buat Pusat Panduan Cepat Operator pada Inspector Kosong
+  - `[x]` Rancang tata letak glassmorphism yang menarik untuk empty-state inspector di [LibraryModeRedesigned.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/screens/modes/LibraryModeRedesigned.tsx).
+  - `[x]` Tampilkan informasi shortcut keyboard operasional penting.
+  - `[x]` Sediakan petunjuk ringkas langkah awal pengoperasian rundown ibadah.
+- `[x]` Sediakan Chip Tema/Kategori Pencarian Cepat
+  - `[x]` Tambahkan baris chip kategori populer di bawah search bar saat query pencarian kosong.
+  - `[x]` Terapkan pemfilteran instan ketika chip diklik.
+- `[x]` Verifikasi & Uji Linting Kode
+  - `[x]` Jalankan `npm run lint` dan selesaikan semua warning/error.

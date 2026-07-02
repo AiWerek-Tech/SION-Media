@@ -5,12 +5,17 @@ export const logger = {
     }
   },
   warn: (...args: unknown[]): void => {
-    console.warn('[SION Media WARNING]', ...args)
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[SION Media WARNING]', ...args)
+    }
   },
   error: (...args: unknown[]): void => {
+    // error always passes through — required for crash diagnostics in production
     console.error('[SION Media ERROR]', ...args)
   },
   info: (...args: unknown[]): void => {
-    console.info('[SION Media INFO]', ...args)
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('[SION Media INFO]', ...args)
+    }
   }
 }

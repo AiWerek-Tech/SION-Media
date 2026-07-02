@@ -102,19 +102,8 @@ export function LibraryTitleView({
                   id: 'toggle_favorite',
                   label: menuSong.is_favorite === 1 ? 'Hapus favorit' : 'Jadikan favorit',
                   icon: <Heart size={14} />,
-                  onClick: () => onToggleFavorite(menuSong.id)
-                },
-                {
-                  id: 'pin',
-                  label: 'Pin (coming soon)',
-                  icon: <Pin size={14} />,
-                  onClick: () => {}
-                },
-                {
-                  id: 'close',
-                  label: 'Tutup',
-                  icon: <MoreHorizontal size={14} />,
-                  onClick: () => {}
+                  onClick: () => onToggleFavorite(menuSong.id),
+                  dividerBefore: true
                 }
               ]
             : []

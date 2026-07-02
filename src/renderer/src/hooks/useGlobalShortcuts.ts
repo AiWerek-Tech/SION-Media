@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
-import { useAppStore } from '../store/useAppStore'
-import { useModeStore } from '../store/useModeStore'
-import { usePlaylistStore } from '../store/usePlaylistStore'
-import { useProjectionStore } from '../store/useProjectionStore'
-import { generateSlidesForSong } from '../engine/slideEngine'
-import { executeRuntimeCommand } from '../utils/runtimeCommandBus'
-import type { AppScreen } from '../types'
+import { useAppStore } from '@renderer/store/useAppStore'
+import { useModeStore } from '@renderer/store/useModeStore'
+import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
+import { useProjectionStore } from '@renderer/store/useProjectionStore'
+import { generateSlidesForSong } from '@core/projection'
+import { executeRuntimeCommand } from '@renderer/utils/runtimeCommandBus'
+import type { AppScreen } from '@renderer/types'
 
 interface UseGlobalShortcutsOptions {
   currentScreen: AppScreen
@@ -16,6 +16,7 @@ interface UseGlobalShortcutsOptions {
   setShowShortcuts: (value: boolean | ((prev: boolean) => boolean)) => void
   setShowQuickJump: (value: boolean | ((prev: boolean) => boolean)) => void
   setShowRuntimeInspector: (value: boolean | ((prev: boolean) => boolean)) => void
+  setShowEmergencyPanel: (value: boolean | ((prev: boolean) => boolean)) => void
 }
 
 export function useGlobalShortcuts({
@@ -26,7 +27,8 @@ export function useGlobalShortcuts({
   setShowCommandPalette,
   setShowShortcuts,
   setShowQuickJump,
-  setShowRuntimeInspector
+  setShowRuntimeInspector,
+  setShowEmergencyPanel
 }: UseGlobalShortcutsOptions): void {
   useEffect(() => {
     const handler = (): void => setShowShortcuts(true)
@@ -78,15 +80,91 @@ export function useGlobalShortcuts({
         return
       }
 
+      // FIX UX-10: Ctrl+B conflict resolution.
+      // In PROJECTION/BROADCAST mode, bare 'B' is Black Out — Ctrl+B opening
+      // the Bible screen is confusing and dangerous (operator may hit Ctrl+B
+      // thinking it's a modifier for Black Out).
+      // Solution: Ctrl+B opens Bible only when NOT in Projection/Broadcast mode.
+      // In Projection/Broadcast mode, use Ctrl+Shift+B instead.
+      if (e.ctrlKey && e.code === 'KeyB') {
+        const currentMode = useModeStore.getState().currentMode
+        const isProjectionMode = currentMode === 'PROJECTION' || currentMode === 'BROADCAST'
+
+        if (e.shiftKey || !isProjectionMode) {
+          // Ctrl+Shift+B always works; Ctrl+B works only outside projection
+          e.preventDefault()
+          setScreen('bible')
+          return
+        }
+        // In projection mode without Shift: fall through to let 'B' handle Black Out
+        // (Ctrl+B in projection mode is intentionally ignored here)
+        return
+      }
+
       if (e.ctrlKey && e.shiftKey && e.code === 'KeyI') {
         e.preventDefault()
         setShowRuntimeInspector((v) => !v)
         return
       }
 
+      if (e.ctrlKey && e.shiftKey && e.code === 'KeyD') {
+        e.preventDefault()
+        setShowRuntimeInspector((v) => !v)
+        return
+      }
+
+      if (e.ctrlKey && e.shiftKey && e.code === 'KeyE') {
+        e.preventDefault()
+        setShowEmergencyPanel((v) => !v)
+        return
+      }
+
+      // Panic Recovery: resend current state to projection window (Ctrl+Alt+R)
+      // NOTE: Ctrl+Shift+R is intercepted by Electron/Chromium for hard reload
+      if (e.ctrlKey && e.altKey && e.code === 'KeyR') {
+        e.preventDefault()
+        // Resend current projection state to projection window
+        const ps = useProjectionStore.getState()
+        if (ps.programSlide) {
+          window.api.projection.slideUpdate(ps.programSlide)
+        }
+        window.api.projection.stateChange(ps.projectionState)
+        return
+      }
+
       if (e.key === '?' && !e.ctrlKey && !e.altKey) {
         e.preventDefault()
         setShowShortcuts((v) => !v)
+        return
+      }
+
+      // §5.4.1: Ctrl+1/2/3/4 — Mode switch shortcuts
+      if (e.ctrlKey && !e.shiftKey && !e.altKey) {
+        const modeMap: Record<string, 'LIBRARY' | 'PROJECTION' | 'MANAGEMENT' | 'BROADCAST'> = {
+          Digit1: 'LIBRARY',
+          Digit2: 'PROJECTION',
+          Digit3: 'MANAGEMENT'
+          // Digit4: 'BROADCAST' // Hidden in beta — not yet production-ready
+        }
+        const targetMode = modeMap[e.code]
+        if (targetMode) {
+          e.preventDefault()
+          useModeStore.getState().setMode(targetMode)
+          return
+        }
+      }
+
+      // §5.4.1: Ctrl+, — Open Settings
+      if (e.ctrlKey && e.key === ',') {
+        e.preventDefault()
+        setScreen('settings')
+        return
+      }
+
+      // §5.4.1: Ctrl+I — Open Import/Export
+      if (e.ctrlKey && !e.shiftKey && e.code === 'KeyI') {
+        e.preventDefault()
+        setScreen('import-export')
         return
       }
 
@@ -119,6 +197,25 @@ export function useGlobalShortcuts({
         case 'KeyB':
           e.preventDefault()
           executeRuntimeCommand('PROJ_BLACK', undefined, 'KEYBOARD')
+          break
+        case 'KeyL':
+          // FIX BUG-13: L key toggles LOGO standby mode
+          if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
+            e.preventDefault()
+            {
+              const ps = useProjectionStore.getState()
+              if (ps.projectionState === 'LOGO') {
+                // Toggle off — restore to CLEAR
+                ps.setProjectionState('CLEAR')
+                window.api.projection.stateChange('CLEAR')
+              } else {
+                // FIX: allow LOGO from ANY state including CLEAR
+                // (operator may want logo standby before service starts)
+                ps.setProjectionState('LOGO')
+                window.api.projection.stateChange('LOGO')
+              }
+            }
+          }
           break
         case 'KeyC':
         case 'Escape':
@@ -210,6 +307,7 @@ export function useGlobalShortcuts({
     setShowCommandPalette,
     setShowQuickJump,
     setShowRuntimeInspector,
+    setShowEmergencyPanel,
     setShowShortcuts
   ])
 }

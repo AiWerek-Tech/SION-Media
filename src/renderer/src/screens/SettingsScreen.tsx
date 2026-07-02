@@ -16,11 +16,12 @@ import {
   BookOpen,
   Search
 } from 'lucide-react'
-import { useAppStore } from '../store/useAppStore'
-import { mediaEngine } from '../engine/mediaEngine'
-import { logger } from '../utils/logger'
-import type { Hymnal } from '../types'
-import type { DisplayInfo } from '../../../shared/types'
+import { useAppStore } from '@renderer/store/useAppStore'
+import { useModalStore } from '@renderer/store/useModalStore'
+import { mediaEngine } from '@renderer/engine/mediaEngine'
+import { logger } from '@renderer/utils/logger'
+import type { Hymnal } from '@renderer/types'
+import type { DisplayInfo } from '@shared/types'
 import {
   DisplaySettings,
   AppThemeSettings,
@@ -31,10 +32,12 @@ import {
   BackupSettings,
   AboutSettings
 } from './settings'
+import { BiblePackManager } from '@renderer/features/bible/components/BiblePackManager'
 
 type SettingsSection =
   | 'display'
   | 'hymnals'
+  | 'bible-packs'
   | 'appearance'
   | 'theme'
   | 'background'
@@ -52,6 +55,7 @@ interface SectionDef {
 const SECTIONS: SectionDef[] = [
   { key: 'display', label: 'Display', subtitle: 'Monitor & Proyektor', icon: Monitor },
   { key: 'hymnals', label: 'Buku Lagu', subtitle: 'Kategori & Koleksi', icon: BookOpen },
+  { key: 'bible-packs', label: 'Bible Pack', subtitle: 'Alkitab Eksternal SQLite', icon: BookOpen },
   { key: 'appearance', label: 'Tampilan', subtitle: 'UI/UX & Layout', icon: SunMoon },
   { key: 'theme', label: 'Tema & Font', subtitle: 'Warna & Tipografi', icon: Palette },
   { key: 'background', label: 'Background', subtitle: 'Wallpaper & Visual', icon: Image },
@@ -175,6 +179,16 @@ export function SettingsScreen(): React.JSX.Element {
   }
 
   const handleReseed = async (): Promise<void> => {
+    const confirmed = await useModalStore
+      .getState()
+      .openAsync<boolean>('confirm-reseed', 'confirm', {
+        title: 'Reset Database Lagu?',
+        description:
+          'Semua lagu, hymnal, dan playlist akan dihapus dan diganti dengan data default. Tindakan ini tidak dapat dibatalkan.',
+        confirmLabel: 'Reset Database',
+        danger: true
+      })
+    if (!confirmed) return
     await window.api.system.reseed()
     await useAppStore.getState().loadSongs()
     showToast('Database lagu berhasil diatur ulang', 'success')
@@ -295,6 +309,7 @@ export function SettingsScreen(): React.JSX.Element {
                 onDelete={handleDeleteHymnal}
               />
             )}
+            {activeSection === 'bible-packs' && <BiblePackManager />}
             {activeSection === 'appearance' && (
               <AppThemeSettings settings={settings} updateSetting={updateSetting} />
             )}

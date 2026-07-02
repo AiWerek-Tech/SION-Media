@@ -1,8 +1,10 @@
 ---
 title: Plan — Song Number Normalization (Remove Leading Zeros)
-phase: 0-plan
-status: draft
+phase: implemented
+status: done
 ---
+
+> **Status:** ✅ IMPLEMENTED — Lihat `04-implementation/23-log-impl-song-number-normalization.md`
 
 # Objective
 

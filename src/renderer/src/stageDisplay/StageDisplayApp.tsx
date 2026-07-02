@@ -9,7 +9,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { Clock, Music, Timer, AlertCircle } from 'lucide-react'
-import type { ConfidencePayload, ProjectionState } from '../types'
+import type { ConfidencePayload, ProjectionState } from '@renderer/types'
 
 export function StageDisplayApp(): React.JSX.Element {
   const [payload, setPayload] = useState<ConfidencePayload | null>(null)
@@ -41,7 +41,8 @@ export function StageDisplayApp(): React.JSX.Element {
             currentSection: null,
             nextSection: null,
             song: null,
-            clock: time.toLocaleTimeString([], {
+            // FIX STAGE-01: use current time at call-time, not stale closure
+            clock: new Date().toLocaleTimeString([], {
               hour: '2-digit',
               minute: '2-digit',
               second: '2-digit'
@@ -81,7 +82,7 @@ export function StageDisplayApp(): React.JSX.Element {
           currentSection: null,
           nextSection: null,
           song: null,
-          clock: time.toLocaleTimeString([], {
+          clock: new Date().toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit',
             second: '2-digit'
@@ -106,10 +107,13 @@ export function StageDisplayApp(): React.JSX.Element {
       })
     })
 
-    // TODO: Add direct confidence channel listener
-    // const unsubscribeConfidence = window.api.confidence.onUpdate((data) => {
-    //   setPayload(data as ConfidencePayload)
-    // })
+    // Phase 4: Direct confidence channel listener (dual-channel — keep legacy above)
+    let unsubscribeConfidence: (() => void) | undefined
+    if (window.api.confidence?.onUpdate) {
+      unsubscribeConfidence = window.api.confidence.onUpdate((data) => {
+        setPayload(data as ConfidencePayload)
+      })
+    }
 
     // Start heartbeat
     const heartbeatInterval = setInterval(() => {
@@ -119,9 +123,13 @@ export function StageDisplayApp(): React.JSX.Element {
     return () => {
       unsubscribeSlide()
       unsubscribeState()
+      unsubscribeConfidence?.()
       clearInterval(heartbeatInterval)
     }
-  }, [time])
+    // FIX STAGE-01: remove `time` from deps — it changes every second causing
+    // the effect to re-register all IPC listeners on every clock tick (memory leak).
+    // Use new Date() inside callbacks instead of the stale `time` closure.
+  }, [])
 
   // Build local payload from legacy channels (temporary)
   const displayPayload = useMemo<ConfidencePayload>(() => {
@@ -134,6 +142,7 @@ export function StageDisplayApp(): React.JSX.Element {
       currentSection: null,
       nextSection: null,
       song: null,
+      // FIX STAGE-01: time is already tracked separately via the clock state
       clock: time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       timer: { elapsed: 0, running: false },
       status: { isLive: false, isFrozen: false, isBlack: false, projectionState: 'CLEAR' }
@@ -211,7 +220,7 @@ export function StageDisplayApp(): React.JSX.Element {
 
             {/* Current Slide - LARGE */}
             <div className="space-y-2">
-              <p className="text-7xl lg:text-8xl xl:text-9xl font-bold leading-tight whitespace-pre-line drop-shadow-2xl">
+              <p className="text-[80px] lg:text-[96px] font-bold leading-tight whitespace-pre-line drop-shadow-2xl">
                 {currentSlide.text}
               </p>
               <p className="text-zinc-500 text-xl font-medium">
@@ -235,7 +244,7 @@ export function StageDisplayApp(): React.JSX.Element {
                     </span>
                   )}
                 </div>
-                <p className="text-4xl lg:text-5xl text-zinc-400 font-medium leading-relaxed italic line-clamp-3">
+                <p className="text-[40px] lg:text-[48px] text-zinc-400 font-medium leading-relaxed italic line-clamp-3">
                   {nextSlide.text}
                 </p>
               </div>

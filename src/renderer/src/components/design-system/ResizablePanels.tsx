@@ -52,7 +52,7 @@ export function ResizablePanels({
   children
 }: ResizablePanelsProps): React.JSX.Element {
   const { getSizes, setSizes } = usePanelLayoutStore()
-  const [sizes, setLocalSizes] = useState<[number, number]>(getSizes(layoutKey))
+  const [sizes, setLocalSizes] = useState<[number, number]>(getSizes(layoutKey) as [number, number])
   const [saveTimer, setSaveTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
 
   // Get constraints for this layout

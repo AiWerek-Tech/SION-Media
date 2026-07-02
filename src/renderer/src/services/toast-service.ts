@@ -1,4 +1,4 @@
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore } from '@renderer/store/useAppStore'
 
 type ToastType = 'info' | 'success' | 'error'
 

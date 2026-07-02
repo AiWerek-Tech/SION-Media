@@ -14,13 +14,14 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import './i18n'
+import { initializeProjectionAdapter } from '@core/projection'
 import {
-  applyEffectiveTheme,
-  buildThemeSyncPayload,
   isAppThemeMode,
   resolveEffectiveTheme,
+  applyEffectiveTheme,
+  buildThemeSyncPayload,
   watchSystemThemeChanges
-} from './utils/app-theme'
+} from '@renderer/utils/app-theme'
 
 if (navigator.userAgent.toLowerCase().includes('windows')) {
   document.body.classList.add('win-titlebar-overlay')
@@ -52,6 +53,9 @@ async function initTheme(): Promise<void> {
 }
 
 void initTheme()
+
+// Initialize projection integration adapter
+initializeProjectionAdapter()
 
 if (window.api?.appTheme) {
   window.api.appTheme.onUpdated((payload) => {

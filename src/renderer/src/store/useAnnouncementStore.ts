@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import type { CustomSlide, SlideGroup } from '../types'
-import { logger } from '../utils/logger'
+import type { CustomSlide, SlideGroup } from '@renderer/types'
+import { logger } from '@renderer/utils/logger'
 
 interface AnnouncementStore {
   // Slides

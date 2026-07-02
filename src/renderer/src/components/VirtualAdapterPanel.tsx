@@ -9,9 +9,9 @@ import {
   createVirtualRemoteAdapter,
   createStormTestAdapter,
   type RecordedSession
-} from '../utils/virtualInputAdapter'
-import { registerInputAdapter } from '../utils/runtimeInputAdapter'
-import type { RuntimeCommandType } from '../utils/runtimeCommandBus'
+} from '@renderer/utils/virtualInputAdapter'
+import { registerInputAdapter } from '@renderer/utils/runtimeInputAdapter'
+import type { RuntimeCommandType } from '@renderer/utils/runtimeCommandBus'
 
 // Mode badge component
 function ModeBadge({ mode }: { mode: VirtualAdapterMode }): React.JSX.Element {

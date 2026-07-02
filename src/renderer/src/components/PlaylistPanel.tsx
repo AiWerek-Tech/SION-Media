@@ -1,21 +1,32 @@
-import React, { useState, useMemo } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  ListMusic,
-  Plus,
-  FolderOpen,
-  Music,
-  Trash2,
+  CalendarDays,
+  ChevronDown,
   Download,
+  FolderOpen,
+  ListMusic,
+  Music,
+  Plus,
   SeparatorHorizontal,
-  ChevronDown
+  Trash2,
+  Upload,
+  Repeat2,
+  X
 } from 'lucide-react'
-import { usePlaylistStore } from '../store/usePlaylistStore'
-import { useAppStore } from '../store/useAppStore'
-import { generateSlidesForPlaylistItem } from '../engine/slideEngine'
-import { logger } from '../utils/logger'
-import type { PlaylistItem } from '../types'
-import PlaylistItemCard from '../components/PlaylistItemCard'
-import { EmptyState } from '../components/design-system/EmptyState'
+import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
+import { useAppStore } from '@renderer/store/useAppStore'
+import { useModalStore } from '@renderer/store/useModalStore'
+import { generateSlidesForPlaylistItem } from '@renderer/engine/slideEngine'
+import { logger } from '@renderer/utils/logger'
+import type { PlaylistItem } from '@renderer/types'
+import {
+  formatPlaylistSchedule,
+  normalizePlaylistServiceDate,
+  type PlaylistScheduleMode
+} from '@renderer/utils/playlistSchedule'
+import PlaylistItemCard from '@renderer/components/PlaylistItemCard'
+import { Modal, ModalButton } from '@renderer/components/modals/Modal'
+import { PlaylistSelector } from '@renderer/components/playlist/PlaylistSelector'
 import {
   DndContext,
   closestCenter,
@@ -31,8 +42,6 @@ import {
   verticalListSortingStrategy
 } from '@dnd-kit/sortable'
 
-// SortablePlaylistItem component has been replaced by PlaylistItemCard (see components/PlaylistItemCard.tsx)
-
 interface PlaylistPanelProps {
   projectedSongId?: number | null
   onItemClick?: (item: PlaylistItem, index: number) => void
@@ -47,6 +56,89 @@ const SECTION_PRESETS = [
   'PENUTUPAN'
 ] as const
 
+// ─── Section Menu (click-outside aware) ──────────────────────────────────────
+function SectionMenu({
+  onSelect,
+  onClose
+}: {
+  onSelect: (label: string) => void
+  onClose: () => void
+}): React.JSX.Element {
+  const ref = useRef<HTMLDivElement>(null)
+  const [customValue, setCustomValue] = useState('')
+  const [showCustomInput, setShowCustomInput] = useState(false)
+
+  // FIX: click-outside handler
+  useEffect(() => {
+    const handler = (e: MouseEvent): void => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onClose()
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [onClose])
+
+  return (
+    <div
+      ref={ref}
+      className="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-xl ring-1 ring-white/10 bg-bg-surface/98 shadow-[0_16px_48px_rgba(0,0,0,0.35)] backdrop-blur-sm py-1"
+    >
+      <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-text-disabled">
+        Pemisah Bagian
+      </div>
+      {SECTION_PRESETS.map((label) => (
+        <button
+          key={label}
+          onClick={() => {
+            onSelect(label)
+            onClose()
+          }}
+          className="w-full px-3 py-1.5 text-left text-[12px] font-medium text-text-secondary hover:bg-white/[0.05] hover:text-text-primary transition-colors"
+        >
+          {label}
+        </button>
+      ))}
+      <div className="h-px bg-white/5 mx-2 my-1" />
+      {showCustomInput ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (customValue.trim()) {
+              onSelect(customValue.trim().toUpperCase())
+              onClose()
+            }
+          }}
+          className="px-2 pb-2 flex gap-1"
+        >
+          <input
+            autoFocus
+            type="text"
+            value={customValue}
+            onChange={(e) => setCustomValue(e.target.value)}
+            placeholder="Nama bagian..."
+            className="flex-1 rounded-lg border border-white/10 bg-bg-base px-2 py-1 text-[11px] outline-none focus:border-brand-primary transition-colors"
+          />
+          <button
+            type="submit"
+            className="rounded-lg bg-brand-primary px-2 py-1 text-[11px] font-semibold text-white"
+          >
+            OK
+          </button>
+        </form>
+      ) : (
+        <button
+          onClick={() => setShowCustomInput(true)}
+          className="w-full px-3 py-1.5 text-left text-[12px] font-medium text-text-muted hover:bg-white/[0.05] hover:text-text-primary transition-colors italic"
+        >
+          Custom...
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export function PlaylistPanel({
   projectedSongId,
   onItemClick
@@ -66,41 +158,53 @@ export function PlaylistPanel({
   const [showLoadDialog, setShowLoadDialog] = useState(false)
   const [showSectionMenu, setShowSectionMenu] = useState(false)
   const [newName, setNewName] = useState('')
+  const [newScheduleMode, setNewScheduleMode] = useState<PlaylistScheduleMode>('anytime')
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0])
   const activeItemIndex = usePlaylistStore((s) => s.activeItemIndex)
   const setActiveItemIndex = usePlaylistStore((s) => s.setActiveItemIndex)
 
-  // Total slide count across all playlist items
-  const totalSlideCount = useMemo(
+  // Total slide count
+  const totalSlideCount = React.useMemo(
     () => playlistItems.reduce((sum, item) => sum + generateSlidesForPlaylistItem(item).length, 0),
     [playlistItems]
   )
 
-  // Add section label to the next playlist item that doesn't have one
-  const handleAddSectionDivider = (label: string): void => {
-    const updateItemLabel = usePlaylistStore.getState().updateItemLabel
-    // Apply label to the last item in the list (or first without a label)
-    const target = playlistItems.find((item) => !item.section_label)
-    if (target) {
-      updateItemLabel(target.id, label)
-    } else if (playlistItems.length > 0) {
-      // If all items have labels, apply to last item
-      updateItemLabel(playlistItems[playlistItems.length - 1].id, label)
-    }
-  }
+  // FIX: Apply section label to the currently active item, or last item
+  const handleAddSectionDivider = useCallback(
+    (label: string): void => {
+      const updateItemLabel = usePlaylistStore.getState().updateItemLabel
+      if (playlistItems.length === 0) return
+      // Apply to active item if valid, otherwise last item
+      const targetIndex =
+        activeItemIndex >= 0 && activeItemIndex < playlistItems.length
+          ? activeItemIndex
+          : playlistItems.length - 1
+      updateItemLabel(playlistItems[targetIndex].id, label)
+    },
+    [playlistItems, activeItemIndex]
+  )
 
   const handleCreatePlaylist = async (): Promise<void> => {
     if (!newName.trim()) return
-    await createPlaylist(newName, newDate)
+    const serviceDate = normalizePlaylistServiceDate(newScheduleMode, newDate)
+    if (newScheduleMode === 'dated' && !serviceDate) return
+    await createPlaylist(newName, serviceDate)
+    setSelectedSong(null)
+    // FIX: reset both fields after creation
     setNewName('')
+    setNewScheduleMode('anytime')
+    setNewDate(new Date().toISOString().split('T')[0])
     setShowNewDialog(false)
-    const store = usePlaylistStore.getState()
-    if (store.activePlaylist) await loadPlaylistItems(store.activePlaylist.id)
+    // FIX: read activePlaylist from store AFTER createPlaylist resolves,
+    // since the store update is synchronous within the same microtask.
+    const { activePlaylist: newPlaylist } = usePlaylistStore.getState()
+    if (newPlaylist) await loadPlaylistItems(newPlaylist.id)
   }
 
   const handleLoadPlaylist = async (playlist: (typeof playlists)[0]): Promise<void> => {
     setActivePlaylist(playlist)
     await loadPlaylistItems(playlist.id)
+    setSelectedSong(null)
     setShowLoadDialog(false)
   }
 
@@ -111,14 +215,250 @@ export function PlaylistPanel({
     }
     setActiveItemIndex(index)
     const song = songs.find((s) => s.id === item.song_id)
-    if (song) {
-      setSelectedSong(song)
-    }
+    if (song) setSelectedSong(song)
   }
 
   const handleRemoveItem = async (e: React.MouseEvent, itemId: number): Promise<void> => {
     e.stopPropagation()
+    const removedItem = playlistItems.find((item) => item.id === itemId)
+    const wasShowingRemovedSong =
+      removedItem !== undefined && useAppStore.getState().selectedSong?.id === removedItem.song_id
     await removeItem(itemId)
+    if (wasShowingRemovedSong) {
+      const { playlistItems: nextItems, activeItemIndex: nextActiveIndex } =
+        usePlaylistStore.getState()
+      const nextItem = nextItems[nextActiveIndex]
+      const nextSong = nextItem ? songs.find((song) => song.id === nextItem.song_id) : undefined
+      setSelectedSong(nextSong ?? null)
+    }
+  }
+
+  // FIX: Use Electron native save dialog instead of data: URI
+  const handleExportPlaylist = async (): Promise<void> => {
+    const showToast = useAppStore.getState().showToast
+    if (!activePlaylist || playlistItems.length === 0) {
+      showToast('Playlist kosong, tidak ada yang diekspor', 'error')
+      return
+    }
+
+    const exportData = {
+      isSionPlaylist: true,
+      playlist: {
+        name: activePlaylist.name,
+        service_date: activePlaylist.service_date
+      },
+      songs: playlistItems
+        .filter((item) => item.item_type === 'song')
+        .map((item) => {
+          const fullSong = useAppStore.getState().songs.find((s) => s.id === item.song_id)
+          return {
+            number: item.number,
+            title: item.title,
+            hymnal_code: item.hymnal_code || fullSong?.hymnal_code || 'LS',
+            lyrics_raw: item.lyrics_raw,
+            category: item.category,
+            language: fullSong?.language || 'Indonesia',
+            author: fullSong?.author || '',
+            composer: fullSong?.composer || '',
+            key_note: fullSong?.key_note || '',
+            tempo: fullSong?.tempo || '',
+            tags: fullSong?.tags || ''
+          }
+        }),
+      items: playlistItems.map((item) => {
+        if (item.item_type === 'info') {
+          return {
+            item_type: 'info',
+            title: item.title,
+            notes: item.notes || ''
+          }
+        }
+        if (item.item_type === 'bible') {
+          return {
+            item_type: 'bible',
+            title: item.title,
+            section_label: item.section_label,
+            notes: item.notes || '',
+            bible_version_code: item.bible_version_code,
+            bible_version_short_name: item.bible_version_short_name,
+            bible_book_code: item.bible_book_code,
+            bible_book_name: item.bible_book_name,
+            bible_chapter: item.bible_chapter,
+            bible_verse_start: item.bible_verse_start,
+            bible_verse_end: item.bible_verse_end,
+            bible_reference: item.bible_reference,
+            bible_text_json: item.bible_text_json,
+            bible_copyright: item.bible_copyright
+          }
+        } else {
+          const fullSong = useAppStore.getState().songs.find((s) => s.id === item.song_id)
+          return {
+            item_type: 'song',
+            title: item.title,
+            section_label: item.section_label,
+            notes: item.notes || '',
+            number: item.number,
+            hymnal_code: item.hymnal_code || fullSong?.hymnal_code || 'LS',
+            lyrics_raw: item.lyrics_raw,
+            category: item.category,
+            language: fullSong?.language || 'Indonesia',
+            author: fullSong?.author || '',
+            composer: fullSong?.composer || '',
+            key_note: fullSong?.key_note || '',
+            tempo: fullSong?.tempo || '',
+            tags: fullSong?.tags || ''
+          }
+        }
+      })
+    }
+
+    try {
+      const defaultName = `sion-playlist-${activePlaylist.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.json`
+      const result = await window.api.file.showSaveDialog({
+        defaultPath: defaultName,
+        filters: [{ name: 'SION Playlist', extensions: ['json'] }]
+      })
+      if (result && !(result as { canceled?: boolean }).canceled) {
+        const filePath = (result as { filePath?: string }).filePath
+        if (filePath) {
+          await window.api.file.writeJson(filePath, exportData)
+          showToast('Berhasil mengekspor playlist', 'success')
+        }
+      }
+    } catch (err) {
+      logger.error('Export failed:', err)
+      showToast('Gagal mengekspor playlist', 'error')
+    }
+  }
+
+  const handleImportPlaylist = async (): Promise<void> => {
+    const showToast = useAppStore.getState().showToast
+    try {
+      const result = await window.api.file.showOpenDialog({
+        filters: [{ name: 'SION Playlist', extensions: ['json'] }]
+      })
+      if (!result || result.canceled || !result.filePaths || result.filePaths.length === 0) {
+        return
+      }
+      const filePath = result.filePaths[0]
+      const rawData = await window.api.file.readJson(filePath)
+      if (!rawData || typeof rawData !== 'object' || !('isSionPlaylist' in rawData)) {
+        showToast('Format file playlist tidak valid', 'error')
+        return
+      }
+      const data = rawData as {
+        isSionPlaylist: boolean
+        playlist?: { name?: string; service_date?: string }
+        items?: Array<Record<string, unknown>>
+        songs?: Array<Record<string, unknown>>
+      }
+      if (!data.isSionPlaylist) {
+        showToast('Format file playlist tidak valid', 'error')
+        return
+      }
+
+      // Create new playlist
+      const playlistName = `${data.playlist?.name || 'Imported Playlist'} (Import)`
+      const playlistDate = data.playlist?.service_date?.trim() || ''
+      await createPlaylist(playlistName, playlistDate)
+
+      const { activePlaylist: newPlaylist } = usePlaylistStore.getState()
+      if (!newPlaylist) {
+        showToast('Gagal membuat playlist untuk import', 'error')
+        return
+      }
+
+      // Load all songs to match
+      const allSongs = useAppStore.getState().songs
+      const itemsToImport = data.items || data.songs || []
+      let matchCount = 0
+      let failCount = 0
+
+      for (const rawItem of itemsToImport) {
+        const itemType = rawItem.item_type || 'song'
+        if (itemType === 'info') {
+          await window.api.playlists.addInfo(newPlaylist.id, {
+            title: String(rawItem.title || ''),
+            body: String(rawItem.notes || '')
+          })
+          matchCount++
+        } else if (itemType === 'bible') {
+          await window.api.playlists.addBible(newPlaylist.id, {
+            bible_version_code: String(rawItem.bible_version_code || ''),
+            bible_version_short_name: String(rawItem.bible_version_short_name || ''),
+            bible_book_code: String(rawItem.bible_book_code || ''),
+            bible_book_name: String(rawItem.bible_book_name || ''),
+            bible_chapter: Number(rawItem.bible_chapter || 1),
+            bible_verse_start: Number(rawItem.bible_verse_start || 1),
+            bible_verse_end: Number(rawItem.bible_verse_end || 1),
+            bible_reference: String(rawItem.bible_reference || ''),
+            bible_text_json: String(rawItem.bible_text_json || '[]'),
+            bible_copyright: String(rawItem.bible_copyright || ''),
+            notes: String(rawItem.notes || '')
+          })
+          matchCount++
+        } else {
+          const matched = allSongs.find(
+            (s) =>
+              String(s.number).toLowerCase() === String(rawItem.number || '').toLowerCase() &&
+              String(s.hymnal_code || '').toLowerCase() ===
+                String(rawItem.hymnal_code || 'ls').toLowerCase()
+          )
+          if (matched) {
+            await window.api.playlists.addItem({
+              playlist_id: newPlaylist.id,
+              song_id: matched.id,
+              section_label: String(rawItem.section_label || '')
+            })
+            matchCount++
+          } else {
+            failCount++
+          }
+        }
+      }
+
+      await loadPlaylistItems(newPlaylist.id)
+      if (failCount > 0) {
+        showToast(
+          `Berhasil mengimpor ${matchCount} item. ${failCount} lagu gagal dicocokkan.`,
+          'info'
+        )
+      } else {
+        showToast(`Berhasil mengimpor ${matchCount} item ke playlist baru.`, 'success')
+      }
+    } catch (err) {
+      logger.error('Import failed:', err)
+      showToast('Gagal mengimpor playlist', 'error')
+    }
+  }
+
+  const handleDeletePlaylist = async (): Promise<void> => {
+    if (!activePlaylist) return
+    const confirmed = await useModalStore
+      .getState()
+      .openAsync<boolean>('confirm-delete-playlist', 'confirm', {
+        title: 'Hapus Playlist?',
+        description: `"${activePlaylist.name}" akan dihapus permanen beserta semua item di dalamnya.`,
+        confirmLabel: 'Hapus',
+        danger: true
+      })
+    if (!confirmed) return
+    try {
+      await window.api.playlists.delete(activePlaylist.id)
+      usePlaylistStore.getState().setActivePlaylist(null)
+      usePlaylistStore.getState().setPlaylistItems([])
+      setSelectedSong(null)
+      await usePlaylistStore.getState().loadPlaylists()
+    } catch (err) {
+      logger.error('Failed to delete playlist:', err)
+      useAppStore.getState().showToast('Gagal menghapus playlist', 'error')
+    }
+  }
+
+  const handleClosePlaylist = (): void => {
+    setActivePlaylist(null)
+    usePlaylistStore.getState().setPlaylistItems([])
+    setSelectedSong(null)
   }
 
   const sensors = useSensors(
@@ -140,213 +480,117 @@ export function PlaylistPanel({
     }
   }
 
-  const handleDeletePlaylist = async (): Promise<void> => {
-    if (!activePlaylist) return
-    if (confirm(`Hapus playlist "${activePlaylist.name}"?`)) {
-      try {
-        await window.api.playlists.delete(activePlaylist.id)
-        usePlaylistStore.getState().setActivePlaylist(null)
-        usePlaylistStore.getState().setPlaylistItems([])
-        await usePlaylistStore.getState().loadPlaylists()
-      } catch (err) {
-        logger.error('Failed to delete playlist:', err)
-        useAppStore.getState().showToast('Gagal menghapus playlist', 'error')
-      }
-    }
-  }
-
-  const handleExportPlaylist = (): void => {
-    const showToast = useAppStore.getState().showToast
-    if (!activePlaylist || playlistItems.length === 0) {
-      showToast('Playlist kosong, tidak ada yang diekspor', 'error')
-      return
-    }
-
-    const exportData = {
-      isSionPlaylist: true,
-      playlist: {
-        name: activePlaylist.name,
-        service_date: activePlaylist.service_date
-      },
-      songs: playlistItems.map((item) => {
-        const fullSong = useAppStore.getState().songs.find((s) => s.id === item.song_id)
-        return {
-          number: item.number,
-          title: item.title,
-          hymnal_code: item.hymnal_code || fullSong?.hymnal_code || 'LS',
-          lyrics_raw: item.lyrics_raw,
-          category: item.category,
-          language: fullSong?.language || 'Indonesia',
-          author: fullSong?.author || '',
-          composer: fullSong?.composer || '',
-          key_note: fullSong?.key_note || '',
-          tempo: fullSong?.tempo || '',
-          tags: fullSong?.tags || ''
-        }
-      })
-    }
-
-    const dataStr = JSON.stringify(exportData, null, 2)
-    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr)
-    const exportFileDefaultName = `sion-playlist-${activePlaylist.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.json`
-
-    const linkElement = document.createElement('a')
-    linkElement.setAttribute('href', dataUri)
-    linkElement.setAttribute('download', exportFileDefaultName)
-    linkElement.click()
-    showToast('Berhasil mengekspor playlist', 'success')
-  }
-
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden rounded-2xl bg-white/[0.02] ring-1 ring-white/10">
-      {/* Header: Title & Actions */}
-      <div className="px-4 py-3 border-b border-white/5 relative z-10">
-        <div className="mb-2 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-secondary/10 text-brand-secondary">
-              <ListMusic size={16} />
-            </div>
-            <div>
-              <h2 className="text-[14px] font-semibold text-text-primary tracking-tight">
-                {activePlaylist?.name || 'Pilih Playlist'}
-              </h2>
-              {activePlaylist && (
-                <p className="text-[11px] text-text-muted font-medium">
-                  {new Date(activePlaylist.service_date).toLocaleDateString('id-ID', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </p>
-              )}
-            </div>
-          </div>
+    <div className="playlist-panel">
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div className="playlist-panel__header">
+        <PlaylistSelector
+          playlists={playlists}
+          activePlaylist={activePlaylist}
+          itemCount={playlistItems.length}
+          slideCount={totalSlideCount}
+          onSelect={handleLoadPlaylist}
+          onCreate={() => setShowNewDialog(true)}
+        />
 
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setShowLoadDialog(true)}
-              className="rounded-lg p-1.5 text-text-secondary transition-all hover:bg-white/[0.05] hover:text-text-primary"
-              title="Buka Playlist"
-            >
-              <FolderOpen size={18} />
-            </button>
-            <button
-              onClick={() => setShowNewDialog(true)}
-              className="rounded-lg bg-brand-primary/10 p-1.5 text-brand-primary transition-all hover:bg-brand-primary/15"
-              title="Playlist Baru"
-            >
-              <Plus size={18} />
-            </button>
-          </div>
-        </div>
-
-        {/* Quick Actions Bar */}
-        {activePlaylist && (
-          <div className="flex items-center justify-between rounded-xl bg-white/[0.02] ring-1 ring-white/5 p-1.5">
-            <span className="text-[11px] text-text-muted font-medium ml-2.5">
-              {playlistItems.length} item · {totalSlideCount} slide
-            </span>
-            <div className="flex items-center gap-1">
-              {/* Section Divider Dropdown */}
+        <div className="flex items-center gap-1 shrink-0">
+          {activePlaylist && (
+            <>
+              {/* Section divider */}
               <div className="relative">
                 <button
-                  onClick={() => setShowSectionMenu(!showSectionMenu)}
-                  className="flex items-center gap-1 p-1.5 rounded text-text-muted hover:text-brand-secondary hover:bg-brand-secondary/10 transition-colors"
-                  title="Tambah Pemisah Bagian"
+                  onClick={() => setShowSectionMenu((v) => !v)}
+                  className="playlist-panel__tool"
+                  title="Tambah label bagian ke item aktif"
                 >
                   <SeparatorHorizontal size={14} />
-                  <ChevronDown size={10} />
+                  <ChevronDown size={9} />
                 </button>
                 {showSectionMenu && (
-                  <div className="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-xl ring-1 ring-white/10 bg-bg-surface/98 shadow-[0_16px_48px_rgba(0,0,0,0.3)] backdrop-blur-sm py-1 animate-fade-in">
-                    <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-text-disabled">
-                      Pemisah Bagian
-                    </div>
-                    {SECTION_PRESETS.map((label) => (
-                      <button
-                        key={label}
-                        onClick={() => {
-                          handleAddSectionDivider(label)
-                          setShowSectionMenu(false)
-                        }}
-                        className="w-full px-3 py-2 text-left text-[12px] font-medium text-text-secondary hover:bg-white/[0.05] hover:text-text-primary transition-colors rounded-lg mx-1 w-[calc(100%-8px)]"
-                      >
-                        {label}
-                      </button>
-                    ))}
-                    <div className="h-px bg-white/5 mx-2 my-1" />
-                    <button
-                      onClick={() => {
-                        const custom = prompt('Masukkan nama bagian:')
-                        if (custom?.trim()) {
-                          handleAddSectionDivider(custom.trim().toUpperCase())
-                        }
-                        setShowSectionMenu(false)
-                      }}
-                      className="w-full px-3 py-2 text-left text-[12px] font-medium text-text-muted hover:bg-white/[0.05] hover:text-text-primary transition-colors italic rounded-lg mx-1 w-[calc(100%-8px)]"
-                    >
-                      Custom...
-                    </button>
-                  </div>
+                  <SectionMenu
+                    onSelect={handleAddSectionDivider}
+                    onClose={() => setShowSectionMenu(false)}
+                  />
                 )}
               </div>
               <button
                 onClick={handleExportPlaylist}
-                className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors"
-                title="Export Playlist"
+                className="playlist-panel__tool"
+                title="Export playlist"
               >
                 <Download size={14} />
               </button>
               <button
+                onClick={handleImportPlaylist}
+                className="playlist-panel__tool"
+                title="Import playlist"
+              >
+                <Upload size={14} />
+              </button>
+              <button
                 onClick={handleDeletePlaylist}
-                className="p-1.5 rounded text-text-muted hover:text-status-error hover:bg-status-error/10 transition-colors"
-                title="Hapus Playlist"
+                className="playlist-panel__tool playlist-panel__tool--danger"
+                title="Hapus playlist"
               >
                 <Trash2 size={14} />
               </button>
-            </div>
-          </div>
-        )}
+              <div className="w-px h-4 bg-white/[0.06] mx-0.5" />
+            </>
+          )}
+          <button
+            onClick={() => setShowNewDialog(true)}
+            className="playlist-panel__tool playlist-panel__tool--primary"
+            title="Playlist baru"
+          >
+            <Plus size={14} />
+          </button>
+          {activePlaylist && (
+            <button
+              onClick={handleClosePlaylist}
+              className="playlist-panel__tool"
+              title="Tutup playlist"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Content: List with DND */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-3">
+      {/* ── Content ────────────────────────────────────────────────────── */}
+      <div className="playlist-panel__body">
         {!activePlaylist ? (
-          <div className="h-full flex items-center justify-center">
-            <EmptyState
-              icon={ListMusic}
-              title="Belum ada playlist aktif"
-              description="Buat playlist baru atau buka playlist yang sudah ada untuk mulai menyusun urutan lagu."
-              action={
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowLoadDialog(true)}
-                    className="px-4 py-2 rounded-xl bg-white/[0.03] text-[12px] font-semibold text-text-secondary ring-1 ring-white/10 hover:bg-white/[0.05] hover:text-text-primary transition-colors flex items-center gap-2"
-                  >
-                    <FolderOpen size={16} />
-                    Buka Playlist
-                  </button>
-                  <button
-                    onClick={() => setShowNewDialog(true)}
-                    className="px-4 py-2 rounded-xl bg-brand-primary/15 text-[12px] font-semibold text-brand-primary ring-1 ring-brand-primary/20 hover:bg-brand-primary/20 transition-colors flex items-center gap-2"
-                  >
-                    <Plus size={16} />
-                    Baru
-                  </button>
-                </div>
-              }
-            />
+          /* Empty — no playlist selected */
+          <div className="playlist-panel__empty">
+            <div className="playlist-panel__empty-icon">
+              <ListMusic size={22} />
+            </div>
+            <h3>Belum ada playlist aktif</h3>
+            <p>Buat playlist baru atau buka playlist yang sudah ada.</p>
+            <div className="flex items-center gap-2 mt-1">
+              <button onClick={() => setShowLoadDialog(true)} className="playlist-panel__empty-btn">
+                <FolderOpen size={13} />
+                Buka Playlist
+              </button>
+              <button
+                onClick={() => setShowNewDialog(true)}
+                className="playlist-panel__empty-btn playlist-panel__empty-btn--primary"
+              >
+                <Plus size={13} />
+                Baru
+              </button>
+            </div>
           </div>
         ) : playlistItems.length === 0 ? (
-          <div className="h-full flex items-center justify-center">
-            <EmptyState
-              icon={Music}
-              title="Playlist Kosong"
-              description="Klik tombol '+' pada lagu di library untuk menambahkan ke sini."
-            />
+          /* Empty — playlist has no items */
+          <div className="playlist-panel__empty">
+            <div className="playlist-panel__empty-icon">
+              <Music size={20} />
+            </div>
+            <h3>Playlist Kosong</h3>
+            <p>Klik tombol + pada lagu di library untuk menambahkan ke sini.</p>
           </div>
         ) : (
+          /* Song list with DnD */
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -356,7 +600,7 @@ export function PlaylistPanel({
               items={playlistItems.map((i) => i.id.toString())}
               strategy={verticalListSortingStrategy}
             >
-              <div className="space-y-2 pb-4">
+              <div className="playlist-panel__list">
                 {playlistItems.map((item, index) => (
                   <PlaylistItemCard
                     key={item.id}
@@ -374,105 +618,127 @@ export function PlaylistPanel({
         )}
       </div>
 
-      {/* Dialogs */}
-      {(showNewDialog || showLoadDialog) && (
-        <div className="fixed inset-0 modal-overlay z-[100] flex items-center justify-center p-6">
-          <div className="glass-panel-strong w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            {showNewDialog && (
-              <div className="p-6">
-                <h3 className="text-h3 mb-4">Buat Playlist Baru</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-micro text-text-muted mb-1.5 block">
-                      Nama Event / Ibadah
-                    </label>
-                    <input
-                      autoFocus
-                      type="text"
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      placeholder="Contoh: Ibadah Minggu Pagi"
-                      className="w-full bg-bg-base border border-border-default rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-micro text-text-muted mb-1.5 block">Tanggal</label>
-                    <input
-                      type="date"
-                      value={newDate}
-                      onChange={(e) => setNewDate(e.target.value)}
-                      className="w-full bg-bg-base border border-border-default rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none transition-all"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-3 mt-8">
-                  <button
-                    onClick={() => setShowNewDialog(false)}
-                    className="btn-premium btn-premium-ghost"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    onClick={handleCreatePlaylist}
-                    className="btn-premium btn-premium-primary px-6"
-                  >
-                    Simpan Playlist
-                  </button>
-                </div>
+      {showNewDialog && (
+        <Modal
+          id="playlist-panel-create"
+          title="Buat Playlist Baru"
+          subtitle="Siapkan rundown yang dapat digunakan kapan saja atau untuk tanggal tertentu."
+          size="md"
+          onClose={() => setShowNewDialog(false)}
+          footer={
+            <>
+              <ModalButton onClick={() => setShowNewDialog(false)}>Batal</ModalButton>
+              <ModalButton
+                variant="primary"
+                onClick={() => void handleCreatePlaylist()}
+                disabled={!newName.trim() || (newScheduleMode === 'dated' && !newDate)}
+              >
+                Simpan Playlist
+              </ModalButton>
+            </>
+          }
+        >
+          <div className="playlist-modal-form">
+            <div className="sp-field">
+              <label htmlFor="playlist-panel-name" className="sp-field__label">
+                Nama Event / Ibadah
+              </label>
+              <input
+                id="playlist-panel-name"
+                autoFocus
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void handleCreatePlaylist()
+                }}
+                placeholder="Contoh: Ibadah Minggu Pagi"
+                className="sp-input"
+              />
+            </div>
+            <fieldset className="sp-field">
+              <legend className="sp-field__label">Penggunaan</legend>
+              <div className="playlist-schedule-options">
+                <button
+                  type="button"
+                  className={`playlist-schedule-option ${newScheduleMode === 'anytime' ? 'is-active' : ''}`}
+                  onClick={() => setNewScheduleMode('anytime')}
+                  aria-pressed={newScheduleMode === 'anytime'}
+                >
+                  <Repeat2 size={17} />
+                  <span>
+                    <strong>Kapan saja</strong>
+                    <small>Dapat digunakan berulang kali</small>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`playlist-schedule-option ${newScheduleMode === 'dated' ? 'is-active' : ''}`}
+                  onClick={() => setNewScheduleMode('dated')}
+                  aria-pressed={newScheduleMode === 'dated'}
+                >
+                  <CalendarDays size={17} />
+                  <span>
+                    <strong>Bertanggal</strong>
+                    <small>Untuk ibadah tertentu</small>
+                  </span>
+                </button>
               </div>
-            )}
-
-            {showLoadDialog && (
-              <div className="flex flex-col max-h-[70vh]">
-                <div className="p-6 border-b border-border-subtle">
-                  <h3 className="text-h3">Buka Playlist</h3>
-                </div>
-                <div className="flex-1 overflow-y-auto p-2">
-                  {playlists.length === 0 ? (
-                    <div className="p-8 text-center text-text-muted text-sm">
-                      Belum ada playlist tersimpan.
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {playlists.map((p) => (
-                        <button
-                          key={p.id}
-                          onClick={() => handleLoadPlaylist(p)}
-                          className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-bg-elevated text-left group transition-all"
-                        >
-                          <div>
-                            <p className="text-sm font-semibold text-text-primary group-hover:text-brand-primary transition-colors">
-                              {p.name}
-                            </p>
-                            <p className="text-[12px] text-text-muted">
-                              {new Date(p.service_date).toLocaleDateString('id-ID', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric'
-                              })}
-                            </p>
-                          </div>
-                          <FolderOpen
-                            size={16}
-                            className="text-text-disabled group-hover:text-brand-primary"
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="p-4 bg-bg-base/50 border-t border-border-subtle flex justify-end">
-                  <button
-                    onClick={() => setShowLoadDialog(false)}
-                    className="btn-premium btn-premium-ghost text-xs"
-                  >
-                    Tutup
-                  </button>
-                </div>
+            </fieldset>
+            {newScheduleMode === 'dated' && (
+              <div className="sp-field">
+                <label htmlFor="playlist-panel-date" className="sp-field__label">
+                  Tanggal Ibadah
+                </label>
+                <input
+                  id="playlist-panel-date"
+                  type="date"
+                  value={newDate}
+                  onChange={(e) => setNewDate(e.target.value)}
+                  className="sp-input"
+                />
               </div>
             )}
           </div>
-        </div>
+        </Modal>
+      )}
+
+      {showLoadDialog && (
+        <Modal
+          id="playlist-panel-load"
+          title="Buka Playlist"
+          subtitle="Pilih playlist tersimpan untuk melanjutkan persiapan."
+          size="md"
+          onClose={() => setShowLoadDialog(false)}
+        >
+          {playlists.length === 0 ? (
+            <div className="sp-modal-empty">
+              <ListMusic size={24} />
+              <strong>Belum ada playlist tersimpan</strong>
+              <span>Buat playlist baru untuk memulai rundown ibadah.</span>
+            </div>
+          ) : (
+            <div className="playlist-modal-list">
+              {playlists.map((playlist) => (
+                <button
+                  key={playlist.id}
+                  type="button"
+                  onClick={() => void handleLoadPlaylist(playlist)}
+                  className="playlist-modal-list__item"
+                >
+                  <span className="playlist-modal-list__icon">
+                    <ListMusic size={15} />
+                  </span>
+                  <span className="playlist-modal-list__copy">
+                    <strong>{playlist.name}</strong>
+                    <small>{formatPlaylistSchedule(playlist.service_date)}</small>
+                  </span>
+                  <FolderOpen size={15} />
+                </button>
+              ))}
+            </div>
+          )}
+        </Modal>
       )}
     </div>
   )

@@ -1,10 +1,19 @@
 import Database from 'better-sqlite3'
 import { join, basename, extname } from 'path'
 import { app, nativeImage } from 'electron'
-import { copyFileSync, existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from 'fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+  statSync
+} from 'fs'
 import { randomUUID } from 'crypto'
 import { initialSongs } from './seed-data'
 import { runMigrations } from './migrations'
+import { setRegistryDb } from './services/content-packs/contentPackRegistry'
 
 let db: Database.Database
 
@@ -453,7 +462,7 @@ export function initDatabase(): void {
 
   // Copy default database from resources if it doesn't exist
   if (!existsSync(dbPath) && existsSync(resourcesPath)) {
-    console.log('Copying default database from resources...')
+    console.info('Copying default database from resources...')
     try {
       // Ensure userData directory exists
       const userDataDir = app.getPath('userData')
@@ -461,28 +470,37 @@ export function initDatabase(): void {
         mkdirSync(userDataDir, { recursive: true })
       }
       copyFileSync(resourcesPath, dbPath)
-      console.log('Default database copied successfully')
+      console.info('Default database copied successfully')
     } catch (error) {
       console.error('Failed to copy default database:', error)
       // Continue with normal initialization if copy fails
     }
   }
 
-  db = new Database(dbPath)
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
-
-  // Legacy schema handling (Non-destructive Backup)
-  // If the old schema exists (no hymnals table), move DB files aside and start fresh.
-  const hymnalTableExists = db
-    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='hymnals'")
-    .get()
-
-  if (!hymnalTableExists) {
-    console.log('Old schema detected. Backing up legacy DB for Multi-Hymnal revamp...')
+  // Legacy schema detection: check BEFORE opening the main connection so that
+  // `db` is assigned exactly once and never reassigned after IPC handlers are
+  // registered. This eliminates the race window that existed when we closed and
+  // reopened `db` mid-startup on slower machines.
+  // INVARIANT: `db` is assigned exactly once in this function.
+  let needsLegacyMigration = false
+  if (existsSync(dbPath)) {
     try {
-      db.close()
+      const probe = new Database(dbPath, { readonly: true })
+      const hymnalTableExists = probe
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='hymnals'")
+        .get()
+      probe.close()
+      if (!hymnalTableExists) {
+        needsLegacyMigration = true
+      }
+    } catch {
+      // If probe fails, proceed with normal init — migrations will handle schema
+    }
+  }
 
+  if (needsLegacyMigration) {
+    console.info('Old schema detected. Backing up legacy DB for Multi-Hymnal revamp...')
+    try {
       const ts = new Date().toISOString().replace(/[:.]/g, '-')
       const legacyBase = `${dbPath}.legacy-backup-${ts}`
       for (const suffix of ['', '-wal', '-shm']) {
@@ -504,14 +522,18 @@ export function initDatabase(): void {
     } catch (e) {
       console.error('Failed to backup legacy database:', e)
     }
-
-    db = new Database(dbPath)
-    db.pragma('journal_mode = WAL')
-    db.pragma('foreign_keys = ON')
   }
+
+  // Single assignment — `db` is set here and never reassigned.
+  db = new Database(dbPath)
+  db.pragma('journal_mode = WAL')
+  db.pragma('foreign_keys = ON')
 
   // Run migrations (non-destructive schema updates)
   runMigrations(db)
+
+  // Inject DB into content pack registry
+  setRegistryDb(db)
 
   // Seed database if empty (only if no songs exist)
   seedDatabase()
@@ -521,7 +543,7 @@ function seedDatabase(): void {
   const count = db.prepare('SELECT COUNT(*) as c FROM songs').get() as { c: number }
   if (count.c > 0) return // Already seeded or has data
 
-  console.log('Seeding Multi-Hymnal database...')
+  console.info('Seeding Multi-Hymnal database...')
 
   // Insert default hymnal: Lagu Sion Edisi Lengkap
   const hymnalResult = db
@@ -553,11 +575,11 @@ function seedDatabase(): void {
   })
 
   transaction(initialSongs)
-  console.log(`Seeded ${initialSongs.length} songs under hymnal LS (id=${lsId}).`)
+  console.info(`Seeded ${initialSongs.length} songs under hymnal LS (id=${lsId}).`)
 }
 
 export function reseedDatabase(): void {
-  console.log('Reseeding Multi-Hymnal database...')
+  console.info('Reseeding Multi-Hymnal database...')
   try {
     // 1. Drop FTS table and triggers to avoid conflicts
     db.exec(`
@@ -617,7 +639,7 @@ export function reseedDatabase(): void {
 
     checkpointWal('TRUNCATE')
 
-    console.log('Reseed complete.')
+    console.info('Reseed complete.')
   } catch (err) {
     console.error('Reseed error:', err)
     throw err
@@ -1188,6 +1210,92 @@ export function toggleFavorite(id: number): unknown {
   return db.prepare('SELECT * FROM songs WHERE id = ?').get(id)
 }
 
+export function getSongNote(songId: number): string {
+  const row = db
+    .prepare('SELECT note_text FROM song_notes WHERE song_id = ? LIMIT 1')
+    .get(songId) as { note_text: string } | undefined
+  return row?.note_text ?? ''
+}
+
+export function updateSongNote(songId: number, noteText: string): string {
+  const existing = db.prepare('SELECT id FROM song_notes WHERE song_id = ? LIMIT 1').get(songId)
+  if (existing) {
+    db.prepare(
+      "UPDATE song_notes SET note_text = ?, updated_at = datetime('now') WHERE song_id = ?"
+    ).run(noteText, songId)
+  } else {
+    db.prepare('INSERT INTO song_notes (song_id, note_text) VALUES (?, ?)').run(songId, noteText)
+  }
+  checkpointWal()
+  return noteText
+}
+
+// ========== Bible Notes & Highlights ==========
+
+export function getBibleNote(
+  bookCode: string,
+  chapter: number,
+  verse: number
+): { note_text: string; highlight_color: string } {
+  const row = db
+    .prepare(
+      'SELECT note_text, highlight_color FROM bible_notes WHERE book_code = ? AND chapter = ? AND verse = ? LIMIT 1'
+    )
+    .get(bookCode, chapter, verse) as { note_text: string; highlight_color: string } | undefined
+  return { note_text: row?.note_text ?? '', highlight_color: row?.highlight_color ?? '' }
+}
+
+export function updateBibleNote(
+  bookCode: string,
+  chapter: number,
+  verse: number,
+  noteText: string,
+  highlightColor: string
+): void {
+  const existing = db
+    .prepare('SELECT id FROM bible_notes WHERE book_code = ? AND chapter = ? AND verse = ? LIMIT 1')
+    .get(bookCode, chapter, verse)
+
+  // If both note and highlight are empty, remove the row entirely
+  if (!noteText && !highlightColor) {
+    if (existing) {
+      db.prepare('DELETE FROM bible_notes WHERE book_code = ? AND chapter = ? AND verse = ?').run(
+        bookCode,
+        chapter,
+        verse
+      )
+    }
+    checkpointWal()
+    return
+  }
+
+  if (existing) {
+    db.prepare(
+      "UPDATE bible_notes SET note_text = ?, highlight_color = ?, updated_at = datetime('now') WHERE book_code = ? AND chapter = ? AND verse = ?"
+    ).run(noteText, highlightColor, bookCode, chapter, verse)
+  } else {
+    db.prepare(
+      'INSERT INTO bible_notes (book_code, chapter, verse, note_text, highlight_color) VALUES (?, ?, ?, ?, ?)'
+    ).run(bookCode, chapter, verse, noteText, highlightColor)
+  }
+  checkpointWal()
+}
+
+export function getBibleNotesForChapter(
+  bookCode: string,
+  chapter: number
+): Array<{ verse: number; note_text: string; highlight_color: string }> {
+  return db
+    .prepare(
+      'SELECT verse, note_text, highlight_color FROM bible_notes WHERE book_code = ? AND chapter = ? ORDER BY verse'
+    )
+    .all(bookCode, chapter) as Array<{
+    verse: number
+    note_text: string
+    highlight_color: string
+  }>
+}
+
 // ========== Playlist Operations ==========
 
 export function getPlaylists(): unknown[] {
@@ -1238,26 +1346,37 @@ export function deletePlaylist(id: number): boolean {
 export function getPlaylistItems(playlistId: number): unknown[] {
   return db
     .prepare(
-      `SELECT pi.*, s.number, s.title, s.alternate_title, s.lyrics_raw, s.category, s.key_note, s.time_signature, s.tempo,
+      `SELECT pi.*,
+              COALESCE(s.title, pi.title) AS title,
+              s.number, s.alternate_title, s.lyrics_raw, s.category, s.key_note, s.time_signature, s.tempo,
               h.code as hymnal_code, h.name as hymnal_name
        FROM playlist_items pi
-       JOIN songs s ON pi.song_id = s.id
-       JOIN hymnals h ON s.hymnal_id = h.id
+       LEFT JOIN songs s ON pi.song_id = s.id
+       LEFT JOIN hymnals h ON s.hymnal_id = h.id
        WHERE pi.playlist_id = ?
        ORDER BY pi.sort_order`
     )
     .all(playlistId)
 }
 
-export function updatePlaylistItem(id: number, data: { section_label?: string }): void {
+export function updatePlaylistItem(
+  id: number,
+  data: { section_label?: string; title?: string; notes?: string }
+): void {
   const existing = db.prepare('SELECT * FROM playlist_items WHERE id = ?').get(id) as Record<
     string,
     unknown
   >
   if (!existing) return
 
-  db.prepare('UPDATE playlist_items SET section_label = ? WHERE id = ?').run(
-    data.section_label ?? existing.section_label,
+  db.prepare(
+    `UPDATE playlist_items
+     SET section_label = ?, title = ?, notes = ?
+     WHERE id = ?`
+  ).run(
+    data.section_label !== undefined ? data.section_label : existing.section_label,
+    data.title !== undefined ? data.title : existing.title,
+    data.notes !== undefined ? data.notes : existing.notes,
     id
   )
   checkpointWal()
@@ -1275,11 +1394,112 @@ export function addPlaylistItem(item: {
 
   const result = db
     .prepare(
-      'INSERT INTO playlist_items (playlist_id, song_id, sort_order, section_label) VALUES (?, ?, ?, ?)'
+      "INSERT INTO playlist_items (playlist_id, song_id, sort_order, section_label, item_type) VALUES (?, ?, ?, ?, 'song')"
     )
     .run(item.playlist_id, item.song_id, nextOrder, item.section_label || '')
   checkpointWal()
-  return { id: result.lastInsertRowid, ...item, sort_order: nextOrder }
+  return { id: result.lastInsertRowid, ...item, sort_order: nextOrder, item_type: 'song' }
+}
+
+export function addBibleToPlaylist(
+  playlistId: number,
+  bible: {
+    bible_version_code: string
+    bible_version_short_name: string
+    bible_book_code: string
+    bible_book_name: string
+    bible_chapter: number
+    bible_verse_start: number
+    bible_verse_end: number
+    bible_reference: string
+    bible_text_json: string
+    bible_copyright?: string
+    notes?: string
+  }
+): unknown {
+  const maxOrder = db
+    .prepare('SELECT MAX(sort_order) as max_order FROM playlist_items WHERE playlist_id = ?')
+    .get(playlistId) as { max_order: number | null }
+  const nextOrder = (maxOrder?.max_order ?? -1) + 1
+
+  const result = db
+    .prepare(
+      `INSERT INTO playlist_items (
+        playlist_id, song_id, sort_order, item_type, title, notes,
+        bible_version_code, bible_version_short_name, bible_book_code, bible_book_name,
+        bible_chapter, bible_verse_start, bible_verse_end, bible_reference,
+        bible_text_json, bible_copyright
+      ) VALUES (?, NULL, ?, 'bible', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      playlistId,
+      nextOrder,
+      bible.bible_reference,
+      bible.notes || '',
+      bible.bible_version_code,
+      bible.bible_version_short_name,
+      bible.bible_book_code,
+      bible.bible_book_name,
+      bible.bible_chapter,
+      bible.bible_verse_start,
+      bible.bible_verse_end,
+      bible.bible_reference,
+      bible.bible_text_json,
+      bible.bible_copyright || ''
+    )
+  checkpointWal()
+  return {
+    id: result.lastInsertRowid,
+    playlist_id: playlistId,
+    song_id: null,
+    sort_order: nextOrder,
+    section_label: '',
+    item_type: 'bible',
+    title: bible.bible_reference,
+    notes: bible.notes || '',
+    bible_version_code: bible.bible_version_code,
+    bible_version_short_name: bible.bible_version_short_name,
+    bible_book_code: bible.bible_book_code,
+    bible_book_name: bible.bible_book_name,
+    bible_chapter: bible.bible_chapter,
+    bible_verse_start: bible.bible_verse_start,
+    bible_verse_end: bible.bible_verse_end,
+    bible_reference: bible.bible_reference,
+    bible_text_json: bible.bible_text_json,
+    bible_copyright: bible.bible_copyright || ''
+  }
+}
+
+export function addInfoToPlaylist(
+  playlistId: number,
+  info: { title: string; body: string }
+): unknown {
+  const maxOrder = db
+    .prepare('SELECT MAX(sort_order) as max_order FROM playlist_items WHERE playlist_id = ?')
+    .get(playlistId) as { max_order: number | null }
+  const nextOrder = (maxOrder?.max_order ?? -1) + 1
+  const title = info.title.trim()
+  const body = info.body.trim()
+
+  const result = db
+    .prepare(
+      `INSERT INTO playlist_items (
+        playlist_id, song_id, sort_order, section_label, item_type, title, notes
+      ) VALUES (?, NULL, ?, '', 'info', ?, ?)`
+    )
+    .run(playlistId, nextOrder, title, body)
+  checkpointWal()
+
+  return {
+    id: result.lastInsertRowid,
+    playlist_id: playlistId,
+    song_id: null,
+    sort_order: nextOrder,
+    section_label: '',
+    item_type: 'info',
+    title,
+    notes: body
+  }
 }
 
 export function deletePlaylistItem(id: number): boolean {
@@ -2012,16 +2232,22 @@ export function logSongHistory(songId: number): void {
   checkpointWal()
 }
 
-export function getRecentSongs(limit: number = 20): unknown[] {
-  return db
-    .prepare(
-      `SELECT s.*, h.code as hymnal_code, h.name as hymnal_name, MAX(sh.played_at) as last_played
-       FROM songs s
-       JOIN song_history sh ON s.id = sh.song_id
-       JOIN hymnals h ON s.hymnal_id = h.id
-       GROUP BY s.id ORDER BY last_played DESC LIMIT ?`
-    )
-    .all(limit)
+export function getRecentSongs(limit: number = 20, hymnalId?: number): unknown[] {
+  const safeLimit = Math.min(200, Math.max(1, Math.trunc(limit)))
+  const params: number[] = []
+  let sql = `SELECT s.*, h.code as hymnal_code, h.name as hymnal_name, MAX(sh.played_at) as last_played
+             FROM songs s
+             JOIN song_history sh ON s.id = sh.song_id
+             JOIN hymnals h ON s.hymnal_id = h.id`
+
+  if (hymnalId && Number.isInteger(hymnalId)) {
+    sql += ' WHERE s.hymnal_id = ?'
+    params.push(hymnalId)
+  }
+
+  sql += ' GROUP BY s.id ORDER BY last_played DESC LIMIT ?'
+  params.push(safeLimit)
+  return db.prepare(sql).all(...params)
 }
 
 // ========== Crash Recovery (App State) ==========
@@ -2086,11 +2312,6 @@ export function getRecoveryState(): {
   slideIndex?: number
   projectionState?: string
 } {
-  const cleanExit = getAppState('session_clean_exit')
-  if (cleanExit === '1' || cleanExit === null) {
-    return { needsRecovery: false }
-  }
-
   const playlistId = getAppState('session_playlist_id')
   const songId = getAppState('session_song_id')
 
@@ -2466,4 +2687,161 @@ export function reorderGroupSlides(
   })
   transaction()
   checkpointWal()
+}
+
+// ============================================================================
+// Phase 1 — Enterprise Refactor Functions (additive only)
+// @see implementation-master-order-v1.md §3.2 Sequence 1.4
+// ============================================================================
+
+/**
+ * Lightweight song list query — excludes lyrics_raw for performance.
+ * Intended for Library Mode grid/list views where lyrics are not displayed.
+ */
+export function getSongsSummary(hymnalId?: number): unknown[] {
+  if (hymnalId !== undefined) {
+    return db
+      .prepare(
+        `SELECT s.id, s.hymnal_id, h.code as hymnal_code, h.name as hymnal_name,
+                s.number, s.title, s.alternate_title, s.category, s.language,
+                s.author, s.composer, s.key_note, s.tempo, s.tags, s.theme,
+                s.scripture_reference, s.is_favorite, s.song_background_config,
+                s.created_at, s.updated_at
+         FROM songs s
+         JOIN hymnals h ON s.hymnal_id = h.id
+         WHERE s.hymnal_id = ?
+         ORDER BY CAST(s.number AS INTEGER), s.number`
+      )
+      .all(hymnalId)
+  }
+
+  return db
+    .prepare(
+      `SELECT s.id, s.hymnal_id, h.code as hymnal_code, h.name as hymnal_name,
+              s.number, s.title, s.alternate_title, s.category, s.language,
+              s.author, s.composer, s.key_note, s.tempo, s.tags, s.theme,
+              s.scripture_reference, s.is_favorite, s.song_background_config,
+              s.created_at, s.updated_at
+       FROM songs s
+       JOIN hymnals h ON s.hymnal_id = h.id
+       ORDER BY h.code, CAST(s.number AS INTEGER), s.number`
+    )
+    .all()
+}
+
+/**
+ * Duplicate a song by ID. Creates a new song with modified number and title
+ * to clearly indicate it's a copy.
+ * @returns The newly created song row or null if source not found.
+ */
+export function duplicateSong(
+  songId: number
+): { id: number; number: string; title: string } | null {
+  const source = db
+    .prepare(
+      `SELECT hymnal_id, number, title, alternate_title, lyrics_raw, category,
+              language, author, composer, key_note, time_signature, tempo,
+              tags, theme, scripture_reference, song_background_config
+       FROM songs WHERE id = ?`
+    )
+    .get(songId) as Record<string, unknown> | undefined
+
+  if (!source) return null
+
+  const newNumber = `${source.number}-copy`
+  const newTitle = `${source.title} (Salinan)`
+
+  const result = db
+    .prepare(
+      `INSERT INTO songs (
+        hymnal_id, number, title, alternate_title, lyrics_raw, category,
+        language, author, composer, key_note, time_signature, tempo,
+        tags, theme, scripture_reference, song_background_config
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      source.hymnal_id,
+      newNumber,
+      newTitle,
+      source.alternate_title,
+      source.lyrics_raw,
+      source.category,
+      source.language,
+      source.author,
+      source.composer,
+      source.key_note,
+      source.time_signature,
+      source.tempo,
+      source.tags,
+      source.theme,
+      source.scripture_reference,
+      source.song_background_config
+    )
+
+  checkpointWal()
+
+  return {
+    id: Number(result.lastInsertRowid),
+    number: newNumber,
+    title: newTitle
+  }
+}
+
+/**
+ * Get storage statistics for the Management Mode dashboard.
+ * Returns actual database size and process memory usage.
+ */
+export function getStorageStats(): {
+  dbSizeBytes: number
+  dbSizeMB: string
+  memoryMB: string
+  songCount: number
+  hymnalCount: number
+  playlistCount: number
+} {
+  const dbPath = join(app.getPath('userData'), 'sion.db')
+
+  let dbSizeBytes = 0
+  try {
+    const stat = statSync(dbPath)
+    dbSizeBytes = stat.size
+  } catch {
+    // ignore — file might not exist yet
+  }
+
+  const songCount = (db.prepare('SELECT COUNT(*) as c FROM songs').get() as { c: number }).c
+  const hymnalCount = (db.prepare('SELECT COUNT(*) as c FROM hymnals').get() as { c: number }).c
+  const playlistCount = (db.prepare('SELECT COUNT(*) as c FROM playlists').get() as { c: number }).c
+
+  const memUsage = process.memoryUsage()
+
+  return {
+    dbSizeBytes,
+    dbSizeMB: (dbSizeBytes / (1024 * 1024)).toFixed(1),
+    memoryMB: (memUsage.heapUsed / (1024 * 1024)).toFixed(1),
+    songCount,
+    hymnalCount,
+    playlistCount
+  }
+}
+
+/**
+ * Auto-backup on startup (if >7 days since last backup)
+ */
+export function autoBackupIfNeeded(): void {
+  const settings = getSettings()
+  const lastBackupStr = settings['last_auto_backup']
+
+  const now = Date.now()
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
+
+  if (!lastBackupStr || now - parseInt(lastBackupStr, 10) > SEVEN_DAYS_MS) {
+    try {
+      createBackup()
+      updateSetting('last_auto_backup', now.toString())
+      console.info('[Backup] Auto-backup created successfully')
+    } catch (err) {
+      console.error('[Backup] Failed to create auto-backup:', err)
+    }
+  }
 }

@@ -1,4 +1,6 @@
-import type { SlideData, Song, PlaylistItem } from '../types'
+import type { SlideData, Song, PlaylistItem } from '@renderer/types'
+import { buildBibleSlidesFromPlaylistItem } from '../features/bible/utils/buildBibleSlides'
+import { formatLyricChunk, markLyricLineSeparators } from './lyricFlow'
 
 interface ParsedSection {
   label: string
@@ -7,6 +9,19 @@ interface ParsedSection {
 
 // Global cache to avoid re-generating slides unnecessarily during projection
 const slideCache = new Map<string, { hash: string; slides: SlideData[] }>()
+
+// Phase 4: Global slide config — loaded from settings on bootstrap, backward compatible
+// @ts-ignore - Variable is used in generateSlidesForSong, but TypeScript doesn't recognize it through nullish coalescing
+let _globalSlideConfig: { maxLines: number; maxChars: number } = { maxLines: 4, maxChars: 40 }
+
+/**
+ * Set global slide config from settings (called by useAppBootstrap).
+ * Clears cache so next generation uses new config.
+ */
+export function setGlobalSlideConfig(config: { maxLines: number; maxChars: number }): void {
+  _globalSlideConfig = config
+  slideCache.clear() // invalidate cache when config changes
+}
 
 // Generate a simple hash for cache invalidation
 function generateHash(str: string): string {
@@ -29,6 +44,12 @@ function parseSections(lyricsRaw: string): ParsedSection[] {
 
   const lines = lyricsRaw.split('\n')
 
+  // Regex for bare section headers without brackets:
+  // Matches lines like "Bait 1", "Reff", "Verse 2", "Chorus", "Bridge", "Intro", "Ending", etc.
+  // Must be the ONLY content on the line (no lyric text after it).
+  const bareSectionRegex =
+    /^(verse|bait|chorus|korus|reff?|refrain|bridge|intro|ending|outro|tag|pre[- ]?chorus)(\s*\d+)?$/i
+
   for (const line of lines) {
     const trimmed = line.trim()
 
@@ -39,6 +60,18 @@ function parseSections(lyricsRaw: string): ParsedSection[] {
         sections.push({ label: currentLabel, lines: currentLines })
       }
       currentLabel = sectionMatch[1]
+      currentLines = []
+      continue
+    }
+
+    // Check for bare section headers (without brackets)
+    // e.g., "Bait 1", "Reff", "Verse 2", "Chorus"
+    const bareMatch = trimmed.match(bareSectionRegex)
+    if (bareMatch) {
+      if (currentLines.length > 0) {
+        sections.push({ label: currentLabel, lines: currentLines })
+      }
+      currentLabel = trimmed
       currentLines = []
       continue
     }
@@ -96,7 +129,7 @@ function wrapLine(line: string, maxChars: number): string[] {
 function splitIntoSlides(lines: string[], maxLines: number, maxChars: number): string[][] {
   // First, wrap any long lines
   const wrappedLines: string[] = []
-  for (const line of lines) {
+  for (const line of markLyricLineSeparators(lines)) {
     if (line === '') {
       wrappedLines.push('')
     } else {
@@ -183,16 +216,18 @@ export function generateSlides(
   const allSlides: SlideData[] = []
   let slideIndex = 0
 
-  for (const section of sections) {
+  for (const [sectionId, section] of sections.entries()) {
     const slideChunks = splitIntoSlides(section.lines, maxLines, maxChars)
 
     for (const chunk of slideChunks) {
       if (chunk.length === 0) continue // Skip empty chunks
       allSlides.push({
+        contentType: 'song',
         songId,
         slideIndex,
-        text: chunk.join('\n'),
+        text: formatLyricChunk(chunk),
         sectionLabel: section.label,
+        sectionId,
         keyNote: meta?.keyNote,
         timeSignature: meta?.timeSignature,
         tempo: meta?.tempo
@@ -208,17 +243,28 @@ export function generateSlides(
 }
 
 /**
- * Helper: generate slides with metadata automatically extracted from Song object
+ * Helper: generate slides with metadata automatically extracted from Song object.
+ * Uses global slide config from settings as default (Phase 4).
+ * Explicit config param still overrides global config.
  */
 export function generateSlidesForSong(
   song: Song,
   config?: { maxLines?: number; maxChars?: number }
 ): SlideData[] {
-  return generateSlides(song.id, song.lyrics_raw || '', config, {
+  const effectiveConfig = {
+    maxLines: config?.maxLines ?? _globalSlideConfig.maxLines,
+    maxChars: config?.maxChars ?? _globalSlideConfig.maxChars
+  }
+  const slides = generateSlides(song.id, song.lyrics_raw || '', effectiveConfig, {
     keyNote: song.key_note || undefined,
     timeSignature: song.time_signature || undefined,
     tempo: song.tempo || undefined
   })
+  return slides.map((slide) => ({
+    ...slide,
+    contentType: 'song',
+    playlistItemId: null
+  }))
 }
 
 /**
@@ -228,11 +274,33 @@ export function generateSlidesForPlaylistItem(
   item: PlaylistItem,
   config?: { maxLines?: number; maxChars?: number }
 ): SlideData[] {
-  return generateSlides(item.song_id, item.lyrics_raw || '', config, {
+  if (item.item_type === 'bible') {
+    return buildBibleSlidesFromPlaylistItem(item)
+  }
+  if (item.item_type === 'info') {
+    const title = item.title?.trim() || ''
+    const body = item.notes?.trim() || ''
+    return [
+      {
+        contentType: 'custom',
+        songId: null,
+        playlistItemId: item.id,
+        slideIndex: 0,
+        text: body || title,
+        sectionLabel: body ? title : ''
+      }
+    ]
+  }
+  const slides = generateSlides(item.song_id!, item.lyrics_raw || '', config, {
     keyNote: item.key_note || undefined,
     timeSignature: item.time_signature || undefined,
     tempo: item.tempo || undefined
   })
+  return slides.map((slide) => ({
+    ...slide,
+    contentType: 'song',
+    playlistItemId: item.id
+  }))
 }
 
 /**

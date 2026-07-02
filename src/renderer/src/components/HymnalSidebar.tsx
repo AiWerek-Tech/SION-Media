@@ -6,8 +6,12 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, BookOpen } from 'lucide-react'
-import { useAppStore } from '../store/useAppStore'
-import { getHymnalColor, getHymnalBgColor, getHymnalBorderColor } from '../utils/hymnal-colors'
+import { useAppStore } from '@renderer/store/useAppStore'
+import {
+  getHymnalColor,
+  getHymnalBgColor,
+  getHymnalBorderColor
+} from '@renderer/utils/hymnal-colors'
 
 export function HymnalSidebar(): React.JSX.Element {
   const { hymnals, selectedHymnalId, setSelectedHymnalId } = useAppStore()

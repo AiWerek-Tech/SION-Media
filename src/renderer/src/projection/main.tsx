@@ -12,14 +12,14 @@ import '../assets/main.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { ProjectionApp } from './ProjectionApp'
-import { ErrorBoundary } from '../components/ErrorBoundary'
+import { ProjectionErrorBoundary } from '@renderer/components/ProjectionErrorBoundary'
 import {
   applyEffectiveTheme,
   buildThemeSyncPayload,
   isAppThemeMode,
   resolveEffectiveTheme,
   watchSystemThemeChanges
-} from '../utils/app-theme'
+} from '@renderer/utils/app-theme'
 
 async function initTheme(): Promise<void> {
   try {
@@ -50,8 +50,8 @@ window.api.appTheme?.onUpdated((payload) => {
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <ErrorBoundary>
+    <ProjectionErrorBoundary>
       <ProjectionApp />
-    </ErrorBoundary>
+    </ProjectionErrorBoundary>
   </React.StrictMode>
 )

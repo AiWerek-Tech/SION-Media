@@ -3,6 +3,7 @@ import { useAppStore } from '../../store/useAppStore'
 import { usePlaylistStore } from '../../store/usePlaylistStore'
 import { useModeStore } from '../../store/useModeStore'
 import { logger } from '../../utils/logger'
+import LogoTransparent from '../../assets/logo-transparent.svg?react'
 
 export function TitleBarIdentity(): React.JSX.Element {
   const { workspaceName, setWorkspaceName } = useAppStore()
@@ -10,6 +11,7 @@ export function TitleBarIdentity(): React.JSX.Element {
   const { currentMode } = useModeStore()
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState('')
+  const [appVersion, setAppVersion] = useState('3.0')
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Load saved workspace name on mount
@@ -22,6 +24,18 @@ export function TitleBarIdentity(): React.JSX.Element {
         }
       })
       .catch((err) => logger.error('Failed to load workspace name:', err))
+  }, [])
+
+  // FIX: load actual app version from main process instead of hardcoding
+  useEffect(() => {
+    window.api.window
+      .getVersion()
+      .then((v: string) => {
+        if (v) setAppVersion(v)
+      })
+      .catch(() => {
+        /* keep fallback */
+      })
   }, [])
 
   useEffect(() => {
@@ -52,15 +66,11 @@ export function TitleBarIdentity(): React.JSX.Element {
 
   return (
     <div className="title-bar-identity no-drag">
-      <img
-        src={new URL('../../assets/logo.png', import.meta.url).href}
-        alt="SION"
-        className="title-bar-logo"
-      />
+      <LogoTransparent className="title-bar-logo" />
       <span className="title-bar-appname">
         SION <span className="text-accent">{modeLabel}</span>
       </span>
-      <span className="title-bar-version">v3.0</span>
+      <span className="title-bar-version">v{appVersion}</span>
 
       {/* Workspace name - editable on double-click */}
       {currentMode !== 'LIBRARY' && (displayName || isEditing) && (

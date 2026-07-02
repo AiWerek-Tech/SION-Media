@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   Bell,
   BookOpen,
@@ -11,13 +12,13 @@ import {
   Film,
   FileJson,
   FileText,
-  Filter,
   FolderPlus,
   Grid2X2,
   History,
   Image as ImageIcon,
   Import,
   Layers3,
+  List,
   Maximize2,
   MoreHorizontal,
   Music2,
@@ -32,6 +33,8 @@ import {
   X
 } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
+import { useModalStore } from '../../store/useModalStore'
+import { useModeStore } from '../../store/useModeStore'
 import type { Hymnal, Song } from '../../types'
 import { logger } from '../../utils/logger'
 import { DEFAULT_SCENE_PRESETS } from '../../atmosphere/presets'
@@ -40,6 +43,7 @@ import type {
   MediaAssetRecord,
   MediaCollectionRecord
 } from '../../atmosphere/types'
+import { HymnalFilterDropdown } from '../../components/library/HymnalFilterDropdown'
 
 type StatusTone = 'published' | 'draft' | 'review' | 'archived'
 
@@ -190,7 +194,7 @@ function IconButton({
       title={title}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.035] text-slate-300 transition-all duration-200 hover:-translate-y-px hover:border-blue-400/25 hover:bg-blue-500/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 ${
+      className={`management-icon-button inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.035] text-slate-300 transition-all duration-200 hover:-translate-y-px hover:border-blue-400/25 hover:bg-blue-500/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 ${
         danger ? 'hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-200' : ''
       }`}
     >
@@ -225,6 +229,272 @@ function MiniBars({ values, tone }: { values: number[]; tone: string }): React.J
   )
 }
 
+interface TableSongRowProps {
+  song: Song
+  status: StatusTone
+  isSelected: boolean
+  isChecked: boolean
+  hymnalName: string
+  virtualRowSize: number
+  virtualRowStart: number
+  onSelectSong: (id: number) => void
+  onEditSong: (song: Song) => void
+  onDuplicateSong: (song: Song) => void
+  onDeleteSong: (song: Song) => void
+  onToggleSelection: (id: number) => void
+}
+
+const TableSongRow = ({
+  song,
+  status,
+  isSelected,
+  isChecked,
+  hymnalName,
+  virtualRowSize,
+  virtualRowStart,
+  onSelectSong,
+  onEditSong,
+  onDuplicateSong,
+  onDeleteSong,
+  onToggleSelection
+}: TableSongRowProps): React.JSX.Element => {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelectSong(song.id)}
+      onDoubleClick={() => onEditSong(song)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') onEditSong(song)
+        if (event.key === ' ') {
+          event.preventDefault()
+          onSelectSong(song.id)
+        }
+      }}
+      className={`management-browser__row ${isSelected ? 'is-selected' : ''}`}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: `${virtualRowSize}px`,
+        transform: `translateY(${virtualRowStart}px)`
+      }}
+    >
+      <span
+        onClick={(event) => {
+          event.stopPropagation()
+          onToggleSelection(song.id)
+        }}
+        className={`flex h-5 w-5 items-center justify-center rounded-md border transition-all ${
+          isChecked
+            ? 'border-blue-400 bg-blue-500 text-white'
+            : 'border-slate-600 bg-black/20 text-transparent hover:border-blue-400/50'
+        }`}
+      >
+        <Check size={12} />
+      </span>
+      <span className="text-sm font-semibold text-slate-200">{song.number}</span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-semibold text-white">{song.title}</span>
+        <span className="mt-0.5 block truncate text-xs text-slate-500">
+          {song.alternate_title || song.title_en || 'Tanpa subtitle'}
+        </span>
+      </span>
+      <span className="truncate text-xs font-medium text-slate-400">{hymnalName}</span>
+      <StatusBadge status={status} />
+      <span className="flex items-center gap-1.5">
+        {song.key_note && (
+          <span className="rounded-md bg-purple-400/10 px-2 py-1 text-[11px] font-semibold text-purple-200">
+            {song.key_note}
+          </span>
+        )}
+        {song.tempo && (
+          <span className="rounded-md bg-white/[0.04] px-2 py-1 text-[11px] font-semibold text-slate-400">
+            {song.tempo}
+          </span>
+        )}
+      </span>
+      <span className="flex justify-end gap-1.5">
+        <IconButton title="Edit lagu" onClick={() => onEditSong(song)}>
+          <Edit3 size={14} />
+        </IconButton>
+        <IconButton title="Duplicate" onClick={() => onDuplicateSong(song)}>
+          <Copy size={14} />
+        </IconButton>
+        <IconButton title="Delete" onClick={() => onDeleteSong(song)} danger>
+          <Trash2 size={14} />
+        </IconButton>
+      </span>
+    </div>
+  )
+}
+
+const MemoizedTableSongRow = React.memo(TableSongRow)
+
+interface VirtualizedSongListProps {
+  filteredSongs: Song[]
+  viewMode: 'table' | 'grid'
+  selectedSong: Song | null
+  selectedSongIds: Set<number>
+  selectedHymnal: Hymnal | null
+  parentRef: React.RefObject<HTMLDivElement | null>
+  onSelectSong: (id: number) => void
+  onEditSong: (song: Song) => void
+  onDuplicateSong: (song: Song) => void
+  onDeleteSong: (song: Song) => void
+  onToggleSelection: (id: number) => void
+}
+
+function VirtualizedSongList({
+  filteredSongs,
+  viewMode,
+  selectedSong,
+  selectedSongIds,
+  selectedHymnal,
+  parentRef,
+  onSelectSong,
+  onEditSong,
+  onDuplicateSong,
+  onDeleteSong,
+  onToggleSelection
+}: VirtualizedSongListProps): React.JSX.Element {
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const rowVirtualizer = useVirtualizer({
+    count: filteredSongs.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 50,
+    overscan: 10
+  })
+
+  // Grid view is not virtualized for now to keep it simple and responsive
+  if (viewMode === 'grid') {
+    return (
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4 p-4 items-start">
+        {filteredSongs.map((song) => {
+          const status = getSongStatus(song)
+          const isSelected = selectedSong?.id === song.id
+          const checked = selectedSongIds.has(song.id)
+
+          return (
+            <div
+              key={song.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => onSelectSong(song.id)}
+              onDoubleClick={() => onEditSong(song)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') onEditSong(song)
+                if (event.key === ' ') {
+                  event.preventDefault()
+                  onSelectSong(song.id)
+                }
+              }}
+              className={`relative flex flex-col p-4 rounded-xl border transition-all cursor-pointer ${
+                isSelected
+                  ? 'border-brand-primary bg-brand-primary/10 ring-1 ring-brand-primary/30'
+                  : 'border-white/[0.06] bg-surface-2/40 hover:border-white/[0.1] hover:bg-surface-2/60'
+              }`}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onToggleSelection(song.id)
+                  }}
+                  className={`flex h-5 w-5 items-center justify-center rounded-md border transition-all ${
+                    checked
+                      ? 'border-brand-primary bg-brand-primary text-white'
+                      : 'border-slate-600 bg-black/20 text-transparent hover:border-brand-primary/50'
+                  }`}
+                >
+                  <Check size={12} />
+                </div>
+                <div className="flex gap-1.5">
+                  <IconButton title="Edit lagu" onClick={() => onEditSong(song)}>
+                    <Edit3 size={14} />
+                  </IconButton>
+                  <IconButton title="Duplicate" onClick={() => onDuplicateSong(song)}>
+                    <Copy size={14} />
+                  </IconButton>
+                  <IconButton title="Delete" onClick={() => onDeleteSong(song)} danger>
+                    <Trash2 size={14} />
+                  </IconButton>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-bold text-slate-400">
+                  {song.hymnal_name || 'Library'}
+                </span>
+                <span className="text-xs font-bold text-slate-300 px-1.5 py-0.5 rounded bg-black/20 border border-white/[0.05]">
+                  {song.number}
+                </span>
+              </div>
+
+              <h3 className="text-sm font-semibold text-white truncate">{song.title}</h3>
+              <p className="text-xs text-slate-400 truncate mb-3">
+                {song.alternate_title || song.title_en || 'Tanpa subtitle'}
+              </p>
+
+              <div className="mt-auto flex items-center justify-between">
+                <StatusBadge status={status} />
+                <div className="flex items-center gap-1.5">
+                  {song.key_note && (
+                    <span className="rounded-md bg-purple-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-purple-200">
+                      {song.key_note}
+                    </span>
+                  )}
+                  {song.tempo && (
+                    <span className="rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
+                      {song.tempo}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // Virtualized Table View
+  return (
+    <div
+      className="management-browser__stack"
+      style={{
+        height: `${rowVirtualizer.getTotalSize()}px`,
+        width: '100%',
+        position: 'relative'
+      }}
+    >
+      {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+        const song = filteredSongs[virtualRow.index]
+        if (!song) return null
+
+        return (
+          <MemoizedTableSongRow
+            key={virtualRow.key}
+            song={song}
+            status={getSongStatus(song)}
+            isSelected={selectedSong?.id === song.id}
+            isChecked={selectedSongIds.has(song.id)}
+            hymnalName={song.hymnal_name || selectedHymnal?.name || 'Library'}
+            virtualRowSize={virtualRow.size}
+            virtualRowStart={virtualRow.start}
+            onSelectSong={onSelectSong}
+            onEditSong={onEditSong}
+            onDuplicateSong={onDuplicateSong}
+            onDeleteSong={onDeleteSong}
+            onToggleSelection={onToggleSelection}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
 export function ManagementMode(): React.JSX.Element {
   const {
     setScreen,
@@ -241,6 +511,7 @@ export function ManagementMode(): React.JSX.Element {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | StatusTone>('all')
   const [sortMode, setSortMode] = useState<'number' | 'title' | 'updated'>('number')
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
   const [selectedSongId, setSelectedSongId] = useState<number | null>(null)
   const [selectedSongIds, setSelectedSongIds] = useState<Set<number>>(new Set())
   const [isBulkBackgroundDialogOpen, setIsBulkBackgroundDialogOpen] = useState(false)
@@ -255,8 +526,11 @@ export function ManagementMode(): React.JSX.Element {
   const [mediaAssets, setMediaAssets] = useState<MediaAssetRecord[]>([])
   const [mediaCollections, setMediaCollections] = useState<MediaCollectionRecord[]>([])
   const [showNewHymnalDialog, setShowNewHymnalDialog] = useState(false)
-  const [isImportingJson, setIsImportingJson] = useState(false)
   const [isFocusWorkspace, setIsFocusWorkspace] = useState(false)
+  // DUI-006: Real storage stats
+  const [storageStats, setStorageStats] = useState<{ dbSizeMB: string; memoryMB: string } | null>(
+    null
+  )
   const [newHymnalData, setNewHymnalData] = useState({
     code: '',
     name: '',
@@ -264,10 +538,24 @@ export function ManagementMode(): React.JSX.Element {
     publisher: ''
   })
   const jsonInputRef = useRef<HTMLInputElement | null>(null)
+  const tableParentRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     loadHymnals()
   }, [loadHymnals])
+
+  // DUI-006: Fetch real storage stats on mount
+  useEffect(() => {
+    window.api.system
+      .getStorageStats()
+      .then((stats) => {
+        const s = stats as { dbSizeMB: string; memoryMB: string }
+        setStorageStats(s)
+      })
+      .catch(() => {
+        // silently ignore — fallback to placeholder
+      })
+  }, [])
 
   useEffect(() => {
     Promise.all([window.api.media.getAll(), window.api.media.getCollections()])
@@ -413,16 +701,41 @@ export function ManagementMode(): React.JSX.Element {
     if (!selectedSong && selectedSongId) setSelectedSongId(null)
   }, [selectedSong, selectedSongId])
 
-  const metrics: MetricCard[] = useMemo(
-    () => [
+  const [now] = useState<number>(() => Date.now())
+
+  const metrics: MetricCard[] = useMemo(() => {
+    // Generate trend data based on updated_at dates (last 7 days of activity)
+    const dayMs = 24 * 60 * 60 * 1000
+    const activityByDay = new Array(7).fill(0)
+
+    songs.forEach((song) => {
+      if (!song.updated_at) return
+      const diffDays = Math.floor((now - new Date(song.updated_at).getTime()) / dayMs)
+      if (diffDays >= 0 && diffDays < 7) {
+        // Reverse index: 6 is today, 0 is 6 days ago
+        activityByDay[6 - diffDays]++
+      }
+    })
+
+    // Normalize for bars (0-100)
+    const maxActivity = Math.max(...activityByDay, 10) // prevent division by zero
+    const songTrendBars = activityByDay.map((count) =>
+      Math.max(15, Math.round((count / maxActivity) * 100))
+    )
+
+    // Generate deterministic variations for other metrics based on base trend
+    const shiftBars = (bars: number[], shift: number): number[] =>
+      bars.map((b, i) => Math.max(10, Math.min(100, b + Math.sin(i * 1.5 + shift) * 20)))
+
+    return [
       {
         label: 'Total Lagu',
         value: formatNumber(songs.length),
-        meta: `+${Math.max(0, Math.round(songs.length * 0.02))} bulan ini`,
+        meta: `+${activityByDay.reduce((a, b) => a + b, 0)} minggu ini`,
         tone: 'from-blue-400 to-cyan-300',
         icon: <Music2 size={20} />,
-        trend: '+12%',
-        bars: [38, 54, 42, 68, 58, 78, 86]
+        trend: 'aktif',
+        bars: songTrendBars
       },
       {
         label: 'Buku Lagu',
@@ -430,8 +743,8 @@ export function ManagementMode(): React.JSX.Element {
         meta: `${hymnals.filter((h) => h.is_official === 1).length} koleksi resmi`,
         tone: 'from-violet-400 to-purple-300',
         icon: <BookOpen size={20} />,
-        trend: 'aktif',
-        bars: [42, 45, 48, 48, 54, 60, 62]
+        trend: 'stabil',
+        bars: shiftBars(songTrendBars, 1)
       },
       {
         label: 'Penulis / Komposer',
@@ -440,7 +753,7 @@ export function ManagementMode(): React.JSX.Element {
         tone: 'from-purple-400 to-fuchsia-300',
         icon: <Pencil size={20} />,
         trend: 'curated',
-        bars: [22, 38, 48, 64, 55, 70, 76]
+        bars: shiftBars(songTrendBars, 2)
       },
       {
         label: 'Tema',
@@ -449,7 +762,7 @@ export function ManagementMode(): React.JSX.Element {
         tone: 'from-orange-400 to-amber-300',
         icon: <Tag size={20} />,
         trend: 'tagged',
-        bars: [28, 42, 38, 52, 48, 58, 62]
+        bars: shiftBars(songTrendBars, 3)
       },
       {
         label: 'Total Lirik',
@@ -458,20 +771,19 @@ export function ManagementMode(): React.JSX.Element {
         tone: 'from-cyan-400 to-blue-300',
         icon: <FileText size={20} />,
         trend: `${songStats.statuses.draft} draft`,
-        bars: [28, 44, 52, 58, 66, 74, 82]
+        bars: shiftBars(songTrendBars, 4)
       },
       {
         label: 'Penyimpanan',
-        value: '28.4 GB',
-        meta: '28% dari 100 GB',
+        value: storageStats ? `${storageStats.dbSizeMB} MB` : '—',
+        meta: storageStats ? `RAM: ${storageStats.memoryMB} MB` : 'Memuat...',
         tone: 'from-emerald-400 to-teal-300',
         icon: <Database size={20} />,
         trend: 'stable',
-        bars: [18, 24, 32, 36, 42, 48, 52]
+        bars: shiftBars(songTrendBars, 5)
       }
-    ],
-    [hymnals, songStats, songs.length]
-  )
+    ]
+  }, [now, songs, hymnals, songStats, storageStats])
 
   const handleAddNewSong = useCallback((): void => {
     if (!selectedHymnalId) {
@@ -490,9 +802,40 @@ export function ManagementMode(): React.JSX.Element {
     [setEditingSong, setScreen]
   )
 
+  const handleDuplicateSong = useCallback(
+    async (song: Song): Promise<void> => {
+      const confirmed = await useModalStore
+        .getState()
+        .openAsync<boolean>('confirm-duplicate-song', 'confirm', {
+          title: `Duplikat Lagu?`,
+          description: `Buat salinan untuk "${song.number} - ${song.title}"?`,
+          confirmLabel: 'Duplikat',
+          danger: false
+        })
+      if (!confirmed) return
+      try {
+        await window.api.songs.duplicate(song.id)
+        await loadSongs(selectedHymnalId || undefined)
+        showToast('Lagu berhasil diduplikat', 'success')
+      } catch (err) {
+        logger.error('Failed to duplicate song:', err)
+        showToast('Gagal menduplikat lagu', 'error')
+      }
+    },
+    [loadSongs, selectedHymnalId, showToast]
+  )
+
   const handleDeleteSong = useCallback(
     async (song: Song): Promise<void> => {
-      if (!confirm(`Hapus lagu "${song.number} - ${song.title}"?`)) return
+      const confirmed = await useModalStore
+        .getState()
+        .openAsync<boolean>('confirm-delete-song', 'confirm', {
+          title: `Hapus Lagu?`,
+          description: `"${song.number} - ${song.title}" akan dihapus permanen dari database.`,
+          confirmLabel: 'Hapus',
+          danger: true
+        })
+      if (!confirmed) return
       try {
         await window.api.songs.delete(song.id)
         setSelectedSongIds((prev) => {
@@ -513,7 +856,16 @@ export function ManagementMode(): React.JSX.Element {
 
   const handleBulkDelete = useCallback(async (): Promise<void> => {
     if (selectedSongIds.size === 0) return
-    if (!confirm(`Hapus ${selectedSongIds.size} lagu yang dipilih?`)) return
+    const confirmed = await useModalStore
+      .getState()
+      .openAsync<boolean>('confirm-bulk-delete', 'confirm', {
+        title: `Hapus ${selectedSongIds.size} Lagu?`,
+        description: `${selectedSongIds.size} lagu yang dipilih akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`,
+        confirmLabel: 'Hapus Semua',
+        danger: true
+      })
+    if (!confirmed) return
+    const countToDelete = selectedSongIds.size
     try {
       for (const id of selectedSongIds) {
         await window.api.songs.delete(id)
@@ -521,12 +873,40 @@ export function ManagementMode(): React.JSX.Element {
       setSelectedSongIds(new Set())
       setSelectedSongId(null)
       await loadSongs(selectedHymnalId || undefined)
-      showToast(`${selectedSongIds.size} lagu berhasil dihapus`, 'success')
+      showToast(`${countToDelete} lagu berhasil dihapus`, 'success')
     } catch (err) {
       logger.error('Bulk delete failed:', err)
       showToast('Gagal menghapus lagu', 'error')
     }
   }, [loadSongs, selectedHymnalId, selectedSongIds, showToast])
+
+  /** Bulk set category/tags on selected songs */
+  const handleBulkSetCategory = useCallback(
+    async (category: string): Promise<void> => {
+      const songIds = Array.from(selectedSongIds)
+      if (songIds.length === 0) return
+      try {
+        for (const id of songIds) {
+          await window.api.songs.update(id, { category })
+        }
+        await loadSongs(selectedHymnalId || undefined)
+        showToast(`Kategori "${category}" diterapkan ke ${songIds.length} lagu`, 'success')
+      } catch (err) {
+        logger.error('Bulk category failed:', err)
+        showToast('Gagal mengubah kategori', 'error')
+      }
+    },
+    [loadSongs, selectedHymnalId, selectedSongIds, showToast]
+  )
+
+  /** Bulk export selected songs as JSON */
+  const handleBulkExportSelected = useCallback(async (): Promise<void> => {
+    const songIds = Array.from(selectedSongIds)
+    if (songIds.length === 0) return
+    const exportSongs = songs.filter((song) => songIds.includes(song.id))
+
+    useModalStore.getState().open('export-songs', 'export-song', { songs: exportSongs })
+  }, [selectedSongIds, songs])
 
   const handleApplyBulkBackground = useCallback(async (): Promise<void> => {
     const songIds = Array.from(selectedSongIds)
@@ -620,37 +1000,19 @@ export function ManagementMode(): React.JSX.Element {
         showToast('Pilih buku lagu target sebelum import JSON', 'error')
         return
       }
-      setIsImportingJson(true)
+
       try {
-        const raw = await file.text()
-        const parsed = JSON.parse(raw) as unknown
-        const items = Array.isArray(parsed)
-          ? parsed
-          : parsed &&
-              typeof parsed === 'object' &&
-              Array.isArray((parsed as { songs?: unknown[] }).songs)
-            ? (parsed as { songs: unknown[] }).songs
-            : []
-        if (items.length === 0) {
-          showToast('Format JSON tidak berisi daftar lagu', 'error')
-          return
-        }
-        const report = await window.api.songs.importJson({
-          items,
-          defaultHymnalId: selectedHymnalId,
-          conflictPolicy: 'skip',
-          dryRun: false
+        const rawText = await file.text()
+        useModalStore.getState().open('import-progress', 'import-progress', {
+          rawText,
+          targetHymnalId: selectedHymnalId
         })
-        await loadSongs(selectedHymnalId)
-        showToast(`Import selesai: ${report.inserted} baru, ${report.skipped} dilewati`, 'success')
       } catch (err) {
-        logger.error('JSON import failed:', err)
-        showToast('Import JSON gagal', 'error')
-      } finally {
-        setIsImportingJson(false)
+        logger.error('Failed to read JSON file:', err)
+        showToast('Gagal membaca file JSON', 'error')
       }
     },
-    [loadSongs, selectedHymnalId, showToast]
+    [selectedHymnalId, showToast]
   )
 
   const handleExportData = useCallback(async (): Promise<void> => {
@@ -706,10 +1068,17 @@ export function ManagementMode(): React.JSX.Element {
           <div className="management-studio__heading">
             <div className="management-studio__eyebrow">
               <Layers3 size={14} />
-              Worship Content Operations Studio
+              Content Operations
             </div>
-            <h1>Dashboard</h1>
-            <p>Kelola lagu, lirik, hymnals, metadata, review, publishing, dan operasi konten.</p>
+            <h1>Dashboard Management</h1>
+            <p>
+              Kelola koleksi lagu, metadata, import, dan validasi database dalam satu workspace.
+            </p>
+            <div className="management-studio__hero-metrics">
+              <span>{formatNumber(songs.length)} lagu</span>
+              <span>{songStats.coverage}% publish coverage</span>
+              <span>{formatNumber(filteredSongs.length)} hasil aktif</span>
+            </div>
           </div>
 
           <div className="management-studio__actions">
@@ -724,7 +1093,6 @@ export function ManagementMode(): React.JSX.Element {
             <button
               type="button"
               onClick={() => setScreen('import-export')}
-              disabled={isImportingJson}
               className="management-action"
             >
               <UploadCloud size={16} />
@@ -739,9 +1107,17 @@ export function ManagementMode(): React.JSX.Element {
               <FileJson size={16} />
               Import JSON
             </button>
+            <button
+              type="button"
+              onClick={() => useModalStore.getState().open('integrity-check', 'integrity-check')}
+              className="management-action"
+            >
+              <Database size={16} />
+              Integritas
+            </button>
             <button type="button" onClick={handleExportData} className="management-action">
               <Download size={16} />
-              Export Data
+              Export
             </button>
             <IconButton title="More actions">
               <MoreHorizontal size={17} />
@@ -760,16 +1136,18 @@ export function ManagementMode(): React.JSX.Element {
         <section className="management-summary-grid">
           {metrics.slice(0, 6).map((metric) => (
             <Surface key={metric.label} className="management-summary-card">
-              <div className="management-summary-card__top">
-                <div className={`management-summary-card__icon bg-gradient-to-br ${metric.tone}`}>
-                  {metric.icon}
-                </div>
-                <MiniBars values={metric.bars} tone={metric.tone} />
+              <div className={`management-summary-card__icon bg-gradient-to-br ${metric.tone}`}>
+                {metric.icon}
               </div>
-              <div className="management-summary-card__label">{metric.label}</div>
-              <div className="management-summary-card__value-row">
-                <div className="management-summary-card__value">{metric.value}</div>
-                <span>{metric.trend}</span>
+              <div className="management-summary-card__content">
+                <div className="management-summary-card__label">{metric.label}</div>
+                <div className="management-summary-card__value-row">
+                  <div className="management-summary-card__value">{metric.value}</div>
+                  <span>{metric.trend}</span>
+                </div>
+              </div>
+              <div className="management-summary-card__sparkline">
+                <MiniBars values={metric.bars} tone={metric.tone} />
               </div>
               <div className="management-summary-card__meta">{metric.meta}</div>
             </Surface>
@@ -777,10 +1155,10 @@ export function ManagementMode(): React.JSX.Element {
         </section>
 
         <main className="management-workspace-grid">
-          <section className="flex min-h-0 flex-col gap-4">
+          <section className="management-list-stack flex min-h-0 flex-col">
             <Surface className="management-command-bar">
               <div className="management-command-bar__inner">
-                <div className="flex min-w-0 items-center gap-2">
+                <div className="management-command-bar__primary">
                   <div className="management-segmented">
                     {(['all', 'draft', 'review', 'published'] as Array<'all' | StatusTone>).map(
                       (status) => (
@@ -804,22 +1182,14 @@ export function ManagementMode(): React.JSX.Element {
                   </IconButton>
                 </div>
 
-                <div className="flex min-w-0 items-center justify-end gap-2">
-                  <select
-                    value={selectedHymnalId ?? ''}
-                    onChange={(event) => setSelectedHymnalId(Number(event.target.value) || null)}
-                    className="management-select max-w-[210px]"
-                  >
-                    {hymnals.map((hymnal) => (
-                      <option key={hymnal.id} value={hymnal.id}>
-                        {hymnal.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button className="management-action management-action--compact">
-                    <Filter size={15} />
-                    Filter
-                  </button>
+                <div className="management-command-bar__filters">
+                  <HymnalFilterDropdown
+                    hymnals={hymnals}
+                    selectedId={selectedHymnalId}
+                    className="management-hymnal-filter"
+                    onChange={(id) => setSelectedHymnalId(id)}
+                  />
+
                   <div className="management-search">
                     <Search
                       size={15}
@@ -829,7 +1199,7 @@ export function ManagementMode(): React.JSX.Element {
                       id="song-search-input"
                       value={searchQuery}
                       onChange={(event) => setSearchQuery(event.target.value)}
-                      placeholder="Cari judul, nomor, penulis..."
+                      placeholder="Cari judul atau nomor..."
                       className="management-search__input"
                     />
                     {searchQuery && (
@@ -853,8 +1223,11 @@ export function ManagementMode(): React.JSX.Element {
                     <option value="title">Sort: Judul</option>
                     <option value="updated">Sort: Terbaru</option>
                   </select>
-                  <IconButton title="Layout toggle">
-                    <Grid2X2 size={16} />
+                  <IconButton
+                    title="Layout toggle"
+                    onClick={() => setViewMode((v) => (v === 'table' ? 'grid' : 'table'))}
+                  >
+                    {viewMode === 'table' ? <Grid2X2 size={16} /> : <List size={16} />}
                   </IconButton>
                 </div>
               </div>
@@ -865,8 +1238,7 @@ export function ManagementMode(): React.JSX.Element {
                 <div>
                   <h2>Daftar Lagu</h2>
                   <p>
-                    Menampilkan {formatNumber(filteredSongs.length)} dari{' '}
-                    {formatNumber(songs.length)} lagu
+                    {formatNumber(filteredSongs.length)} dari {formatNumber(songs.length)} lagu
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -876,6 +1248,7 @@ export function ManagementMode(): React.JSX.Element {
                         type="button"
                         onClick={() => setSelectedSongIds(new Set())}
                         className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-400 hover:bg-white/[0.05] hover:text-white"
+                        aria-label={`Deselect ${selectedSongIds.size} lagu`}
                       >
                         Clear {selectedSongIds.size}
                       </button>
@@ -887,6 +1260,32 @@ export function ManagementMode(): React.JSX.Element {
                         }}
                       >
                         <Layers3 size={15} />
+                      </IconButton>
+                      <select
+                        className="management-select text-[11px] max-w-[140px]"
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value) void handleBulkSetCategory(e.target.value)
+                        }}
+                        aria-label="Bulk set category"
+                      >
+                        <option value="" disabled>
+                          Set Kategori
+                        </option>
+                        <option value="Pujian">Pujian</option>
+                        <option value="Penyembahan">Penyembahan</option>
+                        <option value="Pembukaan">Pembukaan</option>
+                        <option value="Penutupan">Penutupan</option>
+                        <option value="Natal">Natal</option>
+                        <option value="Paskah">Paskah</option>
+                        <option value="Anak">Anak</option>
+                        <option value="Umum">Umum</option>
+                      </select>
+                      <IconButton
+                        title="Export selected songs"
+                        onClick={() => void handleBulkExportSelected()}
+                      >
+                        <Download size={15} />
                       </IconButton>
                       <IconButton title="Delete selected" onClick={handleBulkDelete} danger>
                         <Trash2 size={15} />
@@ -902,17 +1301,19 @@ export function ManagementMode(): React.JSX.Element {
                 </div>
               </div>
 
-              <div className="management-browser__columns">
-                <span />
-                <span>No</span>
-                <span>Judul Lagu</span>
-                <span>Buku Lagu</span>
-                <span>Status</span>
-                <span>Metadata</span>
-                <span className="text-right">Aksi</span>
-              </div>
+              {viewMode === 'table' && (
+                <div className="management-browser__columns">
+                  <span />
+                  <span>No</span>
+                  <span>Judul Lagu</span>
+                  <span>Buku Lagu</span>
+                  <span>Status</span>
+                  <span>Metadata</span>
+                  <span className="text-right">Aksi</span>
+                </div>
+              )}
 
-              <div className="management-browser__viewport">
+              <div className="management-browser__viewport" ref={tableParentRef}>
                 {filteredSongs.length === 0 ? (
                   <div className="flex h-full items-center justify-center">
                     <div className="max-w-sm text-center">
@@ -926,104 +1327,33 @@ export function ManagementMode(): React.JSX.Element {
                     </div>
                   </div>
                 ) : (
-                  <div className="management-browser__stack">
-                    {filteredSongs.map((song) => {
-                      const status = getSongStatus(song)
-                      const isSelected = selectedSong?.id === song.id
-                      const checked = selectedSongIds.has(song.id)
-                      return (
-                        <div
-                          key={song.id}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => setSelectedSongId(song.id)}
-                          onDoubleClick={() => handleEditSong(song)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter') handleEditSong(song)
-                            if (event.key === ' ') {
-                              event.preventDefault()
-                              setSelectedSongId(song.id)
-                            }
-                          }}
-                          className={`management-browser__row ${isSelected ? 'is-selected' : ''}`}
-                        >
-                          <span
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              toggleSongSelection(song.id)
-                            }}
-                            className={`flex h-5 w-5 items-center justify-center rounded-md border transition-all ${
-                              checked
-                                ? 'border-blue-400 bg-blue-500 text-white'
-                                : 'border-slate-600 bg-black/20 text-transparent hover:border-blue-400/50'
-                            }`}
-                          >
-                            <Check size={12} />
-                          </span>
-                          <span className="text-sm font-semibold text-slate-200">
-                            {song.number}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm font-semibold text-white">
-                              {song.title}
-                            </span>
-                            <span className="mt-0.5 block truncate text-xs text-slate-500">
-                              {song.alternate_title || song.title_en || 'Tanpa subtitle'}
-                            </span>
-                          </span>
-                          <span className="truncate text-xs font-medium text-slate-400">
-                            {song.hymnal_name || selectedHymnal?.name || 'Library'}
-                          </span>
-                          <StatusBadge status={status} />
-                          <span className="flex items-center gap-1.5">
-                            {song.key_note && (
-                              <span className="rounded-md bg-purple-400/10 px-2 py-1 text-[11px] font-semibold text-purple-200">
-                                {song.key_note}
-                              </span>
-                            )}
-                            {song.tempo && (
-                              <span className="rounded-md bg-white/[0.04] px-2 py-1 text-[11px] font-semibold text-slate-400">
-                                {song.tempo}
-                              </span>
-                            )}
-                          </span>
-                          <span className="flex justify-end gap-1.5">
-                            <IconButton title="Edit lagu" onClick={() => handleEditSong(song)}>
-                              <Edit3 size={14} />
-                            </IconButton>
-                            <IconButton title="Duplicate">
-                              <Copy size={14} />
-                            </IconButton>
-                            <IconButton
-                              title="Delete"
-                              onClick={() => handleDeleteSong(song)}
-                              danger
-                            >
-                              <Trash2 size={14} />
-                            </IconButton>
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
+                  <VirtualizedSongList
+                    filteredSongs={filteredSongs}
+                    viewMode={viewMode}
+                    selectedSong={selectedSong}
+                    selectedSongIds={selectedSongIds}
+                    selectedHymnal={selectedHymnal}
+                    parentRef={tableParentRef}
+                    onSelectSong={setSelectedSongId}
+                    onEditSong={handleEditSong}
+                    onDuplicateSong={handleDuplicateSong}
+                    onDeleteSong={handleDeleteSong}
+                    onToggleSelection={toggleSongSelection}
+                  />
                 )}
               </div>
               <div className="management-browser__footer">
                 <span>
-                  Menampilkan 1-{Math.min(filteredSongs.length, 25)} dari{' '}
-                  {formatNumber(filteredSongs.length)} lagu
+                  {formatNumber(filteredSongs.length)} lagu dalam hasil aktif
+                  {selectedSongIds.size > 0
+                    ? ` - ${formatNumber(selectedSongIds.size)} dipilih`
+                    : ''}
                 </span>
                 <div className="flex items-center gap-2">
-                  <button className="h-8 rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 text-slate-400 transition-all hover:bg-white/[0.06] hover:text-white">
-                    1
-                  </button>
-                  <span>2</span>
-                  <span>3</span>
-                  <span>...</span>
-                  <select className="h-8 rounded-lg border border-white/[0.07] bg-bg-base px-2 text-slate-300 outline-none">
-                    <option>25 / halaman</option>
-                    <option>50 / halaman</option>
-                  </select>
+                  <span>{viewMode === 'table' ? 'Virtual table' : 'Grid view'}</span>
+                  <span>
+                    {sortMode === 'number' ? 'Nomor' : sortMode === 'title' ? 'Judul' : 'Terbaru'}
+                  </span>
                 </div>
               </div>
             </Surface>
@@ -1186,23 +1516,42 @@ export function ManagementMode(): React.JSX.Element {
                   </div>
 
                   <div className="management-inspector__quick-actions">
-                    {[
-                      ['Open Lyrics', Maximize2],
-                      ['Add Playlist', Plus],
-                      ['Duplicate', Copy],
-                      ['History', History]
-                    ].map(([label, Icon]) => {
-                      const LucideIcon = Icon as typeof Maximize2
-                      return (
-                        <button
-                          key={label as string}
-                          className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] text-xs font-semibold text-slate-300 transition-all hover:border-blue-400/25 hover:bg-blue-500/10 hover:text-white"
-                        >
-                          <LucideIcon size={14} />
-                          {label as string}
-                        </button>
-                      )
-                    })}
+                    <button
+                      onClick={() => useModeStore.getState().setMode('PROJECTION')}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] text-xs font-semibold text-slate-300 transition-all hover:border-blue-400/25 hover:bg-blue-500/10 hover:text-white"
+                    >
+                      <Maximize2 size={14} />
+                      Open Lyrics
+                    </button>
+                    <button
+                      onClick={() =>
+                        useModalStore.getState().open('playlist-picker', 'playlist-picker')
+                      }
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] text-xs font-semibold text-slate-300 transition-all hover:border-blue-400/25 hover:bg-blue-500/10 hover:text-white"
+                    >
+                      <Plus size={14} />
+                      Add Playlist
+                    </button>
+                    <button
+                      onClick={() =>
+                        useModalStore
+                          .getState()
+                          .open('duplicate-song', 'duplicate-song', { song: selectedSong })
+                      }
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] text-xs font-semibold text-slate-300 transition-all hover:border-blue-400/25 hover:bg-blue-500/10 hover:text-white"
+                    >
+                      <Copy size={14} />
+                      Duplicate
+                    </button>
+                    <button
+                      onClick={() =>
+                        useModalStore.getState().open('song-relations', 'song-relations')
+                      }
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] text-xs font-semibold text-slate-300 transition-all hover:border-blue-400/25 hover:bg-blue-500/10 hover:text-white"
+                    >
+                      <History size={14} />
+                      History
+                    </button>
                   </div>
                 </div>
               ) : (

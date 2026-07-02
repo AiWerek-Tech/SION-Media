@@ -17,7 +17,7 @@ export const DEFAULT_READABILITY = {
 
 export const DEFAULT_GLOBAL_ATMOSPHERE: AtmosphereConfig = {
   id: 'global-default',
-  name: 'Deep Navy Worship',
+  name: 'Sabat Teduh',
   mode: 'gradient',
   gradient: {
     kind: 'aurora',
@@ -45,11 +45,11 @@ export const DEFAULT_GLOBAL_ATMOSPHERE: AtmosphereConfig = {
 export const DEFAULT_SCENE_PRESETS: AtmosphereScenePreset[] = [
   {
     id: 'worship',
-    name: 'Worship',
-    description: 'Deep cinematic atmosphere for congregational worship.',
+    name: 'Sabat Penciptaan',
+    description: 'Nuansa Sabat yang tenang untuk pujian jemaat dan penyembahan.',
     config: {
       id: 'scene-worship',
-      name: 'Worship',
+      name: 'Sabat Penciptaan',
       mode: 'gradient',
       gradient: {
         kind: 'aurora',
@@ -63,18 +63,18 @@ export const DEFAULT_SCENE_PRESETS: AtmosphereScenePreset[] = [
           { color: '#0ea5e9', position: 100 }
         ]
       },
-      motion: { preset: 'aurora', intensity: 0.42, speed: 0.48, tint: '#38bdf8' },
+      motion: { preset: 'sabbath-dawn', intensity: 0.42, speed: 0.48, tint: '#38bdf8' },
       overlay: { ...DEFAULT_OVERLAY, dim: 0.58 },
       readability: { ...DEFAULT_READABILITY }
     }
   },
   {
     id: 'prayer',
-    name: 'Prayer',
-    description: 'Low-distraction dark ambience with safer readability.',
+    name: 'Doa di Bilik Suci',
+    description: 'Latar rendah distraksi untuk doa, komitmen, dan momen teduh.',
     config: {
       id: 'scene-prayer',
-      name: 'Prayer',
+      name: 'Doa di Bilik Suci',
       mode: 'gradient',
       gradient: {
         kind: 'radial',
@@ -86,32 +86,32 @@ export const DEFAULT_SCENE_PRESETS: AtmosphereScenePreset[] = [
           { color: '#020617', position: 100 }
         ]
       },
-      motion: { preset: 'cinematic-haze', intensity: 0.18, speed: 0.28, tint: '#94a3b8' },
+      motion: { preset: 'sanctuary-light', intensity: 0.18, speed: 0.28, tint: '#94a3b8' },
       overlay: { ...DEFAULT_OVERLAY, dim: 0.66, glow: 0.06, textShieldOpacity: 0.3 },
       readability: { ...DEFAULT_READABILITY, contrastBoost: 0.24 }
     }
   },
   {
     id: 'sermon',
-    name: 'Sermon',
-    description: 'Calm neutral background for high text clarity.',
+    name: 'Firman yang Hidup',
+    description: 'Background netral untuk khotbah dan pembacaan Firman yang jelas.',
     config: {
       id: 'scene-sermon',
-      name: 'Sermon',
+      name: 'Firman yang Hidup',
       mode: 'solid',
       solidColor: '#0f172a',
-      motion: { preset: 'soft-particles', intensity: 0.12, speed: 0.18, tint: '#cbd5e1' },
+      motion: { preset: 'scripture-glow', intensity: 0.12, speed: 0.18, tint: '#cbd5e1' },
       overlay: { ...DEFAULT_OVERLAY, dim: 0.62, glow: 0.04, textShieldOpacity: 0.34 },
       readability: { ...DEFAULT_READABILITY, contrastBoost: 0.28 }
     }
   },
   {
     id: 'announcement',
-    name: 'Announcement',
-    description: 'Balanced presentation look for information-heavy moments.',
+    name: 'Pekabaran Tiga Malaikat',
+    description: 'Tampilan informatif untuk warta, pengumuman, dan panggilan pelayanan.',
     config: {
       id: 'scene-announcement',
-      name: 'Announcement',
+      name: 'Pekabaran Tiga Malaikat',
       mode: 'gradient',
       gradient: {
         kind: 'linear',
@@ -123,18 +123,18 @@ export const DEFAULT_SCENE_PRESETS: AtmosphereScenePreset[] = [
           { color: '#0f766e', position: 100 }
         ]
       },
-      motion: { preset: 'animated-gradient', intensity: 0.14, speed: 0.22, tint: '#5eead4' },
+      motion: { preset: 'three-angels', intensity: 0.14, speed: 0.22, tint: '#5eead4' },
       overlay: { ...DEFAULT_OVERLAY, dim: 0.52, vignette: 0.18 },
       readability: { ...DEFAULT_READABILITY, contrastBoost: 0.2 }
     }
   },
   {
     id: 'communion',
-    name: 'Communion',
-    description: 'Warm reverent ambience for reflective and sacred moments.',
+    name: 'Perjamuan Perjanjian',
+    description: 'Nuansa hangat dan hormat untuk perjamuan kudus dan refleksi.',
     config: {
       id: 'scene-communion',
-      name: 'Communion',
+      name: 'Perjamuan Perjanjian',
       mode: 'gradient',
       gradient: {
         kind: 'linear',
@@ -155,11 +155,11 @@ export const DEFAULT_SCENE_PRESETS: AtmosphereScenePreset[] = [
   },
   {
     id: 'baptism',
-    name: 'Baptism',
-    description: 'Fresh water-toned atmosphere with calm uplifting movement.',
+    name: 'Baptisan Hidup Baru',
+    description: 'Gerak air yang lembut untuk baptisan dan respons iman.',
     config: {
       id: 'scene-baptism',
-      name: 'Baptism',
+      name: 'Baptisan Hidup Baru',
       mode: 'gradient',
       gradient: {
         kind: 'aurora',
@@ -173,9 +173,35 @@ export const DEFAULT_SCENE_PRESETS: AtmosphereScenePreset[] = [
           { color: '#67e8f9', position: 100 }
         ]
       },
-      motion: { preset: 'cloud-drift', intensity: 0.2, speed: 0.24, tint: '#7dd3fc' },
+      motion: { preset: 'living-water', intensity: 0.2, speed: 0.24, tint: '#7dd3fc' },
       overlay: { ...DEFAULT_OVERLAY, dim: 0.5, vignette: 0.16, textShieldOpacity: 0.24 },
       readability: { ...DEFAULT_READABILITY, contrastBoost: 0.2 }
+    }
+  },
+  {
+    id: 'second-advent',
+    name: 'Pengharapan Advent',
+    description: 'Cahaya bergerak yang agung untuk panggilan, penutupan, dan pengharapan.',
+    config: {
+      id: 'scene-second-advent',
+      name: 'Pengharapan Advent',
+      mode: 'motion',
+      solidColor: '#050816',
+      gradient: {
+        kind: 'linear',
+        angle: 160,
+        animated: true,
+        speed: 0.22,
+        stops: [
+          { color: '#050816', position: 0 },
+          { color: '#172554', position: 44 },
+          { color: '#b45309', position: 78 },
+          { color: '#fef3c7', position: 100 }
+        ]
+      },
+      motion: { preset: 'second-advent', intensity: 0.2, speed: 0.22, tint: '#fde68a' },
+      overlay: { ...DEFAULT_OVERLAY, dim: 0.57, glow: 0.16, textShieldOpacity: 0.3 },
+      readability: { ...DEFAULT_READABILITY, contrastBoost: 0.24 }
     }
   }
 ]

@@ -65,10 +65,13 @@ export const IPC_CONFIDENCE = {
 
 // ============================================================================
 // Display Info
+// FIX ARCH-04: standardised to colon-separated naming ('display:get-all').
+// The old underscore variant ('display_get-all') is kept as an alias in
+// ipc-handlers.ts for backward-compat but new code should use this constant.
 // ============================================================================
 
 export const IPC_DISPLAY = {
-  GET_ALL: 'display_get-all',
+  GET_ALL: 'display:get-all',
   IS_PROJECTION_VISIBLE: 'display:is-projection-visible',
   CHANGED: 'display:changed'
 } as const
@@ -181,4 +184,30 @@ export const IPC_SLIDES = {
   ADD_SLIDE_TO_GROUP: 'db:add-slide-to-group',
   REMOVE_SLIDE_FROM_GROUP: 'db:remove-slide-from-group',
   REORDER_GROUP_SLIDES: 'db:reorder-group-slides'
+} as const
+
+// ============================================================================
+// Content Pack Management
+// ============================================================================
+
+export const IPC_CONTENT_PACKS = {
+  SELECT_FOLDER: 'contentPacks:selectFolder',
+  PREVIEW_BIBLE_PACK: 'contentPacks:previewBiblePack',
+  INSTALL_BIBLE_PACK: 'contentPacks:installBiblePack',
+  LIST: 'contentPacks:list',
+  REMOVE: 'contentPacks:remove',
+  SET_DEFAULT: 'contentPacks:setDefault'
+} as const
+
+// ============================================================================
+// Bible Pack (External SQLite queries)
+// ============================================================================
+
+export const IPC_BIBLE_PACK = {
+  GET_VERSIONS: 'bible:versions:list',
+  GET_BOOKS: 'bible:books:list',
+  GET_CHAPTER: 'bible:chapter:get',
+  GET_VERSE_RANGE: 'bible:verseRange:get',
+  SEARCH: 'bible:search',
+  PARSE_REFERENCE: 'bible:reference:parse'
 } as const

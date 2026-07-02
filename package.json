@@ -1,19 +1,26 @@
 {
   "name": "sion-media",
-  "version": "1.0.0",
-  "description": "An Electron application with React and TypeScript",
+  "version": "1.0.0-beta.2",
+  "description": "Professional Worship Presentation System for Churches",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "AiWerek Tech",
+  "homepage": "https://aiwerek-tech.github.io/sion-media-web",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
-    "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.build.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
+    "verify": "node src/renderer/src/core/projection/verification/run-verification.js",
+    "verify:architecture": "node src/renderer/src/core/projection/architecture-policy-engine.js",
+    "verify:advanced": "RUN_ADVANCED_VERIFICATION=true npm run verify",
+    "verify:all": "npm run verify && npm run verify:architecture",
+    "ci:verify": "node src/renderer/src/core/projection/ci-verification-compiled.js",
+    "compile:policy": "node src/renderer/src/core/projection/policy-compiler.js",
+    "monitor:architecture": "node src/renderer/src/core/projection/architecture-shadow-monitor.js",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
@@ -37,8 +44,8 @@
     "lucide-react": "^1.14.0",
     "react-i18next": "^17.0.7",
     "react-resizable-panels": "^2.1.9",
+    "read-excel-file": "^9.2.0",
     "semver": "^7.8.0",
-    "xlsx": "^0.18.5",
     "zod": "^3.25.76",
     "zustand": "^5.0.13"
   },
@@ -64,6 +71,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
+    "fast-check": "^3.22.0",
     "jsdom": "^29.1.1",
     "prettier": "^3.7.4",
     "react": "^19.2.1",
@@ -71,29 +79,7 @@
     "tailwindcss": "^4.2.4",
     "typescript": "^5.9.3",
     "vite": "^7.2.6",
+    "vite-plugin-svgr": "^5.2.0",
     "vitest": "^3.2.4"
-  },
-  "build": {
-    "appId": "com.sion.media",
-    "productName": "SION Media",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "out/**/*",
-      "resources/**/*"
-    ],
-    "win": {
-      "target": "nsis",
-      "icon": "resources/icon.png"
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": true,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "SION Media"
-    }
   }
 }

@@ -18,6 +18,9 @@ import { setupIPC } from './ipc-handlers'
 import { setupIPCHealth } from './ipc-health'
 import { createMainWindow, createProjectionWindow } from './windows'
 import { setupDisplayMonitor } from './display-monitor'
+import { checkSafeMode, markStableStartup, isSafeMode } from './safe-mode'
+import { ensureContentPackDirectories } from './services/content-packs/contentPackPaths'
+import { closeAllBibleConnections } from './services/bible/bibleExternalSqliteRepository'
 
 process.on('uncaughtException', (err) => {
   console.error('[main] uncaughtException:', err)
@@ -28,15 +31,15 @@ process.on('unhandledRejection', (reason) => {
 })
 
 process.on('exit', (code) => {
-  console.error('[main] process exit', { code })
+  console.info('[main] process exit cleanly', { code })
 })
 
 app.on('before-quit', () => {
-  console.error('[main] before-quit')
+  console.info('[main] preparing to quit')
 })
 
 app.on('will-quit', () => {
-  console.error('[main] will-quit')
+  console.info('[main] application will quit')
 })
 
 if (is.dev) {
@@ -63,8 +66,14 @@ function clearDevChromiumCache(): void {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.sion.media')
+  electronApp.setAppUserModelId('com.aiwerek.sion-media')
   clearDevChromiumCache()
+
+  // Phase 4: Safe-mode crash-loop detection
+  const safeMode = checkSafeMode()
+  if (safeMode) {
+    console.warn('[main] ⚠️ Safe mode active — projection window disabled')
+  }
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
@@ -73,6 +82,11 @@ app.whenReady().then(() => {
   // Initialize database
   initDatabase()
 
+  // Ensure content pack directories exist
+  ensureContentPackDirectories()
+
+  // Note: Auto-backup feature is tracked under issue #SION-104 for future release
+
   // Setup IPC handlers
   setupIPC()
   setupIPCHealth()
@@ -80,19 +94,34 @@ app.whenReady().then(() => {
   // Setup display change monitoring
   setupDisplayMonitor()
 
-  // Create windows
+  // Create hidden main shell
   createMainWindow()
-  createProjectionWindow()
+  if (!isSafeMode()) {
+    createProjectionWindow()
+  }
+
+  // Phase 4: Mark stable startup after 10s of no crashes
+  setTimeout(() => {
+    markStableStartup()
+  }, 10_000)
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow()
-      createProjectionWindow()
+      if (!isSafeMode()) {
+        createProjectionWindow()
+      }
     }
   })
 })
 
 app.on('window-all-closed', () => {
+  // Close all external Bible SQLite connections
+  try {
+    closeAllBibleConnections()
+  } catch (error) {
+    console.error('Error closing Bible connections:', error)
+  }
   // Mark clean exit for crash recovery
   try {
     markCleanExit()

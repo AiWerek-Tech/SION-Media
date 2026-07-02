@@ -1,22 +1,45 @@
 import { useEffect } from 'react'
-import { useAppStore } from '../store/useAppStore'
-import { usePlaylistStore } from '../store/usePlaylistStore'
-import { logger } from '../utils/logger'
+import { useAppStore } from '@renderer/store/useAppStore'
+import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
+import { useBootStore } from '@renderer/startup/bootStore'
+import { logger } from '@renderer/utils/logger'
+import { setGlobalSlideConfig as setRendererGlobalSlideConfig } from '@renderer/engine/slideEngine'
 import {
   onRuntimeCommandRejected,
   registerCommandMetadata,
   subscribeToRuntimeEvents
-} from '../utils/runtimeCommandBus'
-import { registerCommandHandlers, registerCommandValidators } from '../utils/runtimeCommandHandlers'
-import { initHealthMonitor } from '../store/useHealthStore'
-import { UpdateService } from '../services/update-service'
+} from '@renderer/utils/runtimeCommandBus'
+import {
+  registerCommandHandlers,
+  registerCommandValidators
+} from '@renderer/utils/runtimeCommandHandlers'
+import { initHealthMonitor } from '@renderer/store/useHealthStore'
+import { UpdateService } from '@renderer/services/update-service'
+import {
+  initializeProjectionAdapter,
+  setGlobalSlideConfig as setCoreGlobalSlideConfig
+} from '@core/projection'
 
 export function useAppBootstrap(): void {
   const loadSongs = useAppStore((s) => s.loadSongs)
   const loadPlaylists = usePlaylistStore((s) => s.loadPlaylists)
   const setDisplayCount = useAppStore((s) => s.setDisplayCount)
+  const setProjectionVisible = useAppStore((s) => s.setProjectionVisible)
   const setLoading = useAppStore((s) => s.setLoading)
   const showToast = useAppStore((s) => s.showToast)
+
+  const registerTask = useBootStore((s) => s.registerTask)
+  const startTask = useBootStore((s) => s.startTask)
+  const completeTask = useBootStore((s) => s.completeTask)
+  const failTask = useBootStore((s) => s.failTask)
+  const setPhase = useBootStore((s) => s.setPhase)
+  const setBootStartAt = useBootStore((s) => s.setBootStartAt)
+  const recordMetric = useBootStore((s) => s.recordMetric)
+  const addTraceStep = useBootStore((s) => s.addTraceStep)
+  const persistBootTrace = useBootStore((s) => s.persistBootTrace)
+  const resetBootTrace = useBootStore((s) => s.resetBootTrace)
+  const safeMode = useBootStore((s) => s.safeMode)
+  const setSafeMode = useBootStore((s) => s.setSafeMode)
 
   useEffect(() => {
     let isMounted = true
@@ -24,64 +47,271 @@ export function useAppBootstrap(): void {
     let unsubscribeRuntimeEvents: (() => void) | undefined
     let unsubscribeRejections: (() => void) | undefined
     let unsubscribeHealth: (() => void) | undefined
+    let backgroundHandle: number | null = null
+
+    const scheduleIdle = (callback: () => void): number => {
+      return window.setTimeout(callback, 50)
+    }
+
+    const cancelIdle = (handle: number): void => {
+      window.clearTimeout(handle)
+    }
+
+    const runTask = async (
+      id: string,
+      label: string,
+      priority: 'critical' | 'optional' | 'background',
+      handler: () => Promise<void>,
+      timeoutMs = priority === 'critical' ? 12000 : priority === 'optional' ? 10000 : 8000
+    ): Promise<void> => {
+      registerTask({ id, label, priority })
+      addTraceStep(`TASK_START_${id}`, `${label} started`, priority, 'started')
+      startTask(id)
+      let timeoutHandle: number | null = null
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutHandle = window.setTimeout(() => {
+          reject(new Error(`Boot task timed out after ${timeoutMs}ms`))
+        }, timeoutMs)
+      })
+
+      try {
+        await Promise.race([handler(), timeoutPromise])
+        completeTask(id)
+        addTraceStep(`TASK_DONE_${id}`, `${label} completed`, priority, 'completed')
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err)
+        failTask(id, errorMessage)
+        addTraceStep(
+          `TASK_FAILED_${id}`,
+          `${label} failed`,
+          priority === 'critical' ? 'failed' : priority,
+          'failed',
+          errorMessage
+        )
+        logger.error(`[Boot] Task failed: ${id}`, err)
+        if (priority === 'critical') {
+          setPhase('failed')
+          setSafeMode(true)
+          persistBootTrace()
+          showToast(`Booting critical service failed: ${label}`, 'error')
+        }
+      } finally {
+        if (timeoutHandle !== null) {
+          window.clearTimeout(timeoutHandle)
+        }
+      }
+    }
 
     async function init(): Promise<void> {
+      console.log('[Boot] Starting init()...')
+      resetBootTrace()
+      const startTime = performance.now()
+      setBootStartAt(startTime)
+      setPhase('renderer')
+      addTraceStep('BOOTSTRAP_BEGIN', 'Bootstrap started', 'renderer', 'started')
+      console.log('[Boot] Checking native safe mode...')
+      const nativeSafeMode =
+        typeof window.api.app.isSafeMode === 'function' ? await window.api.app.isSafeMode() : false
+      console.log('[Boot] Native safe mode checked:', nativeSafeMode)
+      const activeSafeMode = safeMode || nativeSafeMode
+      if (activeSafeMode) {
+        setSafeMode(true)
+        addTraceStep('SAFE_MODE', 'Safe mode enabled for this startup', 'bootstrap', 'started')
+        showToast('Safe mode active: reduced startup workload enabled.', 'info')
+      }
+      recordMetric('coldStartMs', 0)
+      console.log('[Boot] Starting criticalBootstrap()...')
       try {
-        registerCommandHandlers()
-        registerCommandValidators()
-        registerCommandMetadata()
-
-        unsubscribeHealth = initHealthMonitor()
-
-        unsubscribeRuntimeEvents = subscribeToRuntimeEvents((evt) => {
-          const ts = new Date(evt.timestamp).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
+        const criticalBootstrap = async (): Promise<void> => {
+          setPhase('critical')
+          addTraceStep('CRITICAL_BOOT', 'Critical systems initializing', 'critical', 'started')
+          console.log('[Boot] Running task: ipc...')
+          await runTask('ipc', 'Initializing runtime engine', 'critical', async () => {
+            registerCommandHandlers()
+            registerCommandValidators()
+            registerCommandMetadata()
+            // FIX ARCH-CRITICAL: initialize projection adapter so all UI commands
+            // (PROJ_TAKE_CUE, PROJ_BLACK, NAV_NEXT_SLIDE, etc.) have registered
+            // handlers in the utils/runtimeCommandBus used by executeRuntimeCommand.
+            initializeProjectionAdapter()
           })
-          const duration = typeof evt.durationMs === 'number' ? `${evt.durationMs}ms` : ''
-          const error = evt.error ? ` | ${evt.error}` : ''
-          logger.info(
-            `[Runtime] ${ts} [${evt.command.source}] ${evt.command.type} -> ${evt.status} ${duration}${error}`
-          )
-        })
 
-        unsubscribeRejections = onRuntimeCommandRejected((evt) => {
-          if (evt.command.source !== 'KEYBOARD' && evt.command.source !== 'QUICK_JUMP') return
-          if (evt.status === 'BLOCKED') showToast(`Perintah ditolak: ${evt.error}`, 'info')
-          else if (evt.status === 'ERROR') showToast(`Gagal: ${evt.error}`, 'error')
-        })
+          unsubscribeHealth = initHealthMonitor()
 
-        await loadSongs()
-        await loadPlaylists()
-        if (!isMounted) return
+          unsubscribeRuntimeEvents = subscribeToRuntimeEvents((evt) => {
+            const ts = new Date(evt.timestamp).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit'
+            })
+            const duration = typeof evt.durationMs === 'number' ? `${evt.durationMs}ms` : ''
+            const error = evt.error ? ` | ${evt.error}` : ''
+            logger.info(
+              `[Runtime] ${ts} [${evt.command.source}] ${evt.command.type} -> ${evt.status} ${duration}${error}`
+            )
+          })
 
-        const displays = await window.api.display.getAll()
-        if (!isMounted) return
-        setDisplayCount(displays.length)
+          unsubscribeRejections = onRuntimeCommandRejected((evt) => {
+            if (evt.command.source !== 'KEYBOARD' && evt.command.source !== 'QUICK_JUMP') return
+            if (evt.status === 'BLOCKED') showToast(`Perintah ditolak: ${evt.error}`, 'info')
+            else if (evt.status === 'ERROR') showToast(`Gagal: ${evt.error}`, 'error')
+          })
 
-        unsubscribeDisplay = window.api.display.onDisplayChanged((count: number) => {
-          const prevCount = useAppStore.getState().displayCount
-          setDisplayCount(count)
-          if (count > prevCount) showToast('Monitor terhubung', 'success')
-          else if (count < prevCount) showToast('Monitor terputus', 'error')
-        })
+          await runTask('theme', 'Restoring theme & workspace', 'critical', async () => {
+            const settings = await window.api.settings.getAll()
+            const maxLines = parseInt(settings['projection_max_lines'] || '4', 10)
+            const maxChars = parseInt(settings['projection_max_chars'] || '40', 10)
+            if (!isNaN(maxLines) && !isNaN(maxChars)) {
+              setRendererGlobalSlideConfig({ maxLines, maxChars })
+              setCoreGlobalSlideConfig({ maxLines, maxChars })
+              logger.info('[Bootstrap] Slide config loaded:', { maxLines, maxChars })
+            }
+          })
 
-        // Background Update Check
-        try {
-          const currentVersion = await window.api.window.getVersion()
-          const update = await UpdateService.checkForUpdate(currentVersion)
-          if (update.hasUpdate) {
-            showToast(`Pembaruan v${update.latestVersion} tersedia! Silakan cek menu Tentang.`, 'info')
-          }
-        } catch (err) {
-          logger.warn('Initial update check failed:', err)
+          await runTask('display', 'Detecting connected displays', 'critical', async () => {
+            const [displays, projectionVisible] = await Promise.all([
+              window.api.display.getAll(),
+              window.api.display.isProjectionVisible()
+            ])
+            if (!isMounted) return
+            setDisplayCount(displays.length)
+            setProjectionVisible(projectionVisible)
+            unsubscribeDisplay = window.api.display.onDisplayChanged((count: number) => {
+              const prevCount = useAppStore.getState().displayCount
+              setDisplayCount(count)
+              if (count > prevCount) showToast('Monitor terhubung', 'success')
+              else if (count < prevCount) showToast('Monitor terputus', 'error')
+            })
+          })
         }
 
-      } catch (err) {
-        logger.error('Init error:', err)
-      } finally {
+        await criticalBootstrap()
+        addTraceStep('CRITICAL_BOOT', 'Critical systems initialized', 'critical', 'completed')
+
+        addTraceStep('RENDERER_INITIALIZED', 'Runtime engine initialized', 'renderer', 'completed')
+        const shellStart = performance.now()
+        setPhase('shell')
+        addTraceStep('SHELL_READY', 'Shell frame ready', 'shell', 'completed')
         setLoading(false)
+        recordMetric('rendererBootMs', Math.round(shellStart - startTime))
+        recordMetric('criticalBootMs', Math.round(shellStart - startTime))
+        recordMetric('shellReadyMs', Math.round(shellStart - startTime))
+        window.requestAnimationFrame(() => {
+          recordMetric('firstInteractiveMs', Math.round(performance.now() - startTime))
+          addTraceStep('FIRST_INTERACTIVE', 'First interactive frame', 'shell', 'completed')
+        })
+
+        const optionalStart = performance.now()
+        setPhase('optional')
+        addTraceStep('OPTIONAL_BOOT', 'Optional systems warming up', 'optional', 'started')
+        if (activeSafeMode) {
+          addTraceStep(
+            'OPTIONAL_REDUCED',
+            'Reduced optional boot due to safe mode',
+            'optional',
+            'started'
+          )
+        }
+
+        const optionalTasks = [
+          runTask('playlists', 'Loading playlists', 'optional', async () => {
+            await loadPlaylists()
+          }),
+          runTask('songs', 'Loading song library', 'optional', async () => {
+            await loadSongs()
+          })
+        ]
+
+        if (!activeSafeMode) {
+          optionalTasks.push(
+            runTask(
+              'hymnals',
+              'Loading hymnals',
+              'optional',
+              async () => {
+                await useAppStore.getState().loadHymnals()
+              },
+              12000
+            )
+          )
+        }
+
+        console.log('[Boot] Waiting for Promise.all(optionalTasks)...')
+        await Promise.all(optionalTasks)
+        console.log('[Boot] Promise.all(optionalTasks) finished!')
+        recordMetric('optionalBootMs', Math.round(performance.now() - optionalStart))
+
+        console.log('[Boot] Scheduling backgroundHandle = scheduleIdle...')
+        backgroundHandle = scheduleIdle(async () => {
+          console.log('[Boot] Inside scheduleIdle, setting phase to background...')
+          setPhase('background')
+          addTraceStep('BACKGROUND_BOOT', 'Background services warming', 'background', 'started')
+          const backgroundTasks = [
+            runTask(
+              'update',
+              'Checking for updates',
+              'background',
+              async () => {
+                const currentVersion = await window.api.window.getVersion()
+                const update = await UpdateService.checkForUpdate(currentVersion)
+                if (update.hasUpdate) {
+                  showToast(
+                    `Pembaruan v${update.latestVersion} tersedia! Silakan cek menu Tentang.`,
+                    'info'
+                  )
+                }
+              },
+              7000
+            ),
+            runTask(
+              'bible',
+              'Warming Bible engine',
+              'background',
+              async () => {
+                await window.api.bible.getTranslations()
+              },
+              7000
+            ),
+            runTask(
+              'media',
+              'Indexing media assets',
+              'background',
+              async () => {
+                await window.api.media.getCollections()
+              },
+              7000
+            ),
+            runTask(
+              'storage',
+              'Collecting storage metrics',
+              'background',
+              async () => {
+                await window.api.system.getStorageStats()
+              },
+              7000
+            )
+          ]
+
+          await Promise.all(backgroundTasks)
+          const readyAt = performance.now()
+          recordMetric('readyMs', Math.round(readyAt - startTime))
+          addTraceStep('READY', 'Application ready', 'ready', 'completed')
+          setPhase('ready')
+          persistBootTrace()
+        })
+      } catch (err) {
+        setSafeMode(true)
+        addTraceStep(
+          'BOOT_FAILED',
+          'Bootstrap failed',
+          'failed',
+          'failed',
+          err instanceof Error ? err.message : String(err)
+        )
+        setPhase('failed')
+        persistBootTrace()
+        logger.error('Bootstrap error:', err)
       }
     }
 
@@ -93,6 +323,16 @@ export function useAppBootstrap(): void {
       unsubscribeRuntimeEvents?.()
       unsubscribeRejections?.()
       unsubscribeHealth?.()
+      if (backgroundHandle !== null) cancelIdle(backgroundHandle)
     }
-  }, [loadPlaylists, loadSongs, setDisplayCount, setLoading, showToast])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    loadPlaylists,
+    loadSongs,
+    setDisplayCount,
+    setLoading,
+    setProjectionVisible,
+    setSafeMode,
+    showToast
+  ])
 }

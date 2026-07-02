@@ -28,6 +28,10 @@ const api = {
       return () => ipcRenderer.removeListener('app:theme-updated', listener)
     }
   },
+  app: {
+    notifyShellReady: (): void => ipcRenderer.send('app:renderer-shell-ready'),
+    isSafeMode: (): Promise<boolean> => ipcRenderer.invoke('app:get-safe-mode')
+  },
 
   // Projection
   projection: {
@@ -51,6 +55,18 @@ const api = {
       const listener = (_e: IpcRendererEvent, theme: unknown): void => callback(theme)
       ipcRenderer.on('projection:theme-update', listener)
       return () => ipcRenderer.removeListener('projection:theme-update', listener)
+    },
+    emergencyUpdate: (payload: { active: boolean; message?: string; subMessage?: string }): void =>
+      ipcRenderer.send('projection:emergency', payload),
+    onEmergencyUpdate: (
+      callback: (payload: { active: boolean; message?: string; subMessage?: string }) => void
+    ): (() => void) => {
+      const listener = (
+        _e: IpcRendererEvent,
+        payload: { active: boolean; message?: string; subMessage?: string }
+      ): void => callback(payload)
+      ipcRenderer.on('projection:emergency', listener)
+      return () => ipcRenderer.removeListener('projection:emergency', listener)
     }
   },
 
@@ -62,9 +78,11 @@ const api = {
 
   // Display
   display: {
-    getAll: (): Promise<unknown[]> => ipcRenderer.invoke('display_get-all'),
+    // FIX ARCH-04: updated to use the standardised colon-separated channel name
+    getAll: (): Promise<unknown[]> => ipcRenderer.invoke('display:get-all'),
     isProjectionVisible: (): Promise<boolean> =>
       ipcRenderer.invoke('display:is-projection-visible'),
+    hasExternal: (): Promise<boolean> => ipcRenderer.invoke('display:has-external'),
     onDisplayChanged: (callback: (count: number) => void): (() => void) => {
       const listener = (_e: IpcRendererEvent, count: number): void => callback(count)
       ipcRenderer.on('display:changed', listener)
@@ -105,7 +123,14 @@ const api = {
     addRelation: (relation: unknown): Promise<unknown> =>
       ipcRenderer.invoke('db:add-song-relation', relation),
     deleteRelation: (id: number): Promise<boolean> =>
-      ipcRenderer.invoke('db:delete-song-relation', id)
+      ipcRenderer.invoke('db:delete-song-relation', id),
+    // Phase 1 — Enterprise Refactor
+    duplicate: (id: number): Promise<unknown> => ipcRenderer.invoke('db:duplicate-song', id),
+    getSummary: (hymnalId?: number): Promise<unknown[]> =>
+      ipcRenderer.invoke('db:get-songs-summary', hymnalId),
+    getNote: (songId: number): Promise<string> => ipcRenderer.invoke('db:get-song-note', songId),
+    updateNote: (songId: number, noteText: string): Promise<string> =>
+      ipcRenderer.invoke('db:update-song-note', songId, noteText)
   },
 
   // Playlists
@@ -118,6 +143,10 @@ const api = {
     getItems: (playlistId: number): Promise<unknown[]> =>
       ipcRenderer.invoke('db:get-playlist-items', playlistId),
     addItem: (item: unknown): Promise<unknown> => ipcRenderer.invoke('db:add-playlist-item', item),
+    addBible: (playlistId: number, bible: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('db:add-bible-to-playlist', playlistId, bible),
+    addInfo: (playlistId: number, info: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('db:add-info-to-playlist', playlistId, info),
     updateItem: (id: number, data: unknown): Promise<void> =>
       ipcRenderer.invoke('db:update-playlist-item', id, data),
     deleteItem: (id: number): Promise<boolean> => ipcRenderer.invoke('db:delete-playlist-item', id),
@@ -135,8 +164,8 @@ const api = {
   // Database / Backup / Crash Recovery
   system: {
     logHistory: (songId: number): Promise<void> => ipcRenderer.invoke('db:log-history', songId),
-    getRecentSongs: (limit: number = 20): Promise<unknown[]> =>
-      ipcRenderer.invoke('db:get-recent-songs', limit),
+    getRecentSongs: (limit: number = 20, hymnalId?: number): Promise<unknown[]> =>
+      ipcRenderer.invoke('db:get-recent-songs', limit, hymnalId),
     createBackup: (customPath?: string): Promise<string> =>
       ipcRenderer.invoke('db:create-backup', customPath),
     restoreBackup: (backupPath: string): Promise<boolean> =>
@@ -150,7 +179,11 @@ const api = {
       ipcRenderer.invoke('db:check-multi-hymnal-integrity', hymnalId),
     getMemory: (): Promise<unknown> => ipcRenderer.invoke('system:get-memory'),
     setMode: (mode: string): Promise<void> => ipcRenderer.invoke('system:set-mode', mode),
-    openExternal: (url: string): Promise<void> => ipcRenderer.invoke('system:open-external', url)
+    openExternal: (url: string): Promise<void> => ipcRenderer.invoke('system:open-external', url),
+    // Phase 1 — Enterprise Refactor
+    getStorageStats: (): Promise<unknown> => ipcRenderer.invoke('system:get-storage-stats'),
+    // Beta debug report export
+    exportDebugReport: (): Promise<unknown> => ipcRenderer.invoke('system:export-debug-report')
   },
 
   // File System
@@ -159,8 +192,11 @@ const api = {
       ipcRenderer.invoke('file:parse-excel', filePath),
     showSaveDialog: (options: unknown): Promise<unknown> =>
       ipcRenderer.invoke('file:show-save-dialog', options),
+    showOpenDialog: (options: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('file:show-open-dialog', options),
     writeJson: (filePath: string, data: unknown): Promise<unknown> =>
-      ipcRenderer.invoke('file:write-json', filePath, data)
+      ipcRenderer.invoke('file:write-json', filePath, data),
+    readJson: (filePath: string): Promise<unknown> => ipcRenderer.invoke('file:read-json', filePath)
   },
 
   // Media Library
@@ -268,6 +304,85 @@ const api = {
       ipcRenderer.on('health:heartbeat-ack', listener)
       return () => ipcRenderer.removeListener('health:heartbeat-ack', listener)
     }
+  },
+
+  // ════════════════════════════════════════════════════════════════
+  // Phase 1 — Enterprise Refactor Bridge Entries (additive only)
+  // @see implementation-master-order-v1.md §3.2 Sequence 1.6
+  // ════════════════════════════════════════════════════════════════
+
+  // Confidence Monitor
+  confidence: {
+    update: (payload: unknown): void => ipcRenderer.send('confidence:update', payload),
+    onUpdate: (callback: (data: unknown) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, data: unknown): void => callback(data)
+      ipcRenderer.on('confidence:update', listener)
+      return () => ipcRenderer.removeListener('confidence:update', listener)
+    }
+  },
+
+  // ════════════════════════════════════════════════════════════════
+  // Content Pack Management & Bible Pack (External SQLite System)
+  // ════════════════════════════════════════════════════════════════
+
+  contentPacks: {
+    selectFolder: (): Promise<string | null> => ipcRenderer.invoke('contentPacks:selectFolder'),
+    previewBiblePack: (folderPath: string): Promise<unknown> =>
+      ipcRenderer.invoke('contentPacks:previewBiblePack', folderPath),
+    installBiblePack: (folderPath: string): Promise<unknown> =>
+      ipcRenderer.invoke('contentPacks:installBiblePack', folderPath),
+    list: (packType?: string): Promise<unknown[]> =>
+      ipcRenderer.invoke('contentPacks:list', packType),
+    remove: (packId: string): Promise<boolean> => ipcRenderer.invoke('contentPacks:remove', packId),
+    setDefault: (packId: string): Promise<unknown> =>
+      ipcRenderer.invoke('contentPacks:setDefault', packId)
+  },
+
+  biblePack: {
+    getVersions: (): Promise<unknown[]> => ipcRenderer.invoke('bible:versions:list'),
+    getBooks: (versionCode: string): Promise<unknown[]> =>
+      ipcRenderer.invoke('bible:books:list', versionCode),
+    getChapter: (versionCode: string, bookCode: string, chapter: number): Promise<unknown[]> =>
+      ipcRenderer.invoke('bible:chapter:get', versionCode, bookCode, chapter),
+    getVerseRange: (
+      versionCode: string,
+      bookCode: string,
+      chapter: number,
+      verseStart: number,
+      verseEnd: number
+    ): Promise<unknown[]> =>
+      ipcRenderer.invoke(
+        'bible:verseRange:get',
+        versionCode,
+        bookCode,
+        chapter,
+        verseStart,
+        verseEnd
+      ),
+    search: (versionCode: string, query: string, limit?: number): Promise<unknown[]> =>
+      ipcRenderer.invoke('bible:search', versionCode, query, limit),
+    parseReference: (referenceStr: string): Promise<unknown> =>
+      ipcRenderer.invoke('bible:reference:parse', referenceStr),
+    // Bible notes & highlights
+    getNote: (bookCode: string, chapter: number, verse: number): Promise<unknown> =>
+      ipcRenderer.invoke('db:get-bible-note', bookCode, chapter, verse),
+    updateNote: (
+      bookCode: string,
+      chapter: number,
+      verse: number,
+      noteText: string,
+      highlightColor: string
+    ): Promise<void> =>
+      ipcRenderer.invoke(
+        'db:update-bible-note',
+        bookCode,
+        chapter,
+        verse,
+        noteText,
+        highlightColor
+      ),
+    getNotesForChapter: (bookCode: string, chapter: number): Promise<unknown[]> =>
+      ipcRenderer.invoke('db:get-bible-notes-for-chapter', bookCode, chapter)
   }
 }
 

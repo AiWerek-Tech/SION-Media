@@ -5,8 +5,8 @@
 
 import React, { useEffect, useState } from 'react'
 import { Monitor, Moon, Sun, Laptop, Layout, Columns, Maximize2, PanelLeft } from 'lucide-react'
-import { useModeStore } from '../../store/useModeStore'
-import { logger } from '../../utils/logger'
+import { useModeStore } from '@renderer/store/useModeStore'
+import { logger } from '@renderer/utils/logger'
 import {
   applyEffectiveTheme,
   buildThemeSyncPayload,
@@ -14,7 +14,7 @@ import {
   resolveEffectiveTheme,
   watchSystemThemeChanges,
   type AppThemeMode
-} from '../../utils/app-theme'
+} from '@renderer/utils/app-theme'
 
 interface AppThemeSettingsProps {
   settings: Record<string, string>
@@ -265,6 +265,47 @@ export function AppThemeSettings({
           <p style={{ marginTop: 6, fontSize: 11, color: 'var(--color-text-muted)' }}>
             Nama ini akan muncul di title bar dan dikirim ke layar proyektor sebagai identitas.
           </p>
+        </div>
+      </section>
+
+      {/* Onboarding Restart */}
+      <section className="sp-section border-t border-border-subtle/30 pt-6 mt-6">
+        <div className="sp-section-header">
+          <div className="sp-section-eyebrow">
+            <Monitor size={13} />
+            Panduan Pengguna
+          </div>
+          <p className="sp-section-desc">
+            Buka kembali panduan awal interaktif untuk mengonfigurasi tema dan jalur kerja default
+            Anda.
+          </p>
+        </div>
+        <div>
+          <button
+            onClick={() => {
+              useModeStore.setState({ isFirstInstall: true })
+            }}
+            className="sp-button"
+            style={{
+              background: 'var(--color-brand-primary, #3b82f6)',
+              color: '#ffffff',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              fontWeight: 500,
+              fontSize: '13px',
+              cursor: 'pointer',
+              border: 'none',
+              transition: 'background 0.2s'
+            }}
+            onMouseOver={(e) =>
+              (e.currentTarget.style.background = 'var(--color-brand-primary-hover, #2563eb)')
+            }
+            onMouseOut={(e) =>
+              (e.currentTarget.style.background = 'var(--color-brand-primary, #3b82f6)')
+            }
+          >
+            Mulai Panduan Awal (Onboarding)
+          </button>
         </div>
       </section>
     </div>

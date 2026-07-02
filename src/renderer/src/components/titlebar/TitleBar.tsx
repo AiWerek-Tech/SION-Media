@@ -1,48 +1,65 @@
-import React from 'react'
-import { Bell, Moon, Settings } from 'lucide-react'
+import React, { useState } from 'react'
+import { Bell, Settings } from 'lucide-react'
 import { TitleBarIdentity } from './TitleBarIdentity'
 import { TitleBarMenu } from './TitleBarMenu'
 import { TitleBarModeSwitcher } from './TitleBarModeSwitcher'
 import { TitleBarStatus } from './TitleBarStatus'
 import { TitleBarControls } from './TitleBarControls'
+import { NotificationOverlay } from './NotificationOverlay'
 import { useModeStore } from '../../store/useModeStore'
 import { useAppStore } from '../../store/useAppStore'
+import { useNotificationStore } from '../../store/useNotificationStore'
 
 function TitleBarUtilityButtons(): React.JSX.Element {
   const setScreen = useAppStore((s) => s.setScreen)
+  const setMode = useModeStore((s) => s.setMode)
+  const unreadCount = useNotificationStore((s) => s.unreadCount)
+  const markAllRead = useNotificationStore((s) => s.markAllRead)
+  const [isNotifOpen, setIsNotifOpen] = useState(false)
+
+  const handleBellClick = (): void => {
+    if (!isNotifOpen && unreadCount > 0) {
+      markAllRead()
+    }
+    setIsNotifOpen((prev) => !prev)
+  }
 
   return (
     <div className="title-bar-utilities no-drag">
-      <button type="button" className="title-bar-utility-btn" title="Theme">
-        <Moon size={14} />
-      </button>
       <button
         type="button"
         className="title-bar-utility-btn"
-        title="Settings"
-        onClick={() => setScreen('settings')}
+        title="Pengaturan"
+        aria-label="Buka pengaturan aplikasi"
+        onClick={() => {
+          setMode('MANAGEMENT')
+          setScreen('settings')
+        }}
       >
         <Settings size={14} />
       </button>
-      <button type="button" className="title-bar-utility-btn" title="Notifications">
-        <Bell size={14} />
-      </button>
+      <div className="relative flex items-center h-full">
+        <button
+          type="button"
+          className="title-bar-utility-btn notification-bell-btn relative"
+          title="Notifikasi"
+          aria-label={
+            unreadCount > 0 ? `Buka notifikasi, ${unreadCount} belum dibaca` : 'Buka notifikasi'
+          }
+          aria-expanded={isNotifOpen}
+          onClick={handleBellClick}
+        >
+          <Bell size={14} />
+          {unreadCount > 0 && (
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-brand-primary" />
+          )}
+        </button>
+        <NotificationOverlay isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} />
+      </div>
     </div>
   )
 }
 
-/**
- * Professional Custom Title Bar — Application Command Center
- *
- * Layout:
- * ┌──────────────────────────────────────────────────────────────────────────────────────────┐
- * │ [LOGO] SION Presenter │ File Edit View ... │  Song Info │ ● LIVE │ 🖥️ │ ⏱ │ 🕐 │ ─ □ ✕ │
- * └──────────────────────────────────────────────────────────────────────────────────────────┘
- *
- * - Entire bar is `-webkit-app-region: drag` (draggable)
- * - Interactive elements use `.no-drag` class to remain clickable
- * - Onboarding lockdown: hides Menu, ModeSwitcher, and Status during first install
- */
 export function TitleBar(): React.JSX.Element {
   const isFirstInstall = useModeStore((s) => s.isFirstInstall)
 

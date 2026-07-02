@@ -5,13 +5,13 @@ import type {
   LiveAtmosphereOverride,
   AtmosphereScenePreset,
   ResolvedAtmosphere
-} from '../atmosphere/types'
+} from '@renderer/atmosphere/types'
 import {
   DEFAULT_GLOBAL_ATMOSPHERE,
   DEFAULT_SCENE_PRESETS,
   DEFAULT_OVERLAY,
   DEFAULT_READABILITY
-} from '../atmosphere/presets'
+} from '@renderer/atmosphere/presets'
 
 interface AtmosphereState {
   // Core State
@@ -41,6 +41,19 @@ interface AtmosphereState {
   hydrateFromSettings: () => Promise<void>
 }
 
+// Module-level debounce timer for theme IPC sync
+let _themeSyncTimer: ReturnType<typeof setTimeout> | null = null
+
+function mergeScenePresets(
+  defaults: AtmosphereScenePreset[],
+  custom: AtmosphereScenePreset[]
+): AtmosphereScenePreset[] {
+  const byId = new Map<string, AtmosphereScenePreset>()
+  defaults.forEach((preset) => byId.set(preset.id, preset))
+  custom.forEach((preset) => byId.set(preset.id, preset))
+  return Array.from(byId.values())
+}
+
 export const useAtmosphereStore = create<AtmosphereState>((set, get) => ({
   globalAtmosphere: DEFAULT_GLOBAL_ATMOSPHERE,
   currentSongAtmosphere: null,
@@ -52,6 +65,10 @@ export const useAtmosphereStore = create<AtmosphereState>((set, get) => ({
 
   setGlobalAtmosphere: (config) => {
     set({ globalAtmosphere: config })
+    // FIX ARCH-05: persist to settings so the change survives a restart
+    window.api.settings
+      .update('projection_default_atmosphere', JSON.stringify(config))
+      .catch((err) => console.error('[AtmosphereStore] Failed to persist globalAtmosphere:', err))
     get().syncProjectionThemePayload()
   },
 
@@ -96,11 +113,15 @@ export const useAtmosphereStore = create<AtmosphereState>((set, get) => ({
   },
 
   syncProjectionThemePayload: () => {
-    const { globalAtmosphere, liveOverride } = get()
-    window.api.projection.themeUpdate({
-      projection_default_atmosphere: JSON.stringify(globalAtmosphere),
-      projection_atmosphere_live_override: liveOverride ? JSON.stringify(liveOverride.config) : ''
-    })
+    // Debounce theme IPC updates (300ms) to prevent excessive cross-window communication
+    if (_themeSyncTimer) clearTimeout(_themeSyncTimer)
+    _themeSyncTimer = setTimeout(() => {
+      const { globalAtmosphere, liveOverride } = get()
+      window.api.projection.themeUpdate({
+        projection_default_atmosphere: JSON.stringify(globalAtmosphere),
+        projection_atmosphere_live_override: liveOverride ? JSON.stringify(liveOverride.config) : ''
+      })
+    }, 300)
   },
 
   getResolvedAtmosphere: (legacyTheme) => {
@@ -109,13 +130,36 @@ export const useAtmosphereStore = create<AtmosphereState>((set, get) => ({
     let active: AtmosphereConfig = globalAtmosphere
     let source: ResolvedAtmosphere['source'] = 'global'
 
+    // Try parsing from theme object first (for projection window context)
+    const parseTheme = (key: string): AtmosphereConfig | null => {
+      if (!legacyTheme || !legacyTheme[key]) return null
+      try {
+        return JSON.parse(legacyTheme[key]) as AtmosphereConfig
+      } catch {
+        return null
+      }
+    }
+
+    const themeLive = parseTheme('projection_atmosphere_live_override')
+    const themeSong = parseTheme('song_background_config')
+    const themeGlobal = parseTheme('projection_default_atmosphere')
+
     // Hierarchy: Live Override > Song > Global
-    if (liveOverride && liveOverride.enabled) {
+    if (themeLive) {
+      active = themeLive
+      source = 'live-override'
+    } else if (liveOverride && liveOverride.enabled) {
       active = liveOverride.config
       source = 'live-override'
+    } else if (themeSong && themeSong.mode !== 'inherit-global') {
+      active = themeSong
+      source = 'song'
     } else if (currentSongAtmosphere && currentSongAtmosphere.mode !== 'inherit-global') {
       active = currentSongAtmosphere
       source = 'song'
+    } else if (themeGlobal) {
+      active = themeGlobal
+      source = 'global'
     } else if (
       legacyTheme &&
       (legacyTheme.projection_bg_color || legacyTheme.projection_bg_image)
@@ -165,9 +209,10 @@ export const useAtmosphereStore = create<AtmosphereState>((set, get) => ({
       }
 
       if (settings.projection_scene_presets) {
-        nextState.scenePresets = JSON.parse(
+        const customPresets = JSON.parse(
           settings.projection_scene_presets
         ) as AtmosphereScenePreset[]
+        nextState.scenePresets = mergeScenePresets(DEFAULT_SCENE_PRESETS, customPresets)
       }
 
       if (settings.projection_atmosphere_live_override) {

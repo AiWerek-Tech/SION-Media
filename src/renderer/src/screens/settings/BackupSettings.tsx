@@ -18,7 +18,8 @@ import {
   FolderOpen,
   Activity
 } from 'lucide-react'
-import { useAppStore } from '../../store/useAppStore'
+import { useAppStore } from '@renderer/store/useAppStore'
+import { useModalStore } from '@renderer/store/useModalStore'
 
 interface BackupSettingsProps {
   onBackup?: () => Promise<void>
@@ -87,35 +88,46 @@ export function BackupSettings({ onRestore, onReseed }: BackupSettingsProps): Re
   const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
     const file = e.target.files?.[0]
     if (!file || !file.name.endsWith('.db')) return
+    const filePath = (file as File & { path?: string }).path
+    if (!filePath) return
+
+    const confirmed = await useModalStore
+      .getState()
+      .openAsync<boolean>('confirm-restore', 'confirm', {
+        title: 'Pulihkan Database?',
+        description:
+          'Aplikasi akan memuat ulang setelah restore. Semua perubahan yang belum disimpan akan hilang. Lanjutkan?',
+        confirmLabel: 'Pulihkan',
+        danger: true
+      })
+    if (!confirmed) return
+
     try {
       setIsRestoring(true)
-      const filePath = (file as File & { path?: string }).path
-      if (!filePath) return
-      if (
-        confirm(
-          'Aplikasi akan memuat ulang setelah restore. Semua perubahan yang belum disimpan akan hilang. Lanjutkan?'
-        )
-      ) {
-        await onRestore(filePath)
-        window.location.reload()
-      }
+      await onRestore(filePath)
+      window.location.reload()
     } finally {
       setIsRestoring(false)
     }
   }
 
   const handleReseed = async (): Promise<void> => {
-    if (
-      confirm(
-        'Hapus semua lagu kustom dan kembalikan ke data standar SION Media? Tindakan ini TIDAK DAPAT DIBATALKAN.'
-      )
-    ) {
-      try {
-        setIsReseeding(true)
-        await onReseed()
-      } finally {
-        setIsReseeding(false)
-      }
+    const confirmed = await useModalStore
+      .getState()
+      .openAsync<boolean>('confirm-reseed', 'confirm', {
+        title: 'Reset Database ke Standar?',
+        description:
+          'Hapus semua lagu kustom dan kembalikan ke data standar SION Media? Tindakan ini TIDAK DAPAT DIBATALKAN.',
+        confirmLabel: 'Reset Database',
+        danger: true
+      })
+    if (!confirmed) return
+
+    try {
+      setIsReseeding(true)
+      await onReseed()
+    } finally {
+      setIsReseeding(false)
     }
   }
 

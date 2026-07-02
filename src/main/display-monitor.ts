@@ -4,7 +4,12 @@
  */
 
 import { screen } from 'electron'
-import { getMainWindow, getProjectionWindow } from './windows'
+import {
+  getMainWindow,
+  getProjectionWindow,
+  repositionProjectionWindowFromSettings
+} from './windows'
+import { getSettings } from './database'
 
 /**
  * Get all displays information
@@ -39,12 +44,11 @@ export function setupDisplayMonitor(): void {
     mainWindow?.webContents.send('display:changed', screen.getAllDisplays().length)
 
     // Auto-recovery: move projection to remaining display
+    const settings = getSettings()
+    if ((settings['display_auto_recovery'] ?? '1') !== '1') return
     const projectionWindow = getProjectionWindow()
     if (projectionWindow && !projectionWindow.isDestroyed()) {
-      const displays = screen.getAllDisplays()
-      const target =
-        displays.find((d) => d.id !== screen.getPrimaryDisplay().id) || screen.getPrimaryDisplay()
-      projectionWindow.setBounds(target.bounds)
+      repositionProjectionWindowFromSettings()
     }
   })
 }

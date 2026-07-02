@@ -4,7 +4,7 @@
  * Provides: mock data factories, store reset helpers, render wrappers
  */
 
-import type { Song, Hymnal, Playlist, PlaylistItem, SlideData } from '../types'
+import type { Song, Hymnal, Playlist, PlaylistItem, SlideData } from '@renderer/types'
 
 // ============================================================================
 // Mock Data Factories
@@ -73,6 +73,7 @@ export function mockPlaylistItem(overrides: Partial<PlaylistItem> = {}): Playlis
     song_id: 1,
     sort_order: 0,
     section_label: '',
+    item_type: 'song',
     number: '1',
     title: 'Test Song',
     alternate_title: '',
@@ -89,6 +90,7 @@ export function mockPlaylistItem(overrides: Partial<PlaylistItem> = {}): Playlis
 
 export function mockSlide(slideIndex: number, text?: string, songId = 1): SlideData {
   return {
+    contentType: 'song',
     songId,
     slideIndex,
     text: text ?? `Slide ${slideIndex + 1} text\nSecond line`,

@@ -1,4 +1,5 @@
 import React from 'react'
+import logoPng from '@renderer/assets/logo.png'
 
 interface SplashScreenProps {
   isLoading: boolean
@@ -6,76 +7,77 @@ interface SplashScreenProps {
 
 export function SplashScreen({ isLoading }: SplashScreenProps): React.JSX.Element {
   return (
-    <div className="h-screen w-screen flex flex-col items-center justify-center bg-bg-base overflow-hidden relative">
-      {/* Dynamic Aurora Background */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div
-          className="absolute -top-1/4 -left-1/4 w-[80%] h-[80%] rounded-full opacity-20 blur-[120px] animate-pulse"
-          style={{
-            background: 'radial-gradient(circle, var(--color-brand-primary) 0%, transparent 70%)'
-          }}
-        />
-        <div
-          className="absolute -bottom-1/4 -right-1/4 w-[80%] h-[80%] rounded-full opacity-10 blur-[120px] animate-pulse"
-          style={{
-            background: 'radial-gradient(circle, var(--color-brand-secondary) 0%, transparent 70%)',
-            animationDelay: '2s'
-          }}
-        />
+    <section className="relative h-screen w-screen overflow-hidden bg-[#050714] text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.18),transparent_25%),radial-gradient(circle_at_bottom_right,_rgba(139,92,246,0.16),transparent_18%)]" />
+
+      <div className="pointer-events-none absolute inset-0 opacity-60">
+        <div className="absolute -left-28 top-1/4 h-80 w-80 rounded-full bg-brand-primary/15 blur-3xl" />
+        <div className="absolute right-0 top-1/3 h-72 w-72 rounded-full bg-brand-secondary/10 blur-3xl" />
+        <div className="absolute left-1/2 top-2/3 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
       </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 flex flex-col items-center gap-10 animate-fade-in">
-        {/* Logo Container */}
-        <div className="relative group">
-          <div className="absolute inset-0 bg-brand-primary/20 blur-2xl rounded-full scale-150 group-hover:scale-110 transition-transform duration-1000" />
-          <div className="w-32 h-32 rounded-[40px] bg-gradient-to-br from-brand-primary to-brand-secondary shadow-2xl flex items-center justify-center p-6 relative">
-            <div className="w-full h-full rounded-full border-4 border-white/20 flex items-center justify-center">
-              <span className="text-white text-5xl font-black italic select-none">S</span>
+      <div className="relative z-10 mx-auto flex h-full max-w-5xl flex-col items-center justify-center px-6 py-10 sm:px-10">
+        <div className="flex w-full max-w-2xl flex-col items-center gap-8 rounded-[32px] border border-white/10 bg-white/5 p-8 shadow-[0_32px_120px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:p-10">
+          <div className="relative flex h-28 w-28 items-center justify-center rounded-[32px] bg-gradient-to-br from-brand-primary to-brand-secondary shadow-[0_0_40px_rgba(59,130,246,0.25)]">
+            <div className="absolute inset-0 rounded-[32px] bg-white/5 blur-xl" />
+            <div className="relative flex h-full w-full items-center justify-center rounded-[32px] border border-white/10 bg-black/20 p-6">
+              <img
+                src={logoPng}
+                className="relative z-10 h-full w-full max-h-[72px] max-w-[72px] object-contain"
+                alt="SION Media Logo"
+              />
             </div>
           </div>
-        </div>
 
-        <div className="text-center space-y-2">
-          <h1 className="text-5xl font-black tracking-tighter text-text-primary">
-            SION{' '}
-            <span className="bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
-              Media
-            </span>
-          </h1>
-          <p className="text-text-muted font-bold tracking-[0.3em] uppercase text-[10px] opacity-60">
-            Worship Multimedia Platform
-          </p>
-        </div>
-
-        {/* Loading Progress */}
-        <div className="w-64 mt-4 space-y-4">
-          <div className="h-1.5 bg-bg-elevated rounded-full overflow-hidden p-0.5 border border-white/5">
-            <div
-              className={`h-full bg-gradient-to-r from-brand-primary to-brand-secondary rounded-full transition-all duration-700 ease-out ${
-                isLoading ? 'w-2/3' : 'w-full'
-              }`}
-            />
-          </div>
-          <div className="flex flex-col items-center gap-1">
-            <p className="text-text-secondary text-[10px] font-black uppercase tracking-widest animate-pulse">
-              {isLoading ? 'Initializing System' : 'System Ready'}
+          <div className="text-center">
+            <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
+              SION{' '}
+              <span className="bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+                Media
+              </span>
+            </h1>
+            <p className="mt-3 text-sm font-semibold uppercase tracking-[0.35em] text-white/60 sm:text-base">
+              Worship Multimedia Platform
             </p>
-            <div className="flex items-center gap-1.5">
-              <div className="w-1 h-1 rounded-full bg-brand-primary animate-bounce" />
-              <div className="w-1 h-1 rounded-full bg-brand-primary animate-bounce [animation-delay:0.2s]" />
-              <div className="w-1 h-1 rounded-full bg-brand-primary animate-bounce [animation-delay:0.4s]" />
+          </div>
+
+          <div className="w-full space-y-5">
+            <div className="rounded-full bg-white/5 p-0.5 shadow-inner shadow-black/30">
+              <div className="flex h-4 overflow-hidden rounded-full bg-slate-900">
+                <div
+                  className={`h-full rounded-full bg-gradient-to-r from-brand-primary to-brand-secondary transition-all duration-800 ease-out ${
+                    isLoading ? 'w-[72%]' : 'w-full'
+                  }`}
+                  style={{ minWidth: '16px' }}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between sm:text-left">
+              <div>
+                <p className="text-xs uppercase tracking-[0.4em] text-white/60">Status</p>
+                <p className="mt-1 text-sm font-semibold text-white">
+                  {isLoading ? 'Loading engine and resources…' : 'Ready to launch'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div
+                  className={`h-2 w-2 rounded-full ${
+                    isLoading ? 'bg-brand-primary animate-pulse' : 'bg-emerald-400'
+                  }`}
+                />
+                <span className="text-xs uppercase tracking-[0.35em] text-white/50">
+                  {isLoading ? 'Starting' : 'System Ready'}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="absolute bottom-12 flex flex-col items-center gap-1">
-          <p className="text-text-disabled text-[10px] font-bold tracking-widest">v3.0.0 AURORA</p>
-          <p className="text-text-disabled/30 text-[8px] font-medium uppercase">
-            © 2024 SION Presenter Team
+          <p className="text-[11px] uppercase tracking-[0.45em] text-white/30">
+            v3.0.0 AURORA • © 2024 SION Presenter Team
           </p>
         </div>
       </div>
-    </div>
+    </section>
   )
 }

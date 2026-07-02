@@ -1,5 +1,7 @@
 # Rancangan Implementasi Sistem Multi-Mode UI/UX SION Media
 
+> **Status:** ✅ IMPLEMENTED — 4 mode operasi sudah diimplementasikan (LIBRARY, PROJECTION, MANAGEMENT, BROADCAST). Lihat `06-history/05-log-ui-multimode.md`
+
 Berdasarkan _Multi-Mode Architecture Blueprint_, aplikasi ini tidak lagi sekadar menayangkan satu layar (Dashboard) tunggal, melainkan akan memuat 4 mode operasi utama yang dapat diganti sesuai konteks pengguna: **Library, Projection, Broadcast, dan Management**.
 
 Dokumen ini memuat panduan teknis implementasi di sisi _Front-End_ (React) dan _Main Process_ (Window Management) berdasarkan kesepakatan desain terbaru.
