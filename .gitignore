@@ -39,3 +39,13 @@ build-log.txt
 # Environment
 .env
 .env.local
+
+# Content Packs (binary files — do not commit)
+resources/content-packs/**/*.sqlite
+resources/content-packs/**/*.db
+resources/content-packs/**/*.jsonl
+resources/content-packs/**/*.csv
+.docs/assets/out_tb/
+
+# Local visual brainstorming artifacts
+.superpowers/

@@ -50,6 +50,7 @@ function makeItem(id: number, songId: number): PlaylistItem {
     song_id: songId,
     sort_order: id - 1,
     section_label: '',
+    item_type: 'song',
     number: String(songId),
     title: `Song ${songId}`,
     alternate_title: '',
@@ -97,11 +98,42 @@ beforeEach(() => {
 })
 
 describe('playlist store active item hygiene', () => {
+  test('propagates add-song failures so callers cannot report false success', async () => {
+    const failure = new Error('write failed')
+    vi.mocked(window.api.playlists.addItem).mockRejectedValueOnce(failure)
+
+    await expect(
+      usePlaylistStore.getState().addSongToPlaylist(makeSong(1, 'Opening'))
+    ).rejects.toBe(failure)
+  })
+
+  test('creates a reusable playlist without retaining items from the previous playlist', async () => {
+    const oldItem = makeItem(1, 1)
+    usePlaylistStore.setState({ playlistItems: [oldItem], activeItemIndex: 0 })
+    vi.mocked(window.api.playlists.add).mockResolvedValue({
+      ...makePlaylist(),
+      id: 2,
+      name: 'Playlist Umum',
+      service_date: ''
+    })
+    vi.mocked(window.api.playlists.getAll).mockResolvedValue([])
+
+    await usePlaylistStore.getState().createPlaylist('  Playlist Umum  ', '')
+
+    expect(window.api.playlists.add).toHaveBeenCalledWith({
+      name: 'Playlist Umum',
+      service_date: ''
+    })
+    expect(usePlaylistStore.getState().playlistItems).toEqual([])
+    expect(usePlaylistStore.getState().activeItemIndex).toBe(-1)
+  })
+
   test('removeItem keeps activeItemIndex inside bounds', async () => {
     const first = makeItem(1, 1)
     const second = makeItem(2, 2)
+    const secondDto = { ...second, item_type: 'song' as const }
     usePlaylistStore.setState({ playlistItems: [first, second], activeItemIndex: 1 })
-    vi.mocked(window.api.playlists.getItems).mockResolvedValue([second])
+    vi.mocked(window.api.playlists.getItems).mockResolvedValue([secondDto])
 
     await usePlaylistStore.getState().removeItem(first.id)
 

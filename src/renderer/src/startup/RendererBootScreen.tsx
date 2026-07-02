@@ -36,7 +36,7 @@ export function RendererBootScreen(): React.JSX.Element {
 
   return (
     <AnimatePresence>
-      {['native', 'renderer', 'critical'].includes(phase) && (
+      {['native', 'renderer', 'critical', 'failed'].includes(phase) && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

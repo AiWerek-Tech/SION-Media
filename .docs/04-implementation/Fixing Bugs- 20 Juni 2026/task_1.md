@@ -1,0 +1,21 @@
+# Tasks: Peningkatan UI/UX Welcome Screen
+
+- `[x]` Refactor alur booting di [App.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/App.tsx)
+  - `[x]` Sembunyikan [RendererBootScreen.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/startup/RendererBootScreen.tsx) jika `isFirstInstall` aktif agar pengguna baru tidak melihat diagnostik teknis yang membingungkan.
+  - `[x]` Sembunyikan [DiagnosticsPanel.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/startup/DiagnosticsPanel.tsx) ketika `isFirstInstall` aktif.
+  - `[x]` Hilangkan variabel `phase` dari `key` pada `motion.div` utama di [App.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/App.tsx) untuk menghentikan reload/kedip otomatis sebanyak 2-3 kali saat load awal.
+- `[x]` Tambahkan Panduan Interaktif Awal (Tutorial) di [WelcomeScreen.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/screens/WelcomeScreen.tsx)
+  - `[x]` Ganti `IntroPhase` lama yang memiliki progress bar redundan dengan slide/carousel panduan interaktif 3-4 langkah (fitur utama, multi-monitor, hotkeys).
+  - `[x]` Tingkatkan `max-w-xl` ke `max-w-2xl`, perluas padding (`p-10 md:p-16`) serta margin antar elemen untuk tata letak yang lapang dan bernapas.
+  - `[x]` Sederhanakan `MagneticButton` dengan menghilangkan properti animasi bertabrakan dan mengurangi sensitivitas magnetik menjadi `0.35` untuk mencegah tombol keluar dari batas kartu.
+- `[x]` Terapkan Preview Tema Real-Time di [WelcomeScreen.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/screens/WelcomeScreen.tsx)
+  - `[x]` Hubungkan state pilihan tema ke utilitas `applyEffectiveTheme` agar tampilan langsung berubah saat opsi diklik.
+- `[x]` Lokalisasi & Penyederhanaan Bahasa di [WelcomeScreen.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/screens/WelcomeScreen.tsx)
+  - `[x]` Terjemahkan deskripsi bento grid mode kerja dan kartu tema ke Bahasa Indonesia yang ramah pemula.
+- `[x]` Aksesibilitas Navigasi Keyboard di [WelcomeScreen.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/screens/WelcomeScreen.tsx)
+  - `[x]` Tambahkan style focus ring yang jelas (`focus-visible`) pada setiap tombol kartu pilihan tema dan mode.
+- `[x]` Tambahkan tombol pemicu Onboarding di [AppThemeSettings.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/screens/settings/AppThemeSettings.tsx)
+  - `[x]` Buat tombol "Ulangi Panduan Awal (Onboarding)" di bagian bawah halaman pengaturan untuk pengguna lama.
+- `[x]` Verifikasi Linter & Format Kode
+  - `[x]` Jalankan `npm run lint` dan selesaikan semua warning/error.
+  - `[x]` Format file agar sesuai dengan konfigurasi Prettier proyek.

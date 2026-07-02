@@ -32,10 +32,12 @@ import {
   BackupSettings,
   AboutSettings
 } from './settings'
+import { BiblePackManager } from '@renderer/features/bible/components/BiblePackManager'
 
 type SettingsSection =
   | 'display'
   | 'hymnals'
+  | 'bible-packs'
   | 'appearance'
   | 'theme'
   | 'background'
@@ -53,6 +55,7 @@ interface SectionDef {
 const SECTIONS: SectionDef[] = [
   { key: 'display', label: 'Display', subtitle: 'Monitor & Proyektor', icon: Monitor },
   { key: 'hymnals', label: 'Buku Lagu', subtitle: 'Kategori & Koleksi', icon: BookOpen },
+  { key: 'bible-packs', label: 'Bible Pack', subtitle: 'Alkitab Eksternal SQLite', icon: BookOpen },
   { key: 'appearance', label: 'Tampilan', subtitle: 'UI/UX & Layout', icon: SunMoon },
   { key: 'theme', label: 'Tema & Font', subtitle: 'Warna & Tipografi', icon: Palette },
   { key: 'background', label: 'Background', subtitle: 'Wallpaper & Visual', icon: Image },
@@ -306,6 +309,7 @@ export function SettingsScreen(): React.JSX.Element {
                 onDelete={handleDeleteHymnal}
               />
             )}
+            {activeSection === 'bible-packs' && <BiblePackManager />}
             {activeSection === 'appearance' && (
               <AppThemeSettings settings={settings} updateSetting={updateSetting} />
             )}

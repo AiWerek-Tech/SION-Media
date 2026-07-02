@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  CalendarDays,
   ChevronDown,
   Download,
   FolderOpen,
@@ -8,6 +9,8 @@ import {
   Plus,
   SeparatorHorizontal,
   Trash2,
+  Upload,
+  Repeat2,
   X
 } from 'lucide-react'
 import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
@@ -16,7 +19,14 @@ import { useModalStore } from '@renderer/store/useModalStore'
 import { generateSlidesForPlaylistItem } from '@renderer/engine/slideEngine'
 import { logger } from '@renderer/utils/logger'
 import type { PlaylistItem } from '@renderer/types'
+import {
+  formatPlaylistSchedule,
+  normalizePlaylistServiceDate,
+  type PlaylistScheduleMode
+} from '@renderer/utils/playlistSchedule'
 import PlaylistItemCard from '@renderer/components/PlaylistItemCard'
+import { Modal, ModalButton } from '@renderer/components/modals/Modal'
+import { PlaylistSelector } from '@renderer/components/playlist/PlaylistSelector'
 import {
   DndContext,
   closestCenter,
@@ -148,6 +158,7 @@ export function PlaylistPanel({
   const [showLoadDialog, setShowLoadDialog] = useState(false)
   const [showSectionMenu, setShowSectionMenu] = useState(false)
   const [newName, setNewName] = useState('')
+  const [newScheduleMode, setNewScheduleMode] = useState<PlaylistScheduleMode>('anytime')
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0])
   const activeItemIndex = usePlaylistStore((s) => s.activeItemIndex)
   const setActiveItemIndex = usePlaylistStore((s) => s.setActiveItemIndex)
@@ -175,10 +186,13 @@ export function PlaylistPanel({
 
   const handleCreatePlaylist = async (): Promise<void> => {
     if (!newName.trim()) return
-    await createPlaylist(newName, newDate)
+    const serviceDate = normalizePlaylistServiceDate(newScheduleMode, newDate)
+    if (newScheduleMode === 'dated' && !serviceDate) return
+    await createPlaylist(newName, serviceDate)
     setSelectedSong(null)
     // FIX: reset both fields after creation
     setNewName('')
+    setNewScheduleMode('anytime')
     setNewDate(new Date().toISOString().split('T')[0])
     setShowNewDialog(false)
     // FIX: read activePlaylist from store AFTER createPlaylist resolves,
@@ -233,20 +247,67 @@ export function PlaylistPanel({
         name: activePlaylist.name,
         service_date: activePlaylist.service_date
       },
-      songs: playlistItems.map((item) => {
-        const fullSong = useAppStore.getState().songs.find((s) => s.id === item.song_id)
-        return {
-          number: item.number,
-          title: item.title,
-          hymnal_code: item.hymnal_code || fullSong?.hymnal_code || 'LS',
-          lyrics_raw: item.lyrics_raw,
-          category: item.category,
-          language: fullSong?.language || 'Indonesia',
-          author: fullSong?.author || '',
-          composer: fullSong?.composer || '',
-          key_note: fullSong?.key_note || '',
-          tempo: fullSong?.tempo || '',
-          tags: fullSong?.tags || ''
+      songs: playlistItems
+        .filter((item) => item.item_type === 'song')
+        .map((item) => {
+          const fullSong = useAppStore.getState().songs.find((s) => s.id === item.song_id)
+          return {
+            number: item.number,
+            title: item.title,
+            hymnal_code: item.hymnal_code || fullSong?.hymnal_code || 'LS',
+            lyrics_raw: item.lyrics_raw,
+            category: item.category,
+            language: fullSong?.language || 'Indonesia',
+            author: fullSong?.author || '',
+            composer: fullSong?.composer || '',
+            key_note: fullSong?.key_note || '',
+            tempo: fullSong?.tempo || '',
+            tags: fullSong?.tags || ''
+          }
+        }),
+      items: playlistItems.map((item) => {
+        if (item.item_type === 'info') {
+          return {
+            item_type: 'info',
+            title: item.title,
+            notes: item.notes || ''
+          }
+        }
+        if (item.item_type === 'bible') {
+          return {
+            item_type: 'bible',
+            title: item.title,
+            section_label: item.section_label,
+            notes: item.notes || '',
+            bible_version_code: item.bible_version_code,
+            bible_version_short_name: item.bible_version_short_name,
+            bible_book_code: item.bible_book_code,
+            bible_book_name: item.bible_book_name,
+            bible_chapter: item.bible_chapter,
+            bible_verse_start: item.bible_verse_start,
+            bible_verse_end: item.bible_verse_end,
+            bible_reference: item.bible_reference,
+            bible_text_json: item.bible_text_json,
+            bible_copyright: item.bible_copyright
+          }
+        } else {
+          const fullSong = useAppStore.getState().songs.find((s) => s.id === item.song_id)
+          return {
+            item_type: 'song',
+            title: item.title,
+            section_label: item.section_label,
+            notes: item.notes || '',
+            number: item.number,
+            hymnal_code: item.hymnal_code || fullSong?.hymnal_code || 'LS',
+            lyrics_raw: item.lyrics_raw,
+            category: item.category,
+            language: fullSong?.language || 'Indonesia',
+            author: fullSong?.author || '',
+            composer: fullSong?.composer || '',
+            key_note: fullSong?.key_note || '',
+            tempo: fullSong?.tempo || '',
+            tags: fullSong?.tags || ''
+          }
         }
       })
     }
@@ -267,6 +328,107 @@ export function PlaylistPanel({
     } catch (err) {
       logger.error('Export failed:', err)
       showToast('Gagal mengekspor playlist', 'error')
+    }
+  }
+
+  const handleImportPlaylist = async (): Promise<void> => {
+    const showToast = useAppStore.getState().showToast
+    try {
+      const result = await window.api.file.showOpenDialog({
+        filters: [{ name: 'SION Playlist', extensions: ['json'] }]
+      })
+      if (!result || result.canceled || !result.filePaths || result.filePaths.length === 0) {
+        return
+      }
+      const filePath = result.filePaths[0]
+      const rawData = await window.api.file.readJson(filePath)
+      if (!rawData || typeof rawData !== 'object' || !('isSionPlaylist' in rawData)) {
+        showToast('Format file playlist tidak valid', 'error')
+        return
+      }
+      const data = rawData as {
+        isSionPlaylist: boolean
+        playlist?: { name?: string; service_date?: string }
+        items?: Array<Record<string, unknown>>
+        songs?: Array<Record<string, unknown>>
+      }
+      if (!data.isSionPlaylist) {
+        showToast('Format file playlist tidak valid', 'error')
+        return
+      }
+
+      // Create new playlist
+      const playlistName = `${data.playlist?.name || 'Imported Playlist'} (Import)`
+      const playlistDate = data.playlist?.service_date?.trim() || ''
+      await createPlaylist(playlistName, playlistDate)
+
+      const { activePlaylist: newPlaylist } = usePlaylistStore.getState()
+      if (!newPlaylist) {
+        showToast('Gagal membuat playlist untuk import', 'error')
+        return
+      }
+
+      // Load all songs to match
+      const allSongs = useAppStore.getState().songs
+      const itemsToImport = data.items || data.songs || []
+      let matchCount = 0
+      let failCount = 0
+
+      for (const rawItem of itemsToImport) {
+        const itemType = rawItem.item_type || 'song'
+        if (itemType === 'info') {
+          await window.api.playlists.addInfo(newPlaylist.id, {
+            title: String(rawItem.title || ''),
+            body: String(rawItem.notes || '')
+          })
+          matchCount++
+        } else if (itemType === 'bible') {
+          await window.api.playlists.addBible(newPlaylist.id, {
+            bible_version_code: String(rawItem.bible_version_code || ''),
+            bible_version_short_name: String(rawItem.bible_version_short_name || ''),
+            bible_book_code: String(rawItem.bible_book_code || ''),
+            bible_book_name: String(rawItem.bible_book_name || ''),
+            bible_chapter: Number(rawItem.bible_chapter || 1),
+            bible_verse_start: Number(rawItem.bible_verse_start || 1),
+            bible_verse_end: Number(rawItem.bible_verse_end || 1),
+            bible_reference: String(rawItem.bible_reference || ''),
+            bible_text_json: String(rawItem.bible_text_json || '[]'),
+            bible_copyright: String(rawItem.bible_copyright || ''),
+            notes: String(rawItem.notes || '')
+          })
+          matchCount++
+        } else {
+          const matched = allSongs.find(
+            (s) =>
+              String(s.number).toLowerCase() === String(rawItem.number || '').toLowerCase() &&
+              String(s.hymnal_code || '').toLowerCase() ===
+                String(rawItem.hymnal_code || 'ls').toLowerCase()
+          )
+          if (matched) {
+            await window.api.playlists.addItem({
+              playlist_id: newPlaylist.id,
+              song_id: matched.id,
+              section_label: String(rawItem.section_label || '')
+            })
+            matchCount++
+          } else {
+            failCount++
+          }
+        }
+      }
+
+      await loadPlaylistItems(newPlaylist.id)
+      if (failCount > 0) {
+        showToast(
+          `Berhasil mengimpor ${matchCount} item. ${failCount} lagu gagal dicocokkan.`,
+          'info'
+        )
+      } else {
+        showToast(`Berhasil mengimpor ${matchCount} item ke playlist baru.`, 'success')
+      }
+    } catch (err) {
+      logger.error('Import failed:', err)
+      showToast('Gagal mengimpor playlist', 'error')
     }
   }
 
@@ -322,26 +484,14 @@ export function PlaylistPanel({
     <div className="playlist-panel">
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="playlist-panel__header">
-        <div className="flex min-w-0 items-center gap-2.5 flex-1">
-          <div className="playlist-panel__icon">
-            <ListMusic size={14} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="playlist-panel__title">{activePlaylist?.name || 'Pilih Playlist'}</h2>
-            {activePlaylist && (
-              <p className="playlist-panel__subtitle">
-                {new Date(activePlaylist.service_date).toLocaleDateString('id-ID', {
-                  weekday: 'short',
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric'
-                })}
-                {' · '}
-                {playlistItems.length} lagu · {totalSlideCount} slide
-              </p>
-            )}
-          </div>
-        </div>
+        <PlaylistSelector
+          playlists={playlists}
+          activePlaylist={activePlaylist}
+          itemCount={playlistItems.length}
+          slideCount={totalSlideCount}
+          onSelect={handleLoadPlaylist}
+          onCreate={() => setShowNewDialog(true)}
+        />
 
         <div className="flex items-center gap-1 shrink-0">
           {activePlaylist && (
@@ -371,6 +521,13 @@ export function PlaylistPanel({
                 <Download size={14} />
               </button>
               <button
+                onClick={handleImportPlaylist}
+                className="playlist-panel__tool"
+                title="Import playlist"
+              >
+                <Upload size={14} />
+              </button>
+              <button
                 onClick={handleDeletePlaylist}
                 className="playlist-panel__tool playlist-panel__tool--danger"
                 title="Hapus playlist"
@@ -380,13 +537,6 @@ export function PlaylistPanel({
               <div className="w-px h-4 bg-white/[0.06] mx-0.5" />
             </>
           )}
-          <button
-            onClick={() => setShowLoadDialog(true)}
-            className="playlist-panel__tool"
-            title="Buka playlist"
-          >
-            <FolderOpen size={14} />
-          </button>
           <button
             onClick={() => setShowNewDialog(true)}
             className="playlist-panel__tool playlist-panel__tool--primary"
@@ -468,129 +618,127 @@ export function PlaylistPanel({
         )}
       </div>
 
-      {/* ── Dialogs ────────────────────────────────────────────────────── */}
-      {(showNewDialog || showLoadDialog) && (
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowNewDialog(false)
-              setShowLoadDialog(false)
-            }
-          }}
+      {showNewDialog && (
+        <Modal
+          id="playlist-panel-create"
+          title="Buat Playlist Baru"
+          subtitle="Siapkan rundown yang dapat digunakan kapan saja atau untuk tanggal tertentu."
+          size="md"
+          onClose={() => setShowNewDialog(false)}
+          footer={
+            <>
+              <ModalButton onClick={() => setShowNewDialog(false)}>Batal</ModalButton>
+              <ModalButton
+                variant="primary"
+                onClick={() => void handleCreatePlaylist()}
+                disabled={!newName.trim() || (newScheduleMode === 'dated' && !newDate)}
+              >
+                Simpan Playlist
+              </ModalButton>
+            </>
+          }
         >
-          <div className="w-full max-w-md rounded-2xl bg-[#0d1525] ring-1 ring-white/10 shadow-2xl overflow-hidden">
-            {/* New Playlist Dialog */}
-            {showNewDialog && (
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-5">
-                  <h3 className="text-[15px] font-bold text-text-primary">Buat Playlist Baru</h3>
-                  <button
-                    onClick={() => setShowNewDialog(false)}
-                    className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/[0.05] transition-colors"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-[11px] font-semibold text-text-muted mb-1.5 block uppercase tracking-wider">
-                      Nama Event / Ibadah
-                    </label>
-                    <input
-                      autoFocus
-                      type="text"
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') void handleCreatePlaylist()
-                        if (e.key === 'Escape') setShowNewDialog(false)
-                      }}
-                      placeholder="Contoh: Ibadah Minggu Pagi"
-                      className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-[13px] text-text-primary placeholder:text-text-disabled focus:border-brand-primary/50 focus:ring-2 focus:ring-brand-primary/10 outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-text-muted mb-1.5 block uppercase tracking-wider">
-                      Tanggal
-                    </label>
-                    <input
-                      type="date"
-                      value={newDate}
-                      onChange={(e) => setNewDate(e.target.value)}
-                      className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-[13px] text-text-primary focus:border-brand-primary/50 focus:ring-2 focus:ring-brand-primary/10 outline-none transition-all"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2 mt-6">
-                  <button
-                    onClick={() => setShowNewDialog(false)}
-                    className="px-4 py-2 rounded-xl text-[12px] font-semibold text-text-secondary hover:text-text-primary hover:bg-white/[0.05] transition-colors"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    onClick={handleCreatePlaylist}
-                    disabled={!newName.trim()}
-                    className="px-5 py-2 rounded-xl bg-brand-primary text-[12px] font-bold text-white hover:bg-brand-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Simpan
-                  </button>
-                </div>
+          <div className="playlist-modal-form">
+            <div className="sp-field">
+              <label htmlFor="playlist-panel-name" className="sp-field__label">
+                Nama Event / Ibadah
+              </label>
+              <input
+                id="playlist-panel-name"
+                autoFocus
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void handleCreatePlaylist()
+                }}
+                placeholder="Contoh: Ibadah Minggu Pagi"
+                className="sp-input"
+              />
+            </div>
+            <fieldset className="sp-field">
+              <legend className="sp-field__label">Penggunaan</legend>
+              <div className="playlist-schedule-options">
+                <button
+                  type="button"
+                  className={`playlist-schedule-option ${newScheduleMode === 'anytime' ? 'is-active' : ''}`}
+                  onClick={() => setNewScheduleMode('anytime')}
+                  aria-pressed={newScheduleMode === 'anytime'}
+                >
+                  <Repeat2 size={17} />
+                  <span>
+                    <strong>Kapan saja</strong>
+                    <small>Dapat digunakan berulang kali</small>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`playlist-schedule-option ${newScheduleMode === 'dated' ? 'is-active' : ''}`}
+                  onClick={() => setNewScheduleMode('dated')}
+                  aria-pressed={newScheduleMode === 'dated'}
+                >
+                  <CalendarDays size={17} />
+                  <span>
+                    <strong>Bertanggal</strong>
+                    <small>Untuk ibadah tertentu</small>
+                  </span>
+                </button>
               </div>
-            )}
-
-            {/* Load Playlist Dialog */}
-            {showLoadDialog && (
-              <div className="flex flex-col max-h-[65vh]">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
-                  <h3 className="text-[15px] font-bold text-text-primary">Buka Playlist</h3>
-                  <button
-                    onClick={() => setShowLoadDialog(false)}
-                    className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/[0.05] transition-colors"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-2">
-                  {playlists.length === 0 ? (
-                    <div className="py-10 text-center text-text-muted text-[13px]">
-                      Belum ada playlist tersimpan.
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {playlists.map((p) => (
-                        <button
-                          key={p.id}
-                          onClick={() => handleLoadPlaylist(p)}
-                          className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/[0.05] text-left group transition-all"
-                        >
-                          <div>
-                            <p className="text-[13px] font-semibold text-text-primary group-hover:text-brand-primary transition-colors">
-                              {p.name}
-                            </p>
-                            <p className="text-[11px] text-text-muted mt-0.5">
-                              {new Date(p.service_date).toLocaleDateString('id-ID', {
-                                weekday: 'short',
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric'
-                              })}
-                            </p>
-                          </div>
-                          <FolderOpen
-                            size={14}
-                            className="text-text-disabled group-hover:text-brand-primary transition-colors shrink-0"
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+            </fieldset>
+            {newScheduleMode === 'dated' && (
+              <div className="sp-field">
+                <label htmlFor="playlist-panel-date" className="sp-field__label">
+                  Tanggal Ibadah
+                </label>
+                <input
+                  id="playlist-panel-date"
+                  type="date"
+                  value={newDate}
+                  onChange={(e) => setNewDate(e.target.value)}
+                  className="sp-input"
+                />
               </div>
             )}
           </div>
-        </div>
+        </Modal>
+      )}
+
+      {showLoadDialog && (
+        <Modal
+          id="playlist-panel-load"
+          title="Buka Playlist"
+          subtitle="Pilih playlist tersimpan untuk melanjutkan persiapan."
+          size="md"
+          onClose={() => setShowLoadDialog(false)}
+        >
+          {playlists.length === 0 ? (
+            <div className="sp-modal-empty">
+              <ListMusic size={24} />
+              <strong>Belum ada playlist tersimpan</strong>
+              <span>Buat playlist baru untuk memulai rundown ibadah.</span>
+            </div>
+          ) : (
+            <div className="playlist-modal-list">
+              {playlists.map((playlist) => (
+                <button
+                  key={playlist.id}
+                  type="button"
+                  onClick={() => void handleLoadPlaylist(playlist)}
+                  className="playlist-modal-list__item"
+                >
+                  <span className="playlist-modal-list__icon">
+                    <ListMusic size={15} />
+                  </span>
+                  <span className="playlist-modal-list__copy">
+                    <strong>{playlist.name}</strong>
+                    <small>{formatPlaylistSchedule(playlist.service_date)}</small>
+                  </span>
+                  <FolderOpen size={15} />
+                </button>
+              ))}
+            </div>
+          )}
+        </Modal>
       )}
     </div>
   )

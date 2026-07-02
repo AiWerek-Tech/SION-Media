@@ -138,7 +138,7 @@ export function ImportProgressDialog({
               </p>
             </div>
 
-            <div className="w-full bg-white/[0.02] border border-border-subtle rounded-xl p-4 flex flex-col gap-2 mt-2">
+            <div className="w-full sp-modal-card flex flex-col gap-2 mt-2">
               <div className="flex items-center justify-between">
                 <span className="text-[12px] font-semibold text-emerald-400">
                   Berhasil Disimpan

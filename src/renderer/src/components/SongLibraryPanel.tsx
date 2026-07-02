@@ -1,7 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { Variants } from 'framer-motion'
-import { ChevronDown, Clock, Folder, FolderOpen, Music, Plus, Search, Star, X } from 'lucide-react'
+import {
+  ChevronDown,
+  Clock,
+  Folder,
+  FolderOpen,
+  LoaderCircle,
+  Music,
+  Plus,
+  RefreshCw,
+  Search,
+  Star,
+  X
+} from 'lucide-react'
 import { useAppStore } from '@renderer/store/useAppStore'
 import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
 import { useProjectionStore } from '@renderer/store/useProjectionStore'
@@ -32,16 +44,21 @@ export function SongLibraryPanel(): React.JSX.Element {
     selectedSong,
     loadMoreSongs,
     hasMoreResults,
-    isLoadingMore
+    isLoadingMore,
+    isSearching,
+    searchError
   } = useAppStore()
   const { addSongToPlaylist, activePlaylist } = usePlaylistStore()
   const { setSlides } = useProjectionStore()
   const [localQuery, setLocalQuery] = useState(searchQuery)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [recentSongs, setRecentSongs] = useState<Song[]>([])
+  const [recentLoading, setRecentLoading] = useState(false)
+  const [recentError, setRecentError] = useState<string | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const recentRequestId = useRef(0)
 
   // ── Auto-select first hymnal ──────────────────────────────────────────────
   useEffect(() => {
@@ -60,13 +77,21 @@ export function SongLibraryPanel(): React.JSX.Element {
   // FIX: was only triggered on activeFilter change, missing refresh after play
   const loadRecentSongs = useCallback(async () => {
     if (!window.api?.system?.getRecentSongs) return
+    const requestId = ++recentRequestId.current
+    setRecentLoading(true)
+    setRecentError(null)
     try {
-      const data = await window.api.system.getRecentSongs(50)
+      const data = await window.api.system.getRecentSongs(50, selectedHymnalId ?? undefined)
+      if (requestId !== recentRequestId.current) return
       setRecentSongs(data as Song[])
     } catch (err) {
+      if (requestId !== recentRequestId.current) return
       logger.error('Failed to load recent songs:', err)
+      setRecentError('Riwayat lagu gagal dimuat. Silakan coba lagi.')
+    } finally {
+      if (requestId === recentRequestId.current) setRecentLoading(false)
     }
-  }, [])
+  }, [selectedHymnalId])
 
   useEffect(() => {
     if (activeFilter === 'recent') {
@@ -79,9 +104,19 @@ export function SongLibraryPanel(): React.JSX.Element {
   // Auto-focus search input when opened
   useEffect(() => {
     if (searchOpen) {
-      setTimeout(() => searchInputRef.current?.focus(), 80)
+      const timer = setTimeout(() => searchInputRef.current?.focus(), 80)
+      return () => clearTimeout(timer)
     }
+    return undefined
   }, [searchOpen])
+
+  useEffect(
+    () => () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current)
+      recentRequestId.current += 1
+    },
+    []
+  )
 
   // ── Search handler ────────────────────────────────────────────────────────
   const handleSearch = useCallback(
@@ -96,8 +131,16 @@ export function SongLibraryPanel(): React.JSX.Element {
   )
 
   const clearSearch = (): void => {
+    if (searchTimer.current) clearTimeout(searchTimer.current)
     setLocalQuery('')
     searchSongs('')
+  }
+
+  const handleHymnalChange = (hymnalId: number): void => {
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    setLocalQuery('')
+    setSelectedCategory('')
+    setSelectedHymnalId(hymnalId)
   }
 
   const handleToggleSearch = (): void => {
@@ -152,8 +195,12 @@ export function SongLibraryPanel(): React.JSX.Element {
       useAppStore.getState().showToast('Buka atau buat playlist terlebih dahulu', 'error')
       return
     }
-    await addSongToPlaylist(song)
-    useAppStore.getState().showToast(`"${song.title}" ditambahkan ke playlist`, 'success')
+    try {
+      await addSongToPlaylist(song)
+      useAppStore.getState().showToast(`"${song.title}" ditambahkan ke playlist`, 'success')
+    } catch {
+      // The playlist store logs the technical error and displays the failure toast.
+    }
   }
 
   const handleToggleFavorite = async (song: Song): Promise<void> => {
@@ -174,7 +221,7 @@ export function SongLibraryPanel(): React.JSX.Element {
     } catch (err) {
       logger.error('Failed to toggle favorite:', err)
       // Rollback on error
-      appStore.setSongs(songs.map((s) => (s.id === song.id ? song : s)))
+      appStore.setSongs(useAppStore.getState().songs.map((s) => (s.id === song.id ? song : s)))
       if (appStore.selectedSong?.id === song.id) {
         appStore.setSelectedSong(song)
       }
@@ -202,6 +249,8 @@ export function SongLibraryPanel(): React.JSX.Element {
   }
 
   const emptyMsg = emptyMessages[activeFilter]
+  const panelLoading = activeFilter === 'recent' ? recentLoading : isSearching
+  const panelError = activeFilter === 'recent' ? recentError : searchError
 
   // ── Animation variants ────────────────────────────────────────────────────
   const listContainerVariants: Variants = {
@@ -234,7 +283,7 @@ export function SongLibraryPanel(): React.JSX.Element {
           </div>
           <select
             value={selectedHymnalId ?? ''}
-            onChange={(e) => setSelectedHymnalId(Number(e.target.value))}
+            onChange={(e) => handleHymnalChange(Number(e.target.value))}
             className="projection-hymnal-dropdown__select"
             title="Pilih buku lagu"
           >
@@ -249,8 +298,15 @@ export function SongLibraryPanel(): React.JSX.Element {
 
         {/* Right: song count + search toggle */}
         <div className="flex items-center gap-1 shrink-0">
-          <span className="text-[10px] font-semibold text-text-disabled tabular-nums mr-1">
-            {filteredSongs.length}
+          <span
+            className="projection-library-panel__count"
+            title={`${filteredSongs.length} lagu dimuat`}
+          >
+            {panelLoading ? (
+              <LoaderCircle size={12} className="animate-spin" />
+            ) : (
+              filteredSongs.length
+            )}
           </span>
           <button
             className={`projection-library-panel__tool ${searchOpen ? 'is-active' : ''}`}
@@ -331,7 +387,19 @@ export function SongLibraryPanel(): React.JSX.Element {
       </div>
 
       {/* ── SONG LIST ─────────────────────────────────────────────────────── */}
-      <div className="projection-library-list">
+      <div className="projection-library-list" aria-busy={panelLoading || isLoadingMore}>
+        {panelError && (
+          <div className="projection-library-status projection-library-status--error" role="alert">
+            <span>{panelError}</span>
+            <button
+              onClick={() =>
+                void (activeFilter === 'recent' ? loadRecentSongs() : searchSongs(localQuery))
+              }
+            >
+              <RefreshCw size={11} /> Coba lagi
+            </button>
+          </div>
+        )}
         <motion.div
           initial="hidden"
           animate="show"
@@ -353,7 +421,7 @@ export function SongLibraryPanel(): React.JSX.Element {
         </motion.div>
 
         {/* FIX: per-filter empty state messages */}
-        {filteredSongs.length === 0 && (
+        {filteredSongs.length === 0 && !panelLoading && !panelError && (
           <div className="projection-library-empty">
             {activeFilter === 'favorites' ? (
               <Star size={28} className="opacity-30" />

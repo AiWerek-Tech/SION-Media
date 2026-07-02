@@ -9,11 +9,15 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react'
-import { ListMusic } from 'lucide-react'
+import { CalendarDays, ListMusic, Repeat2 } from 'lucide-react'
 import { Modal, ModalButton } from './Modal'
 import { useModalStore } from '../../store/useModalStore'
 import { usePlaylistStore } from '../../store/usePlaylistStore'
 import { useAppStore } from '../../store/useAppStore'
+import {
+  normalizePlaylistServiceDate,
+  type PlaylistScheduleMode
+} from '../../utils/playlistSchedule'
 
 interface CreatePlaylistDialogProps {
   id: string
@@ -21,7 +25,8 @@ interface CreatePlaylistDialogProps {
 
 export function CreatePlaylistDialog({ id }: CreatePlaylistDialogProps): React.JSX.Element {
   const [name, setName] = useState('')
-  const [serviceDate, setServiceDate] = useState('')
+  const [scheduleMode, setScheduleMode] = useState<PlaylistScheduleMode>('anytime')
+  const [serviceDate, setServiceDate] = useState(new Date().toISOString().split('T')[0])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -43,10 +48,16 @@ export function CreatePlaylistDialog({ id }: CreatePlaylistDialogProps): React.J
       return
     }
 
+    const normalizedDate = normalizePlaylistServiceDate(scheduleMode, serviceDate)
+    if (scheduleMode === 'dated' && !normalizedDate) {
+      setError('Pilih tanggal ibadah')
+      return
+    }
+
     setError(null)
     setLoading(true)
     try {
-      await createPlaylist(trimmed, serviceDate)
+      await createPlaylist(trimmed, normalizedDate)
       showToast(`Playlist "${trimmed}" berhasil dibuat`, 'success')
       closeById(id, true)
     } catch (err) {
@@ -84,11 +95,8 @@ export function CreatePlaylistDialog({ id }: CreatePlaylistDialogProps): React.J
       <div className="flex flex-col gap-4">
         {/* Icon */}
         <div className="flex items-center gap-3 mb-1">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: 'rgba(59,130,246,0.12)' }}
-          >
-            <ListMusic size={20} color="#60a5fa" />
+          <div className="sp-modal-icon-wrap sp-modal-icon-wrap--info">
+            <ListMusic size={20} />
           </div>
           <p className="text-xs text-muted leading-relaxed">
             Playlist akan langsung aktif setelah dibuat.
@@ -113,47 +121,60 @@ export function CreatePlaylistDialog({ id }: CreatePlaylistDialogProps): React.J
             placeholder="cth. Ibadah Minggu 18 Mei"
             maxLength={80}
             disabled={loading}
+            className="sp-input w-full"
             style={{
-              background: 'rgba(255,255,255,0.04)',
-              border: `1px solid ${error ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}`,
-              borderRadius: 8,
-              padding: '9px 12px',
-              fontSize: 13,
-              color: 'var(--color-text-primary, #fff)',
-              fontFamily: 'Inter, sans-serif',
-              outline: 'none',
-              width: '100%',
-              transition: 'border-color 0.15s'
+              borderColor: error ? 'rgba(239,68,68,0.5)' : undefined
             }}
           />
           {error && <p className="text-xs text-rose-400">{error}</p>}
         </div>
 
-        {/* Service date field */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-600 text-secondary" htmlFor={`playlist-date-${id}`}>
-            Tanggal Ibadah <span className="text-muted">(opsional)</span>
-          </label>
-          <input
-            id={`playlist-date-${id}`}
-            type="date"
-            value={serviceDate}
-            onChange={(e) => setServiceDate(e.target.value)}
-            disabled={loading}
-            style={{
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 8,
-              padding: '9px 12px',
-              fontSize: 13,
-              color: 'var(--color-text-primary, #fff)',
-              fontFamily: 'Inter, sans-serif',
-              outline: 'none',
-              width: '100%',
-              colorScheme: 'dark'
-            }}
-          />
-        </div>
+        <fieldset disabled={loading}>
+          <legend className="text-xs font-600 text-secondary mb-2">Penggunaan</legend>
+          <div className="playlist-schedule-options">
+            <button
+              type="button"
+              className={`playlist-schedule-option ${scheduleMode === 'anytime' ? 'is-active' : ''}`}
+              onClick={() => setScheduleMode('anytime')}
+              aria-pressed={scheduleMode === 'anytime'}
+            >
+              <Repeat2 size={15} />
+              <span>
+                <strong>Kapan saja</strong>
+                <small>Dapat digunakan berulang kali</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`playlist-schedule-option ${scheduleMode === 'dated' ? 'is-active' : ''}`}
+              onClick={() => setScheduleMode('dated')}
+              aria-pressed={scheduleMode === 'dated'}
+            >
+              <CalendarDays size={15} />
+              <span>
+                <strong>Bertanggal</strong>
+                <small>Untuk ibadah tertentu</small>
+              </span>
+            </button>
+          </div>
+        </fieldset>
+
+        {scheduleMode === 'dated' && (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-600 text-secondary" htmlFor={`playlist-date-${id}`}>
+              Tanggal Ibadah
+            </label>
+            <input
+              id={`playlist-date-${id}`}
+              type="date"
+              value={serviceDate}
+              onChange={(e) => setServiceDate(e.target.value)}
+              disabled={loading}
+              className="sp-input w-full"
+              style={{ colorScheme: 'dark' }}
+            />
+          </div>
+        )}
       </div>
     </Modal>
   )

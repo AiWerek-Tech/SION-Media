@@ -81,19 +81,30 @@ export function TitleBarStatus(): React.JSX.Element {
     selectedHymnalId,
     selectedSong,
     setScreen,
-    songs
+    songs,
+    activeLibraryWorkspace
   } = useAppStore()
   const { currentMode } = useModeStore()
   const { activePlaylist, playlistItems } = usePlaylistStore()
   const hasExternal = displayCount > 1
   const selectedHymnal = hymnals.find((hymnal) => hymnal.id === selectedHymnalId)
 
-  const handleToggleProjection = (): void => {
+  const handleToggleProjection = async (): Promise<void> => {
     try {
       if (isProjectionVisible) {
         window.api.projection.hide()
         useAppStore.getState().setProjectionVisible(false)
       } else {
+        const hasExt = await window.api.display.hasExternal()
+        if (!hasExt) {
+          useAppStore
+            .getState()
+            .showToast(
+              'Layar output eksternal tidak terdeteksi. Lirik sudah tampil di monitor LIVE di dashboard.',
+              'info'
+            )
+          return
+        }
         window.api.projection.show()
         useAppStore.getState().setProjectionVisible(true)
       }
@@ -175,6 +186,17 @@ export function TitleBarStatus(): React.JSX.Element {
   }
 
   if (currentMode === 'LIBRARY') {
+    if (activeLibraryWorkspace === 'bible') {
+      return (
+        <div className="title-bar-status no-drag">
+          <div className="titlebar-badge titlebar-badge--connected" title="Alkitab Aktif">
+            <BookOpen size={10} />
+            <span>Alkitab</span>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="title-bar-status no-drag">
         <div className="titlebar-badge titlebar-badge--connected" title="Database library aktif">

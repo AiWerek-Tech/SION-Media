@@ -38,7 +38,8 @@ export default defineConfig({
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
           projection: resolve(__dirname, 'src/renderer/projection.html'),
-          stageDisplay: resolve(__dirname, 'src/renderer/stageDisplay.html')
+          stageDisplay: resolve(__dirname, 'src/renderer/stageDisplay.html'),
+          splash: resolve(__dirname, 'src/renderer/splash.html')
         }
       }
     }

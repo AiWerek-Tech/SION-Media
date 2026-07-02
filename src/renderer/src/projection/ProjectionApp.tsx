@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { PresentationCanvas } from '@renderer/components/PresentationCanvas'
+import { LiveProjectionCanvas } from '@renderer/components/LiveProjectionCanvas'
 import { EmergencyOverlay } from '@renderer/components/EmergencyOverlay'
 import type { ProjectionState, SlideData } from '@renderer/types'
 import { logger } from '@renderer/utils/logger'
@@ -69,15 +69,20 @@ export function ProjectionApp(): React.JSX.Element {
     }
   }, [])
 
+  const lyricsFontSizePercent = theme.ui_lyrics_font_size
+    ? Math.max(50, Math.min(300, Number(theme.ui_lyrics_font_size)))
+    : 100
+
   return (
     <div className="projection-output-root">
-      <PresentationCanvas
+      <LiveProjectionCanvas
         slide={currentSlide}
         projectionState={projectionState}
         theme={theme}
         animated
         showMetadata
         fit
+        lyricsFontSizePercent={lyricsFontSizePercent}
         className="projection-output-canvas"
       />
       <EmergencyOverlay

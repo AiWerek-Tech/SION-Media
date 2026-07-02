@@ -67,12 +67,18 @@ interface AppState {
   setMaximized: (maximized: boolean) => void
   isLyricsFullscreen: boolean
   setLyricsFullscreen: (isFullscreen: boolean) => void
+  isBibleFullscreen: boolean
+  setBibleFullscreen: (isFullscreen: boolean) => void
   isFocusMode: boolean
   toggleFocusMode: () => void
 
   // Workspace (own state)
   workspaceName: string
   setWorkspaceName: (name: string) => void
+
+  // Active Library Workspace (own state)
+  activeLibraryWorkspace: string
+  setActiveLibraryWorkspace: (workspace: string) => void
 
   // Service Timer (own state)
   serviceTimerStartTime: number | null
@@ -99,6 +105,8 @@ interface AppState {
   searchOffset: number
   hasMoreResults: boolean
   isLoadingMore: boolean
+  isSearching: boolean
+  searchError: string | null
 }
 
 export const useAppStore = create<AppState>((set, get) => {
@@ -115,7 +123,9 @@ export const useAppStore = create<AppState>((set, get) => {
       editingSong: s.editingSong,
       searchOffset: s.searchOffset,
       hasMoreResults: s.hasMoreResults,
-      isLoadingMore: s.isLoadingMore
+      isLoadingMore: s.isLoadingMore,
+      isSearching: s.isSearching,
+      searchError: s.searchError
     })
   })
 
@@ -133,6 +143,7 @@ export const useAppStore = create<AppState>((set, get) => {
       isStageDisplayVisible: s.isStageDisplayVisible,
       isMaximized: s.isMaximized,
       isLyricsFullscreen: s.isLyricsFullscreen,
+      isBibleFullscreen: s.isBibleFullscreen,
       isFocusMode: s.isFocusMode
     })
   })
@@ -181,6 +192,8 @@ export const useAppStore = create<AppState>((set, get) => {
     searchOffset: songInit.searchOffset,
     hasMoreResults: songInit.hasMoreResults,
     isLoadingMore: songInit.isLoadingMore,
+    isSearching: songInit.isSearching,
+    searchError: songInit.searchError,
 
     // ── Song actions (delegated with cross-store glue) ──────────────────
     loadSongs: async (hymnalId?: number) => {
@@ -219,6 +232,9 @@ export const useAppStore = create<AppState>((set, get) => {
     isLyricsFullscreen: displayInit.isLyricsFullscreen,
     setLyricsFullscreen: (isFullscreen) =>
       useDisplayStore.getState().setLyricsFullscreen(isFullscreen),
+    isBibleFullscreen: displayInit.isBibleFullscreen,
+    setBibleFullscreen: (isFullscreen) =>
+      useDisplayStore.getState().setBibleFullscreen(isFullscreen),
     isFocusMode: displayInit.isFocusMode,
     toggleFocusMode: () => useDisplayStore.getState().toggleFocusMode(),
 
@@ -228,6 +244,10 @@ export const useAppStore = create<AppState>((set, get) => {
       set({ workspaceName: name })
       window.api?.settings?.update('workspace_name', name).catch(() => {})
     },
+
+    // ── Active Library Workspace (own state) ─────────────────────────────
+    activeLibraryWorkspace: 'all',
+    setActiveLibraryWorkspace: (workspace) => set({ activeLibraryWorkspace: workspace }),
 
     // ── Service Timer (own state) ───────────────────────────────────────
     serviceTimerStartTime: null,

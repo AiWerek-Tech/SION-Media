@@ -8,6 +8,8 @@ import { ZodError } from 'zod'
 import { parseExcelFile } from './services/excel'
 import { isSafeMode } from './safe-mode'
 import { exportDebugReport } from './debug-report'
+import { setupContentPackIPC } from './services/content-packs/contentPackIpcHandlers'
+import { setupBiblePackIPC } from './services/bible/biblePackIpcHandlers'
 import {
   getHymnals,
   addHymnal,
@@ -42,6 +44,8 @@ import {
   deletePlaylist,
   getPlaylistItems,
   addPlaylistItem,
+  addBibleToPlaylist,
+  addInfoToPlaylist,
   updatePlaylistItem,
   deletePlaylistItem,
   reorderPlaylistItems,
@@ -87,12 +91,16 @@ import {
   // Phase 1 — Enterprise Refactor functions
   getStorageStats,
   duplicateSong,
-  getSongsSummary
+  getSongsSummary,
+  getSongNote,
+  updateSongNote,
+  getBibleNote,
+  updateBibleNote,
+  getBibleNotesForChapter
 } from './database'
 import {
   getMainWindow,
   getProjectionWindow,
-  createProjectionWindow,
   showProjectionWindow,
   hideProjectionWindow,
   showStageDisplayWindow,
@@ -104,11 +112,12 @@ import {
   updateTheme,
   broadcastAppTheme,
   updateTitleBarOverlayForTheme,
-  closeNativeSplashWindow,
-  showMainWindow,
-  repositionProjectionWindowFromSettings
+  repositionProjectionWindowFromSettings,
+  hasExternalDisplay
 } from './windows'
 import { getAllDisplays } from './display-monitor'
+import { resolveModeChangeProjectionAction } from './mode-policy'
+import { normalizeSafeExternalUrl } from './safe-external-url'
 const RESEED_CONFIRM_TOKEN = 'RESEED_DATABASE'
 
 function auditDestructiveAction(action: string, detail: Record<string, unknown>): void {
@@ -184,19 +193,9 @@ export function setupIPC(): void {
 
   // Open external links
   ipcMain.handle('system:open-external', async (_event, url: string) => {
-    if (typeof url !== 'string' || url.trim().length === 0) {
-      throw new Error('Invalid URL')
-    }
-    // Only allow safe protocols — block file://, javascript:, etc.
-    const parsed = new URL(url)
-    if (
-      parsed.protocol !== 'https:' &&
-      parsed.protocol !== 'http:' &&
-      parsed.protocol !== 'mailto:'
-    ) {
-      throw new Error(`Blocked unsafe protocol: ${parsed.protocol}`)
-    }
-    return await shell.openExternal(url)
+    const safeUrl = normalizeSafeExternalUrl(url)
+    if (!safeUrl) throw new Error('Invalid or unsafe external URL')
+    return await shell.openExternal(safeUrl)
   })
 
   // App theme sync
@@ -208,25 +207,11 @@ export function setupIPC(): void {
     }
   )
 
-  ipcMain.on('app:renderer-shell-ready', () => {
-    closeNativeSplashWindow()
-    showMainWindow()
-  })
-
   // Mode change handler
   ipcMain.handle('system:set-mode', async (_event, mode: string) => {
-    if (mode === 'LIBRARY' || mode === 'MANAGEMENT') {
-      // Hide or destroy projection window to save memory
-      const projectionWindow = getProjectionWindow()
-      if (projectionWindow && !projectionWindow.isDestroyed()) {
-        projectionWindow.hide()
-      }
-    } else if (mode === 'PROJECTION' || mode === 'BROADCAST') {
-      // Re-initialize or show projection window if needed
-      if (!getProjectionWindow() || getProjectionWindow()?.isDestroyed()) {
-        createProjectionWindow()
-      }
-    }
+    // Workspace navigation must never affect the audience output. Visibility
+    // remains exclusively controlled by projection:show / projection:hide.
+    return resolveModeChangeProjectionAction(mode)
   })
 
   // Projection control
@@ -270,6 +255,7 @@ export function setupIPC(): void {
   // Legacy 'display_get-all' handler removed — use 'display:get-all' (line 610)
 
   ipcMain.handle('display:is-projection-visible', () => isProjectionVisible())
+  ipcMain.handle('display:has-external', () => hasExternalDisplay())
 
   // Database operations — Hymnals
   ipcMain.handle('db:get-hymnals', () => getHymnals())
@@ -302,6 +288,8 @@ export function setupIPC(): void {
     })
   })
   ipcMain.handle('db:toggle-favorite', (_e, id) => toggleFavorite(id))
+  ipcMain.handle('db:get-song-note', (_e, songId) => getSongNote(songId))
+  ipcMain.handle('db:update-song-note', (_e, songId, noteText) => updateSongNote(songId, noteText))
 
   // Media Library
   safeIpcHandle('db:get-media-assets', (filters: unknown) => {
@@ -431,6 +419,12 @@ export function setupIPC(): void {
   ipcMain.handle('db:delete-playlist', (_e, id) => deletePlaylist(id))
   ipcMain.handle('db:get-playlist-items', (_e, playlistId) => getPlaylistItems(playlistId))
   ipcMain.handle('db:add-playlist-item', (_e, item) => addPlaylistItem(item))
+  ipcMain.handle('db:add-bible-to-playlist', (_e, playlistId, bible) =>
+    addBibleToPlaylist(playlistId, bible)
+  )
+  ipcMain.handle('db:add-info-to-playlist', (_e, playlistId, info) =>
+    addInfoToPlaylist(playlistId, info)
+  )
   ipcMain.handle('db:update-playlist-item', (_e, id, data) => updatePlaylistItem(id, data))
   ipcMain.handle('db:delete-playlist-item', (_e, id) => deletePlaylistItem(id))
   ipcMain.handle('db:reorder-playlist-items', (_e, items) => reorderPlaylistItems(items))
@@ -445,7 +439,7 @@ export function setupIPC(): void {
 
   // History operations
   ipcMain.handle('db:log-history', (_e, songId) => logSongHistory(songId))
-  ipcMain.handle('db:get-recent-songs', (_e, limit) => getRecentSongs(limit))
+  ipcMain.handle('db:get-recent-songs', (_e, limit, hymnalId) => getRecentSongs(limit, hymnalId))
 
   // Database / Backup / Crash Recovery
   safeIpcHandle('db:create-backup', async (customPath: unknown) => {
@@ -548,6 +542,35 @@ export function setupIPC(): void {
     return dialog.showSaveDialog(mainWindow!, options)
   })
 
+  // File import - open dialog
+  ipcMain.handle('file:show-open-dialog', async (_e, options: Electron.OpenDialogOptions) => {
+    const { dialog, BrowserWindow } = await import('electron')
+    const mainWindow = BrowserWindow.getFocusedWindow()
+    return dialog.showOpenDialog(mainWindow!, options)
+  })
+
+  // File import - read JSON
+  ipcMain.handle('file:read-json', async (_e, filePath: string) => {
+    const { readFileSync } = await import('fs')
+    const { isAbsolute, extname } = await import('path')
+    try {
+      if (typeof filePath !== 'string' || filePath.trim().length === 0) {
+        throw new Error('Invalid file path.')
+      }
+      if (!isAbsolute(filePath)) {
+        throw new Error('Path must be absolute.')
+      }
+      if (extname(filePath).toLowerCase() !== '.json') {
+        throw new Error('Only .json file extension is allowed.')
+      }
+      const raw = readFileSync(filePath, 'utf8')
+      return JSON.parse(raw)
+    } catch (error) {
+      console.error('Read JSON error:', error)
+      throw error
+    }
+  })
+
   // File export - write JSON
   ipcMain.handle('file:write-json', async (_e, filePath: string, data: unknown) => {
     const { writeFileSync } = await import('fs')
@@ -626,4 +649,27 @@ export function setupIPC(): void {
   ipcMain.handle('system:export-debug-report', async () => {
     return await exportDebugReport()
   })
+
+  // ========== Bible Notes & Highlights ==========
+  ipcMain.handle('db:get-bible-note', (_e, bookCode: string, chapter: number, verse: number) =>
+    getBibleNote(bookCode, chapter, verse)
+  )
+  ipcMain.handle(
+    'db:update-bible-note',
+    (
+      _e,
+      bookCode: string,
+      chapter: number,
+      verse: number,
+      noteText: string,
+      highlightColor: string
+    ) => updateBibleNote(bookCode, chapter, verse, noteText, highlightColor)
+  )
+  ipcMain.handle('db:get-bible-notes-for-chapter', (_e, bookCode: string, chapter: number) =>
+    getBibleNotesForChapter(bookCode, chapter)
+  )
+
+  // ========== Content Pack & Bible Pack IPC ==========
+  setupContentPackIPC()
+  setupBiblePackIPC()
 }

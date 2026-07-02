@@ -459,6 +459,11 @@ Copyright SION Media Enterprise`.trim()
       if (idleTimerRef.current) {
         clearTimeout(idleTimerRef.current)
       }
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch((err) => {
+          logger.error('Failed to exit fullscreen on unmount:', err)
+        })
+      }
     }
   }, [setMaximized])
 

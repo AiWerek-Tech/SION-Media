@@ -13,6 +13,7 @@ import { Modal, ModalButton } from './Modal'
 import { useModalStore } from '../../store/useModalStore'
 import { usePlaylistStore } from '../../store/usePlaylistStore'
 import type { Playlist } from '../../types'
+import { formatPlaylistSchedule } from '../../utils/playlistSchedule'
 
 interface PlaylistPickerDialogProps {
   id: string
@@ -69,29 +70,24 @@ export function PlaylistPickerDialog({
               key={playlist.id}
               type="button"
               onClick={() => setSelectedId(playlist.id)}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors"
-              style={{
-                background: selectedId === playlist.id ? 'rgba(59,130,246,0.12)' : 'transparent',
-                border: `1px solid ${
-                  selectedId === playlist.id ? 'rgba(59,130,246,0.3)' : 'transparent'
-                }`,
-                cursor: 'pointer'
-              }}
+              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border text-left transition-all duration-150 active:scale-[0.98] ${
+                selectedId === playlist.id
+                  ? 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary'
+                  : 'bg-white/[0.02] border-white/[0.04] hover:bg-white/[0.05] hover:border-white/[0.08] text-text-secondary'
+              }`}
+              style={{ cursor: 'pointer' }}
             >
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: 'rgba(255,255,255,0.06)' }}
-              >
-                <ListMusic size={14} className="text-muted" />
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/[0.05] border border-white/[0.05]">
+                <ListMusic size={14} className="text-text-muted" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-600 text-primary truncate">{playlist.name}</p>
-                {playlist.service_date && (
-                  <p className="text-xs text-muted">{playlist.service_date}</p>
-                )}
+                <p className="text-sm font-semibold text-text-primary truncate">{playlist.name}</p>
+                <p className="text-xs text-text-muted">
+                  {formatPlaylistSchedule(playlist.service_date)}
+                </p>
               </div>
               {selectedId === playlist.id && (
-                <Check size={16} color="#60a5fa" className="flex-shrink-0" />
+                <Check size={16} className="text-brand-primary flex-shrink-0" />
               )}
             </button>
           ))

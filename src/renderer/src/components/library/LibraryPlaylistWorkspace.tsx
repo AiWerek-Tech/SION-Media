@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import {
   Calendar,
-  Check,
   ChevronDown,
   Download,
   GripVertical,
   Layers,
   Plus,
+  Repeat2,
   Sparkles,
   Trash2
 } from 'lucide-react'
@@ -28,7 +28,13 @@ import {
 import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
 import { useAppStore } from '@renderer/store/useAppStore'
 import PlaylistItemCard from '@renderer/components/PlaylistItemCard'
+import { Modal, ModalButton } from '@renderer/components/modals/Modal'
 import { logger } from '@renderer/utils/logger'
+import {
+  formatPlaylistSchedule,
+  normalizePlaylistServiceDate,
+  type PlaylistScheduleMode
+} from '@renderer/utils/playlistSchedule'
 
 const SECTION_PRESETS = [
   'PEMBUKAAN',
@@ -57,6 +63,7 @@ export function LibraryPlaylistWorkspace(): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [newName, setNewName] = useState('')
+  const [newScheduleMode, setNewScheduleMode] = useState<PlaylistScheduleMode>('anytime')
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0])
 
   useEffect(() => {
@@ -81,8 +88,12 @@ export function LibraryPlaylistWorkspace(): React.JSX.Element {
     }
   }
 
-  const handleItemClick = (songId: number, index: number): void => {
+  const handleItemClick = (songId: number | null, index: number): void => {
     usePlaylistStore.getState().setActiveItemIndex(index)
+    if (songId === null) {
+      setSelectedSong(null)
+      return
+    }
     const song = songs.find((s) => s.id === songId)
     if (!song) return
     setSelectedSong(song)
@@ -90,9 +101,12 @@ export function LibraryPlaylistWorkspace(): React.JSX.Element {
 
   const handleCreate = async (): Promise<void> => {
     if (!newName.trim()) return
-    await createPlaylist(newName, newDate)
+    const serviceDate = normalizePlaylistServiceDate(newScheduleMode, newDate)
+    if (newScheduleMode === 'dated' && !serviceDate) return
+    await createPlaylist(newName, serviceDate)
     setCreateOpen(false)
     setNewName('')
+    setNewScheduleMode('anytime')
     const store = usePlaylistStore.getState()
     if (store.activePlaylist) await loadPlaylistItems(store.activePlaylist.id)
   }
@@ -172,7 +186,9 @@ export function LibraryPlaylistWorkspace(): React.JSX.Element {
             >
               <Calendar size={14} />
               <span className="max-w-[180px] truncate">
-                {activePlaylist ? activePlaylist.service_date : 'No date'}
+                {activePlaylist
+                  ? formatPlaylistSchedule(activePlaylist.service_date)
+                  : 'Pilih playlist'}
               </span>
               <ChevronDown
                 size={14}
@@ -215,7 +231,9 @@ export function LibraryPlaylistWorkspace(): React.JSX.Element {
                       }`}
                     >
                       <span className="truncate">{p.name}</span>
-                      <span className="text-[10px] text-text-muted">{p.service_date}</span>
+                      <span className="text-[10px] text-text-muted shrink-0">
+                        {formatPlaylistSchedule(p.service_date)}
+                      </span>
                     </button>
                   ))}
                 </motion.div>
@@ -260,55 +278,86 @@ export function LibraryPlaylistWorkspace(): React.JSX.Element {
         </div>
       </div>
 
-      {/* Create Dialog */}
-      <AnimatePresence>
-        {createOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 z-[120] flex items-center justify-center modal-overlay"
-            onClick={() => setCreateOpen(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, y: -10, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.98 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="w-[520px] max-w-[92vw] glass-panel-strong p-5"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="text-[13px] font-semibold text-text-primary">Buat Playlist</div>
-              <div className="mt-4 grid grid-cols-1 gap-3">
+      {createOpen && (
+        <Modal
+          id="library-workspace-create-playlist"
+          title="Buat Playlist Baru"
+          subtitle="Playlist akan langsung aktif di workspace Library."
+          size="md"
+          onClose={() => setCreateOpen(false)}
+          footer={
+            <>
+              <ModalButton onClick={() => setCreateOpen(false)}>Batal</ModalButton>
+              <ModalButton
+                variant="primary"
+                onClick={() => void handleCreate()}
+                disabled={!newName.trim() || (newScheduleMode === 'dated' && !newDate)}
+              >
+                Buat Playlist
+              </ModalButton>
+            </>
+          }
+        >
+          <div className="playlist-modal-form">
+            <div className="sp-field">
+              <label htmlFor="library-playlist-name" className="sp-field__label">
+                Nama Playlist
+              </label>
+              <input
+                id="library-playlist-name"
+                autoFocus
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Contoh: Ibadah Minggu Pagi"
+                className="sp-input"
+              />
+            </div>
+            <fieldset className="sp-field">
+              <legend className="sp-field__label">Penggunaan</legend>
+              <div className="playlist-schedule-options">
+                <button
+                  type="button"
+                  className={`playlist-schedule-option ${newScheduleMode === 'anytime' ? 'is-active' : ''}`}
+                  onClick={() => setNewScheduleMode('anytime')}
+                  aria-pressed={newScheduleMode === 'anytime'}
+                >
+                  <Repeat2 size={17} />
+                  <span>
+                    <strong>Kapan saja</strong>
+                    <small>Dapat digunakan berulang kali</small>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`playlist-schedule-option ${newScheduleMode === 'dated' ? 'is-active' : ''}`}
+                  onClick={() => setNewScheduleMode('dated')}
+                  aria-pressed={newScheduleMode === 'dated'}
+                >
+                  <Calendar size={17} />
+                  <span>
+                    <strong>Bertanggal</strong>
+                    <small>Untuk ibadah tertentu</small>
+                  </span>
+                </button>
+              </div>
+            </fieldset>
+            {newScheduleMode === 'dated' && (
+              <div className="sp-field">
+                <label htmlFor="library-playlist-date" className="sp-field__label">
+                  Tanggal Ibadah
+                </label>
                 <input
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Nama playlist"
-                  className="w-full h-10 px-3 rounded-xl bg-surface-0 border border-border-default/30 text-[12px] text-text-primary outline-none focus:border-brand-primary/40 focus:ring-2 focus:ring-brand-primary/8"
-                />
-                <input
+                  id="library-playlist-date"
                   value={newDate}
                   onChange={(e) => setNewDate(e.target.value)}
                   type="date"
-                  className="w-full h-10 px-3 rounded-xl bg-surface-0 border border-border-default/30 text-[12px] text-text-primary outline-none focus:border-brand-primary/40 focus:ring-2 focus:ring-brand-primary/8"
+                  className="sp-input"
                 />
               </div>
-              <div className="mt-4 flex items-center justify-end gap-2">
-                <button
-                  onClick={() => setCreateOpen(false)}
-                  className="btn-premium btn-premium-ghost"
-                >
-                  Batal
-                </button>
-                <button onClick={() => handleCreate()} className="btn-premium btn-premium-primary">
-                  <Check size={16} />
-                  Buat
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            )}
+          </div>
+        </Modal>
+      )}
 
       {/* Timeline / Queue */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-4">

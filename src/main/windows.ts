@@ -9,6 +9,7 @@ import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { getLatestProjectionTheme, mergeProjectionTheme } from './theme-manager'
 import { getSettings } from './database'
+import { normalizeSafeExternalUrl } from './safe-external-url'
 
 type EffectiveTheme = 'dark' | 'light'
 // Sandbox is desirable, but this app currently relies on preload behaviors that
@@ -18,13 +19,24 @@ const isSandboxEnabled = process.env['ELECTRON_ENABLE_SANDBOX'] === '1'
 
 // Window references
 let mainWindow: BrowserWindow | null = null
-let splashWindow: BrowserWindow | null = null
 let projectionWindow: BrowserWindow | null = null
 let stageDisplayWindow: BrowserWindow | null = null
 
 // Projection state tracking
 let latestSlideData: unknown = null
 let latestProjectionState = 'CLEAR'
+
+function denyWindowOpen(details: { url: string }): { action: 'deny' } {
+  const safeUrl = normalizeSafeExternalUrl(details.url)
+  if (safeUrl) {
+    void shell.openExternal(safeUrl).catch((error) => {
+      console.error('[windows] Unable to open external URL:', error)
+    })
+  } else {
+    console.warn('[windows] Blocked unsafe external URL')
+  }
+  return { action: 'deny' }
+}
 
 function getProjectionWindowOptions(): {
   targetDisplay: Display
@@ -49,49 +61,6 @@ export function repositionProjectionWindowFromSettings(): void {
   projectionWindow.setFullScreen(false)
   projectionWindow.setBounds(targetDisplay.bounds)
   projectionWindow.setFullScreen(fullscreen)
-}
-
-export function createNativeSplashWindow(): void {
-  splashWindow = new BrowserWindow({
-    width: 520,
-    height: 400,
-    resizable: false,
-    frame: false,
-    transparent: true,
-    title: 'SION Media',
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    focusable: false,
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: isSandboxEnabled,
-      webSecurity: true,
-      webviewTag: false
-    }
-  })
-
-  const splashPath =
-    is.dev && process.env['ELECTRON_RENDERER_URL']
-      ? `${process.env['ELECTRON_RENDERER_URL']}/splash.html`
-      : join(__dirname, '../renderer/splash.html')
-
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    splashWindow.loadURL(splashPath)
-  } else {
-    splashWindow.loadFile(splashPath)
-  }
-
-  splashWindow.on('closed', () => {
-    splashWindow = null
-  })
-}
-
-export function closeNativeSplashWindow(): void {
-  if (!splashWindow || splashWindow.isDestroyed()) return
-  splashWindow.close()
-  splashWindow = null
 }
 
 export function showMainWindow(): void {
@@ -209,6 +178,7 @@ export function createMainWindow(): void {
     minWidth: 1024,
     minHeight: 700,
     show: false,
+    backgroundColor: '#050714',
     frame: false,
     titleBarStyle: 'hidden',
     titleBarOverlay:
@@ -230,6 +200,10 @@ export function createMainWindow(): void {
       sandbox: isSandboxEnabled,
       webviewTag: false
     }
+  })
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show()
   })
 
   if (is.dev) {
@@ -259,10 +233,7 @@ export function createMainWindow(): void {
     mainWindow?.webContents.send('window:maximized-changed', false)
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
+  mainWindow.webContents.setWindowOpenHandler(denyWindowOpen)
 
   // Block navigations away from the app shell.
   mainWindow.webContents.on('will-navigate', (e) => {
@@ -311,10 +282,7 @@ export function createProjectionWindow(): void {
     }
   })
 
-  projectionWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
+  projectionWindow.webContents.setWindowOpenHandler(denyWindowOpen)
 
   projectionWindow.webContents.on('will-navigate', (e) => {
     e.preventDefault()
@@ -367,10 +335,7 @@ export function createStageDisplayWindow(): void {
     }
   })
 
-  stageDisplayWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
+  stageDisplayWindow.webContents.setWindowOpenHandler(denyWindowOpen)
 
   stageDisplayWindow.webContents.on('will-navigate', (e) => {
     e.preventDefault()
@@ -392,9 +357,40 @@ export function createStageDisplayWindow(): void {
 }
 
 /**
- * Show the projection window
+ * Check if an external display (non-primary) is available.
+ * When the user has configured a specific monitor via projection_monitor_id,
+ * that monitor is treated as "external" even if it happens to be the primary.
+ */
+export function hasExternalDisplay(): boolean {
+  const displays = screen.getAllDisplays()
+  if (displays.length <= 1) return false
+  const settings = getSettings()
+  const selectedDisplayId = Number(settings['projection_monitor_id'] || 0)
+  if (selectedDisplayId) {
+    // A specific monitor was configured — check it still exists and isn't the primary
+    const configured = displays.find((d) => d.id === selectedDisplayId)
+    if (configured && configured.id !== screen.getPrimaryDisplay().id) return true
+  }
+  // Fallback: any non-primary display counts
+  return displays.some((d) => d.id !== screen.getPrimaryDisplay().id)
+}
+
+/**
+ * Show the projection window — smart display detection
+ *
+ * If an external display is available, the projection window opens on it (fullscreen).
+ * If only the primary display is present, the projection window is NOT shown to
+ * prevent it from covering the operator's main app. The slide data and state still
+ * update via IPC, so the operator sees the live output in the LIVE monitor frame
+ * within the dashboard.
  */
 export function showProjectionWindow(): void {
+  if (!hasExternalDisplay()) {
+    // Single-monitor mode: do NOT open a covering fullscreen window.
+    // Slide data still flows via IPC to the LIVE preview inside the app.
+    return
+  }
+
   if (!projectionWindow || projectionWindow.isDestroyed()) {
     createProjectionWindow()
   }

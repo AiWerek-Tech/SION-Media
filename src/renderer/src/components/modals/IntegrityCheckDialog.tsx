@@ -81,11 +81,11 @@ export function IntegrityCheckDialog({ id }: IntegrityCheckDialogProps): React.J
         </ModalButton>
       }
     >
-      <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-        {isLoading && <p className="text-zinc-400">Menganalisis database...</p>}
+      <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin">
+        {isLoading && <p className="text-text-muted">Menganalisis database...</p>}
 
         {error && (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-sm">
+          <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-sm">
             {error}
           </div>
         )}
@@ -93,25 +93,25 @@ export function IntegrityCheckDialog({ id }: IntegrityCheckDialogProps): React.J
         {!isLoading && report && (
           <div className="space-y-6 text-sm">
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-zinc-900 border border-white/10 rounded-lg">
-                <h4 className="text-zinc-400 mb-1">Total Hymnal</h4>
-                <p className="text-2xl font-semibold text-zinc-100">{report.totalHymnals}</p>
+              <div className="sp-modal-card">
+                <h4 className="text-text-muted text-xs font-semibold mb-1">Total Hymnal</h4>
+                <p className="text-2xl font-bold text-text-primary">{report.totalHymnals}</p>
               </div>
-              <div className="p-4 bg-zinc-900 border border-white/10 rounded-lg">
-                <h4 className="text-zinc-400 mb-1">Total Lagu</h4>
-                <p className="text-2xl font-semibold text-zinc-100">{report.totalSongs}</p>
+              <div className="sp-modal-card">
+                <h4 className="text-text-muted text-xs font-semibold mb-1">Total Lagu</h4>
+                <p className="text-2xl font-bold text-text-primary">{report.totalSongs}</p>
               </div>
             </div>
 
             {report.orphanSongs > 0 && (
-              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                <h4 className="text-amber-400 font-medium mb-2">
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                <h4 className="text-amber-400 font-bold mb-2">
                   Lagu Yatim Piatu (Orphan Songs): {report.orphanSongs}
                 </h4>
-                <p className="text-zinc-400 mb-2">
+                <p className="text-text-secondary mb-2 text-xs">
                   Lagu-lagu ini tidak memiliki hymnal yang valid:
                 </p>
-                <ul className="list-disc pl-5 text-zinc-300">
+                <ul className="list-disc pl-5 text-text-primary text-xs space-y-1">
                   {report.orphanSample.map((s) => (
                     <li key={s.id}>
                       [{s.id}] {s.number ? `${s.number} - ` : ''}
@@ -123,34 +123,37 @@ export function IntegrityCheckDialog({ id }: IntegrityCheckDialogProps): React.J
             )}
 
             <div className="space-y-4">
-              <h3 className="text-lg font-medium text-zinc-100 border-b border-white/10 pb-2">
+              <h3 className="text-[14px] font-bold text-text-primary border-b border-border-subtle pb-2 uppercase tracking-wider">
                 Detail per Hymnal
               </h3>
 
               {report.hymnals.map((h) => (
-                <div
-                  key={h.hymnal_id}
-                  className="p-4 bg-zinc-900/50 border border-white/5 rounded-lg space-y-3"
-                >
+                <div key={h.hymnal_id} className="sp-modal-card space-y-3">
                   <div className="flex justify-between items-center">
-                    <h4 className="text-zinc-200 font-medium">
+                    <h4 className="text-text-primary font-bold">
                       {h.hymnal_code} - {h.hymnal_name}
                     </h4>
-                    <span className="text-zinc-500">{h.song_count} lagu</span>
+                    <span className="text-text-muted text-xs font-semibold">
+                      {h.song_count} lagu
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-zinc-400 mb-1">
+                      <p className="text-text-secondary text-xs mb-1">
                         Duplikasi Nomor:{' '}
                         <strong
-                          className={h.duplicate_numbers > 0 ? 'text-amber-400' : 'text-zinc-300'}
+                          className={
+                            h.duplicate_numbers > 0
+                              ? 'text-amber-400 font-bold'
+                              : 'text-text-primary font-semibold'
+                          }
                         >
                           {h.duplicate_numbers}
                         </strong>
                       </p>
                       {h.topDupeNumbers && h.topDupeNumbers.length > 0 && (
-                        <ul className="text-xs text-zinc-500 pl-4 list-disc mt-1">
+                        <ul className="text-[11px] text-text-muted pl-4 list-disc mt-1 space-y-0.5">
                           {h.topDupeNumbers.map((dn) => (
                             <li key={dn.number}>
                               Nomor {dn.number} ({dn.count}x)
@@ -160,16 +163,20 @@ export function IntegrityCheckDialog({ id }: IntegrityCheckDialogProps): React.J
                       )}
                     </div>
                     <div>
-                      <p className="text-zinc-400 mb-1">
+                      <p className="text-text-secondary text-xs mb-1">
                         Duplikasi Judul:{' '}
                         <strong
-                          className={h.duplicate_titles > 0 ? 'text-amber-400' : 'text-zinc-300'}
+                          className={
+                            h.duplicate_titles > 0
+                              ? 'text-amber-400 font-bold'
+                              : 'text-text-primary font-semibold'
+                          }
                         >
                           {h.duplicate_titles}
                         </strong>
                       </p>
                       {h.topDupeTitles && h.topDupeTitles.length > 0 && (
-                        <ul className="text-xs text-zinc-500 pl-4 list-disc mt-1">
+                        <ul className="text-[11px] text-text-muted pl-4 list-disc mt-1 space-y-0.5">
                           {h.topDupeTitles.map((dt) => (
                             <li key={dt.title}>
                               {dt.title} ({dt.count}x)

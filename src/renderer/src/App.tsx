@@ -1,8 +1,9 @@
-import React, { Suspense, lazy, useEffect, useState, useRef } from 'react'
+import React, { Suspense, lazy, useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from './store/useAppStore'
 import { usePlaylistStore } from './store/usePlaylistStore'
 import { useModeStore } from './store/useModeStore'
+import { useDisplayStore } from './store/useDisplayStore'
 import { Toast } from './components/Toast'
 import { CommandPalette } from './components/CommandPalette'
 import { KeyboardCheatSheet } from './components/KeyboardCheatSheet'
@@ -20,7 +21,6 @@ import { useModePreloader } from './startup/useModePreloader'
 import { useBootStore } from './startup/bootStore'
 import { SplashScreen } from './startup/SplashScreen'
 import { RendererBootScreen } from './startup/RendererBootScreen'
-import { DiagnosticsPanel } from './startup/DiagnosticsPanel'
 import { LoadingSkeleton, SkeletonVariant } from './components/design-system/LoadingSkeleton'
 
 const ProjectionMode = lazy(() =>
@@ -55,7 +55,8 @@ const BibleScreen = lazy(() =>
 
 function App(): React.JSX.Element {
   const { currentScreen, setScreen } = useAppStore()
-  const isLyricsFullscreen = useAppStore((s) => s.isLyricsFullscreen)
+  const isLyricsFullscreen = useDisplayStore((s) => s.isLyricsFullscreen)
+  const isBibleFullscreen = useDisplayStore((s) => s.isBibleFullscreen)
   const { playlistItems, activePlaylist } = usePlaylistStore()
   const { currentMode, isFirstInstall } = useModeStore()
   const phase = useBootStore((s) => s.phase)
@@ -64,6 +65,15 @@ function App(): React.JSX.Element {
   const [showQuickJump, setShowQuickJump] = useState(false)
   const [showRuntimeInspector, setShowRuntimeInspector] = useState(false)
   const [showEmergencyPanel, setShowEmergencyPanel] = useState(false)
+  const [isStoreHydrated, setIsStoreHydrated] = useState(() => useModeStore.persist.hasHydrated())
+
+  useEffect(() => {
+    if (isStoreHydrated) return undefined
+    const unsub = useModeStore.persist.onFinishHydration(() => {
+      setIsStoreHydrated(true)
+    })
+    return unsub
+  }, [isStoreHydrated])
 
   const getSkeletonVariant = (): SkeletonVariant => {
     if (currentScreen === 'song-editor') return 'editor'
@@ -95,16 +105,8 @@ function App(): React.JSX.Element {
     setShowEmergencyPanel
   })
 
-  const notifiedRef = useRef(false)
-  useEffect(() => {
-    if (!notifiedRef.current && ['shell', 'optional', 'background', 'ready'].includes(phase)) {
-      notifiedRef.current = true
-      document.body.classList.remove('booting-shell')
-      window.api?.app?.notifyShellReady?.()
-    }
-  }, [phase])
-
   const renderScreen = (): React.JSX.Element | null => {
+    if (!isStoreHydrated) return null
     if (currentScreen === 'song-editor') {
       return (
         <ErrorBoundary mode="Song Editor">
@@ -184,7 +186,7 @@ function App(): React.JSX.Element {
           aria-live="polite"
           aria-atomic="true"
         />
-        {!isLyricsFullscreen && <TitleBar />}
+        {!isLyricsFullscreen && !isBibleFullscreen && <TitleBar />}
         <div id="main-content" className="flex-1 relative min-h-0" role="main" tabIndex={-1}>
           <Toast />
           <ModalRegistry />
@@ -208,7 +210,13 @@ function App(): React.JSX.Element {
           >
             <AnimatePresence mode="wait">
               <motion.div
-                key={`${currentScreen}-${currentMode}-${phase}`}
+                key={
+                  currentScreen !== 'dashboard'
+                    ? currentScreen
+                    : isFirstInstall
+                      ? 'welcome'
+                      : currentMode
+                }
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
@@ -220,8 +228,7 @@ function App(): React.JSX.Element {
             </AnimatePresence>
           </Suspense>
 
-          <RendererBootScreen />
-          <DiagnosticsPanel />
+          {!isFirstInstall && phase === 'failed' && <RendererBootScreen />}
         </div>
         <RuntimeInspector
           isOpen={showRuntimeInspector}

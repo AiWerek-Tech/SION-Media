@@ -104,25 +104,28 @@ export function TagManagerDialog({ id }: { id: string }): React.JSX.Element {
               placeholder="Cari kategori atau tag..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-bg-surface border border-border-strong rounded-lg pl-9 pr-3 py-2 text-[13px] text-text-primary focus:outline-none focus:border-brand-primary/50 transition-colors"
+              className="w-full sp-input pl-9"
             />
           </div>
-          <div className="flex items-center bg-white/[0.04] p-1 rounded-lg border border-border-subtle">
+          <div className="flex items-center bg-white/[0.04] p-1 rounded-xl border border-border-subtle">
             <button
               onClick={() => setActiveTab('all')}
-              className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-colors ${activeTab === 'all' ? 'bg-white/10 text-white shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+              className={`px-3.5 py-1.5 text-[11px] font-semibold rounded-lg transition-colors ${activeTab === 'all' ? 'bg-white/10 text-white shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+              style={{ cursor: 'pointer' }}
             >
               Semua
             </button>
             <button
               onClick={() => setActiveTab('categories')}
-              className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-colors ${activeTab === 'categories' ? 'bg-white/10 text-white shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+              className={`px-3.5 py-1.5 text-[11px] font-semibold rounded-lg transition-colors ${activeTab === 'categories' ? 'bg-white/10 text-white shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+              style={{ cursor: 'pointer' }}
             >
               Kategori
             </button>
             <button
               onClick={() => setActiveTab('tags')}
-              className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-colors ${activeTab === 'tags' ? 'bg-white/10 text-white shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+              className={`px-3.5 py-1.5 text-[11px] font-semibold rounded-lg transition-colors ${activeTab === 'tags' ? 'bg-white/10 text-white shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+              style={{ cursor: 'pointer' }}
             >
               Tags
             </button>

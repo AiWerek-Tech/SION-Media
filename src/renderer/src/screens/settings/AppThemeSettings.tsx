@@ -267,6 +267,47 @@ export function AppThemeSettings({
           </p>
         </div>
       </section>
+
+      {/* Onboarding Restart */}
+      <section className="sp-section border-t border-border-subtle/30 pt-6 mt-6">
+        <div className="sp-section-header">
+          <div className="sp-section-eyebrow">
+            <Monitor size={13} />
+            Panduan Pengguna
+          </div>
+          <p className="sp-section-desc">
+            Buka kembali panduan awal interaktif untuk mengonfigurasi tema dan jalur kerja default
+            Anda.
+          </p>
+        </div>
+        <div>
+          <button
+            onClick={() => {
+              useModeStore.setState({ isFirstInstall: true })
+            }}
+            className="sp-button"
+            style={{
+              background: 'var(--color-brand-primary, #3b82f6)',
+              color: '#ffffff',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              fontWeight: 500,
+              fontSize: '13px',
+              cursor: 'pointer',
+              border: 'none',
+              transition: 'background 0.2s'
+            }}
+            onMouseOver={(e) =>
+              (e.currentTarget.style.background = 'var(--color-brand-primary-hover, #2563eb)')
+            }
+            onMouseOut={(e) =>
+              (e.currentTarget.style.background = 'var(--color-brand-primary, #3b82f6)')
+            }
+          >
+            Mulai Panduan Awal (Onboarding)
+          </button>
+        </div>
+      </section>
     </div>
   )
 }

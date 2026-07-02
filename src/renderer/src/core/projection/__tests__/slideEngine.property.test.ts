@@ -33,8 +33,13 @@ const arbitrarySectionName = fc
 /**
  * Generate a few lines of lyric content (non-empty, no bracket lines).
  */
+const bareSectionHeader =
+  /^(verse|bait|chorus|korus|reff?|refrain|bridge|intro|ending|outro|tag|pre[- ]?chorus)(\s*\d+)?$/i
+
 const arbitraryLyricLines = fc.array(
-  fc.stringMatching(/^[A-Za-z ]{3,30}$/).filter((s) => s.trim().length > 0 && !s.startsWith('[')),
+  fc
+    .stringMatching(/^[A-Za-z ]{3,30}$/)
+    .filter((s) => s.trim().length > 0 && !s.startsWith('[') && !bareSectionHeader.test(s.trim())),
   { minLength: 1, maxLength: 4 }
 )
 
@@ -253,7 +258,7 @@ describe('slideEngine - Global Config', () => {
     const slides = generateSlidesForSong(song)
 
     expect(slides).toHaveLength(2)
-    expect(slides[0].text).toBe('Line one\nLine two')
+    expect(slides[0].text).toBe('Line one; Line two')
     expect(slides[1].text).toBe('Line three')
   })
 })
@@ -282,4 +287,3 @@ describe('slideEngine - Bare Section Headers', () => {
     expect(slides[2].sectionLabel).toBe('Chorus 2')
   })
 })
-

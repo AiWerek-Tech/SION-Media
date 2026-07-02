@@ -42,16 +42,17 @@ export function SceneConfigDialog({ id }: { id: string }): React.JSX.Element {
     >
       <div className="flex gap-4 h-[300px]">
         {/* Sidebar */}
-        <div className="w-[140px] flex flex-col gap-1 border-r border-border-subtle pr-4">
+        <div className="w-[145px] flex flex-col gap-1 border-r border-border-subtle pr-4">
           {scenePresets.map((preset) => (
             <button
               key={preset.id}
               onClick={() => setActivePresetId(preset.id)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-semibold transition-colors ${
+              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-[12px] font-semibold transition-all duration-150 active:scale-[0.97] ${
                 activePresetId === preset.id
-                  ? 'bg-brand-primary text-white'
-                  : 'text-text-muted hover:text-text-primary hover:bg-white/[0.04]'
+                  ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20'
+                  : 'text-text-muted border border-transparent hover:text-text-primary hover:bg-white/[0.04]'
               }`}
+              style={{ cursor: 'pointer' }}
             >
               <MonitorPlay size={14} />
               {preset.name}
@@ -60,7 +61,7 @@ export function SceneConfigDialog({ id }: { id: string }): React.JSX.Element {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto pr-2">
+        <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin">
           {scenePresets.map((preset) => {
             if (preset.id !== activePresetId) return null
             return (
@@ -69,25 +70,30 @@ export function SceneConfigDialog({ id }: { id: string }): React.JSX.Element {
                   <label className="block text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1.5">
                     Nama Preset
                   </label>
-                  <input
-                    type="text"
-                    defaultValue={preset.name}
-                    className="w-full bg-bg-surface border border-border-strong rounded-lg px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:border-brand-primary/50"
-                  />
+                  <input type="text" defaultValue={preset.name} className="w-full sp-input" />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1.5">
                     Mode Background
                   </label>
-                  <select
-                    defaultValue={preset.config.mode}
-                    className="w-full bg-bg-surface border border-border-strong rounded-lg px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:border-brand-primary/50"
-                  >
-                    <option value="solid">Solid Color</option>
-                    <option value="image">Image (Picture)</option>
-                    <option value="video">Video (Motion)</option>
-                  </select>
+                  <div className="sp-select-wrap">
+                    <select
+                      defaultValue={preset.config.mode}
+                      className="sp-select"
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <option value="solid" className="bg-bg-surface text-text-primary">
+                        Solid Color
+                      </option>
+                      <option value="image" className="bg-bg-surface text-text-primary">
+                        Image (Picture)
+                      </option>
+                      <option value="video" className="bg-bg-surface text-text-primary">
+                        Video (Motion)
+                      </option>
+                    </select>
+                  </div>
                 </div>
 
                 {preset.config.mode === 'solid' && (

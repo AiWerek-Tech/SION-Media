@@ -6,6 +6,7 @@ import {
   Gauge,
   Image,
   Monitor,
+  Music2,
   Pause,
   Play,
   Radio,
@@ -24,9 +25,10 @@ import { useAppStore } from '../store/useAppStore'
 import { DEFAULT_SCENE_PRESETS } from '../atmosphere/presets'
 import { useProjectionStore } from '../store/useProjectionStore'
 import { useAtmosphereStore } from '../store/useAtmosphereStore'
-import type { SlideData } from '@renderer/types'
+import type { ProjectionState, SlideData } from '@renderer/types'
 import sionLogoMono from '../assets/sion-logo-mono.svg'
 import { PresentationCanvas } from './PresentationCanvas'
+import { LiveProjectionCanvas } from './LiveProjectionCanvas'
 import { LyricsZoomControl } from './projection/LyricsZoomControl'
 import { WorshipFlowIndicator } from './projection/WorshipFlowIndicator'
 import { executeRuntimeCommand } from '@renderer/utils/runtimeCommandBus'
@@ -47,6 +49,7 @@ interface MonitorFrameProps {
   isLive?: boolean
   isBlack?: boolean
   isClear?: boolean
+  projectionState?: ProjectionState
   isProjectorLost?: boolean
   theme: Record<string, string>
   songBackgroundConfig?: string
@@ -65,6 +68,7 @@ function MonitorFrame({
   isLive = false,
   isBlack = false,
   isClear = false,
+  projectionState = 'CLEAR',
   isProjectorLost = false,
   theme,
   songBackgroundConfig = '',
@@ -78,7 +82,6 @@ function MonitorFrame({
   const emptyLyrics = slide !== null && slide.text.trim().length === 0
   const accent = isProgram ? 'program' : 'preview'
   const showLyrics = !isBlack && !isClear && slide && !emptyLyrics
-  const canvasState = isProgram ? (isBlack ? 'BLACK' : isClear ? 'CLEAR' : 'LIVE') : 'LIVE'
 
   // Derive clean state label for program
   const stateKey = stateLabel.split(' ')[0]
@@ -192,21 +195,43 @@ function MonitorFrame({
       {/* ── Screen ── */}
       <div className="broadcast-monitor__frame">
         <div className="broadcast-monitor__screen">
-          <PresentationCanvas
-            slide={slide}
-            projectionState={canvasState}
-            theme={{ ...theme, song_background_config: songBackgroundConfig }}
-            animated={isProgram}
-            showMetadata={false}
-            showIdleWatermark={false}
-            fit
-            lyricsFontSizePercent={lyricsFontSizePercent}
-            transitionMode="sync"
-            transitionSpeedMultiplier={0.5}
-          />
+          {isProgram ? (
+            <LiveProjectionCanvas
+              slide={slide}
+              projectionState={projectionState}
+              theme={{ ...theme, song_background_config: songBackgroundConfig }}
+              showMetadata={false}
+              fit
+              lyricsFontSizePercent={lyricsFontSizePercent}
+            />
+          ) : (
+            <PresentationCanvas
+              slide={slide}
+              projectionState="LIVE"
+              theme={{ ...theme, song_background_config: songBackgroundConfig }}
+              animated={false}
+              showMetadata={false}
+              showIdleWatermark={false}
+              fit
+              lyricsFontSizePercent={lyricsFontSizePercent}
+            />
+          )}
+
+          {/* Empty preview guidance overlay */}
+          {!isProgram && !slide && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 text-center bg-[#020617]/75 backdrop-blur-[2px]">
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary mb-2.5">
+                <Music2 size={20} />
+              </div>
+              <h4 className="text-[12px] font-bold text-text-primary mb-1">Preview Kosong</h4>
+              <p className="text-[10px] text-text-muted leading-relaxed max-w-[200px]">
+                Klik ganda lagu dari perpustakaan atau rundown di bawah untuk memuat slide di sini.
+              </p>
+            </div>
+          )}
 
           {/* Watermark logo — tampil saat tidak ada lirik aktif DAN bukan BLACK */}
-          {!showLyrics && !isBlack && (
+          {!isProgram && !showLyrics && !isBlack && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 pointer-events-none">
               <img
                 src={sionLogoMono}
@@ -287,8 +312,8 @@ function TransitionColumn(): React.JSX.Element {
   const takeTitle = !hasCue
     ? 'Tidak ada cue — pilih lagu terlebih dahulu'
     : isCueSameAsProgram && isLive
-      ? 'Slide ini sudah live di Program'
-      : 'TAKE cue ke Program (Space)'
+      ? 'Slide ini sudah tayang di Program'
+      : 'Tayangkan (Take) lirik ke Program (Space)'
 
   const takeCue = (): void => {
     executeRuntimeCommand('PROJ_TAKE_CUE', undefined, 'UI_BUTTON')
@@ -389,7 +414,7 @@ function TransitionColumn(): React.JSX.Element {
         aria-label={takeTitle}
       >
         <Zap size={27} fill="currentColor" />
-        <span>Take</span>
+        <span>Tayangkan</span>
       </button>
 
       {/* FIX UX-01: CUT is a distinct instant-take (always 0.1s fast-cut),
@@ -398,10 +423,10 @@ function TransitionColumn(): React.JSX.Element {
         className="transition-rack__auto"
         onClick={cutCue}
         disabled={isTakeDisabled}
-        title="Cut instan tanpa fade — selalu 0.1s"
-        aria-label="Cut instan tanpa fade"
+        title="Tayangkan instan tanpa efek transisi (0.1s)"
+        aria-label="Tayangkan instan tanpa efek transisi"
       >
-        <span>Cut</span>
+        <span>Instan</span>
         <strong>0.1s</strong>
       </button>
 
@@ -585,16 +610,16 @@ function SceneStripClearButton({
       className={`scene-strip__state-btn scene-strip__state-btn--clear ${armed ? 'is-armed' : ''} ${isClear ? 'is-clear-active' : ''}`}
       title={
         isClear
-          ? 'Restore — tampilkan slide terakhir ke output'
+          ? 'Restore — tampilkan kembali teks lirik ke output'
           : isLive
             ? armed
-              ? 'Klik lagi untuk konfirmasi Clear'
-              : 'Clear Output — klik 2× saat LIVE (Esc)'
-            : 'Clear Output (Esc)'
+              ? 'Klik lagi untuk konfirmasi Clear (Kosongkan Lirik)'
+              : 'Clear Output — klik 2× saat LIVE (Sembunyikan teks lirik saja) (Esc)'
+            : 'Clear Output (Sembunyikan teks lirik saja) (Esc)'
       }
     >
       <XCircle size={13} />
-      <span>{isClear ? 'Restore' : armed ? 'Konfirmasi?' : 'Clear'}</span>
+      <span>{isClear ? 'Restore' : armed ? 'Konfirmasi?' : 'Clear (Kosongkan)'}</span>
     </button>
   )
 }
@@ -680,7 +705,7 @@ export function LivePreviewPanel(): React.JSX.Element {
           // Restore persisted UI preferences
           if (settings.ui_lyrics_font_size) {
             const size = Number(settings.ui_lyrics_font_size)
-            if (size >= 70 && size <= 150) {
+            if (size >= 50 && size <= 300) {
               useProjectionStore.setState({ lyricsFontSizePercent: size })
             }
           }
@@ -738,12 +763,20 @@ export function LivePreviewPanel(): React.JSX.Element {
     return `${nextSong.number} - ${nextSong.title}`
   }, [hasNextSong, nextSong])
 
-  const handleToggleProjection = (): void => {
+  const handleToggleProjection = async (): Promise<void> => {
     try {
       if (isProjectionVisible) {
         window.api.projection.hide()
         setProjectionVisible(false)
       } else {
+        const hasExternal = await window.api.display.hasExternal()
+        if (!hasExternal) {
+          showToast(
+            'Layar output eksternal tidak terdeteksi. Lirik sudah tampil di monitor LIVE di dashboard.',
+            'info'
+          )
+          return
+        }
         window.api.projection.show()
         setProjectionVisible(true)
       }
@@ -803,6 +836,7 @@ export function LivePreviewPanel(): React.JSX.Element {
           isLive={isLive}
           isBlack={isBlack}
           isClear={isClear}
+          projectionState={projectionState}
           isProjectorLost={isProjectorLost}
           theme={theme}
           songBackgroundConfig={programSongBackgroundConfig}
@@ -920,12 +954,12 @@ export function LivePreviewPanel(): React.JSX.Element {
             }}
             title={
               activeSceneId === 'sermon'
-                ? 'Safe Mode aktif — klik untuk nonaktifkan'
-                : 'Safe Mode: atmosfer minimal'
+                ? 'Safe Mode aktif — klik untuk matikan'
+                : 'Safe Mode (Atmosfer gelap minimalis untuk Khotbah)'
             }
           >
             <Snowflake size={13} />
-            <span>Safe</span>
+            <span>Safe (Polos)</span>
           </button>
 
           {/* Logo */}
@@ -961,11 +995,11 @@ export function LivePreviewPanel(): React.JSX.Element {
             title={
               projectionState === 'BLACK'
                 ? 'Black Out aktif — klik untuk restore (B)'
-                : 'Black Out (B)'
+                : 'Black (Padamkan layar total) (B)'
             }
           >
             <Square size={13} fill={projectionState === 'BLACK' ? 'currentColor' : 'none'} />
-            <span>{projectionState === 'BLACK' ? 'Restore' : 'Black'}</span>
+            <span>{projectionState === 'BLACK' ? 'Restore' : 'Black (Padam)'}</span>
           </button>
 
           {/* Clear */}

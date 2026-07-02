@@ -185,3 +185,29 @@ export const IPC_SLIDES = {
   REMOVE_SLIDE_FROM_GROUP: 'db:remove-slide-from-group',
   REORDER_GROUP_SLIDES: 'db:reorder-group-slides'
 } as const
+
+// ============================================================================
+// Content Pack Management
+// ============================================================================
+
+export const IPC_CONTENT_PACKS = {
+  SELECT_FOLDER: 'contentPacks:selectFolder',
+  PREVIEW_BIBLE_PACK: 'contentPacks:previewBiblePack',
+  INSTALL_BIBLE_PACK: 'contentPacks:installBiblePack',
+  LIST: 'contentPacks:list',
+  REMOVE: 'contentPacks:remove',
+  SET_DEFAULT: 'contentPacks:setDefault'
+} as const
+
+// ============================================================================
+// Bible Pack (External SQLite queries)
+// ============================================================================
+
+export const IPC_BIBLE_PACK = {
+  GET_VERSIONS: 'bible:versions:list',
+  GET_BOOKS: 'bible:books:list',
+  GET_CHAPTER: 'bible:chapter:get',
+  GET_VERSE_RANGE: 'bible:verseRange:get',
+  SEARCH: 'bible:search',
+  PARSE_REFERENCE: 'bible:reference:parse'
+} as const

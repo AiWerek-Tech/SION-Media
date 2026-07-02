@@ -24,6 +24,8 @@ interface DisplayState {
   setMaximized: (maximized: boolean) => void
   isLyricsFullscreen: boolean
   setLyricsFullscreen: (isFullscreen: boolean) => void
+  isBibleFullscreen: boolean
+  setBibleFullscreen: (isFullscreen: boolean) => void
   isFocusMode: boolean
   toggleFocusMode: () => void
 }
@@ -39,6 +41,8 @@ export const useDisplayStore = create<DisplayState>((set) => ({
   setMaximized: (maximized) => set({ isMaximized: maximized }),
   isLyricsFullscreen: false,
   setLyricsFullscreen: (isFullscreen) => set({ isLyricsFullscreen: isFullscreen }),
+  isBibleFullscreen: false,
+  setBibleFullscreen: (isFullscreen) => set({ isBibleFullscreen: isFullscreen }),
   isFocusMode: false,
   toggleFocusMode: () => set((state) => ({ isFocusMode: !state.isFocusMode }))
 }))

@@ -7,14 +7,14 @@
  * - Same-hymnal songs
  *
  * Opened from Management Mode song inspector.
- * Additive component — does not modify any existing store or modal logic.
+ * Inherits standard Modal component for styling consistency.
  */
 
 import React, { useMemo, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import { BookOpen, Layers3, Link2, Music2, X } from 'lucide-react'
+import { BookOpen, Layers3, Music2 } from 'lucide-react'
 import { useAppStore } from '@renderer/store/useAppStore'
 import { useModalStore } from '@renderer/store/useModalStore'
+import { Modal, ModalButton } from './Modal'
 import type { Song } from '@renderer/types'
 
 type RelationTab = 'theme' | 'key' | 'hymnal'
@@ -82,115 +82,88 @@ export function SongRelationsModal({
   ]
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-      >
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 8 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 8 }}
-          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="
-            w-[520px] max-h-[70vh] rounded-xl border border-border-strong
-            bg-bg-surface shadow-[0_20px_60px_rgba(0,0,0,0.4)]
-            flex flex-col overflow-hidden
-          "
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-brand-primary/10 flex items-center justify-center">
-                <Link2 size={16} className="text-brand-primary" />
-              </div>
-              <div>
-                <h3 className="text-[14px] font-bold text-text-primary">Relasi Lagu</h3>
-                <p className="text-[11px] text-text-muted mt-0.5">
-                  {song.number} — {song.title}
-                </p>
-              </div>
-            </div>
+    <Modal
+      id={id}
+      title="Relasi Lagu"
+      subtitle={`${song.number} — ${song.title}`}
+      size="lg"
+      footer={
+        <ModalButton variant="secondary" onClick={onClose}>
+          Tutup
+        </ModalButton>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {/* Tabs */}
+        <div className="flex items-center gap-1 bg-white/[0.04] p-1 rounded-xl border border-border-subtle w-fit">
+          {TABS.map((t) => (
             <button
+              key={t.id}
               type="button"
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/[0.06] transition-colors"
+              onClick={() => setTab(t.id)}
+              className={`
+                inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                text-[11px] font-semibold transition-all duration-150
+                ${
+                  tab === t.id
+                    ? 'bg-brand-primary/10 text-brand-primary'
+                    : 'text-text-muted hover:text-text-primary hover:bg-white/[0.04]'
+                }
+              `}
+              style={{ cursor: 'pointer' }}
             >
-              <X size={16} />
+              {t.icon}
+              {t.label}
+              <span className="text-[9px] opacity-60 bg-black/20 px-1.5 py-0.5 rounded-full ml-1">
+                {t.count}
+              </span>
             </button>
-          </div>
+          ))}
+        </div>
 
-          {/* Tabs */}
-          <div className="flex items-center gap-0.5 px-4 py-2 border-b border-border-subtle">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTab(t.id)}
-                className={`
-                  inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md
-                  text-[11px] font-semibold transition-all duration-150
-                  ${
-                    tab === t.id
-                      ? 'bg-brand-primary/10 text-brand-primary'
-                      : 'text-text-muted hover:text-text-primary hover:bg-white/[0.04]'
-                  }
-                `}
-              >
-                {t.icon}
-                {t.label}
-                <span className="text-[9px] opacity-60">{t.count}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* List */}
-          <div className="flex-1 overflow-y-auto p-3">
-            {currentList.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 gap-2 text-text-muted">
-                <Music2 size={28} className="opacity-30" />
-                <span className="text-[12px]">Tidak ada relasi ditemukan</span>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-1">
-                {currentList.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => onSelectSong?.(s)}
+        {/* List */}
+        <div className="flex-grow overflow-y-auto max-h-[360px] border border-border-subtle rounded-xl bg-white/[0.01]">
+          {currentList.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-2 text-text-muted">
+              <Music2 size={28} className="opacity-30" />
+              <span className="text-[12px]">Tidak ada relasi ditemukan</span>
+            </div>
+          ) : (
+            <div className="divide-y divide-border-subtle/50">
+              {currentList.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => onSelectSong?.(s)}
+                  className="
+                    w-full flex items-center gap-3 px-4 py-3 text-left
+                    hover:bg-white/[0.03] transition-colors group
+                  "
+                  style={{ cursor: 'pointer' }}
+                >
+                  <span
                     className="
-                      flex items-center gap-3 px-3 py-2 rounded-lg text-left
-                      hover:bg-white/[0.04] transition-colors group
+                      shrink-0 w-10 h-7 rounded-lg text-[10px] font-bold
+                      flex items-center justify-center
+                      bg-white/[0.04] text-text-muted border border-white/[0.03]
                     "
                   >
-                    <span
-                      className="
-                        shrink-0 w-9 h-6 rounded text-[10px] font-black
-                        flex items-center justify-center
-                        bg-white/[0.04] text-text-muted
-                      "
-                    >
-                      {s.number || '--'}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-semibold text-text-primary truncate group-hover:text-brand-primary transition-colors">
-                        {s.title}
-                      </p>
-                      <p className="text-[10px] text-text-muted truncate">
-                        {[s.hymnal_name, s.key_note, s.category].filter(Boolean).join(' · ')}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+                    {s.number || '--'}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-semibold text-text-primary truncate group-hover:text-brand-primary transition-colors">
+                      {s.title}
+                    </p>
+                    <p className="text-[11px] text-text-muted truncate">
+                      {[s.hymnal_name, s.key_note, s.category].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </Modal>
   )
 }

@@ -24,6 +24,7 @@ export function useAppBootstrap(): void {
   const loadSongs = useAppStore((s) => s.loadSongs)
   const loadPlaylists = usePlaylistStore((s) => s.loadPlaylists)
   const setDisplayCount = useAppStore((s) => s.setDisplayCount)
+  const setProjectionVisible = useAppStore((s) => s.setProjectionVisible)
   const setLoading = useAppStore((s) => s.setLoading)
   const showToast = useAppStore((s) => s.showToast)
 
@@ -49,27 +50,11 @@ export function useAppBootstrap(): void {
     let backgroundHandle: number | null = null
 
     const scheduleIdle = (callback: () => void): number => {
-      const globalWindow = window as unknown as {
-        requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
-        cancelIdleCallback?: (handle: number) => void
-      }
-
-      if (typeof globalWindow.requestIdleCallback === 'function') {
-        return globalWindow.requestIdleCallback(callback, { timeout: 1000 })
-      }
-      return window.setTimeout(callback, 100)
+      return window.setTimeout(callback, 50)
     }
 
     const cancelIdle = (handle: number): void => {
-      const globalWindow = window as unknown as {
-        cancelIdleCallback?: (handle: number) => void
-      }
-
-      if (typeof globalWindow.cancelIdleCallback === 'function') {
-        globalWindow.cancelIdleCallback(handle)
-      } else {
-        window.clearTimeout(handle)
-      }
+      window.clearTimeout(handle)
     }
 
     const runTask = async (
@@ -119,13 +104,16 @@ export function useAppBootstrap(): void {
     }
 
     async function init(): Promise<void> {
+      console.log('[Boot] Starting init()...')
       resetBootTrace()
       const startTime = performance.now()
       setBootStartAt(startTime)
       setPhase('renderer')
       addTraceStep('BOOTSTRAP_BEGIN', 'Bootstrap started', 'renderer', 'started')
+      console.log('[Boot] Checking native safe mode...')
       const nativeSafeMode =
         typeof window.api.app.isSafeMode === 'function' ? await window.api.app.isSafeMode() : false
+      console.log('[Boot] Native safe mode checked:', nativeSafeMode)
       const activeSafeMode = safeMode || nativeSafeMode
       if (activeSafeMode) {
         setSafeMode(true)
@@ -133,11 +121,12 @@ export function useAppBootstrap(): void {
         showToast('Safe mode active: reduced startup workload enabled.', 'info')
       }
       recordMetric('coldStartMs', 0)
-
+      console.log('[Boot] Starting criticalBootstrap()...')
       try {
         const criticalBootstrap = async (): Promise<void> => {
           setPhase('critical')
           addTraceStep('CRITICAL_BOOT', 'Critical systems initializing', 'critical', 'started')
+          console.log('[Boot] Running task: ipc...')
           await runTask('ipc', 'Initializing runtime engine', 'critical', async () => {
             registerCommandHandlers()
             registerCommandValidators()
@@ -181,9 +170,13 @@ export function useAppBootstrap(): void {
           })
 
           await runTask('display', 'Detecting connected displays', 'critical', async () => {
-            const displays = await window.api.display.getAll()
+            const [displays, projectionVisible] = await Promise.all([
+              window.api.display.getAll(),
+              window.api.display.isProjectionVisible()
+            ])
             if (!isMounted) return
             setDisplayCount(displays.length)
+            setProjectionVisible(projectionVisible)
             unsubscribeDisplay = window.api.display.onDisplayChanged((count: number) => {
               const prevCount = useAppStore.getState().displayCount
               setDisplayCount(count)
@@ -244,11 +237,14 @@ export function useAppBootstrap(): void {
           )
         }
 
-        void Promise.all(optionalTasks).then(() => {
-          recordMetric('optionalBootMs', Math.round(performance.now() - optionalStart))
-        })
+        console.log('[Boot] Waiting for Promise.all(optionalTasks)...')
+        await Promise.all(optionalTasks)
+        console.log('[Boot] Promise.all(optionalTasks) finished!')
+        recordMetric('optionalBootMs', Math.round(performance.now() - optionalStart))
 
+        console.log('[Boot] Scheduling backgroundHandle = scheduleIdle...')
         backgroundHandle = scheduleIdle(async () => {
+          console.log('[Boot] Inside scheduleIdle, setting phase to background...')
           setPhase('background')
           addTraceStep('BACKGROUND_BOOT', 'Background services warming', 'background', 'started')
           const backgroundTasks = [
@@ -330,5 +326,13 @@ export function useAppBootstrap(): void {
       if (backgroundHandle !== null) cancelIdle(backgroundHandle)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadPlaylists, loadSongs, setDisplayCount, setLoading, setSafeMode, showToast])
+  }, [
+    loadPlaylists,
+    loadSongs,
+    setDisplayCount,
+    setLoading,
+    setProjectionVisible,
+    setSafeMode,
+    showToast
+  ])
 }

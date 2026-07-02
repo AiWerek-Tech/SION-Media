@@ -45,17 +45,17 @@ export function DuplicateSongDialog({ id, song }: DuplicateSongDialogProps): Rea
       }
     >
       <div className="space-y-4">
-        <p className="text-zinc-300">
+        <p className="text-text-secondary">
           Apakah Anda yakin ingin menduplikasi lagu{' '}
-          <strong className="text-zinc-100">{song.title}</strong>?
+          <strong className="text-text-primary">{song.title}</strong>?
         </p>
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-text-muted">
           Lagu hasil duplikasi akan ditambahkan dengan kata &quot;(Copy)&quot; pada judulnya dan
           bisa Anda ubah nanti.
         </p>
 
         {error && (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-sm">
+          <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-sm">
             {error}
           </div>
         )}

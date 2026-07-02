@@ -62,7 +62,6 @@ export function ConfirmDialog({
   }
 
   const Icon = danger ? AlertTriangle : Info
-  const iconColor = danger ? '#f87171' : '#60a5fa'
 
   return (
     <Modal
@@ -88,11 +87,8 @@ export function ConfirmDialog({
       }
     >
       <div className="flex gap-4">
-        <div
-          className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ background: danger ? 'rgba(239,68,68,0.12)' : 'rgba(59,130,246,0.12)' }}
-        >
-          <Icon size={20} color={iconColor} />
+        <div className={`sp-modal-icon-wrap sp-modal-icon-wrap--${danger ? 'danger' : 'info'}`}>
+          <Icon size={20} />
         </div>
         <div className="flex-1 min-w-0">
           {description && <p className="text-sm text-secondary leading-relaxed">{description}</p>}

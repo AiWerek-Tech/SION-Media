@@ -1,6 +1,6 @@
 /**
  * LyricsZoomControl — compact lyrics font size control for scene strip
- * Range: 70%–150%, step 10% via buttons, 1% via slider
+ * Range: 50%–300%, step 10% via buttons, 1% via slider
  * Keyboard: Ctrl+/- to step, Ctrl+0 to reset
  */
 import React from 'react'
@@ -16,7 +16,7 @@ export function LyricsZoomControl(): React.JSX.Element {
   } = useProjectionStore()
 
   const pct = lyricsFontSizePercent
-  const fillPct = ((pct - 70) / 80) * 100
+  const fillPct = ((pct - 50) / 250) * 100
   const isDefault = pct === 100
 
   return (
@@ -24,7 +24,7 @@ export function LyricsZoomControl(): React.JSX.Element {
       {/* A− */}
       <button
         onClick={decreaseLyricsFontSize}
-        disabled={pct <= 70}
+        disabled={pct <= 50}
         className="scene-strip__icon-btn"
         style={{ width: 26, height: 26, fontSize: 11, fontWeight: 800 }}
         title="Perkecil teks (Ctrl+−)"
@@ -36,8 +36,8 @@ export function LyricsZoomControl(): React.JSX.Element {
       {/* Slider */}
       <input
         type="range"
-        min={70}
-        max={150}
+        min={50}
+        max={300}
         step={1}
         value={pct}
         onChange={(e) => setLyricsFontSize(Number(e.target.value))}
@@ -53,8 +53,8 @@ export function LyricsZoomControl(): React.JSX.Element {
         }}
         title={`${pct}% — drag untuk ubah`}
         aria-label="Zoom lirik"
-        aria-valuemin={70}
-        aria-valuemax={150}
+        aria-valuemin={50}
+        aria-valuemax={300}
         aria-valuenow={pct}
       />
 
@@ -76,7 +76,7 @@ export function LyricsZoomControl(): React.JSX.Element {
       {/* A+ */}
       <button
         onClick={increaseLyricsFontSize}
-        disabled={pct >= 150}
+        disabled={pct >= 300}
         className="scene-strip__icon-btn"
         style={{ width: 26, height: 26, fontSize: 11, fontWeight: 800 }}
         title="Perbesar teks (Ctrl++)"

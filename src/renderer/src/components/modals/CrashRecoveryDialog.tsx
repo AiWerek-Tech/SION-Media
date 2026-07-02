@@ -61,53 +61,17 @@ export function CrashRecoveryDialog({
         </>
       }
     >
-      <div
-        className="flex flex-col gap-5"
-        style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}
-      >
+      <div className="flex flex-col gap-5">
         {/* Alert Banner / Shield Integration */}
-        <div
-          className="flex gap-4 items-start p-4 rounded-xl"
-          style={{
-            display: 'flex',
-            gap: '16px',
-            alignItems: 'start',
-            padding: '16px',
-            borderRadius: '12px',
-            background: 'rgba(245, 158, 11, 0.04)',
-            border: '1px solid rgba(245, 158, 11, 0.1)'
-          }}
-        >
-          <div
-            className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center"
-            style={{
-              flexShrink: 0,
-              width: '36px',
-              height: '36px',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'rgba(245, 158, 11, 0.1)',
-              border: '1px solid rgba(245, 158, 11, 0.2)'
-            }}
-          >
-            <ShieldAlert size={18} style={{ color: '#f59e0b' }} />
+        <div className="sp-recovery-banner">
+          <div className="sp-modal-icon-wrap sp-modal-icon-wrap--warning">
+            <ShieldAlert size={18} />
           </div>
-          <div
-            className="space-y-1"
-            style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}
-          >
-            <h4
-              className="text-sm font-semibold text-slate-200"
-              style={{ fontSize: '14px', fontWeight: 600, color: '#e2e8f0', margin: 0 }}
-            >
+          <div className="space-y-1">
+            <h4 className="text-sm font-semibold text-slate-200">
               Aplikasi tidak ditutup dengan benar
             </h4>
-            <p
-              className="text-xs text-slate-400 leading-relaxed"
-              style={{ fontSize: '12px', color: '#94a3b8', lineHeight: '1.625', margin: 0 }}
-            >
+            <p className="text-xs text-text-muted leading-relaxed">
               Sesi ibadah sebelumnya terdeteksi. Pulihkan sekarang untuk melanjutkan presentasi dan
               playlist dari titik terakhir Anda aktif.
             </p>
@@ -115,116 +79,36 @@ export function CrashRecoveryDialog({
         </div>
 
         {/* Data to Restore Section */}
-        <div
-          className="space-y-3"
-          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
-        >
-          <p
-            className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.12em] opacity-80"
-            style={{
-              fontSize: '11px',
-              fontWeight: 700,
-              color: '#64748b',
-              textTransform: 'uppercase',
-              letterSpacing: '0.12em',
-              opacity: 0.8,
-              margin: '0 4px'
-            }}
-          >
+        <div className="space-y-3">
+          <p className="text-[11px] font-bold text-text-muted uppercase tracking-[0.12em] opacity-80 mx-1">
             Data yang akan dipulihkan
           </p>
 
-          <div
-            className="rounded-xl p-4 flex flex-col gap-3.5"
-            style={{
-              borderRadius: '12px',
-              padding: '16px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '14px',
-              background: 'rgba(255, 255, 255, 0.01)',
-              border: '1px solid rgba(255, 255, 255, 0.04)',
-              boxShadow: 'inset 0 1px 2px rgba(255, 255, 255, 0.02)'
-            }}
-          >
+          <div className="sp-modal-card flex flex-col gap-3.5">
             {recoveryState.playlistId && (
-              <div
-                className="flex items-center justify-between text-xs p-1.5 rounded-lg"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  fontSize: '12px',
-                  padding: '6px'
-                }}
-              >
-                <div
-                  className="flex items-center gap-2.5 text-slate-300"
-                  style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#cbd5e1' }}
-                >
-                  <ListMusic size={14} style={{ color: '#64748b' }} />
-                  <span className="font-medium" style={{ fontWeight: 500 }}>
-                    Playlist Aktif
-                  </span>
+              <div className="flex items-center justify-between text-xs py-0.5">
+                <div className="flex items-center gap-2.5 text-slate-300">
+                  <ListMusic size={14} className="text-text-muted" />
+                  <span className="font-medium">Playlist Aktif</span>
                 </div>
-                <span
-                  className="font-semibold"
-                  style={{
-                    fontWeight: 600,
-                    color: '#818cf8',
-                    background: 'rgba(99, 102, 241, 0.1)',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
-                    border: '1px solid rgba(99, 102, 241, 0.15)'
-                  }}
-                >
+                <span className="font-semibold text-brand-primary bg-brand-primary/10 px-2 py-0.5 rounded text-[11px] border border-brand-primary/15">
                   ID: {recoveryState.playlistId}
                 </span>
               </div>
             )}
 
             {recoveryState.songId && (
-              <div
-                className="flex items-center justify-between text-xs p-1.5 rounded-lg"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  fontSize: '12px',
-                  padding: '6px'
-                }}
-              >
-                <div
-                  className="flex items-center gap-2.5 text-slate-300"
-                  style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#cbd5e1' }}
-                >
-                  <Music2 size={14} style={{ color: '#64748b' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <span
-                      className="text-[10px] text-slate-500"
-                      style={{ fontSize: '10px', color: '#64748b' }}
-                    >
-                      Lagu Terakhir
-                    </span>
-                    <span
-                      className="font-semibold text-slate-200"
-                      style={{ fontWeight: 600, color: '#e2e8f0', fontSize: '13px' }}
-                    >
+              <div className="flex items-center justify-between text-xs py-0.5">
+                <div className="flex items-center gap-2.5 text-slate-300">
+                  <Music2 size={14} className="text-text-muted" />
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] text-text-muted">Lagu Terakhir</span>
+                    <span className="font-semibold text-slate-200 text-[13px]">
                       {song ? song.title : 'Lagu Sion'}
                     </span>
                   </div>
                 </div>
-                <span
-                  className="font-semibold"
-                  style={{
-                    fontWeight: 600,
-                    color: '#818cf8',
-                    background: 'rgba(99, 102, 241, 0.1)',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
-                    border: '1px solid rgba(99, 102, 241, 0.15)'
-                  }}
-                >
+                <span className="font-semibold text-brand-primary bg-brand-primary/10 px-2 py-0.5 rounded text-[11px] border border-brand-primary/15">
                   {song
                     ? `${song.hymnal_code || 'LS'} No. ${song.number}`
                     : `ID: ${recoveryState.songId}`}
@@ -233,88 +117,35 @@ export function CrashRecoveryDialog({
             )}
 
             {recoveryState.slideIndex !== undefined && (
-              <div
-                className="flex items-center justify-between text-xs p-1.5 rounded-lg"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  fontSize: '12px',
-                  padding: '6px'
-                }}
-              >
-                <div
-                  className="flex items-center gap-2.5 text-slate-300"
-                  style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#cbd5e1' }}
-                >
-                  <Layers size={14} style={{ color: '#64748b' }} />
-                  <span className="font-medium" style={{ fontWeight: 500 }}>
-                    Slide Terakhir
-                  </span>
+              <div className="flex items-center justify-between text-xs py-0.5">
+                <div className="flex items-center gap-2.5 text-slate-300">
+                  <Layers size={14} className="text-text-muted" />
+                  <span className="font-medium">Slide Terakhir</span>
                 </div>
-                <span
-                  className="font-semibold"
-                  style={{
-                    fontWeight: 600,
-                    color: '#cbd5e1',
-                    background: '#1e293b',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
-                    border: '1px solid #334155'
-                  }}
-                >
+                <span className="font-semibold text-slate-200 bg-white/5 px-2 py-0.5 rounded text-[11px] border border-white/10">
                   Slide #{(recoveryState.slideIndex ?? 0) + 1}
                 </span>
               </div>
             )}
 
             {recoveryState.projectionState && recoveryState.projectionState !== 'CLEAR' && (
-              <div
-                className="flex items-center justify-between text-xs p-1.5 rounded-lg"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  fontSize: '12px',
-                  padding: '6px'
-                }}
-              >
-                <div
-                  className="flex items-center gap-2.5 text-slate-300"
-                  style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#cbd5e1' }}
-                >
+              <div className="flex items-center justify-between text-xs py-0.5">
+                <div className="flex items-center gap-2.5 text-slate-300">
                   <div
-                    className="w-2 h-2 rounded-full"
-                    style={{
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      boxShadow: '0 0 6px rgba(34, 197, 94, 0.4)',
-                      background: recoveryState.projectionState === 'LIVE' ? '#22c55e' : '#f59e0b'
-                    }}
+                    className={`w-2 h-2 rounded-full ${
+                      recoveryState.projectionState === 'LIVE'
+                        ? 'bg-emerald-500 shadow-[0_0_6px_rgba(34,197,94,0.4)]'
+                        : 'bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.4)]'
+                    }`}
                   />
-                  <span className="font-medium" style={{ fontWeight: 500 }}>
-                    Status Proyektor
-                  </span>
+                  <span className="font-medium">Status Proyektor</span>
                 </div>
                 <span
-                  style={{
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
-                    color: recoveryState.projectionState === 'LIVE' ? '#34d399' : '#fbbf24',
-                    background:
-                      recoveryState.projectionState === 'LIVE'
-                        ? 'rgba(52, 211, 153, 0.1)'
-                        : 'rgba(251, 191, 36, 0.1)',
-                    border:
-                      recoveryState.projectionState === 'LIVE'
-                        ? '1px solid rgba(52, 211, 153, 0.15)'
-                        : '1px solid rgba(251, 191, 36, 0.15)'
-                  }}
+                  className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                    recoveryState.projectionState === 'LIVE'
+                      ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/15'
+                      : 'text-amber-400 bg-amber-500/10 border-amber-500/15'
+                  }`}
                 >
                   {recoveryState.projectionState}
                 </span>

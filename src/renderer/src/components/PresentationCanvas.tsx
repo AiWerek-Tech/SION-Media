@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import type { ProjectionState, SlideData } from '@renderer/types'
 import { AtmosphereRenderer } from '@renderer/atmosphere/AtmosphereRenderer'
 import { useAtmosphereStore } from '@renderer/store/useAtmosphereStore'
+import { BibleAutoFitText } from './presentation/BibleAutoFitText'
 
 interface PresentationCanvasProps {
   slide: SlideData | null
@@ -19,9 +20,6 @@ interface PresentationCanvasProps {
   /** AnimatePresence mode: 'wait' (projector, sequential) or 'sync' (operator, simultaneous).
    *  'sync' runs exit and enter in parallel, eliminating perceived delay on small monitors. */
   transitionMode?: 'wait' | 'sync' | 'popLayout'
-  /** Multiplier for transition duration. Defaults to 1.0 (full speed).
-   *  Use 0.5 for operator monitors where full duration feels sluggish. */
-  transitionSpeedMultiplier?: number
 }
 
 interface TransitionConfig {
@@ -107,8 +105,7 @@ export function PresentationCanvas({
   className,
   lyricsFontSizePercent = 100,
   showIdleWatermark = true,
-  transitionMode = 'wait',
-  transitionSpeedMultiplier = 1.0
+  transitionMode = 'wait'
 }: PresentationCanvasProps): React.JSX.Element {
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const [scale, setScale] = useState(1)
@@ -139,6 +136,13 @@ export function PresentationCanvas({
   const fontFamily = theme.projection_font_family || 'Inter'
   const baseFontSize = Number(theme.projection_font_size || 86)
   const fontSize = Math.round(baseFontSize * (lyricsFontSizePercent / 100))
+  // Progressively relax layout constraints at higher zoom levels
+  // so text can truly fill the screen at 200%+
+  const zoomFactor = lyricsFontSizePercent / 100
+  const dynamicPaddingV = Math.max(24, Math.round(118 / Math.max(1, zoomFactor * 0.8)))
+  const dynamicPaddingH = Math.max(40, Math.round(190 / Math.max(1, zoomFactor * 0.7)))
+  const dynamicMaxWidth = Math.min(1920, Math.round(1440 * Math.max(1, zoomFactor * 0.85)))
+  const dynamicWidth = `${Math.min(100, Math.round(75 * Math.max(1, zoomFactor * 0.72)))}%`
   const fontWeight = Number(theme.projection_font_weight || 650)
   const lineHeight = Number(theme.projection_line_height || theme.projection_line_spacing || 1.15)
   const textColor = theme.projection_text_color || '#ffffff'
@@ -150,22 +154,107 @@ export function PresentationCanvas({
   const textAlign = (theme.projection_text_align || 'center') as React.CSSProperties['textAlign']
   const transitionType = theme.transition_type || 'smooth-blur'
   const transitionDuration = Number(theme.transition_duration || 0.5)
-  const effectiveDuration = transitionDuration * transitionSpeedMultiplier
   const transition = useMemo(
     () =>
       prefersReducedMotion
         ? getTransitionConfig('dissolve', 0.1)
-        : getTransitionConfig(transitionType, effectiveDuration),
-    [transitionType, effectiveDuration, prefersReducedMotion]
+        : getTransitionConfig(transitionType, transitionDuration),
+    [transitionType, transitionDuration, prefersReducedMotion]
   )
   const hasLyrics = showLive && slide && slide.text.trim().length > 0 && !showBlack
   const contentKey = slide ? `${slide.songId}-${slide.slideIndex}-${slide.text}` : 'empty'
+  const isInfoSlide = slide?.contentType === 'custom' && Boolean(slide.sectionLabel?.trim())
+  const isBibleSlide = slide?.contentType === 'bible'
   const getResolvedAtmosphere = useAtmosphereStore((s) => s.getResolvedAtmosphere)
   const resolvedAtmosphere = useMemo(() => {
     // Use centralized store resolution with legacy theme fallback
     const resolved = getResolvedAtmosphere(theme)
     return resolved.active
   }, [theme, getResolvedAtmosphere])
+
+  const primaryTextContent = slide ? (
+    isInfoSlide ? (
+      <div data-testid="info-slide-content">
+        <div
+          data-testid="info-slide-title"
+          style={{
+            marginBottom: Math.max(18, Math.round(fontSize * 0.3)),
+            color: 'rgba(255,255,255,0.62)',
+            fontFamily: `var(--font-heading), ${fontFamily}`,
+            fontSize: Math.max(24, Math.round(fontSize * 0.38)),
+            fontWeight: 600,
+            letterSpacing: '0.035em',
+            lineHeight: 1.25,
+            textAlign,
+            textShadow
+          }}
+        >
+          {slide.sectionLabel}
+        </div>
+        <p
+          data-testid="info-slide-body"
+          style={{
+            margin: 0,
+            color: textColor,
+            fontFamily: `var(--font-heading), ${fontFamily}`,
+            fontSize,
+            fontWeight: Math.max(fontWeight, 700),
+            letterSpacing: '-0.015em',
+            lineHeight,
+            whiteSpace: 'pre-line',
+            textAlign,
+            textShadow,
+            WebkitTextStroke: textOutline ? '2px rgba(0,0,0,0.58)' : undefined
+          }}
+        >
+          {slide.text}
+        </p>
+      </div>
+    ) : isBibleSlide ? (
+      <BibleAutoFitText
+        text={slide.text}
+        reference={slide.bibleReference}
+        copyright={slide.bibleCopyright}
+        requestedFontSize={fontSize}
+        minimumFontSize={32}
+        availableHeight={1080 - dynamicPaddingV * 2}
+        fontFamily={fontFamily}
+        fontWeight={fontWeight}
+        lineHeight={lineHeight}
+        textColor={textColor}
+        textAlign={textAlign}
+        textShadow={textShadow}
+        textOutline={textOutline}
+      />
+    ) : (
+      <p
+        style={{
+          margin: 0,
+          color: textColor,
+          fontFamily: `var(--font-heading), ${fontFamily}`,
+          fontSize,
+          fontWeight,
+          letterSpacing: 0,
+          lineHeight,
+          whiteSpace: 'pre-line',
+          textAlign,
+          textShadow,
+          WebkitTextStroke: textOutline ? '2px rgba(0,0,0,0.58)' : undefined
+        }}
+      >
+        {slide.text.split(/(\[\d+\])/g).map((part, i) => {
+          if (part.match(/\[\d+\]/)) {
+            return (
+              <sup key={i} style={{ fontSize: '0.6em', opacity: 0.8, marginRight: '4px' }}>
+                {part.replace(/\[|\]/g, '')}
+              </sup>
+            )
+          }
+          return <span key={i}>{part}</span>
+        })}
+      </p>
+    )
+  ) : null
 
   const canvas = (
     <div
@@ -206,48 +295,20 @@ export function PresentationCanvas({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '118px 190px',
+                padding: `${dynamicPaddingV}px ${dynamicPaddingH}px`,
                 willChange: 'transform, opacity, filter'
               }}
             >
               <div
                 style={{
-                  maxWidth: 1440,
-                  width: '75%',
+                  maxWidth: dynamicMaxWidth,
+                  width: dynamicWidth,
                   textAlign
                 }}
               >
-                <p
-                  style={{
-                    margin: 0,
-                    color: textColor,
-                    fontFamily: `var(--font-heading), ${fontFamily}`,
-                    fontSize,
-                    fontWeight,
-                    letterSpacing: 0,
-                    lineHeight,
-                    whiteSpace: 'pre-line',
-                    textAlign,
-                    textShadow,
-                    WebkitTextStroke: textOutline ? '2px rgba(0,0,0,0.58)' : undefined
-                  }}
-                >
-                  {slide.text.split(/(\[\d+\])/g).map((part, i) => {
-                    if (part.match(/\[\d+\]/)) {
-                      return (
-                        <sup
-                          key={i}
-                          style={{ fontSize: '0.6em', opacity: 0.8, marginRight: '4px' }}
-                        >
-                          {part.replace(/\[|\]/g, '')}
-                        </sup>
-                      )
-                    }
-                    return <span key={i}>{part}</span>
-                  })}
-                </p>
+                {primaryTextContent}
 
-                {slide.bibleReference && (
+                {!isBibleSlide && slide.bibleReference && (
                   <div
                     style={{
                       marginTop: 48,
@@ -263,6 +324,23 @@ export function PresentationCanvas({
                     }}
                   >
                     — {slide.bibleReference} —
+                  </div>
+                )}
+
+                {!isBibleSlide && slide.bibleCopyright && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      color: 'rgba(255,255,255,0.4)',
+                      fontFamily,
+                      fontSize: fontSize * 0.28,
+                      fontWeight: 500,
+                      textAlign:
+                        textAlign === 'left' ? 'left' : textAlign === 'right' ? 'right' : 'center',
+                      textShadow
+                    }}
+                  >
+                    {slide.bibleCopyright}
                   </div>
                 )}
 
@@ -300,44 +378,19 @@ export function PresentationCanvas({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: '118px 190px'
+              padding: `${dynamicPaddingV}px ${dynamicPaddingH}px`
             }}
           >
             <div
               style={{
-                maxWidth: 1440,
-                width: '75%',
+                maxWidth: dynamicMaxWidth,
+                width: dynamicWidth,
                 textAlign
               }}
             >
-              <p
-                style={{
-                  margin: 0,
-                  color: textColor,
-                  fontFamily: `var(--font-heading), ${fontFamily}`,
-                  fontSize,
-                  fontWeight,
-                  letterSpacing: 0,
-                  lineHeight,
-                  whiteSpace: 'pre-line',
-                  textAlign,
-                  textShadow,
-                  WebkitTextStroke: textOutline ? '2px rgba(0,0,0,0.58)' : undefined
-                }}
-              >
-                {slide.text.split(/(\[\d+\])/g).map((part, i) => {
-                  if (part.match(/\[\d+\]/)) {
-                    return (
-                      <sup key={i} style={{ fontSize: '0.6em', opacity: 0.8, marginRight: '4px' }}>
-                        {part.replace(/\[|\]/g, '')}
-                      </sup>
-                    )
-                  }
-                  return <span key={i}>{part}</span>
-                })}
-              </p>
+              {primaryTextContent}
 
-              {slide.bibleReference && (
+              {!isBibleSlide && slide.bibleReference && (
                 <div
                   style={{
                     marginTop: 48,
@@ -353,6 +406,23 @@ export function PresentationCanvas({
                   }}
                 >
                   — {slide.bibleReference} —
+                </div>
+              )}
+
+              {!isBibleSlide && slide.bibleCopyright && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    color: 'rgba(255,255,255,0.4)',
+                    fontFamily,
+                    fontSize: fontSize * 0.28,
+                    fontWeight: 500,
+                    textAlign:
+                      textAlign === 'left' ? 'left' : textAlign === 'right' ? 'right' : 'center',
+                    textShadow
+                  }}
+                >
+                  {slide.bibleCopyright}
                 </div>
               )}
 

@@ -110,19 +110,31 @@ interface PlaylistDto {
 interface PlaylistItemDto {
   id: number
   playlist_id: number
-  song_id: number
+  song_id: number | null
   sort_order: number
   section_label: string
-  number: string
+  item_type: 'song' | 'bible' | 'info'
   title: string
-  alternate_title: string
-  lyrics_raw: string
-  category: string
+  notes?: string
+  number?: string
+  alternate_title?: string
+  lyrics_raw?: string
+  category?: string
   key_note?: string
   time_signature?: string
   tempo?: string
   hymnal_code?: string
   hymnal_name?: string
+  bible_version_code?: string
+  bible_version_short_name?: string
+  bible_book_code?: string
+  bible_book_name?: string
+  bible_chapter?: number
+  bible_verse_start?: number
+  bible_verse_end?: number
+  bible_reference?: string
+  bible_text_json?: string
+  bible_copyright?: string
 }
 
 interface WindowAPI {
@@ -167,6 +179,7 @@ interface StageAPI {
 interface DisplayAPI {
   getAll: () => Promise<unknown[]>
   isProjectionVisible: () => Promise<boolean>
+  hasExternal: () => Promise<boolean>
   onDisplayChanged: (callback: (count: number) => void) => () => void
 }
 
@@ -220,6 +233,8 @@ interface SongsAPI {
   // Phase 1 — Enterprise Refactor
   duplicate: (id: number) => Promise<{ id: number; number: string; title: string } | null>
   getSummary: (hymnalId?: number) => Promise<unknown[]>
+  getNote: (songId: number) => Promise<string>
+  updateNote: (songId: number, noteText: string) => Promise<string>
 }
 
 interface PlaylistsAPI {
@@ -241,7 +256,27 @@ interface PlaylistsAPI {
     section_label?: string
     sort_order?: number
   }) => Promise<number | { id: number }>
-  updateItem: (id: number, data: { section_label?: string; sort_order?: number }) => Promise<void>
+  addBible: (
+    playlistId: number,
+    bible: {
+      bible_version_code: string
+      bible_version_short_name: string
+      bible_book_code: string
+      bible_book_name: string
+      bible_chapter: number
+      bible_verse_start: number
+      bible_verse_end: number
+      bible_reference: string
+      bible_text_json: string
+      bible_copyright?: string
+      notes?: string
+    }
+  ) => Promise<PlaylistItemDto>
+  addInfo: (playlistId: number, info: { title: string; body: string }) => Promise<PlaylistItemDto>
+  updateItem: (
+    id: number,
+    data: { section_label?: string; sort_order?: number; title?: string; notes?: string }
+  ) => Promise<void>
   deleteItem: (id: number) => Promise<boolean>
   reorderItems: (items: Array<{ id: number; sort_order: number }>) => Promise<void>
 }
@@ -253,7 +288,7 @@ interface SettingsAPI {
 
 interface SystemAPI {
   logHistory: (songId: number) => Promise<void>
-  getRecentSongs: (limit?: number) => Promise<SongDto[]>
+  getRecentSongs: (limit?: number, hymnalId?: number) => Promise<SongDto[]>
   createBackup: (customPath?: string) => Promise<string>
   restoreBackup: (backupPath: string) => Promise<boolean>
   saveSession: (state: unknown) => Promise<void>
@@ -284,7 +319,9 @@ interface FileAPI {
     }>
   >
   showSaveDialog: (options: unknown) => Promise<{ canceled: boolean; filePath?: string }>
+  showOpenDialog: (options: unknown) => Promise<{ canceled: boolean; filePaths: string[] }>
   writeJson: (filePath: string, data: unknown) => Promise<unknown>
+  readJson: (filePath: string) => Promise<unknown>
 }
 
 interface MediaAssetDto {
@@ -385,6 +422,165 @@ interface BibleAPI {
   searchVerses: (query: string, translationId?: number) => Promise<unknown[]>
 }
 
+// ============================================================================
+// Content Pack API (External SQLite System)
+// ============================================================================
+
+interface ContentPackRecordDto {
+  id: number
+  pack_id: string
+  pack_type: string
+  version_code: string
+  name: string
+  short_name: string
+  language: string
+  publisher: string
+  copyright: string
+  installed_path: string
+  sqlite_filename: string
+  is_active: number
+  is_default: number
+  validation_ok: number
+  fts5_created: number
+  books_count: number
+  chapters_count: number
+  verses_count: number
+  created_at: string
+  updated_at: string
+}
+
+interface BiblePackPreviewDto {
+  valid: boolean
+  errors: string[]
+  packId: string
+  manifest: {
+    version_code: string
+    version_name: string
+    short_name: string
+    language: string
+    publisher: string
+    copyright: string
+    books: number
+    chapters: number
+    verses: number
+    validation_ok: boolean
+    fts5_created: boolean
+  } | null
+  importReport: {
+    ok: boolean
+    book_count: number
+    chapter_count: number
+    verse_count: number
+    warnings: string[]
+  } | null
+  books: Array<{
+    code: string
+    name: string
+    testament: 'OT' | 'NT'
+    order: number
+    chapters: number
+  }>
+}
+
+interface ContentPacksAPI {
+  selectFolder: () => Promise<string | null>
+  previewBiblePack: (folderPath: string) => Promise<BiblePackPreviewDto>
+  installBiblePack: (folderPath: string) => Promise<ContentPackRecordDto>
+  list: (packType?: string) => Promise<ContentPackRecordDto[]>
+  remove: (packId: string) => Promise<boolean>
+  setDefault: (packId: string) => Promise<{ success: boolean }>
+}
+
+interface BibleVersionDto {
+  versionCode: string
+  name: string
+  shortName: string
+  language: string
+  publisher: string
+  copyright: string
+  booksCount: number
+  chaptersCount: number
+  versesCount: number
+  fts5Created: boolean
+  isDefault: boolean
+  packId: string
+}
+
+interface BibleExternalBookDto {
+  code: string
+  osis_id: string
+  name: string
+  testament: 'OT' | 'NT'
+  order: number
+  chapters: number
+}
+
+interface BibleExternalVerseDto {
+  book_code: string
+  book_name: string
+  chapter: number
+  verse: number
+  text: string
+}
+
+interface BibleSearchResultDto {
+  book_code: string
+  book_name: string
+  chapter: number
+  verse: number
+  text: string
+  snippet: string
+}
+
+interface BibleParsedReferenceDto {
+  valid: boolean
+  bookCode: string
+  bookName: string
+  chapter: number
+  verseStart: number
+  verseEnd: number | null
+  error: string | null
+}
+
+interface BibleNoteDto {
+  verse: number
+  note_text: string
+  highlight_color: string
+}
+
+interface BiblePackAPI {
+  getVersions: () => Promise<BibleVersionDto[]>
+  getBooks: (versionCode: string) => Promise<BibleExternalBookDto[]>
+  getChapter: (
+    versionCode: string,
+    bookCode: string,
+    chapter: number
+  ) => Promise<BibleExternalVerseDto[]>
+  getVerseRange: (
+    versionCode: string,
+    bookCode: string,
+    chapter: number,
+    verseStart: number,
+    verseEnd: number
+  ) => Promise<BibleExternalVerseDto[]>
+  search: (versionCode: string, query: string, limit?: number) => Promise<BibleSearchResultDto[]>
+  parseReference: (referenceStr: string) => Promise<BibleParsedReferenceDto>
+  // Bible notes & highlights
+  getNote: (
+    bookCode: string,
+    chapter: number,
+    verse: number
+  ) => Promise<{ note_text: string; highlight_color: string }>
+  updateNote: (
+    bookCode: string,
+    chapter: number,
+    verse: number,
+    noteText: string,
+    highlightColor: string
+  ) => Promise<void>
+  getNotesForChapter: (bookCode: string, chapter: number) => Promise<BibleNoteDto[]>
+}
+
 interface SlidesAPI {
   getAll: () => Promise<unknown[]>
   getByType: (slideType: string) => Promise<unknown[]>
@@ -436,6 +632,9 @@ interface API {
   health: HealthAPI
   // Phase 1 — Enterprise Refactor
   confidence: ConfidenceAPI
+  // External SQLite Content Pack System
+  contentPacks: ContentPacksAPI
+  biblePack: BiblePackAPI
 }
 
 declare global {

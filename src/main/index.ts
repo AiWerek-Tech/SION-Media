@@ -16,9 +16,11 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase, markCleanExit } from './database'
 import { setupIPC } from './ipc-handlers'
 import { setupIPCHealth } from './ipc-health'
-import { createMainWindow, createProjectionWindow, createNativeSplashWindow } from './windows'
+import { createMainWindow, createProjectionWindow } from './windows'
 import { setupDisplayMonitor } from './display-monitor'
 import { checkSafeMode, markStableStartup, isSafeMode } from './safe-mode'
+import { ensureContentPackDirectories } from './services/content-packs/contentPackPaths'
+import { closeAllBibleConnections } from './services/bible/bibleExternalSqliteRepository'
 
 process.on('uncaughtException', (err) => {
   console.error('[main] uncaughtException:', err)
@@ -80,6 +82,9 @@ app.whenReady().then(() => {
   // Initialize database
   initDatabase()
 
+  // Ensure content pack directories exist
+  ensureContentPackDirectories()
+
   // Note: Auto-backup feature is tracked under issue #SION-104 for future release
 
   // Setup IPC handlers
@@ -89,8 +94,7 @@ app.whenReady().then(() => {
   // Setup display change monitoring
   setupDisplayMonitor()
 
-  // Create native splash and hidden main shell
-  createNativeSplashWindow()
+  // Create hidden main shell
   createMainWindow()
   if (!isSafeMode()) {
     createProjectionWindow()
@@ -112,6 +116,12 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  // Close all external Bible SQLite connections
+  try {
+    closeAllBibleConnections()
+  } catch (error) {
+    console.error('Error closing Bible connections:', error)
+  }
   // Mark clean exit for crash recovery
   try {
     markCleanExit()

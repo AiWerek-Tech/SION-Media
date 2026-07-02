@@ -15,7 +15,6 @@ import { generateSlidesForSong } from '@core/projection'
 import { useAppStore } from '@renderer/store/useAppStore'
 import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
 import { useProjectionStore } from '@renderer/store/useProjectionStore'
-import { useModalStore } from '@renderer/store/useModalStore'
 import type { Playlist, RecoveryState, Song } from '@renderer/types'
 import { logger } from '@renderer/utils/logger'
 
@@ -72,24 +71,16 @@ export function useCrashRecovery(): void {
         if (!isMounted || !recoveryState?.needsRecovery) return
         hasRecoveredRef.current = true
 
-        // Open CrashRecoveryDialog — user decides whether to restore
-        useModalStore.getState().open('crash-recovery', 'crash-recovery', {
-          recoveryState,
-          onRestore: () => {
-            void doRestoreSession(recoveryState, songs)
-              .then(() => {
-                showToast('Sesi berhasil dipulihkan', 'success')
-                void window.api.system.markCleanExit()
-              })
-              .catch((err) => {
-                logger.error('Recovery restore error:', err)
-                showToast('Gagal memulihkan sesi', 'error')
-              })
-          },
-          onDismiss: () => {
+        // Auto-restore session silently and mark clean exit
+        void doRestoreSession(recoveryState, songs)
+          .then(() => {
+            showToast('Sesi sebelumnya berhasil dipulihkan secara otomatis', 'success')
             void window.api.system.markCleanExit()
-          }
-        })
+          })
+          .catch((err) => {
+            logger.error('Recovery restore error:', err)
+            showToast('Gagal memulihkan sesi secara otomatis', 'error')
+          })
       } catch (err) {
         logger.error('Recovery check error:', err)
       }

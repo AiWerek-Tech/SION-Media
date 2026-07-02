@@ -8,7 +8,7 @@ import { TwoPanelLayout } from '@renderer/components/design-system'
 import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
 import { useAppStore } from '@renderer/store/useAppStore'
 import { useProjectionStore } from '@renderer/store/useProjectionStore'
-import { generateSlidesForSong } from '@core/projection'
+import { generateSlidesForSong, generateSlidesForPlaylistItem } from '@core/projection'
 import type { PlaylistItem } from '@renderer/types'
 
 export function Dashboard(): React.JSX.Element {
@@ -28,6 +28,25 @@ export function Dashboard(): React.JSX.Element {
 
   const handlePlaylistItemClick = (item: PlaylistItem, index: number): void => {
     usePlaylistStore.getState().setActiveItemIndex(index)
+    if (item.item_type === 'info') {
+      setSelectedSong(null)
+      setSlides(generateSlidesForPlaylistItem(item), {
+        hymnalCode: 'INFO',
+        hymnalName: item.title || 'Info',
+        songBackgroundConfig: ''
+      })
+      return
+    }
+    if (item.item_type === 'bible') {
+      setSelectedSong(null)
+      const bibleSlides = generateSlidesForPlaylistItem(item)
+      setSlides(bibleSlides, {
+        hymnalCode: item.bible_version_short_name || item.bible_version_code || 'BIBLE',
+        hymnalName: item.bible_book_name || 'Alkitab',
+        songBackgroundConfig: ''
+      })
+      return
+    }
     const song = songs.find((s) => s.id === item.song_id)
     if (song) {
       setSelectedSong(song)

@@ -31,12 +31,17 @@ interface SongState {
   searchOffset: number
   hasMoreResults: boolean
   isLoadingMore: boolean
+  isSearching: boolean
+  searchError: string | null
+  searchHymnalId: number | undefined
 
   // Actions
   loadSongs: (hymnalId?: number) => Promise<void>
   searchSongs: (query: string, append?: boolean, hymnalId?: number) => Promise<void>
   loadMoreSongs: () => Promise<void>
 }
+
+let latestSearchRequestId = 0
 
 export const useSongStore = create<SongState>((set, get) => ({
   songs: [],
@@ -59,31 +64,75 @@ export const useSongStore = create<SongState>((set, get) => ({
   searchOffset: 0,
   hasMoreResults: false,
   isLoadingMore: false,
+  isSearching: false,
+  searchError: null,
+  searchHymnalId: undefined,
 
   loadSongs: async (hymnalId?: number) => {
+    const requestId = ++latestSearchRequestId
+    set({
+      isSearching: true,
+      isLoadingMore: false,
+      searchError: null,
+      searchHymnalId: hymnalId
+    })
     try {
       const songs = (await window.api.songs.getAll(hymnalId || undefined)) as Song[]
-      set({ songs })
+      if (requestId !== latestSearchRequestId) return
+      set({
+        songs,
+        searchQuery: '',
+        searchOffset: 0,
+        hasMoreResults: false,
+        isSearching: false,
+        isLoadingMore: false,
+        searchError: null,
+        searchHymnalId: hymnalId
+      })
     } catch (err) {
       logger.error('Failed to load songs:', err)
+      if (requestId === latestSearchRequestId) {
+        set({
+          isSearching: false,
+          isLoadingMore: false,
+          searchError: 'Daftar lagu gagal dimuat. Silakan coba lagi.'
+        })
+      }
     }
   },
 
   searchSongs: async (query: string, append = false, hymnalId?: number) => {
+    const requestId = ++latestSearchRequestId
+    const normalizedQuery = query.trim()
+    set({
+      searchError: null,
+      isSearching: !append,
+      isLoadingMore: append,
+      ...(append ? {} : { searchQuery: query, searchHymnalId: hymnalId })
+    })
     try {
       const SEARCH_LIMIT = 120
       const offset = append ? get().searchOffset : 0
 
-      if (!query.trim()) {
+      if (!normalizedQuery) {
         const songs = (await window.api.songs.getAll(hymnalId)) as Song[]
-        set({ songs, searchQuery: query, searchOffset: 0, hasMoreResults: false })
+        if (requestId !== latestSearchRequestId) return
+        set({
+          songs,
+          searchQuery: query,
+          searchOffset: 0,
+          hasMoreResults: false,
+          isSearching: false,
+          isLoadingMore: false,
+          searchHymnalId: hymnalId
+        })
       } else {
-        if (!append) set({ isLoadingMore: true })
-
         const newSongs = (await window.api.songs.search(query, hymnalId, {
           offset,
           limit: SEARCH_LIMIT
         })) as Song[]
+
+        if (requestId !== latestSearchRequestId) return
 
         const existingSongs = append ? get().songs : []
         const songs = [...existingSongs, ...newSongs]
@@ -93,18 +142,27 @@ export const useSongStore = create<SongState>((set, get) => ({
           searchQuery: query,
           searchOffset: offset + newSongs.length,
           hasMoreResults: newSongs.length === SEARCH_LIMIT,
-          isLoadingMore: false
+          isLoadingMore: false,
+          isSearching: false,
+          searchError: null,
+          searchHymnalId: hymnalId
         })
       }
     } catch (err) {
       logger.error('Failed to search songs:', err)
-      set({ isLoadingMore: false })
+      if (requestId === latestSearchRequestId) {
+        set({
+          isLoadingMore: false,
+          isSearching: false,
+          searchError: 'Pencarian lagu gagal. Silakan coba lagi.'
+        })
+      }
     }
   },
 
   loadMoreSongs: async () => {
-    const { searchQuery, hasMoreResults, isLoadingMore } = get()
+    const { searchQuery, hasMoreResults, isLoadingMore, searchHymnalId } = get()
     if (!searchQuery.trim() || !hasMoreResults || isLoadingMore) return
-    await get().searchSongs(searchQuery, true)
+    await get().searchSongs(searchQuery, true, searchHymnalId)
   }
 }))

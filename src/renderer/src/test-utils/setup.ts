@@ -59,6 +59,7 @@ const mockApi = {
       .fn()
       .mockResolvedValue([{ id: 1, label: 'Primary', width: 1920, height: 1080, isPrimary: true }]),
     isProjectionVisible: vi.fn().mockResolvedValue(false),
+    hasExternal: vi.fn().mockResolvedValue(false),
     onDisplayChanged: vi.fn().mockReturnValue(() => {})
   },
 
@@ -108,6 +109,7 @@ const mockApi = {
     delete: vi.fn().mockResolvedValue(true),
     getItems: vi.fn().mockResolvedValue([]),
     addItem: vi.fn().mockResolvedValue({ id: 1 }),
+    addInfo: vi.fn().mockResolvedValue({ id: 3 }),
     updateItem: vi.fn().mockResolvedValue(undefined),
     deleteItem: vi.fn().mockResolvedValue(true),
     reorderItems: vi.fn().mockResolvedValue(undefined)
@@ -177,6 +179,26 @@ const mockApi = {
     addVerse: vi.fn().mockResolvedValue({}),
     addVersesBatch: vi.fn().mockResolvedValue(undefined),
     searchVerses: vi.fn().mockResolvedValue([])
+  },
+
+  biblePack: {
+    getVersions: vi.fn().mockResolvedValue([]),
+    getBooks: vi.fn().mockResolvedValue([]),
+    getChapter: vi.fn().mockResolvedValue([]),
+    getVerseRange: vi.fn().mockResolvedValue([]),
+    search: vi.fn().mockResolvedValue([]),
+    parseReference: vi.fn().mockResolvedValue({
+      valid: false,
+      bookCode: '',
+      bookName: '',
+      chapter: 0,
+      verseStart: 0,
+      verseEnd: null,
+      error: null
+    }),
+    getNote: vi.fn().mockResolvedValue({ note_text: '', highlight_color: '' }),
+    updateNote: vi.fn().mockResolvedValue(undefined),
+    getNotesForChapter: vi.fn().mockResolvedValue([])
   },
 
   slides: {

@@ -6,9 +6,10 @@
  */
 
 import React, { useCallback, useState } from 'react'
-import { AlignLeft, Send, Trash2, Type } from 'lucide-react'
+import { AlignLeft, ListPlus, Send, Trash2, Type } from 'lucide-react'
 import { useProjectionStore } from '@renderer/store/useProjectionStore'
 import { useAppStore } from '@renderer/store/useAppStore'
+import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
 import type { SlideData } from '@renderer/types'
 
 const ANNOUNCEMENT_TEMPLATES = [
@@ -31,13 +32,16 @@ export function AnnouncementPanel(): React.JSX.Element {
   const [isSending, setIsSending] = useState(false)
   const { showToast } = useAppStore()
   const { setSlides } = useProjectionStore()
+  const addInfoToPlaylist = usePlaylistStore((state) => state.addInfoToPlaylist)
 
   const charCount = body.length
   const isOverLimit = charCount > MAX_BODY_CHARS
   const hasContent = title.trim() || body.trim()
 
   const handleSend = useCallback(async () => {
-    const text = [title.trim(), body.trim()].filter(Boolean).join('\n')
+    const normalizedTitle = title.trim()
+    const normalizedBody = body.trim()
+    const text = normalizedBody || normalizedTitle
     if (!text) {
       showToast('Tulis pengumuman terlebih dahulu', 'error')
       return
@@ -48,22 +52,28 @@ export function AnnouncementPanel(): React.JSX.Element {
     }
     setIsSending(true)
     const slide: SlideData = {
+      contentType: 'custom',
       songId: -2,
       slideIndex: 0,
       text,
-      sectionLabel: title.trim() || 'PENGUMUMAN',
+      sectionLabel: normalizedBody ? normalizedTitle : '',
       keyNote: undefined,
       timeSignature: undefined,
       tempo: undefined
     }
     setSlides([slide], {
       hymnalCode: 'ANN',
-      hymnalName: title.trim() || 'Pengumuman',
+      hymnalName: normalizedTitle || 'Info',
       songBackgroundConfig: ''
     })
     showToast('Pengumuman masuk ke Preview', 'success')
     setTimeout(() => setIsSending(false), 600)
   }, [body, isOverLimit, setSlides, showToast, title])
+
+  const handleAddToPlaylist = useCallback(async () => {
+    if (!hasContent || isOverLimit) return
+    await addInfoToPlaylist({ title: title.trim(), body: body.trim() })
+  }, [addInfoToPlaylist, body, hasContent, isOverLimit, title])
 
   const handleTemplate = useCallback((template: { label: string; text: string }) => {
     setTitle(template.label)
@@ -87,10 +97,10 @@ export function AnnouncementPanel(): React.JSX.Element {
   )
 
   return (
-    <aside className="projection-song-info-panel">
-      <div className="flex min-h-0 flex-1 flex-col gap-2.5 p-3">
+    <aside className="projection-song-info-panel projection-announcement-panel">
+      <div className="projection-announcement-panel__content flex min-h-0 flex-1 flex-col gap-2.5 p-3">
         {/* Title */}
-        <div className="relative">
+        <div className="projection-announcement-panel__field-wrap relative">
           <Type
             size={12}
             className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
@@ -102,6 +112,7 @@ export function AnnouncementPanel(): React.JSX.Element {
             onKeyDown={handleKeyDown}
             placeholder="Judul (opsional)"
             className="
+              projection-announcement-panel__field
               w-full h-8 pl-8 pr-3 rounded-lg border border-border-default
               bg-bg-elevated text-[12px] text-text-primary font-semibold
               placeholder:text-text-disabled outline-none
@@ -112,7 +123,7 @@ export function AnnouncementPanel(): React.JSX.Element {
         </div>
 
         {/* Body with char counter */}
-        <div className="relative flex-1 flex flex-col">
+        <div className="projection-announcement-panel__body relative flex-1 flex flex-col">
           <AlignLeft
             size={12}
             className="absolute left-2.5 top-2.5 text-text-muted pointer-events-none"
@@ -124,6 +135,7 @@ export function AnnouncementPanel(): React.JSX.Element {
             placeholder="Isi pengumuman... (Ctrl+Enter untuk kirim)"
             rows={5}
             className={`
+              projection-announcement-panel__textarea
               w-full flex-1 min-h-[90px] rounded-lg border pl-8 pr-3 pt-2 pb-6
               bg-bg-elevated text-[12px] text-text-primary resize-none
               placeholder:text-text-disabled outline-none leading-relaxed
@@ -150,7 +162,7 @@ export function AnnouncementPanel(): React.JSX.Element {
         </div>
 
         {/* Templates */}
-        <div>
+        <div className="projection-announcement-panel__templates">
           <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-text-muted">
             Template Cepat
           </span>
@@ -174,7 +186,7 @@ export function AnnouncementPanel(): React.JSX.Element {
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2">
+        <div className="projection-announcement-panel__actions flex gap-2">
           <button
             type="button"
             onClick={() => void handleSend()}
@@ -189,6 +201,17 @@ export function AnnouncementPanel(): React.JSX.Element {
           >
             <Send size={13} />
             {isSending ? 'Mengirim...' : 'Kirim ke Preview'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleAddToPlaylist()}
+            disabled={!hasContent || isOverLimit}
+            aria-label="Tambah ke Playlist"
+            title="Tambah ke playlist aktif"
+            className="projection-announcement-panel__playlist-button inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-default bg-bg-elevated text-text-secondary text-[11px] font-bold transition-colors hover:border-brand-primary/30 hover:bg-brand-primary/10 hover:text-brand-primary disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ListPlus size={13} />
+            <span>Playlist</span>
           </button>
           {hasContent && (
             <button

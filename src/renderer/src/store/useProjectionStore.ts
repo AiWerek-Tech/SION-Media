@@ -1342,24 +1342,27 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
   // LYRICS ZOOM ACTIONS
   // ═══════════════════════════════════════════════════════════════
   setLyricsFontSize: (percent: number) => {
-    const clamped = Math.max(70, Math.min(150, percent))
+    const clamped = Math.max(50, Math.min(300, percent))
     set({ lyricsFontSizePercent: clamped })
+    window.api.projection.themeUpdate({ ui_lyrics_font_size: clamped.toString() })
     window.api.settings
       .update('ui_lyrics_font_size', clamped.toString())
       .catch((err) => logger.error('Failed to save lyrics font size:', err))
   },
 
   increaseLyricsFontSize: () => {
-    const next = Math.min(150, get().lyricsFontSizePercent + 10)
+    const next = Math.min(300, get().lyricsFontSizePercent + 10)
     set({ lyricsFontSizePercent: next })
+    window.api.projection.themeUpdate({ ui_lyrics_font_size: next.toString() })
     window.api.settings
       .update('ui_lyrics_font_size', next.toString())
       .catch((err) => logger.error('Failed to save lyrics font size:', err))
   },
 
   decreaseLyricsFontSize: () => {
-    const next = Math.max(70, get().lyricsFontSizePercent - 10)
+    const next = Math.max(50, get().lyricsFontSizePercent - 10)
     set({ lyricsFontSizePercent: next })
+    window.api.projection.themeUpdate({ ui_lyrics_font_size: next.toString() })
     window.api.settings
       .update('ui_lyrics_font_size', next.toString())
       .catch((err) => logger.error('Failed to save lyrics font size:', err))
@@ -1367,6 +1370,7 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
 
   resetLyricsFontSize: () => {
     set({ lyricsFontSizePercent: 100 })
+    window.api.projection.themeUpdate({ ui_lyrics_font_size: '100' })
     window.api.settings
       .update('ui_lyrics_font_size', '100')
       .catch((err) => logger.error('Failed to save lyrics font size:', err))

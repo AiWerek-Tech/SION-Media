@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  Bell,
   Book,
   Check,
   Edit3,
+  FileEdit,
   Maximize2,
   Megaphone,
   Minus,
@@ -19,18 +19,16 @@ import { LivePreviewPanel } from '@renderer/components/LivePreviewPanel'
 import { PlaylistPanel } from '@renderer/components/PlaylistPanel'
 import { BiblePanel } from '@renderer/components/projection/BiblePanel'
 import { AnnouncementPanel } from '@renderer/components/projection/AnnouncementPanel'
-import { NotificationPanel } from '@renderer/components/projection/NotificationPanel'
 import { AudioPanel } from '@renderer/components/projection/AudioPanel'
 import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
 import { useAppStore } from '@renderer/store/useAppStore'
 import { useProjectionStore } from '@renderer/store/useProjectionStore'
-import { useNotificationStore } from '@renderer/store/useNotificationStore'
-import { generateSlidesForSong } from '@core/projection'
+import { generateSlidesForSong, generateSlidesForPlaylistItem } from '@core/projection'
 import { mediaEngine } from '@renderer/engine/mediaEngine'
 import { useSongStore } from '@renderer/store/useSongStore'
 import type { PlaylistItem, Song } from '@renderer/types'
 
-type BottomRightTab = 'song-info' | 'bible' | 'announcement' | 'notifications'
+type BottomRightTab = 'song-info' | 'bible' | 'announcement'
 
 type SongInfoTab = 'info' | 'lyrics' | 'chord' | 'notes'
 
@@ -101,6 +99,40 @@ function SongInfoPanel(): React.JSX.Element {
   const [isAddingToPlaylist, setIsAddingToPlaylist] = useState(false)
   const [addedToPlaylist, setAddedToPlaylist] = useState(false)
   const [isFavoriteLoading, setIsFavoriteLoading] = useState(false)
+  const [localNote, setLocalNote] = useState('')
+  const [isSavingNote, setIsSavingNote] = useState(false)
+
+  const activeSongId = activeSong?.id
+
+  useEffect(() => {
+    if (activeSongId === undefined) return
+    let active = true
+    window.api.songs
+      .getNote(activeSongId)
+      .then((text) => {
+        if (active) setLocalNote(text || '')
+      })
+      .catch((err) => {
+        console.error('Failed to get song note:', err)
+      })
+    return () => {
+      active = false
+    }
+  }, [activeSongId])
+
+  const handleSaveNote = async (): Promise<void> => {
+    if (!activeSong) return
+    setIsSavingNote(true)
+    try {
+      await window.api.songs.updateNote(activeSong.id, localNote)
+      showToast('Catatan operator berhasil disimpan', 'success')
+    } catch (err) {
+      console.error('Failed to save song note:', err)
+      showToast('Gagal menyimpan catatan', 'error')
+    } finally {
+      setIsSavingNote(false)
+    }
+  }
   const lyricsRef = useRef<HTMLDivElement>(null)
 
   // Reset added state when song changes
@@ -211,7 +243,7 @@ function SongInfoPanel(): React.JSX.Element {
       // Reset checkmark after 2s
       setTimeout(() => setAddedToPlaylist(false), 2000)
     } catch {
-      showToast('Gagal menambahkan ke playlist', 'error')
+      // The playlist store owns failure logging and user feedback.
     } finally {
       setIsAddingToPlaylist(false)
     }
@@ -246,12 +278,8 @@ function SongInfoPanel(): React.JSX.Element {
   const isFavorite = activeSong?.is_favorite === 1
 
   const tabButtons = (
-    <div
-      className="flex items-center gap-1.5 px-3 pt-2 pb-2 border-b border-white/[0.04] flex-shrink-0"
-      role="tablist"
-      aria-label="Song info tabs"
-    >
-      <div className="flex items-center gap-1 flex-1 bg-black/15 rounded-lg p-0.5 border border-white/[0.04]">
+    <div className="projection-song-panel__tabs" role="tablist" aria-label="Song info tabs">
+      <div className="projection-song-panel__tab-track">
         {[
           { id: 'info' as const, label: 'Info' },
           { id: 'lyrics' as const, label: 'Lirik' },
@@ -264,16 +292,7 @@ function SongInfoPanel(): React.JSX.Element {
             aria-selected={activeTab === tab.id}
             aria-controls={`tabpanel-${tab.id}`}
             onClick={() => setActiveTab(tab.id)}
-            className={`
-              flex-1 inline-flex items-center justify-center
-              h-6 px-1.5 rounded-md border
-              text-[10px] font-bold transition-all duration-150
-              ${
-                activeTab === tab.id
-                  ? 'bg-white/[0.08] text-text-primary border-white/[0.1]'
-                  : 'text-text-disabled hover:text-text-secondary border-transparent hover:bg-white/[0.04]'
-              }
-            `}
+            className={`projection-song-panel__tab ${activeTab === tab.id ? 'is-active' : ''}`}
           >
             {tab.label}
           </button>
@@ -284,9 +303,9 @@ function SongInfoPanel(): React.JSX.Element {
 
   if (!activeSong) {
     return (
-      <aside className="projection-song-info-panel">
+      <aside className="projection-song-info-panel projection-song-panel">
         {tabButtons}
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-text-muted px-4">
+        <div className="projection-song-panel__empty">
           <div className="rounded-2xl bg-white/[0.03] border border-white/[0.05] p-5 flex flex-col items-center gap-3">
             <Music2 size={28} className="opacity-40" />
             <p className="text-[12px] leading-relaxed max-w-[200px]">
@@ -299,85 +318,87 @@ function SongInfoPanel(): React.JSX.Element {
   }
 
   return (
-    <aside className="projection-song-info-panel">
+    <aside className="projection-song-info-panel projection-song-panel">
       {tabButtons}
 
       {/* ── Info Tab ── */}
       {activeTab === 'info' && (
-        <div id="tabpanel-info" role="tabpanel" className="flex min-h-0 flex-1 flex-col gap-3 p-4">
-          {/* Song header: art + title + actions */}
-          <div className="flex items-start gap-3">
-            <div
-              className="projection-song-art"
-              style={{ background: getSongArtGradient(activeSong.hymnal_code) }}
-            >
-              <span>{activeSong.hymnal_code || 'SION'}</span>
-              <strong>{activeSong.number || '—'}</strong>
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3
-                className="text-[16px] font-black tracking-tight text-text-primary leading-tight"
-                title={activeSong.title}
-                style={{
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden'
-                }}
+        <div id="tabpanel-info" role="tabpanel" className="projection-song-panel__pane">
+          <div className="projection-song-panel__scroll projection-song-panel__scroll--info">
+            {/* Song header: art + title + actions */}
+            <div className="flex items-start gap-3">
+              <div
+                className="projection-song-art"
+                style={{ background: getSongArtGradient(activeSong.hymnal_code) }}
               >
-                {activeSong.title}
-              </h3>
-              {(activeSong.alternate_title || activeSong.title_en) && (
-                <p className="mt-0.5 truncate text-[12px] text-text-muted italic">
-                  {activeSong.alternate_title || activeSong.title_en}
-                </p>
-              )}
-              {activeSong.hymnal_name && (
-                <p className="mt-0.5 truncate text-[11px] text-text-muted/70">
-                  {activeSong.hymnal_name}
-                </p>
-              )}
-              {/* Action row: favorite + add to playlist */}
-              <div className="mt-2 flex items-center gap-1.5">
-                <button
-                  className={`projection-icon-button projection-icon-button--favorite ${isFavorite ? 'is-active' : ''} ${isFavoriteLoading ? 'opacity-50' : ''}`}
-                  title={isFavorite ? 'Hapus dari favorit' : 'Tambah ke favorit'}
-                  aria-label={isFavorite ? 'Hapus dari favorit' : 'Tambah ke favorit'}
-                  aria-pressed={isFavorite}
-                  onClick={() => void handleToggleFavorite()}
-                  disabled={isFavoriteLoading}
+                <span>{activeSong.hymnal_code || 'SION'}</span>
+                <strong>{activeSong.number || '—'}</strong>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3
+                  className="text-[16px] font-black tracking-tight text-text-primary leading-tight"
+                  title={activeSong.title}
+                  style={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden'
+                  }}
                 >
-                  <Star
-                    size={14}
-                    fill={isFavorite ? 'currentColor' : 'none'}
-                    strokeWidth={isFavorite ? 0 : 1.8}
-                  />
-                </button>
-                <button
-                  className={`projection-icon-button ${addedToPlaylist ? 'projection-icon-button--success' : ''}`}
-                  title={addedToPlaylist ? 'Ditambahkan!' : 'Tambah ke playlist'}
-                  aria-label={`Tambah ${activeSong.title} ke playlist`}
-                  onClick={() => void handleAddToPlaylist()}
-                  disabled={isAddingToPlaylist}
-                >
-                  {addedToPlaylist ? <Check size={14} /> : <Plus size={14} />}
-                </button>
+                  {activeSong.title}
+                </h3>
+                {(activeSong.alternate_title || activeSong.title_en) && (
+                  <p className="mt-0.5 truncate text-[12px] text-text-muted italic">
+                    {activeSong.alternate_title || activeSong.title_en}
+                  </p>
+                )}
+                {activeSong.hymnal_name && (
+                  <p className="mt-0.5 truncate text-[11px] text-text-muted/70">
+                    {activeSong.hymnal_name}
+                  </p>
+                )}
+                {/* Action row: favorite + add to playlist */}
+                <div className="mt-2 flex items-center gap-1.5">
+                  <button
+                    className={`projection-icon-button projection-icon-button--favorite ${isFavorite ? 'is-active' : ''} ${isFavoriteLoading ? 'opacity-50' : ''}`}
+                    title={isFavorite ? 'Hapus dari favorit' : 'Tambah ke favorit'}
+                    aria-label={isFavorite ? 'Hapus dari favorit' : 'Tambah ke favorit'}
+                    aria-pressed={isFavorite}
+                    onClick={() => void handleToggleFavorite()}
+                    disabled={isFavoriteLoading}
+                  >
+                    <Star
+                      size={14}
+                      fill={isFavorite ? 'currentColor' : 'none'}
+                      strokeWidth={isFavorite ? 0 : 1.8}
+                    />
+                  </button>
+                  <button
+                    className={`projection-icon-button ${addedToPlaylist ? 'projection-icon-button--success' : ''}`}
+                    title={addedToPlaylist ? 'Ditambahkan!' : 'Tambah ke playlist'}
+                    aria-label={`Tambah ${activeSong.title} ke playlist`}
+                    onClick={() => void handleAddToPlaylist()}
+                    disabled={isAddingToPlaylist}
+                  >
+                    {addedToPlaylist ? <Check size={14} /> : <Plus size={14} />}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Meta table */}
-          <div className="projection-meta-table">
-            {metaRows.map(([label, value]) => (
-              <div key={label}>
-                <span>{label}</span>
-                <strong title={value}>{value}</strong>
-              </div>
-            ))}
+            {/* Meta table */}
+            <div className="projection-meta-table">
+              {metaRows.map(([label, value]) => (
+                <div key={label}>
+                  <span>{label}</span>
+                  <strong title={value}>{value}</strong>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Action buttons */}
-          <div className="mt-auto grid grid-cols-3 gap-2">
+          <div className="projection-song-panel__actions">
             <button className="projection-action-button" onClick={handlePreview}>
               <Play size={13} />
               Preview
@@ -396,13 +417,9 @@ function SongInfoPanel(): React.JSX.Element {
 
       {/* ── Lirik Tab ── */}
       {activeTab === 'lyrics' && (
-        <div
-          id="tabpanel-lyrics"
-          role="tabpanel"
-          className="flex min-h-0 flex-1 flex-col overflow-hidden"
-        >
+        <div id="tabpanel-lyrics" role="tabpanel" className="projection-song-panel__pane">
           {/* Toolbar: song ref + zoom controls */}
-          <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-white/[0.05]">
+          <div className="projection-song-panel__toolbar">
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider shrink-0">
                 {activeSong.hymnal_code} {activeSong.number}
@@ -443,7 +460,7 @@ function SongInfoPanel(): React.JSX.Element {
           {/* Lyrics content */}
           <div
             ref={lyricsRef}
-            className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-4 space-y-4"
+            className="projection-song-panel__scroll projection-song-panel__lyrics"
             style={{
               fontSize: `${lyricsFontSizePercent}%`,
               transition: 'font-size 0.15s ease-in-out'
@@ -492,12 +509,8 @@ function SongInfoPanel(): React.JSX.Element {
 
       {/* ── Chord Tab ── */}
       {activeTab === 'chord' && (
-        <div
-          id="tabpanel-chord"
-          role="tabpanel"
-          className="flex min-h-0 flex-1 flex-col overflow-hidden"
-        >
-          <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/[0.05]">
+        <div id="tabpanel-chord" role="tabpanel" className="projection-song-panel__pane">
+          <div className="projection-song-panel__toolbar">
             <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
               Chord Sheet
             </span>
@@ -509,7 +522,7 @@ function SongInfoPanel(): React.JSX.Element {
               Edit
             </button>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-4 space-y-3">
+          <div className="projection-song-panel__scroll projection-song-panel__chords">
             {/* Key info pills */}
             <div className="flex flex-wrap gap-2">
               {activeSong.key_note && (
@@ -598,17 +611,39 @@ function SongInfoPanel(): React.JSX.Element {
 
       {/* ── Notes Tab ── */}
       {activeTab === 'notes' && (
-        <div
-          id="tabpanel-notes"
-          role="tabpanel"
-          className="flex min-h-0 flex-1 flex-col overflow-hidden"
-        >
-          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-white/[0.05]">
+        <div id="tabpanel-notes" role="tabpanel" className="projection-song-panel__pane">
+          <div className="projection-song-panel__toolbar">
             <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
               Operator Notes
             </span>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-3 space-y-2">
+          <div className="projection-song-panel__scroll projection-song-panel__notes">
+            {/* Custom Notes Editor */}
+            <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-3 flex flex-col gap-2 mb-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                  Catatan Kustom Operator
+                </h4>
+                <span className="text-[9px] text-text-disabled bg-white/[0.04] px-1.5 py-0.5 rounded-full">
+                  Edit langsung
+                </span>
+              </div>
+              <textarea
+                value={localNote}
+                onChange={(e) => setLocalNote(e.target.value)}
+                placeholder="Ketik pengingat ibadah untuk lagu ini..."
+                className="w-full h-[72px] text-[11px] text-text-primary placeholder:text-text-disabled bg-black/25 border border-white/[0.05] focus:border-brand-primary/45 p-2 rounded-lg resize-none outline-none transition-all scrollbar-thin"
+              />
+              <button
+                onClick={handleSaveNote}
+                disabled={isSavingNote}
+                className="flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-white text-[11px] font-bold transition-all disabled:opacity-50"
+              >
+                <FileEdit size={11} className={isSavingNote ? 'animate-pulse' : ''} />
+                {isSavingNote ? 'Menyimpan...' : 'Simpan Catatan'}
+              </button>
+            </div>
+
             {operatorNotes.map((note, idx) => (
               <div
                 key={idx}
@@ -674,7 +709,6 @@ export function ProjectionMode(): React.JSX.Element {
   const [scenePreset, setScenePreset] = useState('1')
   const [bottomRightTab, setBottomRightTab] = useState<BottomRightTab>('song-info')
   const projectedSongId = programSlide?.songId ?? null
-  const notificationUnread = useNotificationStore((s) => s.unreadCount)
 
   /** Phase 4: Preload next song's background asset 500ms after selection */
   const scheduleNextSongPreload = useCallback(
@@ -706,6 +740,25 @@ export function ProjectionMode(): React.JSX.Element {
 
   const handlePlaylistItemClick = (item: PlaylistItem, index: number): void => {
     usePlaylistStore.getState().setActiveItemIndex(index)
+    if (item.item_type === 'info') {
+      setSelectedSong(null)
+      setSlides(generateSlidesForPlaylistItem(item), {
+        hymnalCode: 'INFO',
+        hymnalName: item.title || 'Info',
+        songBackgroundConfig: ''
+      })
+      return
+    }
+    if (item.item_type === 'bible') {
+      setSelectedSong(null)
+      const bibleSlides = generateSlidesForPlaylistItem(item)
+      setSlides(bibleSlides, {
+        hymnalCode: item.bible_version_short_name || item.bible_version_code || 'BIBLE',
+        hymnalName: item.bible_book_name || 'Alkitab',
+        songBackgroundConfig: ''
+      })
+      return
+    }
     const song = songs.find((s) => s.id === item.song_id)
     if (song) {
       setSelectedSong(song)
@@ -811,25 +864,19 @@ export function ProjectionMode(): React.JSX.Element {
               />
 
               {/* Phase 7: Tabbed bottom-right panel */}
-              <div className="flex flex-col min-h-0 overflow-hidden rounded-[17px] border border-white/[0.065] bg-[linear-gradient(180deg,rgba(17,23,36,0.82),rgba(10,14,23,0.92))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_20px_50px_rgba(0,0,0,0.3)]">
+              <div className="projection-utility-panel">
                 {/* ── Outer tab bar + timer toggle ── */}
-                <div className="flex items-center gap-1.5 px-3 pt-2.5 pb-2.5 border-b border-white/[0.055] flex-shrink-0 bg-white/[0.012] rounded-t-[17px]">
+                <div className="projection-utility-tabs">
                   <div
-                    className="flex items-center gap-1 flex-1 min-w-0 bg-black/25 rounded-xl p-1 border border-white/[0.06]"
+                    className="projection-utility-tabs__track"
                     role="tablist"
                     aria-label="Panel tabs"
                   >
                     {(
                       [
-                        { id: 'song-info', label: 'Info', icon: <Music2 size={12} /> },
+                        { id: 'song-info', label: 'Lagu', icon: <Music2 size={12} /> },
                         { id: 'bible', label: 'Alkitab', icon: <Book size={12} /> },
-                        { id: 'announcement', label: 'Warta', icon: <Megaphone size={12} /> },
-                        {
-                          id: 'notifications',
-                          label: 'Notif',
-                          icon: <Bell size={12} />,
-                          badge: notificationUnread > 0 ? notificationUnread : undefined
-                        }
+                        { id: 'announcement', label: 'Info', icon: <Megaphone size={12} /> }
                       ] as Array<{
                         id: BottomRightTab
                         label: string
@@ -843,22 +890,12 @@ export function ProjectionMode(): React.JSX.Element {
                         aria-selected={bottomRightTab === tab.id}
                         type="button"
                         onClick={() => setBottomRightTab(tab.id)}
-                        className={`
-                          relative flex-1 inline-flex items-center justify-center gap-1.5
-                          h-7 px-2 rounded-lg border
-                          text-[11px] font-bold tracking-wide
-                          transition-all duration-150 select-none
-                          ${
-                            bottomRightTab === tab.id
-                              ? 'bg-brand-primary/15 text-brand-primary border-brand-primary/25 shadow-[0_0_12px_rgba(56,189,248,0.12)]'
-                              : 'text-text-disabled hover:text-text-secondary hover:bg-white/[0.05] border-transparent'
-                          }
-                        `}
+                        className={`projection-utility-tabs__tab ${bottomRightTab === tab.id ? 'is-active' : ''}`}
                       >
                         <span className="shrink-0">{tab.icon}</span>
                         <span className="truncate">{tab.label}</span>
                         {tab.badge !== undefined && (
-                          <span className="shrink-0 inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-danger text-white text-[9px] font-black leading-none">
+                          <span className="projection-utility-tabs__badge">
                             {tab.badge > 9 ? '9+' : tab.badge}
                           </span>
                         )}
@@ -869,15 +906,11 @@ export function ProjectionMode(): React.JSX.Element {
                   {/* Timer toggle */}
                   <button
                     onClick={toggleAudioPanel}
-                    className={`
-                      shrink-0 inline-flex items-center justify-center
-                      h-9 w-9 rounded-xl border transition-all duration-150
-                      ${
-                        isAudioPanelVisible
-                          ? 'bg-brand-primary/15 border-brand-primary/25 text-brand-primary shadow-[0_0_10px_rgba(56,189,248,0.1)]'
-                          : 'bg-black/20 border-white/[0.06] text-text-disabled hover:text-text-secondary hover:bg-white/[0.05] hover:border-white/[0.1]'
-                      }
-                    `}
+                    className={`projection-utility-tabs__timer ${isAudioPanelVisible ? 'is-active' : ''}`}
+                    aria-pressed={isAudioPanelVisible}
+                    aria-label={
+                      isAudioPanelVisible ? 'Sembunyikan panel timer' : 'Tampilkan panel timer'
+                    }
                     title={
                       isAudioPanelVisible ? 'Sembunyikan panel timer' : 'Tampilkan panel timer'
                     }
@@ -887,11 +920,10 @@ export function ProjectionMode(): React.JSX.Element {
                 </div>
 
                 {/* ── Tab content — panels render WITHOUT their own tab bar ── */}
-                <div className="flex-1 min-h-0 overflow-hidden">
+                <div className="projection-utility-panel__content">
                   {bottomRightTab === 'song-info' && <SongInfoPanel />}
                   {bottomRightTab === 'bible' && <BiblePanel />}
                   {bottomRightTab === 'announcement' && <AnnouncementPanel />}
-                  {bottomRightTab === 'notifications' && <NotificationPanel />}
                 </div>
               </div>
 

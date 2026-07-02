@@ -42,7 +42,9 @@ export interface Song {
 }
 
 export interface SlideData {
-  songId: number
+  contentType?: 'song' | 'bible' | 'reading' | 'custom'
+  songId?: number | null
+  playlistItemId?: number | null
   slideIndex: number
   text: string
   sectionLabel: string
@@ -56,6 +58,9 @@ export interface SlideData {
   // Bible projection support
   bibleId?: number
   bibleReference?: string
+  // External SQLite content pack
+  bibleVersionCode?: string
+  bibleCopyright?: string
 }
 
 export interface Playlist {
@@ -70,19 +75,31 @@ export interface Playlist {
 export interface PlaylistItem {
   id: number
   playlist_id: number
-  song_id: number
+  song_id: number | null
   sort_order: number
   section_label: string
-  number: string
+  item_type?: 'song' | 'bible' | 'info'
   title: string
-  alternate_title: string
-  lyrics_raw: string
-  category: string
+  notes?: string
+  number?: string
+  alternate_title?: string
+  lyrics_raw?: string
+  category?: string
   key_note?: string
   time_signature?: string
   tempo?: string
   hymnal_code?: string
   hymnal_name?: string
+  bible_version_code?: string
+  bible_version_short_name?: string
+  bible_book_code?: string
+  bible_book_name?: string
+  bible_chapter?: number
+  bible_verse_start?: number
+  bible_verse_end?: number
+  bible_reference?: string
+  bible_text_json?: string
+  bible_copyright?: string
 }
 
 export type ProjectionState = 'LIVE' | 'BLACK' | 'FREEZE' | 'CLEAR' | 'LOGO'

@@ -11,7 +11,7 @@
 import { useAppStore } from '@renderer/store/useAppStore'
 import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
 import { useProjectionStore } from '@renderer/store/useProjectionStore'
-import { generateSlidesForSong } from '@core/projection'
+import { generateSlidesForSong, generateSlidesForPlaylistItem } from '@core/projection'
 import { logger } from '@renderer/utils/logger'
 import type { PlaylistItem, Song } from '@renderer/types'
 import type { RuntimeCommand, RuntimeCommandResult } from '../contracts'
@@ -108,6 +108,66 @@ export async function handlePlaylistLoadItem(cmd: RuntimeCommand): Promise<Runti
       }
     }
 
+    if (item.song_id === null) {
+      const slides = generateSlidesForPlaylistItem(item)
+      if (position === 'NEXT') {
+        const index = playlistStore().playlistItems.findIndex(
+          (playlistItem) => playlistItem.id === itemId
+        )
+        const mockSong = {
+          id: -itemId,
+          title: item.title,
+          hymnal_code: item.bible_version_short_name || item.bible_version_code || 'BIBLE',
+          hymnal_name: item.bible_book_name || 'Alkitab',
+          lyrics_raw: '',
+          category: 'Bible'
+        } as unknown as Song
+
+        projectionStore().loadNextSong(mockSong, slides, index >= 0 ? index : null)
+        logger.info('[PlaylistHandler] playlist:load-item (bible) executed as NEXT', {
+          itemId,
+          source: cmd.source
+        })
+        return {
+          id: `playlist_load_item_next_${Date.now()}`,
+          success: true,
+          status: 'SUCCESS',
+          level: 'INFO',
+          result: { itemId, position },
+          durationMs: 0,
+          timestamp: Date.now()
+        }
+      }
+
+      const index = playlistStore().playlistItems.findIndex(
+        (playlistItem) => playlistItem.id === itemId
+      )
+      if (index >= 0) {
+        playlistStoreAdapter().setActiveItemIndex(index)
+      }
+
+      appStore().setSelectedSong(null)
+      projectionStore().setSlides(slides, {
+        hymnalCode: item.bible_version_short_name || item.bible_version_code || 'BIBLE',
+        hymnalName: item.bible_book_name || 'Alkitab',
+        songBackgroundConfig: ''
+      })
+      logger.info('[PlaylistHandler] playlist:load-item (bible) executed', {
+        itemId,
+        source: cmd.source
+      })
+
+      return {
+        id: `playlist_load_item_${Date.now()}`,
+        success: true,
+        status: 'SUCCESS',
+        level: 'INFO',
+        result: { itemId, position },
+        durationMs: 0,
+        timestamp: Date.now()
+      }
+    }
+
     const song = findSong(item.song_id)
     if (!song) {
       return {
@@ -198,6 +258,37 @@ export async function handlePlaylistQueueNext(cmd: RuntimeCommand): Promise<Runt
         status: 'ERROR',
         level: 'WARN',
         error: `Playlist item ${itemId} not found`,
+        durationMs: 0,
+        timestamp: Date.now()
+      }
+    }
+
+    if (item.song_id === null) {
+      const slides = generateSlidesForPlaylistItem(item)
+      const index = playlistStore().playlistItems.findIndex(
+        (playlistItem) => playlistItem.id === itemId
+      )
+      const mockSong = {
+        id: -itemId,
+        title: item.title,
+        hymnal_code: item.bible_version_short_name || item.bible_version_code || 'BIBLE',
+        hymnal_name: item.bible_book_name || 'Alkitab',
+        lyrics_raw: '',
+        category: 'Bible'
+      } as unknown as Song
+
+      projectionStore().loadNextSong(mockSong, slides, index >= 0 ? index : null)
+      logger.info('[PlaylistHandler] playlist:queue-next (bible) executed', {
+        itemId,
+        source: cmd.source
+      })
+
+      return {
+        id: `playlist_queue_next_${Date.now()}`,
+        success: true,
+        status: 'SUCCESS',
+        level: 'INFO',
+        result: { itemId },
         durationMs: 0,
         timestamp: Date.now()
       }

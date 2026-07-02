@@ -1,4 +1,6 @@
 import type { SlideData, Song, PlaylistItem } from '@renderer/types'
+import { buildBibleSlidesFromPlaylistItem } from '../../features/bible/utils/buildBibleSlides'
+import { formatLyricChunk, markLyricLineSeparators } from '../../engine/lyricFlow'
 
 interface ParsedSection {
   label: string
@@ -124,7 +126,7 @@ function wrapLine(line: string, maxChars: number): string[] {
 function splitIntoSlides(lines: string[], maxLines: number, maxChars: number): string[][] {
   // First, wrap any long lines
   const wrappedLines: string[] = []
-  for (const line of lines) {
+  for (const line of markLyricLineSeparators(lines)) {
     if (line === '') {
       wrappedLines.push('')
     } else {
@@ -217,9 +219,10 @@ export function generateSlides(
     for (const chunk of slideChunks) {
       if (chunk.length === 0) continue // Skip empty chunks
       allSlides.push({
+        contentType: 'song',
         songId,
         slideIndex,
-        text: chunk.join('\n'),
+        text: formatLyricChunk(chunk),
         sectionLabel: section.label,
         sectionId,
         keyNote: meta?.keyNote,
@@ -248,11 +251,16 @@ export function generateSlidesForSong(
     maxChars: config?.maxChars ?? globalSlideConfig.maxChars
   }
 
-  return generateSlides(song.id, song.lyrics_raw || '', effectiveConfig, {
+  const slides = generateSlides(song.id, song.lyrics_raw || '', effectiveConfig, {
     keyNote: song.key_note || undefined,
     timeSignature: song.time_signature || undefined,
     tempo: song.tempo || undefined
   })
+  return slides.map((slide) => ({
+    ...slide,
+    contentType: 'song',
+    playlistItemId: null
+  }))
 }
 
 /**
@@ -262,11 +270,33 @@ export function generateSlidesForPlaylistItem(
   item: PlaylistItem,
   config?: { maxLines?: number; maxChars?: number }
 ): SlideData[] {
-  return generateSlides(item.song_id, item.lyrics_raw || '', config, {
+  if (item.item_type === 'bible') {
+    return buildBibleSlidesFromPlaylistItem(item)
+  }
+  if (item.item_type === 'info') {
+    const title = item.title?.trim() || ''
+    const body = item.notes?.trim() || ''
+    return [
+      {
+        contentType: 'custom',
+        songId: null,
+        playlistItemId: item.id,
+        slideIndex: 0,
+        text: body || title,
+        sectionLabel: body ? title : ''
+      }
+    ]
+  }
+  const slides = generateSlides(item.song_id!, item.lyrics_raw || '', config, {
     keyNote: item.key_note || undefined,
     timeSignature: item.time_signature || undefined,
     tempo: item.tempo || undefined
   })
+  return slides.map((slide) => ({
+    ...slide,
+    contentType: 'song',
+    playlistItemId: item.id
+  }))
 }
 
 /**

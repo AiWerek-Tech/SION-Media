@@ -77,7 +77,7 @@ export function SongCard({
           onToggleFavorite(song)
         }}
         title={song.is_favorite ? 'Hapus dari favorit' : 'Tambah ke favorit'}
-        aria-label={`${song.is_favorite ? 'Remove' : 'Add'} ${song.title} favorite`}
+        aria-label={`${song.is_favorite ? 'Hapus' : 'Tambahkan'} ${song.title} ${song.is_favorite ? 'dari' : 'ke'} favorit`}
         style={song.is_favorite ? { opacity: 1 } : undefined}
       >
         <Star
@@ -107,7 +107,7 @@ export function SongCard({
           {hasEmptyLyrics && (
             <span className="projection-song-row__warning">
               <AlertTriangle size={10} />
-              Empty
+              Lirik kosong
             </span>
           )}
         </div>
@@ -120,7 +120,7 @@ export function SongCard({
       <div className="projection-song-row__stats">
         <span>{timeSignature}</span>
         {bpm && <span>BPM {bpm}</span>}
-        <span>{sectionCount} verse</span>
+        <span>{sectionCount} bagian</span>
       </div>
 
       <div className="projection-song-row__actions">
@@ -129,8 +129,8 @@ export function SongCard({
             event.stopPropagation()
             handleProjectNow()
           }}
-          title="Cue to Preview"
-          aria-label={`Cue ${song.title}`}
+          title="Tampilkan di Preview"
+          aria-label={`Tampilkan ${song.title} di Preview`}
         >
           <Eye size={13} />
         </button>
@@ -139,8 +139,8 @@ export function SongCard({
             event.stopPropagation()
             onAddToPlaylist(song)
           }}
-          title="Add to Playlist"
-          aria-label={`Add ${song.title} to playlist`}
+          title="Tambahkan ke Playlist"
+          aria-label={`Tambahkan ${song.title} ke playlist`}
         >
           <Plus size={14} />
         </button>

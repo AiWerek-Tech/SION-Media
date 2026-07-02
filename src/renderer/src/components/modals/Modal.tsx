@@ -14,6 +14,7 @@
  */
 
 import React, { useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useModalStore } from '../../store/useModalStore'
@@ -21,11 +22,14 @@ import { useModalStore } from '../../store/useModalStore'
 export type ModalSize = 'sm' | 'md' | 'lg' | 'xl'
 
 const SIZE_CLASSES: Record<ModalSize, string> = {
-  sm: 'w-full max-w-sm',
-  md: 'w-full max-w-md',
-  lg: 'w-full max-w-lg',
-  xl: 'w-full max-w-2xl'
+  sm: 'sp-modal--sm',
+  md: 'sp-modal--md',
+  lg: 'sp-modal--lg',
+  xl: 'sp-modal--xl'
 }
+
+let bodyScrollLockCount = 0
+let bodyOverflowBeforeLock = ''
 
 interface ModalProps {
   /** Modal ID — used to close this specific modal */
@@ -42,6 +46,8 @@ interface ModalProps {
   showClose?: boolean
   /** Whether this is a destructive action (red accent) */
   danger?: boolean
+  /** Controlled close handler. Store-backed dialogs may omit this. */
+  onClose?: () => void
   /** Content */
   children: React.ReactNode
   /** Optional footer content */
@@ -56,15 +62,21 @@ export function Modal({
   dismissible = true,
   showClose = true,
   danger = false,
+  onClose,
   children,
   footer
 }: ModalProps): React.JSX.Element {
   const closeById = useModalStore((s) => s.closeById)
+  const isTopModal = useModalStore((s) => s.stack.length === 0 || s.stack.at(-1)?.id === id)
   const containerRef = useRef<HTMLDivElement>(null)
+  const previouslyFocusedRef = useRef<HTMLElement | null>(
+    typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null
+  )
 
   const handleClose = useCallback(() => {
-    closeById(id)
-  }, [closeById, id])
+    if (onClose) onClose()
+    else closeById(id)
+  }, [closeById, id, onClose])
 
   // Focus trap — focus first focusable element on mount
   useEffect(() => {
@@ -74,7 +86,10 @@ export function Modal({
     const focusable = container.querySelectorAll<HTMLElement>(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     )
-    const first = focusable[0]
+    const firstContentControl = container.querySelector<HTMLElement>(
+      '[data-modal-autofocus], [autofocus]'
+    )
+    const first = firstContentControl ?? focusable[0]
     if (first) {
       // Small delay to allow animation to start
       const t = setTimeout(() => first.focus(), 50)
@@ -83,10 +98,26 @@ export function Modal({
     return undefined
   }, [])
 
+  useEffect(() => {
+    const previouslyFocused = previouslyFocusedRef.current
+    if (bodyScrollLockCount === 0) {
+      bodyOverflowBeforeLock = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+    }
+    bodyScrollLockCount += 1
+
+    return () => {
+      bodyScrollLockCount = Math.max(0, bodyScrollLockCount - 1)
+      if (bodyScrollLockCount === 0) document.body.style.overflow = bodyOverflowBeforeLock
+      previouslyFocused?.focus()
+    }
+  }, [])
+
   // Escape key — close top modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') {
+        if (!dismissible || !isTopModal) return
         e.preventDefault()
         e.stopPropagation()
         handleClose()
@@ -94,9 +125,35 @@ export function Modal({
     }
     document.addEventListener('keydown', handleKeyDown, true)
     return () => document.removeEventListener('keydown', handleKeyDown, true)
-  }, [handleClose])
+  }, [dismissible, handleClose, isTopModal])
 
-  return (
+  const handleDialogKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (event.key !== 'Tab') return
+    const container = containerRef.current
+    if (!container) return
+    const focusable = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((element) => element.getAttribute('aria-hidden') !== 'true')
+    if (focusable.length === 0) {
+      event.preventDefault()
+      container.focus()
+      return
+    }
+
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
+
+  return createPortal(
     <>
       {/* Backdrop */}
       <motion.div
@@ -105,20 +162,23 @@ export function Modal({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.15 }}
-        onClick={dismissible ? handleClose : undefined}
+        onClick={dismissible && isTopModal ? handleClose : undefined}
         aria-hidden="true"
       />
 
       {/* Container */}
       <div
-        className="fixed inset-0 z-[1400] flex items-center justify-center p-4 pointer-events-none"
+        className="sp-modal-viewport"
         role="dialog"
-        aria-modal="true"
+        aria-modal={isTopModal}
+        aria-hidden={!isTopModal}
+        inert={!isTopModal}
         aria-labelledby={`modal-title-${id}`}
+        onKeyDown={handleDialogKeyDown}
       >
         <motion.div
           ref={containerRef}
-          className={`sp-modal pointer-events-auto ${SIZE_CLASSES[size]} relative flex flex-col`}
+          className={`sp-modal ${SIZE_CLASSES[size]}`}
           style={{
             border: danger ? '1px solid rgba(239,68,68,0.35)' : undefined
           }}
@@ -129,8 +189,8 @@ export function Modal({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="sp-modal__header flex items-start justify-between">
-            <div>
+          <div className="sp-modal__header">
+            <div className="sp-modal__heading">
               <h2
                 id={`modal-title-${id}`}
                 className="sp-modal__title"
@@ -138,13 +198,13 @@ export function Modal({
               >
                 {title}
               </h2>
-              {subtitle && <p className="text-xs text-slate-400 mt-1 leading-normal">{subtitle}</p>}
+              {subtitle && <p className="sp-modal__subtitle">{subtitle}</p>}
             </div>
             {showClose && (
               <button
                 type="button"
                 onClick={handleClose}
-                className="ml-4 flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-white/[0.06] transition-colors"
+                className="sp-modal__close"
                 aria-label="Tutup"
               >
                 <X size={16} />
@@ -153,15 +213,14 @@ export function Modal({
           </div>
 
           {/* Body */}
-          <div className="sp-modal__body flex-1 overflow-y-auto min-h-0">{children}</div>
+          <div className="sp-modal__body">{children}</div>
 
           {/* Footer */}
-          {footer && (
-            <div className="sp-modal__footer flex items-center justify-end gap-3">{footer}</div>
-          )}
+          {footer && <div className="sp-modal__footer">{footer}</div>}
         </motion.div>
       </div>
-    </>
+    </>,
+    document.body
   )
 }
 
@@ -179,40 +238,12 @@ export function ModalButton({
   variant?: 'primary' | 'secondary' | 'danger'
   children: React.ReactNode
 }): React.JSX.Element {
-  const styles: Record<string, React.CSSProperties> = {
-    primary: {
-      background: 'var(--color-brand-primary, #3b82f6)',
-      color: '#fff',
-      border: 'none'
-    },
-    secondary: {
-      background: 'rgba(255,255,255,0.06)',
-      color: 'var(--color-text-secondary, rgba(255,255,255,0.7))',
-      border: '1px solid rgba(255,255,255,0.08)'
-    },
-    danger: {
-      background: 'rgba(239,68,68,0.15)',
-      color: '#f87171',
-      border: '1px solid rgba(239,68,68,0.3)'
-    }
-  }
-
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled || loading}
-      style={{
-        ...styles[variant],
-        padding: '8px 16px',
-        borderRadius: 8,
-        fontSize: 13,
-        fontWeight: 600,
-        cursor: disabled || loading ? 'not-allowed' : 'pointer',
-        opacity: disabled || loading ? 0.5 : 1,
-        transition: 'opacity 0.15s, background 0.15s',
-        fontFamily: 'Inter, sans-serif'
-      }}
+      className={`sp-modal-btn sp-modal-btn--${variant}`}
     >
       {loading ? 'Memproses...' : children}
     </button>

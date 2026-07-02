@@ -297,8 +297,17 @@ export function TitleBarMenu(): React.JSX.Element {
                     window.api.projection.hide()
                     appState.setProjectionVisible(false)
                   } else {
-                    window.api.projection.show()
-                    appState.setProjectionVisible(true)
+                    window.api.display.hasExternal().then((hasExt) => {
+                      if (!hasExt) {
+                        appState.showToast(
+                          'Layar output eksternal tidak terdeteksi. Lirik sudah tampil di monitor LIVE di dashboard.',
+                          'info'
+                        )
+                        return
+                      }
+                      window.api.projection.show()
+                      appState.setProjectionVisible(true)
+                    })
                   }
                 }
               },

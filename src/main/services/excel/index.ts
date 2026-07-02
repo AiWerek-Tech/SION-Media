@@ -1,6 +1,6 @@
 import { closeSync, existsSync, openSync, readSync, statSync } from 'fs'
 import { extname, isAbsolute } from 'path'
-import * as xlsx from 'xlsx'
+import { readSheet, type CellValue, type SheetData } from 'read-excel-file/node'
 
 const ALLOWED_EXTENSIONS = ['.xlsx']
 const MAX_FILE_SIZE_MB = 10
@@ -65,75 +65,79 @@ function ensureAbsoluteXlsxPath(filePath: string): void {
   }
 }
 
-function parseWithTimeout<T>(fn: () => T): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('Excel parse timeout.')), PARSE_TIMEOUT_MS)
-    try {
-      const result = fn()
-      clearTimeout(timeout)
-      resolve(result)
-    } catch (error) {
-      clearTimeout(timeout)
-      reject(error)
-    }
-  })
+async function withTimeout<T>(promise: Promise<T>): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('Excel parse timeout.')), PARSE_TIMEOUT_MS)
+      })
+    ])
+  } finally {
+    if (timeout) clearTimeout(timeout)
+  }
 }
 
 function normalizeCell(value: unknown): string {
   if (value == null) return ''
+  if (value instanceof Date) return value.toISOString()
   return String(value).trim()
+}
+
+function normalizeHeader(value: CellValue | null): string {
+  return normalizeCell(value).toLocaleLowerCase('id-ID')
+}
+
+export function mapExcelRows(rows: SheetData): ImportedExcelSong[] {
+  if (rows.length === 0) throw new Error('No rows found in the first sheet.')
+  if (rows.length > MAX_ROWS + 1) {
+    throw new Error(`Too many rows. Maximum is ${MAX_ROWS} rows.`)
+  }
+
+  const headers = rows[0] ?? []
+  if (headers.length > MAX_COLS) {
+    throw new Error(`Too many columns. Maximum is ${MAX_COLS} columns.`)
+  }
+
+  const indexes = new Map<string, number>()
+  headers.forEach((header, index) => {
+    const normalized = normalizeHeader(header)
+    if (normalized && !indexes.has(normalized)) indexes.set(normalized, index)
+  })
+
+  const getCell = (
+    row: readonly (CellValue | null)[],
+    aliases: string[]
+  ): CellValue | null | undefined => {
+    for (const alias of aliases) {
+      const index = indexes.get(alias.toLocaleLowerCase('id-ID'))
+      if (index !== undefined) return row[index]
+    }
+    return undefined
+  }
+
+  return rows
+    .slice(1)
+    .filter((row) => row.some((cell) => normalizeCell(cell).length > 0))
+    .map((row) => ({
+      hymnal_id: Number(getCell(row, ['hymnal_id']) ?? 0) || 0,
+      number: normalizeCell(getCell(row, ['Nomor', 'number'])),
+      title: normalizeCell(getCell(row, ['Judul', 'title'])),
+      lyrics_raw: normalizeCell(getCell(row, ['Lirik', 'lyrics_raw'])),
+      category: normalizeCell(getCell(row, ['Kategori', 'category'])),
+      language: normalizeCell(getCell(row, ['Bahasa', 'language'])) || 'Indonesia',
+      author: normalizeCell(getCell(row, ['Penulis', 'author'])),
+      composer: normalizeCell(getCell(row, ['Komposer', 'composer'])),
+      key_note: normalizeCell(getCell(row, ['Nada Dasar', 'key_note'])),
+      tempo: normalizeCell(getCell(row, ['Tempo', 'tempo'])),
+      tags: normalizeCell(getCell(row, ['Tags', 'tags']))
+    }))
 }
 
 export async function parseExcelFile(filePath: string): Promise<ImportedExcelSong[]> {
   ensureAbsoluteXlsxPath(filePath)
 
-  const workbook = await parseWithTimeout(() =>
-    xlsx.readFile(filePath, {
-      type: 'buffer',
-      cellFormula: false,
-      cellHTML: false,
-      cellNF: false,
-      cellStyles: false,
-      sheetStubs: false
-    })
-  )
-
-  if (workbook.SheetNames.length === 0) {
-    throw new Error('No sheets found in the Excel file.')
-  }
-
-  const worksheet = workbook.Sheets[workbook.SheetNames[0]]
-  if (!worksheet) {
-    throw new Error('Unable to read the first sheet from the Excel file.')
-  }
-
-  const range = xlsx.utils.decode_range(worksheet['!ref'] || 'A1')
-  const rowCount = range.e.r - range.s.r + 1
-  const colCount = range.e.c - range.s.c + 1
-
-  if (rowCount > MAX_ROWS) {
-    throw new Error(`Too many rows. Maximum is ${MAX_ROWS} rows.`)
-  }
-  if (colCount > MAX_COLS) {
-    throw new Error(`Too many columns. Maximum is ${MAX_COLS} columns.`)
-  }
-
-  const jsonData = xlsx.utils.sheet_to_json<Record<string, string | number>>(worksheet, {
-    defval: '',
-    raw: false
-  })
-
-  return jsonData.map((row) => ({
-    hymnal_id: Number(row['hymnal_id'] || 0) || 0,
-    number: normalizeCell(row['Nomor'] || row['number']),
-    title: normalizeCell(row['Judul'] || row['title']),
-    lyrics_raw: normalizeCell(row['Lirik'] || row['lyrics_raw']),
-    category: normalizeCell(row['Kategori'] || row['category']),
-    language: normalizeCell(row['Bahasa'] || row['language'] || 'Indonesia'),
-    author: normalizeCell(row['Penulis'] || row['author']),
-    composer: normalizeCell(row['Komposer'] || row['composer']),
-    key_note: normalizeCell(row['Nada Dasar'] || row['key_note']),
-    tempo: normalizeCell(row['Tempo'] || row['tempo']),
-    tags: normalizeCell(row['Tags'] || row['tags'])
-  }))
+  const rows = await withTimeout(readSheet(filePath, { trim: true }))
+  return mapExcelRows(rows)
 }

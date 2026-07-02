@@ -572,6 +572,120 @@ export const migrations: Migration[] = [
           ON songs(hymnal_id, id, number, title, alternate_title, is_favorite, category, language);
       `)
     }
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // Content Pack Registry — External SQLite Content Pack System
+  // Stores metadata/registry for external content packs (Bible, hymnal, etc.)
+  // Actual content resides in external SQLite files, not in this database.
+  // ═══════════════════════════════════════════════════════════════
+
+  {
+    version: 18,
+    name: 'content_packs_registry',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS content_packs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          pack_id TEXT NOT NULL UNIQUE,
+          pack_type TEXT NOT NULL DEFAULT 'bible',
+          version_code TEXT NOT NULL,
+          name TEXT NOT NULL,
+          short_name TEXT NOT NULL DEFAULT '',
+          language TEXT NOT NULL DEFAULT 'id',
+          publisher TEXT DEFAULT '',
+          copyright TEXT DEFAULT '',
+          license_status TEXT DEFAULT '',
+          source_type TEXT DEFAULT '',
+          source_base_url TEXT DEFAULT '',
+          installed_path TEXT NOT NULL,
+          sqlite_filename TEXT NOT NULL,
+          manifest_filename TEXT DEFAULT '',
+          books_filename TEXT DEFAULT '',
+          import_report_filename TEXT DEFAULT '',
+          is_active INTEGER DEFAULT 1,
+          is_default INTEGER DEFAULT 0,
+          is_offline_available INTEGER DEFAULT 1,
+          validation_ok INTEGER DEFAULT 0,
+          fts5_created INTEGER DEFAULT 0,
+          books_count INTEGER DEFAULT 0,
+          chapters_count INTEGER DEFAULT 0,
+          verses_count INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_content_packs_pack_type ON content_packs(pack_type);
+        CREATE INDEX IF NOT EXISTS idx_content_packs_is_active ON content_packs(is_active);
+        CREATE INDEX IF NOT EXISTS idx_content_packs_is_default ON content_packs(is_default);
+      `)
+    }
+  },
+  {
+    version: 19,
+    name: 'mixed_rundown_support',
+    up: (db) => {
+      // Recreate playlist_items table to remove NOT NULL constraint on song_id and add bible fields
+      db.exec(`
+        ALTER TABLE playlist_items RENAME TO playlist_items_old;
+
+        CREATE TABLE playlist_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          playlist_id INTEGER NOT NULL,
+          song_id INTEGER,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          section_label TEXT DEFAULT '',
+          item_type TEXT NOT NULL DEFAULT 'song',
+          title TEXT DEFAULT '',
+          notes TEXT DEFAULT '',
+          bible_version_code TEXT DEFAULT '',
+          bible_version_short_name TEXT DEFAULT '',
+          bible_book_code TEXT DEFAULT '',
+          bible_book_name TEXT DEFAULT '',
+          bible_chapter INTEGER,
+          bible_verse_start INTEGER,
+          bible_verse_end INTEGER,
+          bible_reference TEXT DEFAULT '',
+          bible_text_json TEXT DEFAULT '',
+          bible_copyright TEXT DEFAULT '',
+          FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
+          FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
+        );
+
+        INSERT INTO playlist_items (
+          id, playlist_id, song_id, sort_order, section_label, item_type
+        )
+        SELECT id, playlist_id, song_id, sort_order, section_label, 'song'
+        FROM playlist_items_old;
+
+        DROP TABLE playlist_items_old;
+
+        CREATE INDEX IF NOT EXISTS idx_playlist_items_playlist ON playlist_items(playlist_id, sort_order);
+        CREATE INDEX IF NOT EXISTS idx_playlist_items_type ON playlist_items(item_type);
+        CREATE INDEX IF NOT EXISTS idx_playlist_items_bible_ref ON playlist_items(bible_version_code, bible_book_code, bible_chapter);
+      `)
+    }
+  },
+  {
+    version: 20,
+    name: 'bible_notes_and_highlights',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS bible_notes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          book_code TEXT NOT NULL,
+          chapter INTEGER NOT NULL,
+          verse INTEGER NOT NULL,
+          note_text TEXT NOT NULL DEFAULT '',
+          highlight_color TEXT DEFAULT '',
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_bible_notes_ref ON bible_notes(book_code, chapter, verse);
+        CREATE INDEX IF NOT EXISTS idx_bible_notes_chapter ON bible_notes(book_code, chapter);
+      `)
+    }
   }
 ]
 

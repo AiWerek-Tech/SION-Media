@@ -22,6 +22,20 @@ interface PlaylistStore {
   createPlaylist: (name: string, serviceDate: string) => Promise<void>
   loadPlaylistItems: (playlistId: number) => Promise<void>
   addSongToPlaylist: (song: Song) => Promise<void>
+  addBibleToPlaylist: (bible: {
+    bible_version_code: string
+    bible_version_short_name: string
+    bible_book_code: string
+    bible_book_name: string
+    bible_chapter: number
+    bible_verse_start: number
+    bible_verse_end: number
+    bible_reference: string
+    bible_text_json: string
+    bible_copyright?: string
+    notes?: string
+  }) => Promise<void>
+  addInfoToPlaylist: (info: { title: string; body: string }) => Promise<void>
   removeItem: (itemId: number) => Promise<void>
   clearPlaylist: () => Promise<void>
   reorderItems: (startIndex: number, endIndex: number) => Promise<void>
@@ -65,18 +79,21 @@ export const usePlaylistStore = create<PlaylistStore>()(
       createPlaylist: async (name: string, serviceDate: string) => {
         try {
           const playlist = (await window.api.playlists.add({
-            name,
-            service_date: serviceDate
+            name: name.trim(),
+            service_date: serviceDate.trim()
           })) as Playlist
           const playlists = (await window.api.playlists.getAll()) as Playlist[]
           set({
             playlists,
             activePlaylist: { ...playlist, description: '', created_at: '', updated_at: '' },
-            _persistedActivePlaylistId: Number(playlist.id)
+            _persistedActivePlaylistId: Number(playlist.id),
+            playlistItems: [],
+            activeItemIndex: -1
           })
         } catch (err) {
           logger.error('Failed to create playlist:', err)
           showToast('Gagal membuat playlist', 'error')
+          throw err
         }
       },
 
@@ -108,6 +125,47 @@ export const usePlaylistStore = create<PlaylistStore>()(
         } catch (err) {
           logger.error('Failed to add song to playlist:', err)
           showToast('Gagal menambahkan lagu ke playlist', 'error')
+          throw err
+        }
+      },
+
+      addBibleToPlaylist: async (bible) => {
+        const { activePlaylist } = get()
+        if (!activePlaylist) {
+          showToast('Pilih rundown/playlist terlebih dahulu', 'error')
+          return
+        }
+        try {
+          await window.api.playlists.addBible(activePlaylist.id, bible)
+          const items = (await window.api.playlists.getItems(activePlaylist.id)) as PlaylistItem[]
+          set({
+            playlistItems: items,
+            activeItemIndex: get().activeItemIndex >= 0 ? get().activeItemIndex : items.length - 1
+          })
+          showToast('Ayat ditambahkan ke playlist', 'success')
+        } catch (err) {
+          logger.error('Failed to add bible to playlist:', err)
+          showToast('Gagal menambahkan ayat ke playlist', 'error')
+        }
+      },
+
+      addInfoToPlaylist: async (info) => {
+        const { activePlaylist } = get()
+        if (!activePlaylist) {
+          showToast('Pilih rundown/playlist terlebih dahulu', 'error')
+          return
+        }
+        try {
+          await window.api.playlists.addInfo(activePlaylist.id, info)
+          const items = (await window.api.playlists.getItems(activePlaylist.id)) as PlaylistItem[]
+          set({
+            playlistItems: items,
+            activeItemIndex: get().activeItemIndex >= 0 ? get().activeItemIndex : items.length - 1
+          })
+          showToast('Info ditambahkan ke playlist', 'success')
+        } catch (err) {
+          logger.error('Failed to add info to playlist:', err)
+          showToast('Gagal menambahkan Info ke playlist', 'error')
         }
       },
 

@@ -88,35 +88,47 @@ export function ExportSongDialog({ id, songs }: ExportSongDialogProps): React.JS
           Pilih format file untuk mengekspor {songs.length} lagu terpilih. Format JSON dapat diimpor
           kembali ke SION Media.
         </p>
-        <div className="flex flex-col gap-2">
-          <label className="flex items-center gap-3 p-3 rounded-lg border border-border-subtle hover:bg-white/[0.02] cursor-pointer transition-colors">
+        <div className="flex flex-col gap-2.5">
+          <label
+            className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all duration-150 active:scale-[0.99] ${
+              format === 'json'
+                ? 'bg-brand-primary/10 border-brand-primary/30'
+                : 'bg-white/[0.01] border-border-subtle hover:bg-white/[0.03]'
+            }`}
+          >
             <input
               type="radio"
               name="format"
               value="json"
               checked={format === 'json'}
               onChange={() => setFormat('json')}
-              className="accent-brand-primary"
+              className="accent-brand-primary cursor-pointer"
             />
             <div className="flex flex-col">
-              <span className="text-[13px] font-semibold text-text-primary">SION JSON (.json)</span>
-              <span className="text-[11px] text-text-muted">
+              <span className="text-[13px] font-bold text-text-primary">SION JSON (.json)</span>
+              <span className="text-[11px] text-text-muted mt-0.5">
                 Untuk backup dan impor antar device SION.
               </span>
             </div>
           </label>
-          <label className="flex items-center gap-3 p-3 rounded-lg border border-border-subtle hover:bg-white/[0.02] cursor-pointer transition-colors">
+          <label
+            className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all duration-150 active:scale-[0.99] ${
+              format === 'txt'
+                ? 'bg-brand-primary/10 border-brand-primary/30'
+                : 'bg-white/[0.01] border-border-subtle hover:bg-white/[0.03]'
+            }`}
+          >
             <input
               type="radio"
               name="format"
               value="txt"
               checked={format === 'txt'}
               onChange={() => setFormat('txt')}
-              className="accent-brand-primary"
+              className="accent-brand-primary cursor-pointer"
             />
             <div className="flex flex-col">
-              <span className="text-[13px] font-semibold text-text-primary">Plain Text (.txt)</span>
-              <span className="text-[11px] text-text-muted">
+              <span className="text-[13px] font-bold text-text-primary">Plain Text (.txt)</span>
+              <span className="text-[11px] text-text-muted mt-0.5">
                 Hanya teks lirik untuk dibaca atau diprint.
               </span>
             </div>

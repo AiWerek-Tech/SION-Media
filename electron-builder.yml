@@ -14,17 +14,28 @@ asarUnpack:
   - resources/**
 win:
   executableName: sion-media
-  icon: resources/icon.png
+  icon: build/icon.ico
   target: nsis
 nsis:
   artifactName: SION-Media-${version}-Setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
-  createDesktopShortcut: always
+  installerIcon: build/icon.ico
+  installerSidebar: build/installerSidebar.bmp
+  uninstallerSidebar: build/uninstallerSidebar.bmp
+  installerHeader: build/installerHeader.bmp
+  include: build/installer.nsh
+  createDesktopShortcut: true
   oneClick: false
   perMachine: true
   allowToChangeInstallationDirectory: true
   createStartMenuShortcut: true
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false
+  displayLanguageSelector: false
+  installerLanguages:
+    - id_ID
+  language: '1057'
 mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
