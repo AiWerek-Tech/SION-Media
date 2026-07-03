@@ -53,6 +53,34 @@ export const MotionEngine: React.FC<MotionEngineProps> = ({ config, className })
       {preset === 'scripture-glow' && (
         <CssMotionEffect variant="scripture-glow" intensity={intensity} speed={speed} tint={tint} />
       )}
+      {preset === 'cosmic-aurora' && (
+        <CosmicAuroraEffect intensity={intensity} speed={speed} tint={tint} />
+      )}
+      {preset === 'pentecost-fire' && (
+        <PentecostFireEffect intensity={intensity} speed={speed} tint={tint} />
+      )}
+      {preset === 'ocean-glory' && (
+        <OceanGloryEffect intensity={intensity} speed={speed} tint={tint} />
+      )}
+      {preset === 'shekinah-light' && (
+        <ShekinahLightEffect intensity={intensity} speed={speed} tint={tint} />
+      )}
+      {preset === 'glorious-beams' && (
+        <GloriousBeamsEffect intensity={intensity} speed={speed} tint={tint} />
+      )}
+      {preset === 'stage-smoke' && (
+        <StageSmokeEffect intensity={intensity} speed={speed} tint={tint} />
+      )}
+      {preset === 'laser-lines' && (
+        <LaserLinesEffect intensity={intensity} speed={speed} tint={tint} />
+      )}
+      {preset === 'cyber-grid' && (
+        <CyberGridEffect intensity={intensity} speed={speed} tint={tint} />
+      )}
+      {preset === 'cosmic-orbs' && (
+        <CosmicOrbsEffect intensity={intensity} speed={speed} tint={tint} />
+      )}
+      {preset === 'ray-wave' && <RayWaveEffect intensity={intensity} speed={speed} tint={tint} />}
     </div>
   )
 }
@@ -289,6 +317,290 @@ const CloudDriftEffect: React.FC<Omit<MotionConfig, 'preset'>> = ({ intensity, s
           }}
         />
       ))}
+    </div>
+  )
+}
+
+const CosmicAuroraEffect: React.FC<Omit<MotionConfig, 'preset'>> = ({ intensity, speed, tint }) => {
+  const duration = `${Math.max(14 / Math.max(speed, 0.1), 6).toFixed(1)}s`
+  const color1 = tint || '#38bdf8'
+  const color2 = '#818cf8'
+  const color3 = '#c084fc'
+
+  return (
+    <div className="absolute inset-[-15%] opacity-65 mix-blend-screen">
+      <div
+        style={{
+          background: `
+            radial-gradient(ellipse at 25% 25%, ${color1} 0%, transparent 55%),
+            radial-gradient(ellipse at 75% 35%, ${color2} 0%, transparent 60%),
+            radial-gradient(ellipse at 50% 75%, ${color3} 0%, transparent 65%)
+          `,
+          width: '100%',
+          height: '100%',
+          filter: `blur(${Math.round(40 + intensity * 35)}px)`,
+          animation: `sion-aurora-mesh ${duration} ease-in-out infinite`
+        }}
+      />
+    </div>
+  )
+}
+
+const PentecostFireEffect: React.FC<Omit<MotionConfig, 'preset'>> = ({
+  intensity,
+  speed,
+  tint
+}) => {
+  const duration = `${Math.max(12 / Math.max(speed, 0.1), 5).toFixed(1)}s`
+  const fireTint = tint || '#f97316'
+
+  return (
+    <div className="absolute inset-[-10%] opacity-60 mix-blend-color-dodge">
+      <div
+        style={{
+          background: `
+            radial-gradient(circle at 50% 90%, ${fireTint} 0%, rgba(225,29,72,0.6) 35%, rgba(192,38,211,0.3) 65%, transparent 85%),
+            radial-gradient(circle at 30% 60%, rgba(251,146,60,0.5) 0%, transparent 50%),
+            radial-gradient(circle at 70% 60%, rgba(244,63,94,0.5) 0%, transparent 50%)
+          `,
+          width: '100%',
+          height: '100%',
+          filter: `blur(${Math.round(30 + intensity * 30)}px)`,
+          animation: `sion-fire-glow ${duration} ease-in-out infinite`
+        }}
+      />
+    </div>
+  )
+}
+
+const OceanGloryEffect: React.FC<Omit<MotionConfig, 'preset'>> = ({ intensity, speed, tint }) => {
+  const duration = `${Math.max(16 / Math.max(speed, 0.1), 7).toFixed(1)}s`
+  const oceanTint = tint || '#06b6d4'
+
+  return (
+    <div className="absolute inset-[-12%] opacity-60 mix-blend-screen">
+      <div
+        style={{
+          background: `
+            radial-gradient(ellipse at 50% 100%, ${oceanTint} 0%, rgba(14,165,233,0.5) 30%, rgba(30,58,138,0.2) 65%, transparent 85%),
+            radial-gradient(circle at 20% 40%, rgba(56,189,248,0.4) 0%, transparent 50%),
+            radial-gradient(circle at 80% 40%, rgba(99,102,241,0.4) 0%, transparent 50%)
+          `,
+          width: '100%',
+          height: '100%',
+          filter: `blur(${Math.round(35 + intensity * 35)}px)`,
+          animation: `sion-ocean-wave ${duration} ease-in-out infinite`
+        }}
+      />
+    </div>
+  )
+}
+
+const ShekinahLightEffect: React.FC<Omit<MotionConfig, 'preset'>> = ({
+  intensity,
+  speed,
+  tint
+}) => {
+  const duration = `${Math.max(18 / Math.max(speed, 0.1), 8).toFixed(1)}s`
+  const goldTint = tint || '#fbbf24'
+
+  return (
+    <div className="absolute inset-[-10%] opacity-55 mix-blend-screen">
+      <div
+        style={{
+          background: `
+            radial-gradient(circle at 50% 20%, ${goldTint} 0%, rgba(217,119,6,0.4) 40%, rgba(120,53,15,0.2) 70%, transparent 90%),
+            radial-gradient(circle at 50% 50%, rgba(254,243,199,0.3) 0%, transparent 60%)
+          `,
+          width: '100%',
+          height: '100%',
+          filter: `blur(${Math.round(40 + intensity * 30)}px)`,
+          animation: `sion-shekinah-pulse ${duration} ease-in-out infinite`
+        }}
+      />
+    </div>
+  )
+}
+
+const GloriousBeamsEffect: React.FC<Omit<MotionConfig, 'preset'>> = ({
+  intensity,
+  speed,
+  tint
+}) => {
+  const duration = `${Math.max(15 / Math.max(speed, 0.1), 6).toFixed(1)}s`
+  const beamColor = tint || '#a855f7'
+
+  return (
+    <div className="absolute inset-[-15%] opacity-55 mix-blend-screen">
+      <div
+        style={{
+          background: `
+            linear-gradient(135deg, transparent 20%, ${beamColor} 45%, rgba(56,189,248,0.5) 55%, transparent 80%),
+            radial-gradient(circle at 70% 30%, rgba(236,72,153,0.4) 0%, transparent 60%)
+          `,
+          width: '100%',
+          height: '100%',
+          filter: `blur(${Math.round(45 + intensity * 25)}px)`,
+          animation: `sion-beam-sweep ${duration} ease-in-out infinite`
+        }}
+      />
+    </div>
+  )
+}
+
+const StageSmokeEffect: React.FC<Omit<MotionConfig, 'preset'>> = ({ intensity, speed, tint }) => {
+  const duration1 = `${Math.max(16 / Math.max(speed, 0.1), 7).toFixed(1)}s`
+  const duration2 = `${Math.max(22 / Math.max(speed, 0.1), 10).toFixed(1)}s`
+  const smokeColor = tint || '#38bdf8'
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden mix-blend-screen">
+      {/* Layer 1: Drifting smoke clouds */}
+      <div
+        className="absolute inset-[-20%]"
+        style={{
+          background: `
+            radial-gradient(circle at 30% 70%, ${smokeColor} 0%, transparent 50%),
+            radial-gradient(circle at 70% 60%, rgba(147,197,253,0.5) 0%, transparent 55%),
+            radial-gradient(circle at 50% 90%, rgba(192,132,252,0.4) 0%, transparent 60%)
+          `,
+          filter: `blur(${Math.round(50 + intensity * 40)}px)`,
+          animation: `sion-smoke-drift ${duration1} ease-in-out infinite`
+        }}
+      />
+      {/* Layer 2: Swirling fog turbulence */}
+      <div
+        className="absolute inset-[-25%]"
+        style={{
+          background: `
+            radial-gradient(circle at 60% 40%, rgba(255,255,255,0.25) 0%, transparent 45%),
+            radial-gradient(circle at 40% 80%, ${smokeColor} 0%, transparent 50%)
+          `,
+          filter: `blur(${Math.round(60 + intensity * 35)}px)`,
+          animation: `sion-smoke-swirl ${duration2} ease-in-out infinite`
+        }}
+      />
+    </div>
+  )
+}
+
+const LaserLinesEffect: React.FC<Omit<MotionConfig, 'preset'>> = ({ intensity, speed, tint }) => {
+  const duration = `${Math.max(10 / Math.max(speed, 0.1), 4).toFixed(1)}s`
+  const laserColor = tint || '#00f0ff'
+
+  return (
+    <div className="absolute inset-[-20%] pointer-events-none mix-blend-screen">
+      <div
+        style={{
+          background: `
+            repeating-linear-gradient(
+              -45deg,
+              transparent,
+              transparent 40px,
+              ${laserColor} 41px,
+              transparent 43px,
+              transparent 120px
+            ),
+            radial-gradient(circle at 50% 50%, rgba(0,240,255,0.3) 0%, transparent 70%)
+          `,
+          backgroundSize: '200% 200%',
+          width: '100%',
+          height: '100%',
+          opacity: Math.min(0.4 + intensity * 0.4, 0.8),
+          filter: `blur(${Math.round(4 + intensity * 8)}px)`,
+          animation: `sion-laser-sweep ${duration} ease-in-out infinite`
+        }}
+      />
+    </div>
+  )
+}
+
+const CyberGridEffect: React.FC<Omit<MotionConfig, 'preset'>> = ({ intensity, speed, tint }) => {
+  const duration = `${Math.max(8 / Math.max(speed, 0.1), 3).toFixed(1)}s`
+  const gridColor = tint || 'rgba(56,189,248,0.4)'
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden mix-blend-screen">
+      <div
+        className="absolute inset-[-30%]"
+        style={{
+          background: `
+            linear-gradient(90deg, ${gridColor} 1px, transparent 1px),
+            linear-gradient(180deg, ${gridColor} 1px, transparent 1px)
+          `,
+          backgroundSize: '50px 50px',
+          opacity: Math.min(0.3 + intensity * 0.35, 0.75),
+          filter: 'drop-shadow(0 0 8px rgba(56,189,248,0.6))',
+          animation: `sion-grid-pulse ${duration} ease-in-out infinite`
+        }}
+      />
+    </div>
+  )
+}
+
+const CosmicOrbsEffect: React.FC<Omit<MotionConfig, 'preset'>> = ({ intensity, speed, tint }) => {
+  const duration1 = `${Math.max(14 / Math.max(speed, 0.1), 6).toFixed(1)}s`
+  const duration2 = `${Math.max(18 / Math.max(speed, 0.1), 8).toFixed(1)}s`
+  const orbColor = tint || '#c084fc'
+
+  return (
+    <div className="absolute inset-0 pointer-events-none mix-blend-screen">
+      <div
+        className="absolute inset-[-10%]"
+        style={{
+          background: `
+            radial-gradient(circle at 20% 30%, ${orbColor} 0%, transparent 35%),
+            radial-gradient(circle at 80% 70%, rgba(56,189,248,0.6) 0%, transparent 40%),
+            radial-gradient(circle at 50% 80%, rgba(251,146,60,0.5) 0%, transparent 45%)
+          `,
+          filter: `blur(${Math.round(35 + intensity * 35)}px)`,
+          animation: `sion-orb-float ${duration1} ease-in-out infinite`
+        }}
+      />
+      <div
+        className="absolute inset-[-15%]"
+        style={{
+          background: `
+            radial-gradient(circle at 70% 20%, rgba(244,63,94,0.5) 0%, transparent 35%),
+            radial-gradient(circle at 30% 80%, rgba(167,139,250,0.5) 0%, transparent 40%)
+          `,
+          filter: `blur(${Math.round(45 + intensity * 30)}px)`,
+          animation: `sion-orb-float ${duration2} ease-in-out infinite reverse`
+        }}
+      />
+    </div>
+  )
+}
+
+const RayWaveEffect: React.FC<Omit<MotionConfig, 'preset'>> = ({ intensity, speed, tint }) => {
+  const duration = `${Math.max(20 / Math.max(speed, 0.1), 9).toFixed(1)}s`
+  const rayColor = tint || '#f59e0b'
+
+  return (
+    <div className="absolute inset-[-40%] pointer-events-none mix-blend-screen">
+      <div
+        style={{
+          background: `
+            conic-gradient(
+              from 0deg at 50% 50%,
+              transparent 0deg,
+              ${rayColor} 30deg,
+              transparent 60deg,
+              rgba(239,68,68,0.5) 120deg,
+              transparent 150deg,
+              rgba(168,85,247,0.5) 210deg,
+              transparent 240deg,
+              ${rayColor} 300deg,
+              transparent 330deg
+            )
+          `,
+          width: '100%',
+          height: '100%',
+          opacity: Math.min(0.35 + intensity * 0.35, 0.7),
+          filter: `blur(${Math.round(30 + intensity * 30)}px)`,
+          animation: `sion-ray-rotate ${duration} linear infinite`
+        }}
+      />
     </div>
   )
 }

@@ -41,7 +41,11 @@ export function buildConfidencePayload(
         text: programSlide.text,
         sectionLabel: programSlide.sectionLabel || '',
         slideIndex: programSlideIndex,
-        totalSlides: programSlides.length
+        totalSlides: programSlides.length,
+        contentType: programSlide.contentType,
+        bibleReference: programSlide.bibleReference,
+        bibleVersionCode: programSlide.bibleVersionCode,
+        bibleCopyright: programSlide.bibleCopyright
       }
     : null
 
@@ -49,7 +53,10 @@ export function buildConfidencePayload(
   const nextSlide = nextSlideData
     ? {
         text: nextSlideData.text,
-        sectionLabel: nextSlideData.sectionLabel || ''
+        sectionLabel: nextSlideData.sectionLabel || '',
+        contentType: nextSlideData.contentType,
+        bibleReference: nextSlideData.bibleReference,
+        bibleVersionCode: nextSlideData.bibleVersionCode
       }
     : null
 
@@ -59,7 +66,7 @@ export function buildConfidencePayload(
 
   // Song metadata - extract from programSlide or songMeta
   const song =
-    programSlide || programSongMeta
+    programSlide?.contentType !== 'bible' && (programSlide || programSongMeta)
       ? {
           title: programSongMeta?.hymnalName || 'Unknown',
           hymnalCode: programSongMeta?.hymnalCode || '',

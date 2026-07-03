@@ -85,11 +85,6 @@ export function DisplaySettings({
       window.api.projection.hide()
       setProjectionVisible(false)
     } else {
-      const hasExt = await window.api.display.hasExternal()
-      if (!hasExt) {
-        // Don't open fullscreen window on the same screen
-        return
-      }
       window.api.projection.show()
       setProjectionVisible(true)
     }

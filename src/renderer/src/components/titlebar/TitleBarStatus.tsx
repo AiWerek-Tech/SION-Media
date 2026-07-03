@@ -174,17 +174,6 @@ export function TitleBarStatus(): React.JSX.Element {
     )
   }
 
-  if (currentScreen === 'bible') {
-    return (
-      <div className="title-bar-status no-drag">
-        <div className="titlebar-badge titlebar-badge--focus" title="Alkitab">
-          <BookOpen size={10} />
-          Bible
-        </div>
-      </div>
-    )
-  }
-
   if (currentMode === 'LIBRARY') {
     if (activeLibraryWorkspace === 'bible') {
       return (

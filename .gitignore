@@ -40,11 +40,12 @@ build-log.txt
 .env
 .env.local
 
-# Content Packs (binary files — do not commit)
+# Content Packs (binary files — commit only the production runtime pack)
 resources/content-packs/**/*.sqlite
 resources/content-packs/**/*.db
 resources/content-packs/**/*.jsonl
 resources/content-packs/**/*.csv
+!resources/content-packs/bibles/bible_tb/tb_lai_1974.sqlite
 .docs/assets/out_tb/
 
 # Local visual brainstorming artifacts

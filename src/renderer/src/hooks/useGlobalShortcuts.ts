@@ -82,7 +82,7 @@ export function useGlobalShortcuts({
 
       // FIX UX-10: Ctrl+B conflict resolution.
       // In PROJECTION/BROADCAST mode, bare 'B' is Black Out — Ctrl+B opening
-      // the Bible screen is confusing and dangerous (operator may hit Ctrl+B
+      // the Bible is confusing and dangerous (operator may hit Ctrl+B
       // thinking it's a modifier for Black Out).
       // Solution: Ctrl+B opens Bible only when NOT in Projection/Broadcast mode.
       // In Projection/Broadcast mode, use Ctrl+Shift+B instead.
@@ -93,7 +93,10 @@ export function useGlobalShortcuts({
         if (e.shiftKey || !isProjectionMode) {
           // Ctrl+Shift+B always works; Ctrl+B works only outside projection
           e.preventDefault()
-          setScreen('bible')
+          // Navigate to Library mode > Bible workspace
+          setScreen('dashboard')
+          useModeStore.getState().setMode('LIBRARY')
+          useAppStore.getState().setActiveLibraryWorkspace('bible')
           return
         }
         // In projection mode without Shift: fall through to let 'B' handle Black Out

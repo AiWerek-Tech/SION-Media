@@ -49,9 +49,6 @@ const SettingsScreen = lazy(() =>
 const ImportExportScreen = lazy(() =>
   import('./screens/ImportExportScreen').then((module) => ({ default: module.ImportExportScreen }))
 )
-const BibleScreen = lazy(() =>
-  import('./screens/BibleScreen').then((module) => ({ default: module.BibleScreen }))
-)
 
 function App(): React.JSX.Element {
   const { currentScreen, setScreen } = useAppStore()
@@ -79,7 +76,7 @@ function App(): React.JSX.Element {
     if (currentScreen === 'song-editor') return 'editor'
     if (currentScreen === 'settings') return 'settings'
     if (currentScreen === 'import-export') return 'import-export'
-    if (currentScreen === 'bible') return 'bible'
+
     if (isFirstInstall) return 'welcome'
     if (currentMode === 'PROJECTION') return 'projection'
     if (currentMode === 'LIBRARY') return 'library'
@@ -128,13 +125,7 @@ function App(): React.JSX.Element {
         </ErrorBoundary>
       )
     }
-    if (currentScreen === 'bible') {
-      return (
-        <ErrorBoundary mode="Bible">
-          <BibleScreen />
-        </ErrorBoundary>
-      )
-    }
+
     if (isFirstInstall) {
       return <WelcomeScreen />
     }

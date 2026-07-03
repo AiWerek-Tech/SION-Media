@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   Book,
   Check,
+  Clock,
   Edit3,
   FileEdit,
   Maximize2,
@@ -11,8 +12,7 @@ import {
   Music2,
   Play,
   Plus,
-  Star,
-  Volume2
+  Star
 } from 'lucide-react'
 import { SongLibraryPanel } from '@renderer/components/SongLibraryPanel'
 import { LivePreviewPanel } from '@renderer/components/LivePreviewPanel'
@@ -152,6 +152,7 @@ function SongInfoPanel(): React.JSX.Element {
     if (activeSong.key_note) rows.push(['Nada Dasar', activeSong.key_note])
     if (activeSong.language) rows.push(['Bahasa', activeSong.language])
     if (activeSong.scripture_reference) rows.push(['Referensi', activeSong.scripture_reference])
+    rows.push(['Copyright', '-'])
     return rows
   }, [activeSong])
 
@@ -915,7 +916,7 @@ export function ProjectionMode(): React.JSX.Element {
                       isAudioPanelVisible ? 'Sembunyikan panel timer' : 'Tampilkan panel timer'
                     }
                   >
-                    <Volume2 size={13} />
+                    <Clock size={13} />
                   </button>
                 </div>
 

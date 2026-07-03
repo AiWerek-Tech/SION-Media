@@ -1,9 +1,13 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, test } from 'vitest'
 
 const root = process.cwd()
 const config = readFileSync(resolve(root, 'electron-builder.yml'), 'utf8')
+const packageJson = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
+  scripts: Record<string, string>
+}
 const nsisIncludePath = resolve(root, 'build/installer.nsh')
 const assetGeneratorPath = resolve(root, 'scripts/generate-installer-assets.ps1')
 const signingCertGeneratorPath = resolve(root, 'scripts/generate-signing-cert.ps1')
@@ -57,6 +61,51 @@ describe('Celestial Native Windows installer', () => {
   })
 })
 
+describe('Bundled database contract', () => {
+  const biblePackDir = resolve(root, 'resources/content-packs/bibles/bible_tb')
+  const bibleDatabasePath = resolve(biblePackDir, 'tb_lai_1974.sqlite')
+  const bibleManifestPath = resolve(biblePackDir, 'tb_lai_1974.manifest.json')
+
+  test('keeps the production Bible database in source control and installer resources', () => {
+    const gitignore = readFileSync(resolve(root, '.gitignore'), 'utf8')
+
+    expect(gitignore).toContain('!resources/content-packs/bibles/bible_tb/tb_lai_1974.sqlite')
+    expect(config).toContain('!resources/sion.db')
+    expect(config).toContain('!resources/**/*.sqlite-wal')
+    expect(config).toContain('!resources/**/*.sqlite-shm')
+  })
+
+  test('ships a complete and checksum-valid TB Bible database', () => {
+    expect(existsSync(bibleDatabasePath)).toBe(true)
+    expect(statSync(bibleDatabasePath).size).toBeGreaterThan(15_000_000)
+    expect(readFileSync(bibleDatabasePath).subarray(0, 16).toString('ascii')).toBe(
+      'SQLite format 3\u0000'
+    )
+
+    const manifest = JSON.parse(readFileSync(bibleManifestPath, 'utf8')) as {
+      files: Array<{ filename: string; sha256: string }>
+    }
+    const databaseManifest = manifest.files.find((file) => file.filename === 'tb_lai_1974.sqlite')
+    const checksum = createHash('sha256').update(readFileSync(bibleDatabasePath)).digest('hex')
+    expect(databaseManifest).toBeDefined()
+    expect(checksum).toBe(databaseManifest?.sha256)
+  })
+})
+
+describe('native dependency runtime contract', () => {
+  test('automatically targets better-sqlite3 for Node tests and Electron runtime', () => {
+    expect(packageJson.scripts.pretest).toBe('npm rebuild better-sqlite3')
+    expect(packageJson.scripts.predev).toBe('electron-builder install-app-deps')
+    expect(packageJson.scripts.prestart).toBe('electron-builder install-app-deps')
+  })
+
+  test('development startup does not delete a shared Chromium cache', () => {
+    const mainEntry = readFileSync(resolve(root, 'src/main/index.ts'), 'utf8')
+    expect(mainEntry).not.toContain('clearDevChromiumCache')
+    expect(mainEntry).not.toContain("import { rmSync } from 'fs'")
+  })
+})
+
 describe('Code signing infrastructure', () => {
   test('electron-builder.yml declares publisher identity and signing policy', () => {
     expect(config).toContain('requestedExecutionLevel: asInvoker')
@@ -91,8 +140,7 @@ describe('Code signing infrastructure', () => {
     expect(include).toContain('Informasi Keamanan Windows')
     expect(include).toContain('More info')
     expect(include).toContain('Run anyway')
-    expect(include).toContain('aiwerek-tech.github.io')
-    expect(include).toContain('AiWerek Tech')
+    expect(include).toContain('github.com/AiWerek-Tech/SION-Media')
   })
 
   test('certificate files are protected by .gitignore', () => {

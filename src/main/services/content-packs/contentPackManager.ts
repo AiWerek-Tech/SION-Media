@@ -342,7 +342,10 @@ export function autoRegisterBundledPacks(): void {
             })
             console.info(`[ContentPack] Auto-registered/updated bundled pack: ${packId}`)
           } else {
-            console.warn(`[ContentPack] Invalid bundled pack folder skipped: ${item}`, preview.errors.join(', '))
+            console.warn(
+              `[ContentPack] Invalid bundled pack folder skipped: ${item}`,
+              preview.errors.join(', ')
+            )
           }
         } catch (packErr) {
           console.error(`[ContentPack] Error auto-registering bundled pack ${item}:`, packErr)
@@ -353,4 +356,3 @@ export function autoRegisterBundledPacks(): void {
     console.error('[ContentPack] Failed to scan bundled bibles directory:', err)
   }
 }
-
