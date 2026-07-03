@@ -21,5 +21,6 @@ export {
   removeContentPack,
   listInstalledPacks,
   setDefaultContentPack,
-  openPackFolder
+  openPackFolder,
+  autoRegisterBundledPacks
 } from './contentPackManager'

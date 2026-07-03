@@ -49,9 +49,16 @@ export function getBiblePackDirectory(packId: string): string {
 // ============================================================================
 
 export function getBundledContentPackRoot(): string {
-  // In dev: <project>/resources/content-packs/
-  // In prod (asar-unpacked): resources/content-packs/
-  return join(__dirname, '../../../../resources/content-packs')
+  if (!app.isPackaged) {
+    // In dev: projectRoot/resources/content-packs/
+    return join(app.getAppPath(), 'resources', 'content-packs')
+  }
+  // In production (asar-unpacked): win-unpacked/resources/app.asar.unpacked/resources/content-packs
+  return join(
+    app.getAppPath().replace('app.asar', 'app.asar.unpacked'),
+    'resources',
+    'content-packs'
+  )
 }
 
 export function getBundledBiblesDir(): string {

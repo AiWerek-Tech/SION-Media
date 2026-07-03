@@ -11,7 +11,6 @@
 
 import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
-import { rmSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase, markCleanExit } from './database'
 import { setupIPC } from './ipc-handlers'
@@ -52,22 +51,8 @@ if (is.dev) {
   app.commandLine.appendSwitch('disk-cache-size', '1')
 }
 
-function clearDevChromiumCache(): void {
-  if (!is.dev) return
-
-  const userDataPath = app.getPath('userData')
-  for (const cacheFolder of ['Cache', 'Code Cache', 'GPUCache']) {
-    try {
-      rmSync(join(userDataPath, cacheFolder), { recursive: true, force: true })
-    } catch (error) {
-      console.warn(`Unable to clear ${cacheFolder}:`, error)
-    }
-  }
-}
-
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.aiwerek.sion-media')
-  clearDevChromiumCache()
 
   // Phase 4: Safe-mode crash-loop detection
   const safeMode = checkSafeMode()

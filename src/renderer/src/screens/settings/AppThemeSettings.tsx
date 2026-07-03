@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useState } from 'react'
-import { Monitor, Moon, Sun, Laptop, Layout, Columns, Maximize2, PanelLeft } from 'lucide-react'
+import { Monitor, Moon, Layout, Columns, Maximize2, PanelLeft } from 'lucide-react'
 import { useModeStore } from '@renderer/store/useModeStore'
 import { logger } from '@renderer/utils/logger'
 import {
@@ -29,21 +29,9 @@ const THEME_OPTIONS: {
 }[] = [
   {
     mode: 'dark',
-    label: 'Dark',
-    desc: 'Cinematic dark mode untuk fokus maksimal saat ibadah',
+    label: 'Dark (Default)',
+    desc: 'Cinematic dark mode untuk fokus maksimal saat ibadah & pelayanan',
     icon: Moon
-  },
-  {
-    mode: 'light',
-    label: 'Light',
-    desc: 'Terang untuk ruangan dengan pencahayaan tinggi',
-    icon: Sun
-  },
-  {
-    mode: 'system',
-    label: 'System',
-    desc: 'Mengikuti pengaturan tema dari sistem operasi',
-    icon: Laptop
   }
 ]
 
@@ -122,8 +110,8 @@ export function AppThemeSettings({
             Mode Tema
           </div>
           <p className="sp-section-desc">
-            Pilih skema warna yang sesuai dengan kondisi ruangan ibadah. Perubahan diterapkan secara
-            langsung.
+            Pilih skema warna yang sesuai dengan kondisi ruangan ibadah. Versi ini dikunci pada mode
+            gelap demi kenyamanan visual ibadah.
           </p>
         </div>
         <div className="sp-option-grid sp-option-grid--3">

@@ -1,15 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, BookOpen, ChevronDown, Command, Moon, Search, Sun, Wand2 } from 'lucide-react'
+import { ArrowRight, BookOpen, ChevronDown, Command, Search, Wand2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../../store/useAppStore'
 
 export function LibraryCommandBar(): React.JSX.Element {
   const { hymnals, selectedHymnalId, setSelectedHymnalId } = useAppStore()
   const [open, setOpen] = useState(false)
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    const saved = window.localStorage.getItem('sion:theme')
-    return saved === 'light' ? 'light' : 'dark'
-  })
+  const theme = 'dark'
 
   const ref = useRef<HTMLDivElement>(null)
 
@@ -127,15 +124,6 @@ export function LibraryCommandBar(): React.JSX.Element {
       </div>
 
       <div className="flex items-center gap-2">
-        <button
-          onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-          className="btn-premium btn-premium-icon"
-          aria-label="Toggle theme"
-          title="Theme"
-        >
-          {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
-        </button>
-
         <button
           onClick={() => useAppStore.getState().toggleFocusMode()}
           className="btn-premium btn-premium-icon"

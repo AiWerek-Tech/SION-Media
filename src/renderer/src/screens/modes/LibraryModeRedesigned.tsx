@@ -77,9 +77,10 @@ type LibraryWorkspace =
   | 'playlist'
   | 'favorites'
   | 'recent'
-  | 'collections'
   | 'hymnals'
   | 'tags'
+  // Reserved for future release
+  | 'collections'
   | 'practice'
   | 'chords'
   | 'vocal'
@@ -108,7 +109,7 @@ const NAV_GROUPS: Array<{
     label: 'Studi Pribadi',
     items: [
       { id: 'all', label: 'Buku Aktif', icon: BookOpen, count: (ctx) => ctx.songs },
-      { id: 'bible', label: 'Alkitab', icon: BookOpen },
+      { id: 'bible', label: 'Alkitab', icon: Book },
       { id: 'favorites', label: 'Favorit', icon: Heart, count: (ctx) => ctx.favorites },
       { id: 'recent', label: 'Recently Opened', icon: History, count: (ctx) => ctx.recent },
       { id: 'tags', label: 'Tags & Themes', icon: Tags, count: (ctx) => ctx.tags }
@@ -337,7 +338,7 @@ function SongMediaCard({
       </div>
 
       <div className="library-pro-song-card__meta">
-        <span>{song.key_note || 'G'}</span>
+        <span>{song.key_note || '-'}</span>
         <span>{tempoLabel(song)}</span>
         <span>{verses} bait</span>
       </div>
@@ -587,7 +588,7 @@ function RightInspector({
     ['Key', song.key_note || '-'],
     ['Tempo', tempoLabel(song)],
     ['Birama', song.time_signature || '-'],
-    ['Copyright', 'SION Media']
+    ['Copyright', '-']
   ]
 
   return (
@@ -958,7 +959,10 @@ export function LibraryMode(): React.JSX.Element {
     loadPlaylistItems
   } = usePlaylistStore()
   const [activeTab, setActiveTab] = useState<LibraryTab>('number')
-  const [workspace, setWorkspace] = useState<LibraryWorkspace>('all')
+  const [workspace, setWorkspace] = useState<LibraryWorkspace>(() => {
+    const initialWorkspace = useAppStore.getState().activeLibraryWorkspace
+    return (initialWorkspace as LibraryWorkspace) || 'all'
+  })
   const [query, setQuery] = useState('')
   const [fullscreenLibrary, setFullscreenLibrary] = useState(false)
   const [page, setPage] = useState(1)
@@ -982,11 +986,31 @@ export function LibraryMode(): React.JSX.Element {
   const [bookSearchQuery, setBookSearchQuery] = useState('')
 
   // Sync workspace state to global store for titlebar cleaning
+  const storeWorkspace = useAppStore((s) => s.activeLibraryWorkspace)
   const setActiveLibraryWorkspace = useAppStore((s) => s.setActiveLibraryWorkspace)
+
+  // Inbound sync: when workspace is set from outside (e.g. Ctrl+B shortcut),
+  // apply it to local state so Library opens the requested workspace.
+  useEffect(() => {
+    if (storeWorkspace && storeWorkspace !== workspace) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setWorkspace(storeWorkspace as LibraryWorkspace)
+    }
+    // Only react to store changes, not local workspace changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeWorkspace])
+
+  // Outbound sync: keep store in sync with local workspace for titlebar
   useEffect(() => {
     setActiveLibraryWorkspace?.(workspace)
-    return () => setActiveLibraryWorkspace?.('all')
   }, [workspace, setActiveLibraryWorkspace])
+
+  // Reset store workspace only on unmount of LibraryModeRedesigned component
+  useEffect(() => {
+    return () => {
+      setActiveLibraryWorkspace?.('all')
+    }
+  }, [setActiveLibraryWorkspace])
 
   const loadChapterNotes = useCallback(async () => {
     if (workspace === 'bible' && selectedBibleBook) {
@@ -1808,23 +1832,31 @@ export function LibraryMode(): React.JSX.Element {
                     <Sparkles size={12} className="text-brand-primary" />
                     Cari Cepat:
                   </span>
-                  {['Pujian', 'Penyembahan', 'Natal', 'Paskah', 'Roh Kudus', 'Kasih', 'Syukur'].map(
-                    (category) => (
-                      <button
-                        key={category}
-                        onClick={() => {
-                          setQuery(category)
-                          setPage(1)
-                          if (activeTab === 'playlist') {
-                            setActiveTab('title')
-                          }
-                        }}
-                        className="px-2.5 py-1 rounded-full text-xs bg-bg-surface/40 border border-border-subtle text-text-secondary hover:bg-bg-surface hover:text-brand-primary hover:border-brand-primary/30 transition-all duration-200 whitespace-nowrap"
-                      >
-                        {category}
-                      </button>
-                    )
-                  )}
+                  {[
+                    'Pujian',
+                    'Sabat',
+                    'Kasih',
+                    'Pengharapan',
+                    'Doa',
+                    'Penyembahan',
+                    'Persepuluhan',
+                    'Roh Kudus',
+                    'Syukur'
+                  ].map((category) => (
+                    <button
+                      key={category}
+                      onClick={() => {
+                        setQuery(category)
+                        setPage(1)
+                        if (activeTab === 'playlist') {
+                          setActiveTab('title')
+                        }
+                      }}
+                      className="px-2.5 py-1 rounded-full text-xs bg-bg-surface/40 border border-border-subtle text-text-secondary hover:bg-bg-surface hover:text-brand-primary hover:border-brand-primary/30 transition-all duration-200 whitespace-nowrap"
+                    >
+                      {category}
+                    </button>
+                  ))}
                 </div>
               )}
 

@@ -28,6 +28,16 @@ export type MotionPreset =
   | 'living-water'
   | 'second-advent'
   | 'scripture-glow'
+  | 'cosmic-aurora'
+  | 'pentecost-fire'
+  | 'ocean-glory'
+  | 'shekinah-light'
+  | 'glorious-beams'
+  | 'stage-smoke'
+  | 'laser-lines'
+  | 'cyber-grid'
+  | 'cosmic-orbs'
+  | 'ray-wave'
 
 export interface MotionConfig {
   preset: MotionPreset

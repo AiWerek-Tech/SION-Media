@@ -181,7 +181,6 @@ export function TitleBarMenu(): React.JSX.Element {
   }
 
   const openSettings = (): void => {
-    setMode('MANAGEMENT')
     setScreen('settings')
   }
 
@@ -238,11 +237,15 @@ export function TitleBarMenu(): React.JSX.Element {
           shortcut: 'Ctrl+P',
           action: () => document.dispatchEvent(new CustomEvent('sion:toggle-command-palette'))
         },
-        // DUI-003: Bible menu item
+        // DUI-003: Bible menu item — opens Library > Bible workspace
         {
           label: 'Bible',
           shortcut: 'Ctrl+B',
-          action: () => setScreen('bible')
+          action: () => {
+            setScreen('dashboard')
+            useModeStore.getState().setMode('LIBRARY')
+            useAppStore.getState().setActiveLibraryWorkspace('bible')
+          }
         },
         ...(!showFocusLive
           ? []

@@ -14,6 +14,7 @@ import { randomUUID } from 'crypto'
 import { initialSongs } from './seed-data'
 import { runMigrations } from './migrations'
 import { setRegistryDb } from './services/content-packs/contentPackRegistry'
+import { autoRegisterBundledPacks } from './services/content-packs/contentPackManager'
 
 let db: Database.Database
 
@@ -534,6 +535,13 @@ export function initDatabase(): void {
 
   // Inject DB into content pack registry
   setRegistryDb(db)
+
+  // Scan and register any bundled content packs (e.g., Bible)
+  try {
+    autoRegisterBundledPacks()
+  } catch (err) {
+    console.error('Failed to auto-register bundled packs:', err)
+  }
 
   // Seed database if empty (only if no songs exist)
   seedDatabase()

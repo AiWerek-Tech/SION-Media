@@ -266,7 +266,7 @@ export interface RecoveryState {
 
 export type FilterTab = 'all' | 'favorites' | 'recent' | 'category'
 
-export type AppScreen = 'dashboard' | 'song-editor' | 'import-export' | 'settings' | 'bible'
+export type AppScreen = 'dashboard' | 'song-editor' | 'import-export' | 'settings'
 
 // ============================================================================
 // Smart Worship Navigation Types
@@ -352,12 +352,19 @@ export interface ConfidencePayload {
     sectionLabel: string
     slideIndex: number
     totalSlides: number
+    contentType?: SlideData['contentType']
+    bibleReference?: string
+    bibleVersionCode?: string
+    bibleCopyright?: string
   } | null
 
   // Next content
   nextSlide: {
     text: string
     sectionLabel: string
+    contentType?: SlideData['contentType']
+    bibleReference?: string
+    bibleVersionCode?: string
   } | null
 
   // Section context

@@ -35,6 +35,8 @@ import {
 import { useAppStore } from '../../store/useAppStore'
 import { useModalStore } from '../../store/useModalStore'
 import { useModeStore } from '../../store/useModeStore'
+import { useProjectionStore } from '../../store/useProjectionStore'
+import { generateSlidesForSong } from '../../engine/slideEngine'
 import type { Hymnal, Song } from '../../types'
 import { logger } from '../../utils/logger'
 import { DEFAULT_SCENE_PRESETS } from '../../atmosphere/presets'
@@ -313,6 +315,9 @@ const TableSongRow = ({
           <span className="rounded-md bg-white/[0.04] px-2 py-1 text-[11px] font-semibold text-slate-400">
             {song.tempo}
           </span>
+        )}
+        {!song.key_note && !song.tempo && (
+          <span className="text-xs text-slate-500 font-medium">-</span>
         )}
       </span>
       <span className="flex justify-end gap-1.5">
@@ -740,10 +745,10 @@ export function ManagementMode(): React.JSX.Element {
       {
         label: 'Buku Lagu',
         value: formatNumber(hymnals.length),
-        meta: `${hymnals.filter((h) => h.is_official === 1).length} koleksi resmi`,
+        meta: `${hymnals.length} koleksi tersedia`,
         tone: 'from-violet-400 to-purple-300',
         icon: <BookOpen size={20} />,
-        trend: 'stabil',
+        trend: 'koleksi',
         bars: shiftBars(songTrendBars, 1)
       },
       {
@@ -758,10 +763,10 @@ export function ManagementMode(): React.JSX.Element {
       {
         label: 'Tema',
         value: formatNumber(songStats.categories.size),
-        meta: 'tema tersedia',
+        meta: 'kategori & tema aktif',
         tone: 'from-orange-400 to-amber-300',
         icon: <Tag size={20} />,
-        trend: 'tagged',
+        trend: 'kategori',
         bars: shiftBars(songTrendBars, 3)
       },
       {
@@ -1013,6 +1018,21 @@ export function ManagementMode(): React.JSX.Element {
       }
     },
     [selectedHymnalId, showToast]
+  )
+  const handlePreviewSong = useCallback(
+    (song: Song) => {
+      const slides = generateSlidesForSong(song)
+      const { setSlides, goToSlide } = useProjectionStore.getState()
+      setSlides(slides, {
+        hymnalCode: song.hymnal_code || '',
+        hymnalName: song.hymnal_name || selectedHymnal?.name || '',
+        songBackgroundConfig: song.song_background_config
+      })
+      goToSlide(0)
+      useModeStore.getState().setMode('PROJECTION')
+      showToast(`Pratinjau ${song.title} diaktifkan`, 'info')
+    },
+    [selectedHymnal, showToast]
   )
 
   const handleExportData = useCallback(async (): Promise<void> => {
@@ -1276,8 +1296,8 @@ export function ManagementMode(): React.JSX.Element {
                         <option value="Penyembahan">Penyembahan</option>
                         <option value="Pembukaan">Pembukaan</option>
                         <option value="Penutupan">Penutupan</option>
-                        <option value="Natal">Natal</option>
-                        <option value="Paskah">Paskah</option>
+                        <option value="Sabat">Sabat</option>
+                        <option value="Doa">Doa</option>
                         <option value="Anak">Anak</option>
                         <option value="Umum">Umum</option>
                       </select>
@@ -1402,7 +1422,7 @@ export function ManagementMode(): React.JSX.Element {
                   </div>
 
                   <div className="management-inspector__actions">
-                    <button>
+                    <button onClick={() => selectedSong && handlePreviewSong(selectedSong)}>
                       <Play size={15} />
                       Pratinjau
                     </button>

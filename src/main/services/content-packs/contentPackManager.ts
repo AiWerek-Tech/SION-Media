@@ -9,7 +9,7 @@
 
 import { dialog, BrowserWindow } from 'electron'
 import { join } from 'path'
-import { existsSync, mkdirSync, copyFileSync, rmSync, readdirSync } from 'fs'
+import { existsSync, mkdirSync, copyFileSync, rmSync, readdirSync, statSync } from 'fs'
 import { readFileSync } from 'fs'
 import type {
   BiblePackManifest,
@@ -19,7 +19,7 @@ import type {
   ContentPackRecord,
   ContentPackType
 } from '@shared/types'
-import { getBiblePackDirectory } from './contentPackPaths'
+import { getBiblePackDirectory, getBundledBiblesDir } from './contentPackPaths'
 import {
   registerPack,
   removePack as removePackFromRegistry,
@@ -286,4 +286,73 @@ export async function openPackFolder(packId: string): Promise<void> {
     throw new Error(`Folder pack tidak ditemukan di disk: ${pack.installed_path}`)
   }
   await shell.openPath(pack.installed_path)
+}
+
+/**
+ * Scan resources/content-packs/bibles/ and auto-register valid Bible packs.
+ * This runs at startup to ensure default bundled packs are registered and
+ * correct paths are maintained when the installation folder moves.
+ */
+export function autoRegisterBundledPacks(): void {
+  const biblesDir = getBundledBiblesDir()
+  console.info(`[ContentPack] Scanning bundled bibles in: ${biblesDir}`)
+
+  if (!existsSync(biblesDir)) {
+    console.info('[ContentPack] No bundled bibles directory found.')
+    return
+  }
+
+  try {
+    const items = readdirSync(biblesDir)
+    for (const item of items) {
+      const fullPath = join(biblesDir, item)
+      if (statSync(fullPath).isDirectory()) {
+        try {
+          const preview = validateBiblePackFolder(fullPath)
+          if (preview.valid && preview.manifest) {
+            const { manifest, packId } = preview
+            const files = readdirSync(fullPath)
+            const sqliteFile = files.find((f) => f.endsWith('.sqlite'))!
+            const manifestFile = files.find((f) => f.endsWith('.manifest.json'))!
+            const booksFile = files.find((f) => f.endsWith('.books.json'))!
+            const importReportFile = files.find((f) => f.endsWith('.import_report.json'))!
+
+            registerPack({
+              pack_id: packId,
+              pack_type: 'bible',
+              version_code: manifest.version_code,
+              name: manifest.version_name,
+              short_name: manifest.short_name,
+              language: manifest.language,
+              publisher: manifest.publisher,
+              copyright: manifest.copyright,
+              license_status: manifest.license_status,
+              source_type: manifest.source_type,
+              source_base_url: manifest.source_base_url,
+              installed_path: fullPath,
+              sqlite_filename: sqliteFile,
+              manifest_filename: manifestFile,
+              books_filename: booksFile,
+              import_report_filename: importReportFile,
+              validation_ok: manifest.validation_ok,
+              fts5_created: manifest.fts5_created,
+              books_count: manifest.books,
+              chapters_count: manifest.chapters,
+              verses_count: manifest.verses
+            })
+            console.info(`[ContentPack] Auto-registered/updated bundled pack: ${packId}`)
+          } else {
+            console.warn(
+              `[ContentPack] Invalid bundled pack folder skipped: ${item}`,
+              preview.errors.join(', ')
+            )
+          }
+        } catch (packErr) {
+          console.error(`[ContentPack] Error auto-registering bundled pack ${item}:`, packErr)
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[ContentPack] Failed to scan bundled bibles directory:', err)
+  }
 }

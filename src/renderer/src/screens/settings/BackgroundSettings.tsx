@@ -105,7 +105,17 @@ const ALLOWED_MOTION_PRESETS = new Set([
   'sanctuary-light',
   'living-water',
   'second-advent',
-  'scripture-glow'
+  'scripture-glow',
+  'cosmic-aurora',
+  'pentecost-fire',
+  'ocean-glory',
+  'shekinah-light',
+  'glorious-beams',
+  'stage-smoke',
+  'laser-lines',
+  'cyber-grid',
+  'cosmic-orbs',
+  'ray-wave'
 ])
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp']

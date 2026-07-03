@@ -99,7 +99,7 @@ export function TitleBarIdentity(): React.JSX.Element {
                 setEditValue(workspaceName || activePlaylist?.name || '')
                 setIsEditing(true)
               }}
-              title="Double-click to edit workspace name"
+              title={`${displayName} (Klik ganda untuk mengubah nama)`}
             >
               {displayName}
             </span>

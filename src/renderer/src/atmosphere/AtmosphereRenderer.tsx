@@ -19,12 +19,20 @@ export const AtmosphereRenderer: React.FC<AtmosphereRendererProps> = ({
   const { mode, solidColor, gradient, media, motion: motionConfig, overlay, readability } = config
 
   const backgroundStyle = useMemo(() => {
+    const isAnimated = gradient?.animated ?? true
+    const speed = gradient?.speed ?? 0.5
+    const duration = `${Math.max(20 / Math.max(speed, 0.1), 8).toFixed(1)}s`
+
     if (mode === 'solid') return { backgroundColor: solidColor || '#000' }
-    if (mode === 'gradient' && gradient) return { background: getGradientCss(gradient) }
-    // Motion mode may still provide a static gradient base; the animated layer
-    // stays code/CSS-only and renders on top of this readable foundation.
-    if (mode === 'motion' && gradient) return { background: getGradientCss(gradient) }
-    if (mode === 'motion') return { backgroundColor: solidColor || '#000' }
+    if ((mode === 'gradient' || mode === 'motion') && gradient) {
+      return {
+        background: getGradientCss(gradient),
+        backgroundSize: isAnimated ? '200% 200%' : '100% 100%',
+        animation: isAnimated
+          ? `sion-css-motion ${duration} ease-in-out infinite alternate`
+          : undefined
+      }
+    }
     return { backgroundColor: '#000' }
   }, [mode, solidColor, gradient])
 

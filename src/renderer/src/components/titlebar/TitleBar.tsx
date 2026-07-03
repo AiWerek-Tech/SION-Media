@@ -10,9 +10,8 @@ import { useModeStore } from '../../store/useModeStore'
 import { useAppStore } from '../../store/useAppStore'
 import { useNotificationStore } from '../../store/useNotificationStore'
 
-function TitleBarUtilityButtons(): React.JSX.Element {
+export function TitleBarUtilityButtons(): React.JSX.Element {
   const setScreen = useAppStore((s) => s.setScreen)
-  const setMode = useModeStore((s) => s.setMode)
   const unreadCount = useNotificationStore((s) => s.unreadCount)
   const markAllRead = useNotificationStore((s) => s.markAllRead)
   const [isNotifOpen, setIsNotifOpen] = useState(false)
@@ -31,10 +30,7 @@ function TitleBarUtilityButtons(): React.JSX.Element {
         className="title-bar-utility-btn"
         title="Pengaturan"
         aria-label="Buka pengaturan aplikasi"
-        onClick={() => {
-          setMode('MANAGEMENT')
-          setScreen('settings')
-        }}
+        onClick={() => setScreen('settings')}
       >
         <Settings size={14} />
       </button>

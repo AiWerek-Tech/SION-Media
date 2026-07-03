@@ -1,99 +1,121 @@
 /**
- * Confidence Monitor App
- *
- * Stage-facing display for musicians, singers, and worship leaders.
- * Shows current/next content with extremely readable typography.
- *
- * @module StageDisplayApp
+ * Read-only confidence monitor for musicians, singers, and worship leaders.
  */
 
-import React, { useState, useEffect, useMemo } from 'react'
-import { Clock, Music, Timer, AlertCircle } from 'lucide-react'
+import React, { useEffect, useMemo, useState } from 'react'
+import {
+  AlertCircle,
+  BookOpen,
+  Clock3,
+  EyeOff,
+  Music2,
+  Pause,
+  Radio,
+  TimerReset
+} from 'lucide-react'
 import type { ConfidencePayload, ProjectionState } from '@renderer/types'
+import { cleanStageBibleText, getStageTextFit, stageTextFitClass } from './stageDisplayPresentation'
+
+const EMPTY_PAYLOAD: Omit<ConfidencePayload, 'clock'> = {
+  currentSlide: null,
+  nextSlide: null,
+  currentSection: null,
+  nextSection: null,
+  song: null,
+  timer: { elapsed: 0, running: false },
+  status: { isLive: false, isFrozen: false, isBlack: false, projectionState: 'CLEAR' }
+}
+
+function formatElapsed(seconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(seconds))
+  const hours = Math.floor(safeSeconds / 3600)
+  const minutes = Math.floor((safeSeconds % 3600) / 60)
+  const secs = safeSeconds % 60
+  return hours > 0
+    ? `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    : `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+}
+
+function getStatusPresentation(status: ConfidencePayload['status']): {
+  label: string
+  color: string
+  dot: string
+  Icon: typeof Radio
+} {
+  if (status.isFrozen) {
+    return { label: 'FREEZE', color: 'text-amber-300', dot: 'bg-amber-400', Icon: Pause }
+  }
+  if (status.isBlack) {
+    return { label: 'BLACK', color: 'text-zinc-300', dot: 'bg-zinc-500', Icon: EyeOff }
+  }
+  if (status.isLive) {
+    return { label: 'LIVE', color: 'text-red-400', dot: 'bg-red-500', Icon: Radio }
+  }
+  return { label: 'STANDBY', color: 'text-zinc-400', dot: 'bg-zinc-600', Icon: Radio }
+}
 
 export function StageDisplayApp(): React.JSX.Element {
   const [payload, setPayload] = useState<ConfidencePayload | null>(null)
-  const [time, setTime] = useState(new Date())
+  const [time, setTime] = useState(() => new Date())
 
-  // Clock sync
   useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000)
-    return () => clearInterval(timer)
+    const clockTimer = setInterval(() => setTime(new Date()), 1000)
+    return () => clearInterval(clockTimer)
   }, [])
 
-  // Listen for confidence updates
   useEffect(() => {
-    // Listen for slide updates (legacy compatibility)
     const unsubscribeSlide = window.api.projection.onSlideUpdate((data) => {
-      // Build partial payload from legacy slide data
       const slideData = data as {
         text?: string
         sectionLabel?: string
         slideIndex?: number
+        totalSlides?: number
         nextSlideText?: string
+        contentType?: 'song' | 'bible' | 'reading' | 'custom'
+        bibleReference?: string
+        bibleVersionCode?: string
       }
-      if (slideData && slideData.text) {
-        const text = slideData.text // Ensure string type
-        setPayload((prev) => {
-          const base = prev || {
-            currentSlide: null,
-            nextSlide: null,
-            currentSection: null,
-            nextSection: null,
-            song: null,
-            // FIX STAGE-01: use current time at call-time, not stale closure
-            clock: new Date().toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit'
-            }),
-            timer: { elapsed: 0, running: false },
-            status: {
-              isLive: false,
-              isFrozen: false,
-              isBlack: false,
-              projectionState: 'CLEAR' as const
-            }
-          }
-          return {
-            ...base,
-            currentSlide: {
-              text: text,
-              sectionLabel: slideData.sectionLabel || '',
-              slideIndex: slideData.slideIndex ?? 0,
-              totalSlides: 1
-            },
-            nextSlide: slideData.nextSlideText
-              ? { text: slideData.nextSlideText, sectionLabel: '' }
-              : null,
-            currentSection: slideData.sectionLabel || null,
-            status: { ...base.status, isLive: true, projectionState: 'LIVE' as const }
-          }
-        })
-      }
+      if (!slideData?.text) return
+
+      setPayload((previous) => {
+        const base: ConfidencePayload = previous ?? {
+          ...EMPTY_PAYLOAD,
+          clock: new Date().toLocaleTimeString()
+        }
+        const currentIdx = slideData.slideIndex ?? 0
+        const computedTotal = Math.max(
+          slideData.totalSlides ?? base.currentSlide?.totalSlides ?? 1,
+          currentIdx + 1
+        )
+        return {
+          ...base,
+          currentSlide: {
+            text: slideData.text!,
+            sectionLabel: slideData.sectionLabel || '',
+            slideIndex: currentIdx,
+            totalSlides: computedTotal,
+            contentType: slideData.contentType,
+            bibleReference: slideData.bibleReference,
+            bibleVersionCode: slideData.bibleVersionCode
+          },
+          nextSlide: slideData.nextSlideText
+            ? {
+                text: slideData.nextSlideText,
+                sectionLabel: '',
+                contentType: slideData.contentType
+              }
+            : null,
+          currentSection: slideData.sectionLabel || null,
+          status: { ...base.status, isLive: true, projectionState: 'LIVE' }
+        }
+      })
     })
 
-    // Listen for state changes
     const unsubscribeState = window.api.projection.onStateChange((state) => {
-      setPayload((prev) => {
-        const base = prev || {
-          currentSlide: null,
-          nextSlide: null,
-          currentSection: null,
-          nextSection: null,
-          song: null,
-          clock: new Date().toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-          }),
-          timer: { elapsed: 0, running: false },
-          status: {
-            isLive: false,
-            isFrozen: false,
-            isBlack: false,
-            projectionState: 'CLEAR' as const
-          }
+      setPayload((previous) => {
+        const base: ConfidencePayload = previous ?? {
+          ...EMPTY_PAYLOAD,
+          clock: new Date().toLocaleTimeString()
         }
         return {
           ...base,
@@ -107,188 +129,241 @@ export function StageDisplayApp(): React.JSX.Element {
       })
     })
 
-    // Phase 4: Direct confidence channel listener (dual-channel — keep legacy above)
-    let unsubscribeConfidence: (() => void) | undefined
-    if (window.api.confidence?.onUpdate) {
-      unsubscribeConfidence = window.api.confidence.onUpdate((data) => {
-        setPayload(data as ConfidencePayload)
-      })
-    }
-
-    // Start heartbeat
-    const heartbeatInterval = setInterval(() => {
-      window.api.health?.sendHeartbeat('STAGE_DISPLAY')
-    }, 1000)
+    const unsubscribeConfidence = window.api.confidence?.onUpdate?.((data) => {
+      setPayload(data as ConfidencePayload)
+    })
+    const heartbeat = setInterval(() => window.api.health?.sendHeartbeat('STAGE_DISPLAY'), 1000)
 
     return () => {
       unsubscribeSlide()
       unsubscribeState()
       unsubscribeConfidence?.()
-      clearInterval(heartbeatInterval)
+      clearInterval(heartbeat)
     }
-    // FIX STAGE-01: remove `time` from deps — it changes every second causing
-    // the effect to re-register all IPC listeners on every clock tick (memory leak).
-    // Use new Date() inside callbacks instead of the stale `time` closure.
   }, [])
 
-  // Build local payload from legacy channels (temporary)
-  const displayPayload = useMemo<ConfidencePayload>(() => {
-    if (payload) return payload
-
-    // Fallback: build from current state
-    return {
-      currentSlide: null,
-      nextSlide: null,
-      currentSection: null,
-      nextSection: null,
-      song: null,
-      // FIX STAGE-01: time is already tracked separately via the clock state
-      clock: time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      timer: { elapsed: 0, running: false },
-      status: { isLive: false, isFrozen: false, isBlack: false, projectionState: 'CLEAR' }
-    }
-  }, [payload, time])
+  const displayPayload = useMemo<ConfidencePayload>(
+    () =>
+      payload ?? {
+        ...EMPTY_PAYLOAD,
+        clock: time.toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        })
+      },
+    [payload, time]
+  )
 
   const { currentSlide, nextSlide, currentSection, nextSection, song, timer, status } =
     displayPayload
-
-  // Format elapsed time
-  const formatElapsed = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
+  const isBible = currentSlide?.contentType === 'bible'
+  const currentText = currentSlide
+    ? isBible
+      ? cleanStageBibleText(currentSlide.text)
+      : currentSlide.text.trim()
+    : ''
+  const nextText = nextSlide
+    ? nextSlide.contentType === 'bible'
+      ? cleanStageBibleText(nextSlide.text)
+      : nextSlide.text.trim()
+    : ''
+  const currentFit = getStageTextFit(currentText)
+  const progress = currentSlide?.totalSlides
+    ? Math.min(100, Math.round(((currentSlide.slideIndex + 1) / currentSlide.totalSlides) * 100))
+    : 0
+  const runtime = getStatusPresentation(status)
+  const StatusIcon = runtime.Icon
+  const reference = currentSlide?.bibleReference || currentSection || currentSlide?.sectionLabel
 
   return (
-    <div className="h-screen w-screen bg-black text-white flex flex-col overflow-hidden font-sans antialiased">
-      {/* ══════════════════════════════════════════════════════════ */}
-      {/* TOP BAR - Clock, Timer, Status */}
-      {/* ══════════════════════════════════════════════════════════ */}
-      <div className="h-24 flex items-center justify-between px-12 border-b border-white/10 bg-zinc-900/40">
-        {/* Clock */}
-        <div className="flex items-center gap-6">
-          <Clock className="text-status-info" size={36} />
-          <span className="text-5xl font-bold tracking-tight tabular-nums">
-            {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-          </span>
-        </div>
+    <main className="relative flex h-screen w-screen flex-col overflow-hidden bg-[#030506] font-['Poppins',sans-serif] text-white antialiased">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(37,99,235,0.08),transparent_42%)]" />
 
-        {/* Timer & Status */}
-        <div className="flex items-center gap-8">
-          {/* Timer */}
-          <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-white/5">
-            <Timer
-              size={20}
-              className={timer.running ? 'text-status-warning animate-pulse' : 'text-zinc-500'}
-            />
-            <span
-              className={`text-2xl font-mono tabular-nums ${timer.running ? 'text-status-warning' : 'text-zinc-400'}`}
-            >
-              {formatElapsed(timer.elapsed)}
-            </span>
+      <header className="relative z-10 flex h-[clamp(68px,9vh,92px)] shrink-0 items-center justify-between border-b border-white/8 bg-[#080b0f]/95 px-[clamp(22px,3vw,54px)]">
+        <div className="flex items-center gap-4">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-sky-400/20 bg-sky-400/8 text-sky-400">
+            <Clock3 size={24} strokeWidth={1.8} />
           </div>
-
-          {/* Live Status */}
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-5 h-5 rounded-full ${status.isLive ? 'bg-status-error animate-pulse' : 'bg-zinc-700'}`}
-            />
-            <span
-              className={`text-2xl font-black uppercase tracking-[0.2em] ${status.isLive ? 'text-status-error' : 'text-zinc-500'}`}
-            >
-              {status.isLive ? 'LIVE' : status.isBlack ? 'BLACK' : 'STANDBY'}
-            </span>
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-400">
+              Waktu lokal
+            </div>
+            <time className="text-[clamp(24px,2.5vw,40px)] font-bold tracking-tight text-white tabular-nums">
+              {time.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              })}
+            </time>
           </div>
         </div>
-      </div>
 
-      {/* ══════════════════════════════════════════════════════════ */}
-      {/* MAIN CONTENT - Current & Next */}
-      {/* ══════════════════════════════════════════════════════════ */}
-      <div className="flex-1 flex flex-col items-center justify-center px-16 text-center">
+        <div className="flex items-center gap-[clamp(14px,2vw,32px)]">
+          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5">
+            <TimerReset className={timer.running ? 'text-amber-300' : 'text-zinc-500'} size={19} />
+            <div className="flex flex-col justify-center gap-0.5 leading-none">
+              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-400 leading-none">
+                Durasi ibadah
+              </div>
+              <span
+                className={`font-mono text-[clamp(17px,1.7vw,25px)] font-bold tabular-nums leading-none ${timer.running ? 'text-amber-200' : 'text-zinc-400'}`}
+              >
+                {formatElapsed(timer.elapsed)}
+              </span>
+            </div>
+          </div>
+
+          <div className={`flex min-w-32 items-center justify-end gap-3 ${runtime.color}`}>
+            <span
+              className={`h-3 w-3 rounded-full ${runtime.dot} ${status.isLive ? 'animate-pulse' : ''}`}
+            />
+            <StatusIcon size={20} />
+            <span className="text-[clamp(15px,1.4vw,21px)] font-black tracking-[0.18em]">
+              {runtime.label}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <section className="relative z-10 flex min-h-0 flex-1 flex-col px-[clamp(26px,5vw,96px)] py-[clamp(20px,3vh,42px)]">
         {status.isLive && currentSlide ? (
-          <div className="w-full max-w-7xl space-y-10">
-            {/* Section Label */}
-            {currentSection && (
-              <div className="flex items-center justify-center gap-4">
-                <Music size={28} className="text-status-accent" />
-                <span className="text-status-accent text-3xl font-black uppercase tracking-[0.3em]">
-                  {currentSection}
+          <div
+            className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto]"
+            aria-label={isBible ? 'Konten Alkitab' : 'Konten lagu'}
+          >
+            <div className="flex min-h-10 items-center justify-center gap-3">
+              {isBible ? (
+                <BookOpen className="text-sky-400" size={24} aria-hidden="true" />
+              ) : (
+                <Music2 className="text-violet-400" size={24} aria-hidden="true" />
+              )}
+              <span
+                className={`text-[clamp(15px,1.45vw,23px)] font-black uppercase tracking-[0.2em] ${isBible ? 'text-sky-300' : 'text-violet-300'}`}
+              >
+                {isBible ? reference : currentSection || currentSlide.sectionLabel || 'Lagu'}
+              </span>
+              {isBible && currentSlide.bibleVersionCode ? (
+                <span className="rounded-md border border-sky-400/20 bg-sky-400/10 px-2 py-1 text-xs font-black tracking-[0.12em] text-sky-300">
+                  {currentSlide.bibleVersionCode}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="flex min-h-0 items-center justify-center overflow-hidden py-[clamp(14px,2vh,30px)] text-center">
+              <p
+                data-text-fit={currentFit}
+                className={`mx-auto max-h-full max-w-[1580px] overflow-hidden text-balance font-extrabold tracking-[-0.02em] text-white [text-wrap:balance] ${stageTextFitClass(currentFit)}`}
+              >
+                {currentText}
+              </p>
+            </div>
+
+            <div className="shrink-0">
+              <div className="mb-3 flex items-center gap-4">
+                <span className="text-xs font-extrabold tracking-[0.16em] text-zinc-400">
+                  SLIDE {currentSlide.slideIndex + 1} /{' '}
+                  {Math.max(currentSlide.totalSlides || 1, currentSlide.slideIndex + 1)}
+                </span>
+                <div
+                  role="progressbar"
+                  aria-label="Progress slide"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progress}
+                  className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10"
+                >
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-[width] duration-200"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <span className="w-10 text-right text-xs font-bold tabular-nums text-zinc-400">
+                  {progress}%
                 </span>
               </div>
-            )}
 
-            {/* Current Slide - LARGE */}
-            <div className="space-y-2">
-              <p className="text-[80px] lg:text-[96px] font-bold leading-tight whitespace-pre-line drop-shadow-2xl">
-                {currentSlide.text}
-              </p>
-              <p className="text-zinc-500 text-xl font-medium">
-                {currentSlide.slideIndex + 1} / {currentSlide.totalSlides}
-              </p>
+              <div className="min-h-[clamp(96px,15vh,152px)] border-t border-white/8 pt-[clamp(12px,2vh,22px)]">
+                {nextSlide ? (
+                  <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-5">
+                    <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-black tracking-[0.16em] text-emerald-300">
+                      BERIKUTNYA
+                    </div>
+                    <div className="min-w-0 text-left">
+                      {(nextSection || nextSlide.sectionLabel) &&
+                      (nextSection || nextSlide.sectionLabel) !== currentSection ? (
+                        <div className="mb-1 text-sm font-extrabold uppercase tracking-[0.14em] text-emerald-400/80">
+                          {nextSection || nextSlide.sectionLabel}
+                        </div>
+                      ) : null}
+                      <p className="line-clamp-2 text-[clamp(24px,2.65vw,43px)] font-bold leading-[1.18] tracking-[-0.015em] text-zinc-100">
+                        {nextText}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-3 py-5 text-zinc-500">
+                    <AlertCircle size={18} />
+                    <span className="text-sm font-extrabold tracking-[0.18em]">SLIDE TERAKHIR</span>
+                  </div>
+                )}
+              </div>
             </div>
-
-            {/* Divider */}
-            <div className="border-t border-white/10 pt-8" />
-
-            {/* Next Slide - Smaller */}
-            {nextSlide ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-center gap-3">
-                  <span className="text-zinc-500 text-xl font-bold uppercase tracking-[0.15em]">
-                    NEXT
-                  </span>
-                  {nextSection && nextSection !== currentSection && (
-                    <span className="text-status-accent text-lg font-bold uppercase tracking-[0.1em]">
-                      ({nextSection})
-                    </span>
-                  )}
-                </div>
-                <p className="text-[40px] lg:text-[48px] text-zinc-400 font-medium leading-relaxed italic line-clamp-3">
-                  {nextSlide.text}
-                </p>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center gap-3 text-zinc-600">
-                <AlertCircle size={20} />
-                <span className="text-xl font-medium">Last slide</span>
-              </div>
-            )}
           </div>
         ) : (
-          /* Standby Screen */
-          <div className="text-center space-y-6">
-            <div className="text-zinc-800 text-7xl font-black uppercase tracking-tighter select-none">
-              SION MEDIA
+          <div className="flex flex-1 flex-col items-center justify-center text-center">
+            <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl border border-sky-400/15 bg-sky-400/5 text-sky-400/60">
+              <Radio size={38} strokeWidth={1.4} />
             </div>
-            <div className="text-zinc-600 text-xl font-medium">Confidence Monitor</div>
+            <div className="text-[clamp(30px,4vw,60px)] font-black tracking-[-0.04em] text-zinc-700">
+              SION STAGE
+            </div>
+            <div className="mt-2 text-sm font-bold uppercase tracking-[0.24em] text-zinc-700">
+              Menunggu konten dari operator
+            </div>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* ══════════════════════════════════════════════════════════ */}
-      {/* FOOTER - Song Info */}
-      {/* ══════════════════════════════════════════════════════════ */}
-      <div className="h-20 bg-zinc-900/60 border-t border-white/5 flex items-center justify-between px-12">
+      <footer className="relative z-10 flex h-[clamp(54px,7vh,72px)] shrink-0 items-center justify-between border-t border-white/8 bg-[#080b0f]/96 px-[clamp(22px,3vw,54px)]">
         {song ? (
           <>
-            <div className="flex items-center gap-4">
-              <span className="text-status-accent text-lg font-bold">{song.hymnalCode}</span>
-              <span className="text-white text-xl font-semibold">{song.title}</span>
-              {song.keyNote && (
-                <span className="text-zinc-400 text-lg font-medium ml-2">Key: {song.keyNote}</span>
-              )}
+            <div className="flex min-w-0 items-center gap-4">
+              <span className="rounded-md bg-violet-400/10 px-2.5 py-1 text-sm font-black text-violet-300">
+                {song.hymnalCode}
+              </span>
+              <span className="truncate text-[clamp(16px,1.5vw,23px)] font-bold">{song.title}</span>
+              {song.keyNote ? (
+                <span className="shrink-0 rounded-md border border-white/10 px-2.5 py-1 text-sm font-bold text-zinc-300">
+                  Nada {song.keyNote}
+                </span>
+              ) : null}
             </div>
-            <div className="flex items-center gap-6 text-zinc-400 text-sm">
-              <div className="text-zinc-500 text-lg font-medium">{song.hymnalName}</div>
-              {song.composer && <span className="text-zinc-400">Composer: {song.composer}</span>}
-              {song.author && <span className="text-zinc-400">Arranger: {song.author}</span>}
+            <span className="ml-6 shrink-0 text-sm font-semibold text-zinc-500">
+              {song.hymnalName}
+            </span>
+          </>
+        ) : isBible && currentSlide ? (
+          <>
+            <div className="flex items-center gap-3 text-sky-300">
+              <BookOpen size={18} />
+              <span className="text-base font-bold">{reference || 'Alkitab'}</span>
+              {currentSlide.bibleVersionCode ? (
+                <span className="text-sm font-black text-zinc-500">
+                  {currentSlide.bibleVersionCode}
+                </span>
+              ) : null}
             </div>
+            <span className="ml-6 truncate text-xs text-zinc-600">
+              {currentSlide.bibleCopyright || 'Teks Alkitab'}
+            </span>
           </>
         ) : (
-          <div className="text-zinc-600 text-lg font-medium">No song loaded</div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-700">
+            <span className="h-2 w-2 rounded-full bg-zinc-700" /> Siap menerima konten
+          </div>
         )}
-      </div>
-    </div>
+      </footer>
+    </main>
   )
 }
