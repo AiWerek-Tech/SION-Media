@@ -49,3 +49,14 @@ resources/content-packs/**/*.csv
 
 # Local visual brainstorming artifacts
 .superpowers/
+
+# Code Signing Certificates (NEVER commit)
+certs/
+*.pfx
+*.p12
+
+# SQLite temporary files (NEVER commit)
+*.sqlite-shm
+*.sqlite-wal
+*.db-shm
+*.db-wal

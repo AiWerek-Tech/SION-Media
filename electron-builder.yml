@@ -10,12 +10,17 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+# Code Signing — Beta: don't fail build if certificate is unavailable.
+# Set to true once a trusted CA certificate is purchased.
+forceCodeSigning: false
 asarUnpack:
   - resources/**
 win:
   executableName: sion-media
   icon: build/icon.ico
   target: nsis
+  verifyUpdateCodeSignature: false
+  requestedExecutionLevel: asInvoker
 nsis:
   artifactName: SION-Media-${version}-Setup.${ext}
   shortcutName: ${productName}

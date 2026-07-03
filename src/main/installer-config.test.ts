@@ -6,6 +6,8 @@ const root = process.cwd()
 const config = readFileSync(resolve(root, 'electron-builder.yml'), 'utf8')
 const nsisIncludePath = resolve(root, 'build/installer.nsh')
 const assetGeneratorPath = resolve(root, 'scripts/generate-installer-assets.ps1')
+const signingCertGeneratorPath = resolve(root, 'scripts/generate-signing-cert.ps1')
+const signBuildPath = resolve(root, 'scripts/sign-build.ps1')
 
 function bmpDimensions(path: string): { width: number; height: number } {
   const data = readFileSync(resolve(root, path))
@@ -52,5 +54,62 @@ describe('Celestial Native Windows installer', () => {
     expect(icon.readUInt16LE(0)).toBe(0)
     expect(icon.readUInt16LE(2)).toBe(1)
     expect(icon.readUInt16LE(4)).toBeGreaterThanOrEqual(6)
+  })
+})
+
+describe('Code signing infrastructure', () => {
+  test('electron-builder.yml declares publisher identity and signing policy', () => {
+    expect(config).toContain('requestedExecutionLevel: asInvoker')
+    expect(config).toContain('verifyUpdateCodeSignature: false')
+    expect(config).toContain('forceCodeSigning: false')
+  })
+
+  test('signing certificate generator script exists and targets correct output', () => {
+    expect(existsSync(signingCertGeneratorPath)).toBe(true)
+    const script = readFileSync(signingCertGeneratorPath, 'utf8')
+    expect(script).toContain('CN=AiWerek Tech')
+    expect(script).toContain('CodeSigningCert')
+    expect(script).toContain('sion-media-signing.pfx')
+    expect(script).toContain('CSC_LINK')
+    expect(script).toContain('CSC_KEY_PASSWORD')
+  })
+
+  test('sign-build wrapper script exists and orchestrates the signing pipeline', () => {
+    expect(existsSync(signBuildPath)).toBe(true)
+    const script = readFileSync(signBuildPath, 'utf8')
+    expect(script).toContain('CSC_LINK')
+    expect(script).toContain('CSC_KEY_PASSWORD')
+    expect(script).toContain('CSC_IDENTITY_AUTO_DISCOVERY')
+    expect(script).toContain('Get-AuthenticodeSignature')
+    expect(script).toContain('npm run build:win')
+  })
+
+  test('installer includes SmartScreen guidance page for unsigned beta', () => {
+    const include = readFileSync(nsisIncludePath, 'utf8')
+    expect(include).toContain('SmartScreen')
+    expect(include).toContain('SmartScreenGuidancePage')
+    expect(include).toContain('Informasi Keamanan Windows')
+    expect(include).toContain('More info')
+    expect(include).toContain('Run anyway')
+    expect(include).toContain('aiwerek-tech.github.io')
+    expect(include).toContain('AiWerek Tech')
+  })
+
+  test('certificate files are protected by .gitignore', () => {
+    const gitignore = readFileSync(resolve(root, '.gitignore'), 'utf8')
+    expect(gitignore).toContain('certs/')
+    expect(gitignore).toContain('*.pfx')
+    expect(gitignore).toContain('*.p12')
+  })
+
+  test('code signing documentation exists', () => {
+    const docPath = resolve(root, 'docs/CODE_SIGNING.md')
+    expect(existsSync(docPath)).toBe(true)
+    const doc = readFileSync(docPath, 'utf8')
+    expect(doc).toContain('Self-Signed Certificate')
+    expect(doc).toContain('CA Certificate')
+    expect(doc).toContain('generate-signing-cert.ps1')
+    expect(doc).toContain('sign-build.ps1')
+    expect(doc).toContain('electron-builder.yml')
   })
 })

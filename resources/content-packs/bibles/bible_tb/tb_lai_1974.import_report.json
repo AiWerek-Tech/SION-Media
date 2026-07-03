@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "generated_at": "2026-06-20T03:13:05+00:00",
+  "version_code": "tb",
+  "book_count": 66,
+  "chapter_count": 1189,
+  "verse_count": 31102,
+  "expected": {
+    "books": 66,
+    "chapters": 1189,
+    "verses": 31102
+  },
+  "warnings": [],
+  "failed_chapters": [],
+  "missing_chapters": [],
+  "empty_verses": [],
+  "non_sequential": []
+}
