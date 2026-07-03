@@ -66,11 +66,15 @@ describe('Bundled database contract', () => {
   const bibleDatabasePath = resolve(biblePackDir, 'tb_lai_1974.sqlite')
   const bibleManifestPath = resolve(biblePackDir, 'tb_lai_1974.manifest.json')
 
-  test('keeps the production Bible database in source control and installer resources', () => {
+  test('includes the production song database and excludes transient journal files', () => {
     const gitignore = readFileSync(resolve(root, '.gitignore'), 'utf8')
 
     expect(gitignore).toContain('!resources/content-packs/bibles/bible_tb/tb_lai_1974.sqlite')
-    expect(config).toContain('!resources/sion.db')
+    // sion.db MUST be included in the build — it is the pre-populated default database
+    expect(config).not.toContain("- '!resources/sion.db'")
+    // Journal files MUST be excluded — they are transient runtime artifacts
+    expect(config).toContain('!resources/**/*.db-wal')
+    expect(config).toContain('!resources/**/*.db-shm')
     expect(config).toContain('!resources/**/*.sqlite-wal')
     expect(config).toContain('!resources/**/*.sqlite-shm')
   })

@@ -10,9 +10,10 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
-  # The mutable application DB is created and migrated in userData at runtime.
-  # Never let a developer's local snapshot or SQLite journals leak into a release.
-  - '!resources/sion.db'
+  # Exclude transient SQLite journal files — they are runtime artifacts
+  # and must never leak into a release build.
+  # NOTE: resources/sion.db IS intentionally included — it is the pre-populated
+  # default database (525 songs + hymnals) that gets copied to userData on first launch.
   - '!resources/**/*.db-wal'
   - '!resources/**/*.db-shm'
   - '!resources/**/*.sqlite-wal'
