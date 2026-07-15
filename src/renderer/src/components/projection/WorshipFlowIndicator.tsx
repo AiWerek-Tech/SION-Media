@@ -17,7 +17,8 @@ import type {
   NavigationFlow,
   NavigationFlowStep,
   ProjectionState,
-  SectionType
+  SectionType,
+  SlideData
 } from '@renderer/types'
 
 interface WorshipFlowIndicatorProps {
@@ -26,6 +27,9 @@ interface WorshipFlowIndicatorProps {
   isSmartMode: boolean
   projectionState: ProjectionState
   onBadgeClick: (step: NavigationFlowStep, stepIndex: number) => void
+  slides?: SlideData[]
+  currentSlideIndex?: number
+  onSlideClick?: (slideIndex: number) => void
 }
 
 /** Map section type to a CSS modifier class for colour coding. */
@@ -51,7 +55,10 @@ export function WorshipFlowIndicator({
   flowPosition,
   isSmartMode,
   projectionState,
-  onBadgeClick
+  onBadgeClick,
+  slides = [],
+  currentSlideIndex = -1,
+  onSlideClick
 }: WorshipFlowIndicatorProps): React.JSX.Element | null {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -63,19 +70,48 @@ export function WorshipFlowIndicator({
     if (activeBadge) {
       activeBadge.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
     }
-  }, [flowPosition])
+  }, [flowPosition, currentSlideIndex])
+
+  const isNumberedMaterial =
+    slides.length > 0 && slides.some((slide) => slide.contentType !== 'song')
 
   // Don't render when no song is loaded or projection is clear/black
   const isEmpty =
-    !navigationFlow ||
-    navigationFlow.steps.length === 0 ||
+    (!isNumberedMaterial && (!navigationFlow || navigationFlow.steps.length === 0)) ||
     projectionState === 'CLEAR' ||
     projectionState === 'LOGO' ||
     projectionState === 'BLACK'
 
   if (isEmpty) return null
 
-  const { steps } = navigationFlow
+  if (isNumberedMaterial) {
+    return (
+      <div className="worship-flow-indicator" role="navigation" aria-label="Navigasi slide materi">
+        <span
+          className="worship-flow-indicator__mode is-material"
+          title="Materi / presentasi"
+          aria-hidden="true"
+        />
+        <div className="worship-flow-indicator__scroll" ref={scrollRef}>
+          {slides.map((slide, index) => (
+            <button
+              key={`${slide.playlistItemId || 'material'}-${index}`}
+              type="button"
+              className={`flow-badge flow-badge--material ${index === currentSlideIndex ? 'flow-badge--active' : ''}`}
+              onClick={() => onSlideClick?.(index)}
+              title={`Slide ${index + 1}${slide.sectionLabel ? ` · ${slide.sectionLabel}` : ''}`}
+              aria-current={index === currentSlideIndex ? 'step' : undefined}
+              aria-label={`Slide ${index + 1}${index === currentSlideIndex ? ' (aktif)' : ''}`}
+            >
+              {index + 1}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  const { steps } = navigationFlow!
   const nextPosition = flowPosition + 1
 
   return (

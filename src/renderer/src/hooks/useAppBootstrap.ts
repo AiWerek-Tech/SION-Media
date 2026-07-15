@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useAppStore } from '@renderer/store/useAppStore'
 import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
 import { useBootStore } from '@renderer/startup/bootStore'
+import { useInstrumentStore } from '@renderer/store/useInstrumentStore'
 import { logger } from '@renderer/utils/logger'
 import { setGlobalSlideConfig as setRendererGlobalSlideConfig } from '@renderer/engine/slideEngine'
 import {
@@ -220,6 +221,13 @@ export function useAppBootstrap(): void {
           }),
           runTask('songs', 'Loading song library', 'optional', async () => {
             await loadSongs()
+          }),
+          runTask('instruments', 'Indexing backing tracks', 'optional', async () => {
+            const settings = await window.api.settings.getAll()
+            const folder = settings['song_instrument_folder'] || ''
+            if (folder) {
+              await useInstrumentStore.getState().scanFolder(folder)
+            }
           })
         ]
 

@@ -62,6 +62,7 @@ export type RuntimeCommandType =
 export type CommandSource =
   | 'KEYBOARD'
   | 'UI_BUTTON'
+  | 'PRESENTER_REMOTE'
   | 'QUICK_JUMP'
   | 'COMMAND_PALETTE'
   | 'MIDI'

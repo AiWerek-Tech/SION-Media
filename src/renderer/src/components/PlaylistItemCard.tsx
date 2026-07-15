@@ -1,10 +1,23 @@
 import React, { useState } from 'react'
-import { AlertTriangle, BookOpen, GripVertical, Megaphone, Radio, Tag, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  BookOpen,
+  GripVertical,
+  Megaphone,
+  Pencil,
+  Radio,
+  RefreshCw,
+  Tag,
+  X,
+  Image as ImageIcon
+} from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { generateSlidesForPlaylistItem } from '@renderer/engine/slideEngine'
 import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
 import type { PlaylistItem } from '@renderer/types'
+import { parseMediaPlaylistDescriptor } from '../../../shared/media-playlist'
+import { Modal, ModalButton } from '@renderer/components/modals/Modal'
 
 interface PlaylistItemCardProps {
   item: PlaylistItem
@@ -13,6 +26,7 @@ interface PlaylistItemCardProps {
   isProjected?: boolean
   onClick: () => void
   onRemove: (e: React.MouseEvent) => void
+  onReplace?: (item: PlaylistItem) => void
 }
 
 export default function PlaylistItemCard({
@@ -21,7 +35,8 @@ export default function PlaylistItemCard({
   isActive,
   isProjected = false,
   onClick,
-  onRemove
+  onRemove,
+  onReplace
 }: PlaylistItemCardProps): React.JSX.Element {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id.toString()
@@ -29,11 +44,19 @@ export default function PlaylistItemCard({
 
   const [isEditingLabel, setIsEditingLabel] = useState(false)
   const [tempLabel, setTempLabel] = useState(item.section_label || '')
+  const [isEditingInfo, setIsEditingInfo] = useState(false)
+  const [tempInfoTitle, setTempInfoTitle] = useState(item.title || '')
+  const [tempInfoBody, setTempInfoBody] = useState(item.notes || '')
   const updateItemLabel = usePlaylistStore((s) => s.updateItemLabel)
+  const updateInfoItem = usePlaylistStore((s) => s.updateInfoItem)
   const slideCount = generateSlidesForPlaylistItem(item).length
   const isBible = item.item_type === 'bible'
   const isInfo = item.item_type === 'info'
-  const hasEmptyLyrics = !isBible && !isInfo && !item.lyrics_raw?.trim()
+  const isMedia = item.item_type === 'media'
+  const mediaDescriptor = isMedia ? parseMediaPlaylistDescriptor(item.notes) : null
+  const mediaPath = mediaDescriptor?.path || ''
+  const mediaFileName = mediaPath.split(/[\\/]/).pop() || mediaPath
+  const hasEmptyLyrics = !isBible && !isInfo && !isMedia && !item.lyrics_raw?.trim()
   const meta = [item.key_note ? `Nada ${item.key_note}` : '', item.tempo || ''].filter(Boolean)
 
   let snippet = ''
@@ -62,6 +85,15 @@ export default function PlaylistItemCard({
     e?.preventDefault()
     updateItemLabel(item.id, tempLabel)
     setIsEditingLabel(false)
+  }
+
+  const handleInfoSubmit = (e?: React.FormEvent): void => {
+    e?.preventDefault()
+    updateInfoItem(item.id, { title: tempInfoTitle, body: tempInfoBody }).catch(() => {
+      setTempInfoTitle(item.title || '')
+      setTempInfoBody(item.notes || '')
+    })
+    setIsEditingInfo(false)
   }
 
   return (
@@ -131,6 +163,7 @@ export default function PlaylistItemCard({
           <div className="flex items-center gap-2">
             {isBible && <BookOpen size={13} className="text-indigo-400/80 shrink-0" />}
             {isInfo && <Megaphone size={13} className="shrink-0 text-cyan-400/80" />}
+            {isMedia && <ImageIcon size={13} className="shrink-0 text-emerald-400/80" />}
             <span className="truncate text-[13px] font-semibold text-text-primary">
               {item.title}
             </span>
@@ -139,7 +172,9 @@ export default function PlaylistItemCard({
                 className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1 ${
                   isBible
                     ? 'bg-indigo-500/15 text-indigo-400 ring-indigo-500/20'
-                    : 'bg-brand-primary/10 text-brand-primary ring-brand-primary/15'
+                    : isMedia
+                      ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/15'
+                      : 'bg-brand-primary/10 text-brand-primary ring-brand-primary/15'
                 }`}
               >
                 <Radio size={8} className="animate-pulse" />
@@ -186,6 +221,30 @@ export default function PlaylistItemCard({
                   </>
                 )}
               </>
+            ) : isMedia ? (
+              <>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-400">
+                  Media
+                </span>
+                <span className="text-[10px] text-text-disabled">·</span>
+                <span className="text-[11px] text-text-muted">
+                  {/\.(mp4|webm|mov|mkv)$/i.test(mediaPath)
+                    ? 'Video'
+                    : mediaPath.toLowerCase().endsWith('.pdf')
+                      ? mediaDescriptor?.presentation
+                        ? 'Presentasi'
+                        : 'PDF'
+                      : 'Gambar'}
+                </span>
+                {mediaFileName && (
+                  <>
+                    <span className="text-[10px] text-text-disabled">·</span>
+                    <span className="max-w-[200px] truncate text-[11px] text-text-disabled">
+                      {mediaFileName}
+                    </span>
+                  </>
+                )}
+              </>
             ) : (
               <>
                 <span className="text-[11px] font-medium text-text-muted">
@@ -207,6 +266,34 @@ export default function PlaylistItemCard({
         </div>
 
         <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+          {!isBible && !isInfo && !isMedia && onReplace && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onReplace(item)
+              }}
+              className="rounded-lg p-1.5 text-text-disabled transition-all hover:bg-brand-primary/10 hover:text-brand-primary"
+              title="Ganti lagu tanpa mengubah posisi rundown"
+              aria-label={`Ganti lagu ${item.title}`}
+            >
+              <RefreshCw size={14} />
+            </button>
+          )}
+          {isInfo && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setTempInfoTitle(item.title || '')
+                setTempInfoBody(item.notes || '')
+                setIsEditingInfo(true)
+              }}
+              className="rounded-lg p-1.5 text-text-disabled transition-all hover:bg-white/[0.06] hover:text-cyan-300"
+              title="Edit Info"
+              aria-label={`Edit info ${item.title}`}
+            >
+              <Pencil size={14} />
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation()
@@ -230,34 +317,88 @@ export default function PlaylistItemCard({
       </div>
 
       {isEditingLabel && (
-        <form
-          onSubmit={handleLabelSubmit}
-          className="absolute inset-0 z-10 flex items-center gap-2 rounded-2xl bg-bg-surface/95 px-3 backdrop-blur-sm animate-fade-in ring-1 ring-white/10"
+        <Modal
+          id={`playlist-label-${item.id}`}
+          title="Ubah Label Rundown"
+          subtitle="Label membantu operator mengenali bagian ibadah tanpa mengubah lagu."
+          size="sm"
+          onClose={() => setIsEditingLabel(false)}
+          footer={
+            <>
+              <ModalButton onClick={() => setIsEditingLabel(false)}>Batal</ModalButton>
+              <ModalButton variant="primary" onClick={() => handleLabelSubmit()}>
+                Simpan Label
+              </ModalButton>
+            </>
+          }
         >
-          <input
-            autoFocus
-            type="text"
-            value={tempLabel}
-            onChange={(e) => setTempLabel(e.target.value)}
-            placeholder="Label (Contoh: Chorus, Ending...)"
-            className="flex-1 rounded-lg border border-white/10 bg-bg-base px-3 py-1.5 text-xs outline-none focus:border-brand-primary transition-colors"
-          />
-          <button
-            type="submit"
-            className="rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-primary-hover transition-colors"
-            aria-label="Save playlist label"
-          >
-            OK
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsEditingLabel(false)}
-            className="p-1.5 text-text-muted hover:text-text-primary transition-colors"
-            aria-label="Cancel playlist label editing"
-          >
-            <X size={16} />
-          </button>
-        </form>
+          <form onSubmit={handleLabelSubmit} className="sp-field">
+            <label className="sp-field__label" htmlFor={`playlist-label-input-${item.id}`}>
+              Nama label
+            </label>
+            <input
+              id={`playlist-label-input-${item.id}`}
+              autoFocus
+              type="text"
+              value={tempLabel}
+              onChange={(e) => setTempLabel(e.target.value)}
+              placeholder="Contoh: Lagu Pembuka"
+              className="sp-input"
+            />
+          </form>
+        </Modal>
+      )}
+
+      {isEditingInfo && (
+        <Modal
+          id={`playlist-info-${item.id}`}
+          title="Edit Info Rundown"
+          subtitle="Perubahan disimpan pada item ini dan langsung tersedia saat ditayangkan."
+          size="md"
+          onClose={() => setIsEditingInfo(false)}
+          footer={
+            <>
+              <ModalButton onClick={() => setIsEditingInfo(false)}>Batal</ModalButton>
+              <ModalButton
+                variant="primary"
+                disabled={!tempInfoTitle.trim() && !tempInfoBody.trim()}
+                onClick={() => handleInfoSubmit()}
+              >
+                Simpan Perubahan
+              </ModalButton>
+            </>
+          }
+        >
+          <form onSubmit={handleInfoSubmit} className="playlist-modal-form">
+            <div className="sp-field">
+              <label className="sp-field__label" htmlFor={`playlist-info-title-${item.id}`}>
+                Judul
+              </label>
+              <input
+                id={`playlist-info-title-${item.id}`}
+                autoFocus
+                type="text"
+                value={tempInfoTitle}
+                onChange={(e) => setTempInfoTitle(e.target.value)}
+                placeholder="Judul Info"
+                className="sp-input"
+              />
+            </div>
+            <div className="sp-field">
+              <label className="sp-field__label" htmlFor={`playlist-info-body-${item.id}`}>
+                Isi informasi
+              </label>
+              <textarea
+                id={`playlist-info-body-${item.id}`}
+                value={tempInfoBody}
+                onChange={(e) => setTempInfoBody(e.target.value)}
+                placeholder="Isi Info"
+                rows={6}
+                className="sp-input min-h-[140px] resize-y py-3"
+              />
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   )

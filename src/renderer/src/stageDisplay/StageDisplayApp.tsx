@@ -23,7 +23,8 @@ const EMPTY_PAYLOAD: Omit<ConfidencePayload, 'clock'> = {
   nextSection: null,
   song: null,
   timer: { elapsed: 0, running: false },
-  status: { isLive: false, isFrozen: false, isBlack: false, projectionState: 'CLEAR' }
+  status: { isLive: false, isFrozen: false, isBlack: false, projectionState: 'CLEAR' },
+  updatedAt: 0
 }
 
 function formatElapsed(seconds: number): string {
@@ -57,6 +58,7 @@ function getStatusPresentation(status: ConfidencePayload['status']): {
 export function StageDisplayApp(): React.JSX.Element {
   const [payload, setPayload] = useState<ConfidencePayload | null>(null)
   const [time, setTime] = useState(() => new Date())
+  const [lastHeartbeatAck, setLastHeartbeatAck] = useState(0)
 
   useEffect(() => {
     const clockTimer = setInterval(() => setTime(new Date()), 1000)
@@ -75,7 +77,7 @@ export function StageDisplayApp(): React.JSX.Element {
         bibleReference?: string
         bibleVersionCode?: string
       }
-      if (!slideData?.text) return
+      if (!slideData || typeof slideData !== 'object') return
 
       setPayload((previous) => {
         const base: ConfidencePayload = previous ?? {
@@ -90,7 +92,7 @@ export function StageDisplayApp(): React.JSX.Element {
         return {
           ...base,
           currentSlide: {
-            text: slideData.text!,
+            text: slideData.text || '',
             sectionLabel: slideData.sectionLabel || '',
             slideIndex: currentIdx,
             totalSlides: computedTotal,
@@ -106,7 +108,8 @@ export function StageDisplayApp(): React.JSX.Element {
               }
             : null,
           currentSection: slideData.sectionLabel || null,
-          status: { ...base.status, isLive: true, projectionState: 'LIVE' }
+          status: { ...base.status, isLive: true, projectionState: 'LIVE' },
+          updatedAt: Date.now()
         }
       })
     })
@@ -124,13 +127,18 @@ export function StageDisplayApp(): React.JSX.Element {
             isFrozen: state === 'FREEZE',
             isBlack: state === 'BLACK',
             projectionState: state as ProjectionState
-          }
+          },
+          updatedAt: Date.now()
         }
       })
     })
 
     const unsubscribeConfidence = window.api.confidence?.onUpdate?.((data) => {
+      if (!data || typeof data !== 'object') return
       setPayload(data as ConfidencePayload)
+    })
+    const unsubscribeHeartbeat = window.api.health?.onHeartbeatAck?.((data) => {
+      if (data.id === 'STAGE_DISPLAY') setLastHeartbeatAck(Date.now())
     })
     const heartbeat = setInterval(() => window.api.health?.sendHeartbeat('STAGE_DISPLAY'), 1000)
 
@@ -138,6 +146,7 @@ export function StageDisplayApp(): React.JSX.Element {
       unsubscribeSlide()
       unsubscribeState()
       unsubscribeConfidence?.()
+      unsubscribeHeartbeat?.()
       clearInterval(heartbeat)
     }
   }, [])
@@ -175,6 +184,7 @@ export function StageDisplayApp(): React.JSX.Element {
   const runtime = getStatusPresentation(status)
   const StatusIcon = runtime.Icon
   const reference = currentSlide?.bibleReference || currentSection || currentSlide?.sectionLabel
+  const backendConnected = lastHeartbeatAck > 0 && time.getTime() - lastHeartbeatAck < 3500
 
   return (
     <main className="relative flex h-screen w-screen flex-col overflow-hidden bg-[#030506] font-['Poppins',sans-serif] text-white antialiased">
@@ -200,6 +210,18 @@ export function StageDisplayApp(): React.JSX.Element {
         </div>
 
         <div className="flex items-center gap-[clamp(14px,2vw,32px)]">
+          <div
+            className={`flex items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] ${
+              backendConnected
+                ? 'border-emerald-400/20 bg-emerald-400/8 text-emerald-300'
+                : 'border-rose-400/25 bg-rose-400/8 text-rose-300'
+            }`}
+          >
+            <span
+              className={`h-2 w-2 rounded-full ${backendConnected ? 'bg-emerald-400' : 'animate-pulse bg-rose-400'}`}
+            />
+            {backendConnected ? 'Terhubung' : 'Menghubungkan'}
+          </div>
           <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5">
             <TimerReset className={timer.running ? 'text-amber-300' : 'text-zinc-500'} size={19} />
             <div className="flex flex-col justify-center gap-0.5 leading-none">
@@ -255,7 +277,7 @@ export function StageDisplayApp(): React.JSX.Element {
                 data-text-fit={currentFit}
                 className={`mx-auto max-h-full max-w-[1580px] overflow-hidden text-balance font-extrabold tracking-[-0.02em] text-white [text-wrap:balance] ${stageTextFitClass(currentFit)}`}
               >
-                {currentText}
+                {currentText || currentSlide.stageNotes || 'Konten visual sedang ditayangkan'}
               </p>
             </div>
 
@@ -284,6 +306,30 @@ export function StageDisplayApp(): React.JSX.Element {
               </div>
 
               <div className="min-h-[clamp(96px,15vh,152px)] border-t border-white/8 pt-[clamp(12px,2vh,22px)]">
+                {currentSlide.stageNotes || currentSlide.stageChord ? (
+                  <div className="mb-4 grid grid-cols-[minmax(0,1fr)_auto] gap-3">
+                    {currentSlide.stageNotes ? (
+                      <div className="rounded-xl border border-amber-300/15 bg-amber-300/[0.06] px-4 py-3">
+                        <div className="mb-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-300/70">
+                          Catatan pemateri
+                        </div>
+                        <p className="line-clamp-2 text-[clamp(15px,1.3vw,21px)] font-semibold leading-snug text-amber-50">
+                          {currentSlide.stageNotes}
+                        </p>
+                      </div>
+                    ) : null}
+                    {currentSlide.stageChord ? (
+                      <div className="min-w-40 rounded-xl border border-violet-300/20 bg-violet-300/[0.07] px-4 py-3 text-center">
+                        <div className="mb-1 text-[10px] font-black uppercase tracking-[0.16em] text-violet-300/70">
+                          Chord
+                        </div>
+                        <div className="font-mono text-[clamp(18px,1.8vw,28px)] font-black text-violet-100">
+                          {currentSlide.stageChord}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 {nextSlide ? (
                   <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-5">
                     <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-black tracking-[0.16em] text-emerald-300">

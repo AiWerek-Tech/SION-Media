@@ -29,9 +29,7 @@ describe('AnnouncementPanel', () => {
     expect(screen.getByPlaceholderText('Isi pengumuman... (Ctrl+Enter untuk kirim)')).toHaveClass(
       'projection-announcement-panel__textarea'
     )
-    expect(screen.getByText('Template Cepat').parentElement).toHaveClass(
-      'projection-announcement-panel__templates'
-    )
+    expect(screen.queryByText('Template Cepat')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Kirim ke Preview' }).parentElement).toHaveClass(
       'projection-announcement-panel__actions'
     )

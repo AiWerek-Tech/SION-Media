@@ -36,16 +36,77 @@
 
 !include "nsDialogs.nsh"
 !include "WinMessages.nsh"
+!include "WordFunc.nsh"
+!insertmacro VersionCompare
+!define SION_UNINSTALL_REGISTRY_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\53d10980-7c5d-53c4-b8b8-e77124218cfc"
 
 !ifndef BUILD_UNINSTALLER
+Var InstallerMode
+Var ExistingVersion
+Var ExistingInstallLocation
 Var SmartScreenDialog
 Var SmartScreenHeaderLabel
-Var SmartScreenBodyLabel
-Var SmartScreenStepsLabel
-Var SmartScreenFooterLabel
+Var SmartScreenTextBox
+
+Function DetectExistingInstallation
+  ; Check both 32-bit and 64-bit registry views on 64-bit Windows.
+  SetRegView 64
+  StrCpy $InstallerMode "install"
+  StrCpy $ExistingVersion ""
+  StrCpy $ExistingInstallLocation ""
+
+  ; Per-user mode: check HKCU first (primary), then HKLM as fallback
+  ; to allow upgrading from old per-machine installations.
+  ReadRegStr $ExistingVersion HKCU \
+    "${SION_UNINSTALL_REGISTRY_KEY}" \
+    "DisplayVersion"
+  ReadRegStr $ExistingInstallLocation HKCU \
+    "${SION_UNINSTALL_REGISTRY_KEY}" \
+    "InstallLocation"
+  ${If} $ExistingVersion == ""
+    ; Fallback: check HKLM for legacy per-machine installations
+    ReadRegStr $ExistingVersion HKLM \
+      "${SION_UNINSTALL_REGISTRY_KEY}" \
+      "DisplayVersion"
+    ReadRegStr $ExistingInstallLocation HKLM \
+      "${SION_UNINSTALL_REGISTRY_KEY}" \
+      "InstallLocation"
+  ${EndIf}
+
+  ${If} $ExistingVersion != ""
+    ${VersionCompare} $ExistingVersion "${VERSION}" $0
+    ${If} $0 == 0
+      StrCpy $InstallerMode "repair"
+    ${ElseIf} $0 == 1
+      MessageBox MB_ICONSTOP|MB_OK \
+        "SION Media $ExistingVersion tidak dapat ditimpa oleh ${VERSION} karena versi yang lebih baru sudah terpasang."
+      Quit
+    ${Else}
+      StrCpy $InstallerMode "update"
+    ${EndIf}
+
+    ${If} $ExistingInstallLocation != ""
+      StrCpy $INSTDIR $ExistingInstallLocation
+    ${EndIf}
+  ${EndIf}
+FunctionEnd
+
+!macro customInit
+  Call DetectExistingInstallation
+!macroend
 
 ; ─── Custom Page Function ─────────────────────────────────────
 Function SmartScreenGuidancePage
+
+  ${If} $InstallerMode == "update"
+    GetDlgItem $0 $HWNDPARENT 1
+    SendMessage $0 ${WM_SETTEXT} 0 "STR:Perbarui"
+    SendMessage $HWNDPARENT ${WM_SETTEXT} 0 "STR:Pembaruan SION Media"
+  ${ElseIf} $InstallerMode == "repair"
+    GetDlgItem $0 $HWNDPARENT 1
+    SendMessage $0 ${WM_SETTEXT} 0 "STR:Perbaiki"
+    SendMessage $HWNDPARENT ${WM_SETTEXT} 0 "STR:Perbaikan SION Media"
+  ${EndIf}
 
   ; Create the page
   nsDialogs::Create 1018
@@ -55,33 +116,50 @@ Function SmartScreenGuidancePage
     Abort
   ${EndIf}
 
+  ; Existing installations get a real confirmation page. The short native
+  ; action label fits the fixed NSIS button while the page carries context.
+  ${If} $InstallerMode == "update"
+    ${NSD_CreateLabel} 0 4u 100% 24u "SION Media Siap Diperbarui"
+    Pop $SmartScreenHeaderLabel
+    CreateFont $0 "Segoe UI" 12 700
+    SendMessage $SmartScreenHeaderLabel ${WM_SETFONT} $0 1
+    ${NSD_CreateLabel} 0 40u 100% 82u \
+      "Versi $ExistingVersion akan diperbarui ke ${VERSION}.$\r$\n$\r$\nData pengguna tetap dipertahankan: lagu pribadi, playlist, pengaturan, catatan Alkitab, highlight, dan media.$\r$\n$\r$\nKlik Perbarui untuk melanjutkan."
+    Pop $1
+    nsDialogs::Show
+    Return
+  ${ElseIf} $InstallerMode == "repair"
+    ${NSD_CreateLabel} 0 4u 100% 24u "SION Media Siap Diperbaiki"
+    Pop $SmartScreenHeaderLabel
+    CreateFont $0 "Segoe UI" 12 700
+    SendMessage $SmartScreenHeaderLabel ${WM_SETFONT} $0 1
+    ${NSD_CreateLabel} 0 40u 100% 82u \
+      "Setup akan memperbaiki file aplikasi SION Media ${VERSION}.$\r$\n$\r$\nData pengguna tetap dipertahankan: lagu pribadi, playlist, pengaturan, catatan Alkitab, highlight, dan media.$\r$\n$\r$\nKlik Perbaiki untuk melanjutkan."
+    Pop $1
+    nsDialogs::Show
+    Return
+  ${EndIf}
+
   ; ── Header Label ──
-  ${NSD_CreateLabel} 0 0 100% 36u \
-    "⛨  Informasi Keamanan Windows (SmartScreen)"
+  ${NSD_CreateLabel} 0 0 100% 24u \
+    "Informasi Keamanan Windows (SmartScreen)"
   Pop $SmartScreenHeaderLabel
   CreateFont $0 "Segoe UI" 11 700
   SendMessage $SmartScreenHeaderLabel ${WM_SETFONT} $0 1
 
-  ; ── Explanation Body ──
-  ${NSD_CreateLabel} 0 42u 100% 60u \
-    "SION Media sedang dalam tahap Beta dan belum memiliki sertifikat tanda tangan digital (code signing certificate) dari otoritas sertifikat terpercaya. Windows SmartScreen akan menampilkan peringatan $\"Windows protected your PC$\" untuk aplikasi yang belum dikenal oleh sistem reputasi Microsoft.$\r$\n$\r$\nINI BUKAN VIRUS — ini adalah perilaku normal Windows untuk aplikasi baru."
-  Pop $SmartScreenBodyLabel
+  ; ── Scrollable Read-Only Text Area ──
+  ; Uses a multi-line edit control with ES_READONLY and WS_VSCROLL
+  nsDialogs::CreateControl "RichEdit20A" \
+    ${WS_VISIBLE}|${WS_CHILD}|${WS_VSCROLL}|${WS_TABSTOP}|${ES_MULTILINE}|${ES_READONLY}|${ES_WANTRETURN} \
+    ${WS_EX_STATICEDGE} \
+    0 28u 100% 142u ""
+  Pop $SmartScreenTextBox
   CreateFont $1 "Segoe UI" 9 400
-  SendMessage $SmartScreenBodyLabel ${WM_SETFONT} $1 1
+  SendMessage $SmartScreenTextBox ${WM_SETFONT} $1 1
 
-  ; ── Step-by-step bypass instructions ──
-  ${NSD_CreateLabel} 0 108u 100% 48u \
-    "Langkah-langkah untuk menginstal SION Media dengan aman:$\r$\n  1. Klik tombol 'More info' pada dialog Windows SmartScreen yang muncul.$\r$\n  2. Klik tombol 'Run anyway' yang akan muncul di bawahnya.$\r$\n  3. SION Media akan langsung terinstal secara normal."
-  Pop $SmartScreenStepsLabel
-  CreateFont $2 "Segoe UI" 9 700
-  SendMessage $SmartScreenStepsLabel ${WM_SETFONT} $2 1
-
-  ; ── Footer text ──
-  ${NSD_CreateLabel} 0 162u 100% 24u \
-    "Untuk verifikasi kode sumber dan laporan keamanan, silakan kunjungi:$\r$\nhttps://github.com/AiWerek-Tech/SION-Media"
-  Pop $SmartScreenFooterLabel
-  CreateFont $3 "Segoe UI" 8 400
-  SendMessage $SmartScreenFooterLabel ${WM_SETFONT} $3 1
+  ; Set the full text content
+  ${NSD_SetText} $SmartScreenTextBox \
+    "SION Media sedang dalam tahap Beta dan belum memiliki sertifikat tanda tangan digital (code signing certificate) dari otoritas sertifikat terpercaya. Windows SmartScreen akan menampilkan peringatan $\"Windows protected your PC$\" untuk aplikasi yang belum dikenal oleh sistem reputasi Microsoft.$\r$\n$\r$\nINI BUKAN VIRUS — ini adalah perilaku normal Windows untuk aplikasi baru.$\r$\n$\r$\nLangkah aman untuk melanjutkan:$\r$\n$\r$\n  1. Klik $\"More info$\" pada dialog Windows SmartScreen.$\r$\n  2. Klik $\"Run anyway$\".$\r$\n  3. Ikuti langkah instalasi sampai selesai.$\r$\n$\r$\nVerifikasi keaslian:$\r$\n  Penerbit: AiWerek Tech$\r$\n  App ID: com.aiwerek.sion-media$\r$\n  Website: https://aiwerek-tech.github.io/sion-media-web$\r$\n  Kode sumber: https://github.com/AiWerek-Tech/SION-Media"
 
   ; Show the dialog
   nsDialogs::Show
@@ -103,5 +181,12 @@ FunctionEnd
 
 !macro customPageAfterChangeDir
   Page custom SmartScreenGuidancePage SmartScreenGuidancePageLeave
+!macroend
+
+; Persist the resolved directory for deterministic upgrades from this release onward.
+; SHELL_CONTEXT is set by electron-builder's multiUser logic to match the current
+; install mode (HKCU for per-user, HKLM for per-machine).
+!macro customInstall
+  WriteRegStr SHELL_CONTEXT "${SION_UNINSTALL_REGISTRY_KEY}" "InstallLocation" "$INSTDIR"
 !macroend
 !endif

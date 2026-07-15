@@ -4,6 +4,7 @@ import type { ProjectionState, SlideData } from '@renderer/types'
 import { AtmosphereRenderer } from '@renderer/atmosphere/AtmosphereRenderer'
 import { useAtmosphereStore } from '@renderer/store/useAtmosphereStore'
 import { BibleAutoFitText } from './presentation/BibleAutoFitText'
+import { PdfSlideViewer } from './presentation/PdfSlideViewer'
 
 interface PresentationCanvasProps {
   slide: SlideData | null
@@ -12,6 +13,8 @@ interface PresentationCanvasProps {
   animated?: boolean
   showMetadata?: boolean
   fit?: boolean
+  /** Audience output uses `cover` to fill displays with non-16:9 active areas. */
+  fitMode?: 'contain' | 'cover'
   className?: string
   lyricsFontSizePercent?: number
   /** When false, suppresses the idle "SION PRESENTER" watermark text.
@@ -20,6 +23,8 @@ interface PresentationCanvasProps {
   /** AnimatePresence mode: 'wait' (projector, sequential) or 'sync' (operator, simultaneous).
    *  'sync' runs exit and enter in parallel, eliminating perceived delay on small monitors. */
   transitionMode?: 'wait' | 'sync' | 'popLayout'
+  muted?: boolean
+  volume?: number
 }
 
 interface TransitionConfig {
@@ -102,10 +107,13 @@ export function PresentationCanvas({
   animated = true,
   showMetadata = true,
   fit = false,
+  fitMode = 'contain',
   className,
   lyricsFontSizePercent = 100,
   showIdleWatermark = true,
-  transitionMode = 'wait'
+  transitionMode = 'wait',
+  muted = false,
+  volume = 1.0
 }: PresentationCanvasProps): React.JSX.Element {
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const [scale, setScale] = useState(1)
@@ -116,13 +124,15 @@ export function PresentationCanvas({
     const node = wrapperRef.current
     const updateScale = (): void => {
       const rect = node.getBoundingClientRect()
-      setScale(Math.min(rect.width / 1920, rect.height / 1080))
+      const scaleX = rect.width / 1920
+      const scaleY = rect.height / 1080
+      setScale(fitMode === 'cover' ? Math.max(scaleX, scaleY) : Math.min(scaleX, scaleY))
     }
     updateScale()
     const observer = new ResizeObserver(updateScale)
     observer.observe(node)
     return () => observer.disconnect()
-  }, [fit])
+  }, [fit, fitMode])
 
   const showBlack = projectionState === 'BLACK'
   const showLive = projectionState === 'LIVE' || projectionState === 'FREEZE'
@@ -171,6 +181,12 @@ export function PresentationCanvas({
     const resolved = getResolvedAtmosphere(theme)
     return resolved.active
   }, [theme, getResolvedAtmosphere])
+  const hasVisualMedia = Boolean(
+    showLive &&
+    (slide?.pdfPath ||
+      ((resolvedAtmosphere.mode === 'image' || resolvedAtmosphere.mode === 'video') &&
+        resolvedAtmosphere.media?.path))
+  )
 
   const primaryTextContent = slide ? (
     isInfoSlide ? (
@@ -272,31 +288,145 @@ export function PresentationCanvas({
           : CANVAS_STYLE
       }
     >
-      {!showBlack && (
+      {!showBlack && !slide?.pdfPath && (
         <AtmosphereRenderer
           config={resolvedAtmosphere}
           transitionDuration={transitionDuration}
           showReadabilityGuard={hasLyrics || showLogo}
+          muted={muted}
+          volume={volume}
         />
       )}
 
       {animated ? (
-        <AnimatePresence mode={transitionMode}>
+        <>
+          <AnimatePresence mode={transitionMode}>
+            {hasLyrics && (
+              <motion.div
+                key={contentKey}
+                initial={transition.initial}
+                animate={transition.animate}
+                exit={transition.exit}
+                transition={transition.transition}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: `${dynamicPaddingV}px ${dynamicPaddingH}px`,
+                  willChange: 'transform, opacity, filter'
+                }}
+              >
+                <div
+                  style={{
+                    maxWidth: dynamicMaxWidth,
+                    width: dynamicWidth,
+                    textAlign
+                  }}
+                >
+                  {primaryTextContent}
+
+                  {!isBibleSlide && slide.bibleReference && (
+                    <div
+                      style={{
+                        marginTop: 48,
+                        color: 'rgba(255,255,255,0.9)',
+                        fontFamily,
+                        fontSize: fontSize * 0.45,
+                        fontWeight: 800,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                        textAlign:
+                          textAlign === 'left'
+                            ? 'left'
+                            : textAlign === 'right'
+                              ? 'right'
+                              : 'center',
+                        textShadow
+                      }}
+                    >
+                      — {slide.bibleReference} —
+                    </div>
+                  )}
+
+                  {!isBibleSlide && slide.bibleCopyright && (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        color: 'rgba(255,255,255,0.4)',
+                        fontFamily,
+                        fontSize: fontSize * 0.28,
+                        fontWeight: 500,
+                        textAlign:
+                          textAlign === 'left'
+                            ? 'left'
+                            : textAlign === 'right'
+                              ? 'right'
+                              : 'center',
+                        textShadow
+                      }}
+                    >
+                      {slide.bibleCopyright}
+                    </div>
+                  )}
+
+                  {showMetadata && (slide.keyNote || slide.timeSignature || slide.tempo) && (
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 24,
+                        marginTop: 50,
+                        padding: '14px 32px',
+                        borderRadius: 999,
+                        background: 'rgba(0,0,0,0.42)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        backdropFilter: 'blur(16px)',
+                        color: 'rgba(255,255,255,0.72)',
+                        fontFamily
+                      }}
+                    >
+                      {slide.keyNote && <strong>Nada {slide.keyNote}</strong>}
+                      {slide.timeSignature && <strong>{slide.timeSignature}</strong>}
+                      {slide.tempo && <strong>{slide.tempo} BPM</strong>}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {showLive && !showBlack && slide?.pdfPath && (
+              <motion.div
+                key={`pdf-${slide.pdfPath}-${slide.slideIndex}`}
+                initial={transition.initial}
+                animate={transition.animate}
+                exit={transition.exit}
+                transition={transition.transition}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  willChange: 'transform, opacity, filter'
+                }}
+              >
+                <PdfSlideViewer pdfPath={slide.pdfPath} pageNumber={slide.slideIndex + 1} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
+      ) : (
+        <>
           {hasLyrics && (
-            <motion.div
-              key={contentKey}
-              initial={transition.initial}
-              animate={transition.animate}
-              exit={transition.exit}
-              transition={transition.transition}
+            <div
               style={{
                 position: 'absolute',
                 inset: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: `${dynamicPaddingV}px ${dynamicPaddingH}px`,
-                willChange: 'transform, opacity, filter'
+                padding: `${dynamicPaddingV}px ${dynamicPaddingH}px`
               }}
             >
               <div
@@ -366,93 +496,20 @@ export function PresentationCanvas({
                   </div>
                 )}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      ) : (
-        hasLyrics && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: `${dynamicPaddingV}px ${dynamicPaddingH}px`
-            }}
-          >
-            <div
-              style={{
-                maxWidth: dynamicMaxWidth,
-                width: dynamicWidth,
-                textAlign
-              }}
-            >
-              {primaryTextContent}
-
-              {!isBibleSlide && slide.bibleReference && (
-                <div
-                  style={{
-                    marginTop: 48,
-                    color: 'rgba(255,255,255,0.9)',
-                    fontFamily,
-                    fontSize: fontSize * 0.45,
-                    fontWeight: 800,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    textAlign:
-                      textAlign === 'left' ? 'left' : textAlign === 'right' ? 'right' : 'center',
-                    textShadow
-                  }}
-                >
-                  — {slide.bibleReference} —
-                </div>
-              )}
-
-              {!isBibleSlide && slide.bibleCopyright && (
-                <div
-                  style={{
-                    marginTop: 12,
-                    color: 'rgba(255,255,255,0.4)',
-                    fontFamily,
-                    fontSize: fontSize * 0.28,
-                    fontWeight: 500,
-                    textAlign:
-                      textAlign === 'left' ? 'left' : textAlign === 'right' ? 'right' : 'center',
-                    textShadow
-                  }}
-                >
-                  {slide.bibleCopyright}
-                </div>
-              )}
-
-              {showMetadata && (slide.keyNote || slide.timeSignature || slide.tempo) && (
-                <div
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 24,
-                    marginTop: 50,
-                    padding: '14px 32px',
-                    borderRadius: 999,
-                    background: 'rgba(0,0,0,0.42)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    backdropFilter: 'blur(16px)',
-                    color: 'rgba(255,255,255,0.72)',
-                    fontFamily
-                  }}
-                >
-                  {slide.keyNote && <strong>Nada {slide.keyNote}</strong>}
-                  {slide.timeSignature && <strong>{slide.timeSignature}</strong>}
-                  {slide.tempo && <strong>{slide.tempo} BPM</strong>}
-                </div>
-              )}
             </div>
-          </div>
-        )
+          )}
+
+          {showLive && !showBlack && slide?.pdfPath && (
+            <PdfSlideViewer
+              key={`pdf-static-${slide.pdfPath}-${slide.slideIndex}`}
+              pdfPath={slide.pdfPath}
+              pageNumber={slide.slideIndex + 1}
+            />
+          )}
+        </>
       )}
 
-      {!hasLyrics && !showBlack && showIdleWatermark && (
+      {!hasLyrics && !hasVisualMedia && !showBlack && showIdleWatermark && (
         <div
           style={{
             position: 'absolute',

@@ -3,6 +3,11 @@ import { persist } from 'zustand/middleware'
 import type { Playlist, PlaylistItem, Song } from '@renderer/types'
 import { logger } from '@renderer/utils/logger'
 import { showToast } from '@renderer/services/toast-service'
+import { getPdfPageCount } from '@renderer/utils/pdfUtils'
+
+const PDF_PAGE_COUNT_RETRY_DELAY_MS = 10_000
+const pendingPdfPageCounts = new Map<string, Promise<number>>()
+const failedPdfPageCountRetryAt = new Map<string, number>()
 
 interface PlaylistStore {
   playlists: Playlist[]
@@ -36,10 +41,21 @@ interface PlaylistStore {
     notes?: string
   }) => Promise<void>
   addInfoToPlaylist: (info: { title: string; body: string }) => Promise<void>
+  updateInfoItem: (itemId: number, info: { title: string; body: string }) => Promise<void>
+  replaceSongItem: (itemId: number, song: Song) => Promise<void>
+  addMediaToPlaylist: (media: {
+    title: string
+    path: string
+    presentation?: { slides: Array<{ index: number; title: string; notes: string }> }
+  }) => Promise<void>
   removeItem: (itemId: number) => Promise<void>
   clearPlaylist: () => Promise<void>
   reorderItems: (startIndex: number, endIndex: number) => Promise<void>
   updateItemLabel: (itemId: number, label: string) => Promise<void>
+
+  // PDF Presentation properties
+  pdfPageCounts: Record<string, number>
+  fetchPdfPageCount: (path: string) => Promise<number>
 }
 
 export const usePlaylistStore = create<PlaylistStore>()(
@@ -65,6 +81,43 @@ export const usePlaylistStore = create<PlaylistStore>()(
 
       // Phase 1 — Persisted active playlist ID
       _persistedActivePlaylistId: null,
+
+      // PDF Presentation properties
+      pdfPageCounts: {},
+      fetchPdfPageCount: async (path: string) => {
+        const { pdfPageCounts } = get()
+        if (pdfPageCounts[path] !== undefined) {
+          return pdfPageCounts[path]
+        }
+
+        const retryAt = failedPdfPageCountRetryAt.get(path) ?? 0
+        if (retryAt > Date.now()) {
+          return 1
+        }
+
+        const pendingRequest = pendingPdfPageCounts.get(path)
+        if (pendingRequest) return pendingRequest
+
+        const request = getPdfPageCount(path)
+          .then((count) => {
+            failedPdfPageCountRetryAt.delete(path)
+            set((state) => ({
+              pdfPageCounts: { ...state.pdfPageCounts, [path]: count }
+            }))
+            return count
+          })
+          .catch((err: unknown) => {
+            failedPdfPageCountRetryAt.set(path, Date.now() + PDF_PAGE_COUNT_RETRY_DELAY_MS)
+            logger.error('Failed to load page count for PDF:', path, err)
+            return 1 // fallback while allowing a later retry
+          })
+          .finally(() => {
+            pendingPdfPageCounts.delete(path)
+          })
+
+        pendingPdfPageCounts.set(path, request)
+        return request
+      },
 
       loadPlaylists: async () => {
         try {
@@ -166,6 +219,69 @@ export const usePlaylistStore = create<PlaylistStore>()(
         } catch (err) {
           logger.error('Failed to add info to playlist:', err)
           showToast('Gagal menambahkan Info ke playlist', 'error')
+        }
+      },
+
+      updateInfoItem: async (itemId, info) => {
+        const { playlistItems } = get()
+        const title = info.title.trim() || 'Info'
+        const notes = info.body.trim()
+        const prevItems = playlistItems
+
+        set({
+          playlistItems: playlistItems.map((item) =>
+            item.id === itemId ? { ...item, title, notes } : item
+          )
+        })
+
+        try {
+          await window.api.playlists.updateItem(itemId, { title, notes })
+          showToast('Info playlist diperbarui', 'success')
+        } catch (err) {
+          logger.error('Failed to update info playlist item:', err)
+          set({ playlistItems: prevItems })
+          showToast('Gagal memperbarui Info playlist', 'error')
+          throw err
+        }
+      },
+
+      replaceSongItem: async (itemId, song) => {
+        const { activePlaylist, playlistItems, activeItemIndex } = get()
+        if (!activePlaylist) return
+        const previousItems = playlistItems
+        try {
+          await window.api.playlists.updateItem(itemId, { song_id: song.id })
+          const items = (await window.api.playlists.getItems(activePlaylist.id)) as PlaylistItem[]
+          set({ playlistItems: items, activeItemIndex })
+          showToast(
+            `Lagu diganti menjadi ${song.number ? `${song.number} · ` : ''}${song.title}`,
+            'success'
+          )
+        } catch (err) {
+          logger.error('Failed to replace playlist song:', err)
+          set({ playlistItems: previousItems })
+          showToast('Gagal mengganti lagu playlist', 'error')
+          throw err
+        }
+      },
+
+      addMediaToPlaylist: async (media) => {
+        const { activePlaylist } = get()
+        if (!activePlaylist) {
+          showToast('Pilih rundown/playlist terlebih dahulu', 'error')
+          return
+        }
+        try {
+          await window.api.playlists.addMedia(activePlaylist.id, media)
+          const items = (await window.api.playlists.getItems(activePlaylist.id)) as PlaylistItem[]
+          set({
+            playlistItems: items,
+            activeItemIndex: get().activeItemIndex >= 0 ? get().activeItemIndex : items.length - 1
+          })
+          showToast('Media ditambahkan ke playlist', 'success')
+        } catch (err) {
+          logger.error('Failed to add media to playlist:', err)
+          showToast('Gagal menambahkan Media ke playlist', 'error')
         }
       },
 

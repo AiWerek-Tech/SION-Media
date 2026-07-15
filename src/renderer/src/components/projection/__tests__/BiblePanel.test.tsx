@@ -29,6 +29,14 @@ describe('BiblePanel Electron layout', () => {
         chapters: 1,
         testament: 'OT',
         order: 1
+      },
+      {
+        code: 'MAT',
+        osis_id: 'Matt',
+        name: 'Matius',
+        chapters: 1,
+        testament: 'NT',
+        order: 40
       }
     ])
     vi.mocked(window.api.biblePack.getChapter).mockResolvedValue([
@@ -53,15 +61,13 @@ describe('BiblePanel Electron layout', () => {
       container.querySelector('.projection-bible-panel__mode-scroll--search')
     ).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Browse' }))
+    expect(screen.queryByRole('button', { name: 'Manual' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Pilih Ayat' }))
     expect(
       container.querySelector('.projection-bible-panel__mode-scroll--browse')
     ).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Manual' }))
-    expect(
-      container.querySelector('.projection-bible-panel__mode-scroll--manual')
-    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Kitab' })).not.toBeInTheDocument()
   })
 
   it('provides a vertically scrollable verse viewport without clipping panel controls', async () => {
@@ -69,8 +75,9 @@ describe('BiblePanel Electron layout', () => {
     const { container } = render(<BiblePanel />)
 
     expect(container.querySelector('.projection-bible-panel')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Browse' }))
+    await user.click(screen.getByRole('button', { name: 'Pilih Ayat' }))
     await user.click(await screen.findByRole('button', { name: 'Kejadian' }))
+    expect(screen.getByRole('button', { name: 'Kitab' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '1' }))
     await screen.findByText('Pada mulanya Allah menciptakan langit dan bumi.')
 
@@ -83,7 +90,7 @@ describe('BiblePanel Electron layout', () => {
     const user = userEvent.setup()
     const { container } = render(<BiblePanel />)
 
-    await user.click(screen.getByRole('button', { name: 'Browse' }))
+    await user.click(screen.getByRole('button', { name: 'Pilih Ayat' }))
     await user.click(await screen.findByRole('button', { name: 'Kejadian' }))
     await user.click(screen.getByRole('button', { name: '1' }))
     await user.click(await screen.findByText('Pada mulanya Allah menciptakan langit dan bumi.'))
@@ -100,5 +107,23 @@ describe('BiblePanel Electron layout', () => {
     await user.click(screen.getByText('Kejadian 1:1'))
     expect(historyToggle).toHaveAttribute('aria-expanded', 'false')
     expect(container.querySelector('.projection-bible-panel__history-list')).not.toBeInTheDocument()
+  })
+
+  it('filters browse books by Old and New Testament toggles', async () => {
+    const user = userEvent.setup()
+    render(<BiblePanel />)
+
+    await user.click(await screen.findByRole('button', { name: 'Pilih Ayat' }))
+    expect(await screen.findByRole('button', { name: 'Kejadian' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Matius' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('checkbox', { name: 'PL' }))
+    expect(screen.queryByRole('button', { name: 'Kejadian' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Matius' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('checkbox', { name: 'PB' }))
+    await user.click(screen.getByRole('checkbox', { name: 'PL' }))
+    expect(screen.getByRole('button', { name: 'Kejadian' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Matius' })).not.toBeInTheDocument()
   })
 })

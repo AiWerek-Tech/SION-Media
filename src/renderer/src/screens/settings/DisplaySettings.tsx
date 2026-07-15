@@ -94,6 +94,7 @@ export function DisplaySettings({
   const displayResolution = settings.display_resolution || 'auto'
   const displayRefreshRate = settings.display_refresh_rate || '60'
   const projectionMonitorId = settings.projection_monitor_id || ''
+  const stageMonitorId = settings.stage_monitor_id || ''
 
   const primaryDisplay = displayList.find((d) => d.isPrimary) || displayList[0]
   const projectorDisplay = displayList.find((d) => !d.isPrimary) || displayList[0]
@@ -207,6 +208,13 @@ export function DisplaySettings({
                   >
                     <MonitorPlay size={14} />
                     {projectionMonitorId === String(d.id) ? 'Output Aktif' : 'Set sebagai Output'}
+                  </button>
+                  <button
+                    className={`settings-display-btn-advanced ${stageMonitorId === String(d.id) ? 'is-active' : ''}`}
+                    onClick={() => updateSetting('stage_monitor_id', String(d.id))}
+                  >
+                    <Monitor size={14} />
+                    {stageMonitorId === String(d.id) ? 'Stage Aktif' : 'Set sebagai Stage'}
                   </button>
                 </div>
               </div>
@@ -398,6 +406,12 @@ export function DisplaySettings({
               label: 'Fullscreen Output',
               desc: 'Jalankan proyektor dalam mode fullscreen penuh',
               key: 'display_fullscreen',
+              default: '1'
+            },
+            {
+              label: 'Fullscreen Stage Display',
+              desc: 'Jalankan confidence monitor panggung memenuhi layar yang dipilih',
+              key: 'stage_display_fullscreen',
               default: '1'
             },
             {

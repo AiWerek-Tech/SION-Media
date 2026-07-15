@@ -18,6 +18,7 @@ import {
   Snowflake,
   Square,
   Volume2,
+  VolumeX,
   XCircle,
   Zap
 } from 'lucide-react'
@@ -25,6 +26,7 @@ import { useAppStore } from '../store/useAppStore'
 import { DEFAULT_SCENE_PRESETS } from '../atmosphere/presets'
 import { useProjectionStore } from '../store/useProjectionStore'
 import { useAtmosphereStore } from '../store/useAtmosphereStore'
+import { useInstrumentStore } from '../store/useInstrumentStore'
 import type { ProjectionState, SlideData } from '@renderer/types'
 import sionLogoMono from '../assets/sion-logo-mono.svg'
 import { PresentationCanvas } from './PresentationCanvas'
@@ -33,6 +35,7 @@ import { LyricsZoomControl } from './projection/LyricsZoomControl'
 import { WorshipFlowIndicator } from './projection/WorshipFlowIndicator'
 import { executeRuntimeCommand } from '@renderer/utils/runtimeCommandBus'
 import { logger } from '../utils/logger'
+import { isSamePresentationCue } from '../utils/presentationCueIdentity'
 import { STATE_CONFIG, TitleBarTimer } from './titlebar/TitleBarStatus'
 
 const TRANSITION_SPEEDS = [
@@ -61,6 +64,130 @@ interface MonitorFrameProps {
   onSettings: () => void
 }
 
+function VideoControlBar({ accent }: { accent: 'preview' | 'program' }): React.JSX.Element {
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const isProgram = accent === 'program'
+
+  useEffect(() => {
+    const updateState = (): void => {
+      const video = document.querySelector(
+        `.broadcast-monitor--${accent} video`
+      ) as HTMLVideoElement | null
+      if (!video) return
+
+      setIsPlaying(!video.paused)
+      setCurrentTime(video.currentTime)
+      setDuration(video.duration || 0)
+    }
+
+    updateState()
+    const timer = setInterval(updateState, 250)
+
+    return () => {
+      clearInterval(timer)
+    }
+  }, [accent])
+
+  const handlePlayPause = (): void => {
+    const video = document.querySelector(
+      `.broadcast-monitor--${accent} video`
+    ) as HTMLVideoElement | null
+    if (!video) return
+
+    if (video.paused) {
+      video.play().catch((err) => console.error('[VideoControl] Play failed:', err))
+      if (isProgram) {
+        window.api.projection.videoControl('play')
+      }
+    } else {
+      video.pause()
+      if (isProgram) {
+        window.api.projection.videoControl('pause')
+      }
+    }
+  }
+
+  const handleStop = (): void => {
+    const video = document.querySelector(
+      `.broadcast-monitor--${accent} video`
+    ) as HTMLVideoElement | null
+    if (!video) return
+
+    video.pause()
+    video.currentTime = 0
+    if (isProgram) {
+      window.api.projection.videoControl('stop')
+    }
+  }
+
+  const handleSeek = (time: number): void => {
+    const video = document.querySelector(
+      `.broadcast-monitor--${accent} video`
+    ) as HTMLVideoElement | null
+    if (!video) return
+
+    video.currentTime = time
+    setCurrentTime(time)
+    if (isProgram) {
+      window.api.projection.videoControl('seek', time)
+    }
+  }
+
+  const formatTime = (secs: number): string => {
+    if (isNaN(secs) || !isFinite(secs)) return '00:00'
+    const m = Math.floor(secs / 60)
+      .toString()
+      .padStart(2, '0')
+    const s = Math.floor(secs % 60)
+      .toString()
+      .padStart(2, '0')
+    return `${m}:${s}`
+  }
+
+  const sliderPercent = duration ? (currentTime / duration) * 100 : 0
+
+  return (
+    <div className="w-full max-w-[280px] sm:max-w-[320px] md:max-w-md mx-auto flex items-center justify-between gap-3 px-3 py-1 rounded-lg bg-black/60 border border-white/[0.06] backdrop-blur-sm select-none z-30">
+      <button
+        onClick={handlePlayPause}
+        className="p-1 rounded-md hover:bg-white/10 text-text-primary active:scale-95 transition-all shrink-0"
+        title={isPlaying ? 'Pause' : 'Play'}
+      >
+        {isPlaying ? (
+          <Pause size={12} fill="currentColor" />
+        ) : (
+          <Play size={12} fill="currentColor" />
+        )}
+      </button>
+      <button
+        onClick={handleStop}
+        className="p-1 rounded-md hover:bg-white/10 text-text-primary active:scale-95 transition-all shrink-0"
+        title="Stop"
+      >
+        <Square size={11} fill="currentColor" />
+      </button>
+
+      <input
+        type="range"
+        min={0}
+        max={duration || 100}
+        value={currentTime}
+        onChange={(e) => handleSeek(Number(e.target.value))}
+        className="flex-1 h-1 rounded bg-white/20 accent-brand-primary outline-none cursor-pointer"
+        style={{
+          background: `linear-gradient(to right, var(--color-brand-primary) 0%, var(--color-brand-primary) ${sliderPercent}%, rgba(255,255,255,0.2) ${sliderPercent}%, rgba(255,255,255,0.2) 100%)`
+        }}
+      />
+
+      <span className="text-[10px] font-mono text-text-muted shrink-0">
+        {formatTime(currentTime)} / {formatTime(duration)}
+      </span>
+    </div>
+  )
+}
+
 function MonitorFrame({
   mode,
   slide,
@@ -82,6 +209,16 @@ function MonitorFrame({
   const emptyLyrics = slide !== null && slide.text.trim().length === 0
   const accent = isProgram ? 'program' : 'preview'
   const showLyrics = !isBlack && !isClear && slide && !emptyLyrics
+
+  const hasVideo = useMemo(() => {
+    if (!songBackgroundConfig) return false
+    try {
+      const config = JSON.parse(songBackgroundConfig)
+      return config.mode === 'video' && !!config.media?.path
+    } catch {
+      return false
+    }
+  }, [songBackgroundConfig])
 
   // Derive clean state label for program
   const stateKey = stateLabel.split(' ')[0]
@@ -193,8 +330,8 @@ function MonitorFrame({
       </div>
 
       {/* ── Screen ── */}
-      <div className="broadcast-monitor__frame">
-        <div className="broadcast-monitor__screen">
+      <div className="broadcast-monitor__frame flex flex-col gap-2 min-h-0 w-full">
+        <div className="broadcast-monitor__screen flex-1">
           {isProgram ? (
             <LiveProjectionCanvas
               slide={slide}
@@ -203,6 +340,7 @@ function MonitorFrame({
               showMetadata={false}
               fit
               lyricsFontSizePercent={lyricsFontSizePercent}
+              muted={true}
             />
           ) : (
             <PresentationCanvas
@@ -214,6 +352,7 @@ function MonitorFrame({
               showIdleWatermark={false}
               fit
               lyricsFontSizePercent={lyricsFontSizePercent}
+              muted={true}
             />
           )}
 
@@ -271,6 +410,12 @@ function MonitorFrame({
             <span>60 FPS</span>
           </div>
         </div>
+
+        {hasVideo && (
+          <div className="w-full pb-1 select-none">
+            <VideoControlBar accent={accent} />
+          </div>
+        )}
       </div>
     </div>
   )
@@ -290,7 +435,9 @@ function TransitionColumn(): React.JSX.Element {
     setTransitionType,
     navigationFlow,
     flowPosition,
-    isSmartMode
+    isSmartMode,
+    cuedSongBackgroundConfig,
+    programSongBackgroundConfig
   } = useProjectionStore()
 
   const hasCue = slides.length > 0
@@ -303,9 +450,12 @@ function TransitionColumn(): React.JSX.Element {
   const isCueSameAsProgram =
     hasCue &&
     hasProgram &&
-    previewSlide?.songId === programSlide?.songId &&
-    previewSlide?.slideIndex === programSlide?.slideIndex &&
-    previewSlide?.text === programSlide?.text
+    isSamePresentationCue(
+      previewSlide,
+      programSlide,
+      cuedSongBackgroundConfig,
+      programSongBackgroundConfig
+    )
 
   // Derive TAKE disabled state and tooltip contextually
   const isTakeDisabled = !hasCue || (isCueSameAsProgram && isLive)
@@ -469,10 +619,105 @@ function TransitionColumn(): React.JSX.Element {
 
 /**
  * Audio Output Panel — 4th column in the broadcast monitor grid.
- * Compact service timer. Timer driven by global useTimerTick.
+ * Combines: service timer + real audio volume fader + live VU meter (OBS-style).
  */
 function AudioOutputPanel(): React.JSX.Element {
-  const { timerElapsed, timerRunning, timerStart, timerStop, timerReset } = useProjectionStore()
+  const {
+    timerElapsed,
+    timerRunning,
+    timerStart,
+    timerStop,
+    timerReset,
+    mediaVolume,
+    mediaMuted,
+    setMediaVolume,
+    setMediaMuted,
+    instrumentVolume,
+    instrumentMuted,
+    setInstrumentVolume,
+    setInstrumentMuted
+  } = useProjectionStore()
+
+  // Instrument VU level simulated for operator feedback when playing
+  const [instVuLevel, setInstVuLevel] = React.useState(0)
+  const { isPlaying: isInstrumentPlaying } = useInstrumentStore()
+
+  React.useEffect(() => {
+    if (!isInstrumentPlaying || instrumentMuted) {
+      return
+    }
+    let rafId = 0
+    const tick = (): void => {
+      const randomFactor = Math.random() * 0.4 + 0.5
+      const wave = Math.sin(Date.now() / 100) * 0.1 + 0.1
+      setInstVuLevel(Math.max(0, Math.min(1, (randomFactor + wave) * (instrumentVolume / 100))))
+      rafId = requestAnimationFrame(tick)
+    }
+    tick()
+    return () => cancelAnimationFrame(rafId)
+  }, [isInstrumentPlaying, instrumentVolume, instrumentMuted])
+
+  // VU meter state driven by Web Audio API
+  const [vuLevel, setVuLevel] = React.useState(0)
+  const analyserRef = React.useRef<AnalyserNode | null>(null)
+  const sourceRef = React.useRef<MediaElementAudioSourceNode | null>(null)
+  const audioCtxRef = React.useRef<AudioContext | null>(null)
+  const rafRef = React.useRef<number>(0)
+
+  // Poll the program monitor's video element for audio levels
+  React.useEffect(() => {
+    let cancelled = false
+
+    const connectAudio = (): void => {
+      const video = document.querySelector(
+        '.broadcast-monitor--program video'
+      ) as HTMLVideoElement | null
+      if (!video || sourceRef.current) return
+
+      try {
+        if (!audioCtxRef.current) {
+          audioCtxRef.current = new AudioContext()
+        }
+        const ctx = audioCtxRef.current
+        const source = ctx.createMediaElementSource(video)
+        const analyser = ctx.createAnalyser()
+        analyser.fftSize = 256
+        analyser.smoothingTimeConstant = 0.7
+        source.connect(analyser)
+        // Don't connect to destination — audio plays from projection window, not operator
+        sourceRef.current = source
+        analyserRef.current = analyser
+      } catch {
+        // Video element may not be ready yet
+      }
+    }
+
+    const tick = (): void => {
+      if (cancelled) return
+      if (!analyserRef.current) {
+        connectAudio()
+        rafRef.current = requestAnimationFrame(tick)
+        return
+      }
+      const analyser = analyserRef.current
+      const data = new Uint8Array(analyser.frequencyBinCount)
+      analyser.getByteFrequencyData(data)
+      // RMS level calculation
+      let sum = 0
+      for (let i = 0; i < data.length; i++) sum += data[i] * data[i]
+      const rms = Math.sqrt(sum / data.length)
+      const normalized = Math.min(rms / 128, 1)
+      setVuLevel(normalized)
+      rafRef.current = requestAnimationFrame(tick)
+    }
+
+    rafRef.current = requestAnimationFrame(tick)
+
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(rafRef.current)
+    }
+  }, [])
 
   const h = Math.floor(timerElapsed / 3600)
   const m = Math.floor((timerElapsed % 3600) / 60)
@@ -483,14 +728,20 @@ function AudioOutputPanel(): React.JSX.Element {
       : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
   const isLong = timerElapsed >= 3600
 
+  // Volume display in dB
+  const volumeDb = mediaVolume > 0 ? (20 * Math.log10(mediaVolume / 100)).toFixed(1) : '-∞'
+  const instrumentVolumeDb =
+    instrumentVolume > 0 ? (20 * Math.log10(instrumentVolume / 100)).toFixed(1) : '-∞'
+  const displayedInstVuLevel = !isInstrumentPlaying || instrumentMuted ? 0 : instVuLevel
+
   return (
     <aside className="output-rack">
+      {/* TIMER */}
       <div className="output-rack__header">
-        <span>Timer</span>
+        <span>TIMER</span>
         <Settings size={12} className="opacity-30" />
       </div>
 
-      {/* Timer display */}
       <div
         className={`audio-panel__timer ${timerRunning ? 'is-running' : ''} ${isLong ? 'is-long' : ''}`}
         style={{ margin: '0 -2px' }}
@@ -501,7 +752,6 @@ function AudioOutputPanel(): React.JSX.Element {
         </span>
       </div>
 
-      {/* Controls */}
       <div className="flex gap-1.5">
         <button
           className={`audio-panel__btn-primary flex-1 ${timerRunning ? 'is-stop' : 'is-start'}`}
@@ -521,25 +771,148 @@ function AudioOutputPanel(): React.JSX.Element {
         </button>
       </div>
 
-      {/* Audio monitoring placeholder */}
-      <div className="audio-panel__monitoring" style={{ padding: '8px 0 0' }}>
-        <div className="audio-panel__vu">
-          {[2, 4, 6, 3, 5, 7, 4, 2].map((barH, i) => (
-            <div
-              key={i}
-              className={`audio-panel__vu-bar ${timerRunning ? 'is-active' : ''}`}
-              style={{
-                height: `${barH * 2.5}px`,
-                // FIX: animate bars when timer is running to give visual feedback
-                animationDelay: timerRunning ? `${i * 80}ms` : '0ms'
-              }}
-            />
-          ))}
+      {/* AUDIO MIXER (OBS Studio Style) */}
+      <div className="output-rack__divider" />
+
+      <div
+        className="flex flex-col gap-4 overflow-y-auto pr-1"
+        style={{ maxHeight: 200, width: '100%' }}
+      >
+        {/* Desktop Audio */}
+        <div className="obs-mixer">
+          <div className="obs-mixer__title-row">
+            <span className="obs-mixer__channel-name">Desktop Audio</span>
+            <button
+              onClick={() => setMediaMuted(!mediaMuted)}
+              className={`obs-mixer__mute-btn ${mediaMuted ? 'is-muted' : ''}`}
+              title={mediaMuted ? 'Unmute' : 'Mute'}
+              aria-label={mediaMuted ? 'Unmute audio' : 'Mute audio'}
+            >
+              {mediaMuted ? <VolumeX size={11} /> : <Volume2 size={11} />}
+            </button>
+          </div>
+
+          {/* Dual channel VU meter */}
+          <div className="obs-mixer__vu-container">
+            {/* L Channel */}
+            <div className="obs-mixer__vu-channel">
+              <div
+                className="obs-mixer__vu-fill"
+                style={{
+                  width: mediaMuted ? '0%' : `${vuLevel * 100}%`
+                }}
+              />
+            </div>
+            {/* R Channel */}
+            <div className="obs-mixer__vu-channel" style={{ marginTop: 2 }}>
+              <div
+                className="obs-mixer__vu-fill"
+                style={{
+                  width: mediaMuted ? '0%' : `${vuLevel * 100}%`
+                }}
+              />
+            </div>
+
+            {/* Ticks/dB marks */}
+            <div className="obs-mixer__db-ticks">
+              <span>-60</span>
+              <span>-30</span>
+              <span>-20</span>
+              <span>-10</span>
+              <span>-5</span>
+              <span>0</span>
+            </div>
+          </div>
+
+          {/* Fader slot and knob */}
+          <div className="obs-mixer__fader-row">
+            <div className="obs-mixer__fader-container">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={mediaMuted ? 0 : mediaVolume}
+                onChange={(e) => {
+                  const val = Number(e.target.value)
+                  setMediaVolume(val)
+                  if (mediaMuted && val > 0) setMediaMuted(false)
+                }}
+                className="obs-mixer__fader-slider"
+                aria-label="Desktop Audio Fader"
+              />
+            </div>
+            <span className="obs-mixer__db-value">{mediaMuted ? 'Mute' : `${volumeDb} dB`}</span>
+          </div>
         </div>
-        <p className="audio-panel__monitoring-label">
-          <Volume2 size={9} />
-          Audio
-        </p>
+
+        {/* Instrument Audio */}
+        <div className="obs-mixer">
+          <div className="obs-mixer__title-row">
+            <span className="obs-mixer__channel-name">Instrumen Lagu</span>
+            <button
+              onClick={() => setInstrumentMuted(!instrumentMuted)}
+              className={`obs-mixer__mute-btn ${instrumentMuted ? 'is-muted' : ''}`}
+              title={instrumentMuted ? 'Unmute' : 'Mute'}
+              aria-label={instrumentMuted ? 'Unmute instrument' : 'Mute instrument'}
+            >
+              {instrumentMuted ? <VolumeX size={11} /> : <Volume2 size={11} />}
+            </button>
+          </div>
+
+          {/* Dual channel VU meter */}
+          <div className="obs-mixer__vu-container">
+            {/* L Channel */}
+            <div className="obs-mixer__vu-channel">
+              <div
+                className="obs-mixer__vu-fill"
+                style={{
+                  width: `${displayedInstVuLevel * 100}%`
+                }}
+              />
+            </div>
+            {/* R Channel */}
+            <div className="obs-mixer__vu-channel" style={{ marginTop: 2 }}>
+              <div
+                className="obs-mixer__vu-fill"
+                style={{
+                  width: `${displayedInstVuLevel * 100}%`
+                }}
+              />
+            </div>
+
+            {/* Ticks/dB marks */}
+            <div className="obs-mixer__db-ticks">
+              <span>-60</span>
+              <span>-30</span>
+              <span>-20</span>
+              <span>-10</span>
+              <span>-5</span>
+              <span>0</span>
+            </div>
+          </div>
+
+          {/* Fader slot and knob */}
+          <div className="obs-mixer__fader-row">
+            <div className="obs-mixer__fader-container">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={instrumentMuted ? 0 : instrumentVolume}
+                onChange={(e) => {
+                  const val = Number(e.target.value)
+                  setInstrumentVolume(val)
+                  if (instrumentMuted && val > 0) setInstrumentMuted(false)
+                }}
+                className="obs-mixer__fader-slider"
+                aria-label="Instrument Fader"
+              />
+            </div>
+            <span className="obs-mixer__db-value">
+              {instrumentMuted ? 'Mute' : `${instrumentVolumeDb} dB`}
+            </span>
+          </div>
+        </div>
       </div>
     </aside>
   )
@@ -646,6 +1019,7 @@ export function LivePreviewPanel(): React.JSX.Element {
     navigationFlow,
     flowPosition,
     isSmartMode,
+    toggleLogo,
     goToLiveSlide
   } = useProjectionStore()
   const {
@@ -728,9 +1102,17 @@ export function LivePreviewPanel(): React.JSX.Element {
         useProjectionStore.setState({ transitionType: updates.transition_type })
       }
     })
+
+    const unsubscribeTimeUpdate = window.api.projection.onInstrumentTimeUpdate(
+      (currentTime, duration) => {
+        useInstrumentStore.getState().setTimeUpdate(currentTime, duration)
+      }
+    )
+
     return () => {
       mounted = false
       unsubscribeTheme()
+      unsubscribeTimeUpdate()
     }
   }, [])
 
@@ -913,6 +1295,9 @@ export function LivePreviewPanel(): React.JSX.Element {
             isSmartMode={isSmartMode}
             projectionState={projectionState}
             onBadgeClick={(step) => goToLiveSlide(step.firstSlideIndex)}
+            slides={programSlides}
+            currentSlideIndex={programSlideIndex}
+            onSlideClick={goToLiveSlide}
           />
         </div>
 
@@ -965,16 +1350,7 @@ export function LivePreviewPanel(): React.JSX.Element {
           {/* Logo */}
           <button
             className={`scene-strip__state-btn ${projectionState === 'LOGO' ? 'is-logo-active' : ''}`}
-            onClick={() => {
-              if (projectionState === 'LOGO') {
-                // Toggle off — kembali ke CLEAR
-                useProjectionStore.getState().setProjectionState('CLEAR')
-                window.api.projection.stateChange('CLEAR')
-              } else {
-                useProjectionStore.getState().setProjectionState('LOGO')
-                window.api.projection.stateChange('LOGO')
-              }
-            }}
+            onClick={toggleLogo}
             title={
               projectionState === 'LOGO'
                 ? 'Logo aktif — klik untuk kembali ke Clear'

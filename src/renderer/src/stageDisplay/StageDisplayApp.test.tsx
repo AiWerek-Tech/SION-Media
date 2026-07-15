@@ -92,4 +92,34 @@ describe('StageDisplayApp production confidence monitor', () => {
     expect(screen.getByText('Nada D')).toBeInTheDocument()
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '25')
   })
+
+  test('shows speaker notes and chord cues without replacing the live lyric', () => {
+    render(<StageDisplayApp />)
+
+    act(() => {
+      confidenceListener({
+        currentSlide: {
+          text: 'Ku percaya janji-Mu',
+          sectionLabel: 'Chorus',
+          slideIndex: 1,
+          totalSlides: 3,
+          contentType: 'song',
+          stageNotes: 'Ajak jemaat masuk bersama.',
+          stageChord: 'G  D  Em  C'
+        },
+        nextSlide: null,
+        currentSection: 'Chorus',
+        nextSection: null,
+        song: null,
+        clock: '10:45:30',
+        timer: { elapsed: 30, running: true },
+        status: { isLive: true, isFrozen: false, isBlack: false, projectionState: 'LIVE' },
+        updatedAt: Date.now()
+      })
+    })
+
+    expect(screen.getByText('Ku percaya janji-Mu')).toBeInTheDocument()
+    expect(screen.getByText('Ajak jemaat masuk bersama.')).toBeInTheDocument()
+    expect(screen.getByText('G D Em C')).toBeInTheDocument()
+  })
 })

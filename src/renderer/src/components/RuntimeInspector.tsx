@@ -176,6 +176,7 @@ function SourceBadge({ source }: { source: CommandSource }): React.JSX.Element {
   const colors: Record<CommandSource, string> = {
     KEYBOARD: 'text-purple-400 bg-purple-500/15',
     UI_BUTTON: 'text-blue-400 bg-blue-500/15',
+    PRESENTER_REMOTE: 'text-lime-400 bg-lime-500/15',
     QUICK_JUMP: 'text-cyan-400 bg-cyan-500/15',
     COMMAND_PALETTE: 'text-indigo-400 bg-indigo-500/15',
     MIDI: 'text-orange-400 bg-orange-500/15',

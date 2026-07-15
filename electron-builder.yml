@@ -10,18 +10,38 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
-  # The mutable application DB is created and migrated in userData at runtime.
-  # Never let a developer's local snapshot or SQLite journals leak into a release.
-  - '!resources/sion.db'
+  # Exclude transient SQLite journal files — they are runtime artifacts
+  # and must never leak into a release build.
+  # Default databases are copied as physical extraResources below so native
+  # SQLite can open them directly in packaged builds.
   - '!resources/**/*.db-wal'
   - '!resources/**/*.db-shm'
   - '!resources/**/*.sqlite-wal'
   - '!resources/**/*.sqlite-shm'
+  # Content packs are copied as real installer resources below. Keeping them
+  # outside app.asar makes SQLite access predictable in packaged builds.
+  - '!resources/content-packs/**'
+  - '!resources/sion.db'
+extraResources:
+  - from: resources/content-packs
+    to: content-packs
+    filter:
+      - '**/*'
+      - '!**/*.sqlite-wal'
+      - '!**/*.sqlite-shm'
+  - from: resources/sion.db
+    to: sion.db
+  - from: resources/ffmpeg
+    to: ffmpeg
+    filter:
+      - '**/*'
+  - from: resources/mediamtx
+    to: mediamtx
+    filter:
+      - '**/*'
 # Code Signing — Beta: don't fail build if certificate is unavailable.
 # Set to true once a trusted CA certificate is purchased.
 forceCodeSigning: false
-asarUnpack:
-  - resources/**
 win:
   executableName: sion-media
   icon: build/icon.ico
@@ -39,7 +59,7 @@ nsis:
   include: build/installer.nsh
   createDesktopShortcut: true
   oneClick: false
-  perMachine: true
+  perMachine: false
   allowToChangeInstallationDirectory: true
   createStartMenuShortcut: true
   runAfterFinish: true
@@ -67,7 +87,7 @@ linux:
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
-npmRebuild: true
+npmRebuild: false
 publish:
   provider: generic
   url: https://aiwerek-tech.github.io/sion-media-web

@@ -113,7 +113,7 @@ interface PlaylistItemDto {
   song_id: number | null
   sort_order: number
   section_label: string
-  item_type: 'song' | 'bible' | 'info'
+  item_type: 'song' | 'bible' | 'info' | 'media'
   title: string
   notes?: string
   number?: string
@@ -169,11 +169,211 @@ interface ProjectionAPI {
   onEmergencyUpdate: (
     callback: (payload: { active: boolean; message?: string; subMessage?: string }) => void
   ) => () => void
+  videoControl: (command: string, value?: unknown) => void
+  onVideoControl: (callback: (command: string, value: unknown) => void) => () => void
+  instrumentControl: (command: string, value?: unknown) => void
+  onInstrumentControl: (callback: (command: string, value: unknown) => void) => () => void
+  instrumentTimeUpdate: (currentTime: number, duration: number) => void
+  onInstrumentTimeUpdate: (callback: (currentTime: number, duration: number) => void) => () => void
 }
 
 interface StageAPI {
   show: () => void
   hide: () => void
+}
+
+interface PresenterRemoteStatus {
+  enabled: boolean
+  port: number | null
+  token: string | null
+  urls: string[]
+  roles: Array<{
+    role: 'presenter' | 'operator' | 'viewer' | 'stage'
+    code: string
+    url: string | null
+    clientCount: number
+  }>
+  clients: Array<{
+    id: string
+    role: 'presenter' | 'operator' | 'viewer' | 'stage'
+    connectedAt: number
+    lastSeenAt: number
+    userAgent: string
+    address: string
+    displayName: string
+    trusted: boolean
+  }>
+  security: {
+    mode: 'rehearsal' | 'service' | 'private'
+    exactOutputFps: number
+    rolesEnabled: Record<'presenter' | 'operator' | 'viewer' | 'stage', boolean>
+  }
+  commandLog: Array<{
+    id: string
+    role: 'presenter' | 'operator' | 'viewer' | 'stage'
+    command: string
+    timestamp: number
+    clientId: string | null
+    deviceName: string
+    address: string
+    ok: boolean
+    detail?: string
+  }>
+  clientCount: number
+  lastCommandAt: number | null
+}
+
+interface PresenterRemoteSlideSummary {
+  text: string
+  label?: string | null
+  contentType?: 'song' | 'bible' | 'reading' | 'custom'
+  bibleReference?: string | null
+  stageNotes?: string | null
+  stageChord?: string | null
+  keyNote?: string | null
+  timeSignature?: string | null
+  tempo?: string | null
+  visualType?: 'image' | 'video' | 'pdf'
+  visualPath?: string
+  visualDataUrl?: string
+  pageNumber?: number
+  canPresenterNavigate?: boolean
+}
+
+interface PresenterRemoteSnapshot {
+  projectionState: string
+  currentSlide: PresenterRemoteSlideSummary | null
+  nextSlide: PresenterRemoteSlideSummary | null
+  currentIndex: number
+  nextIndex: number | null
+  totalSlides?: number
+  hasNextSlide: boolean
+  flowPosition: number
+  isSmartMode: boolean
+  timerElapsed?: number
+  timerRunning?: boolean
+  updatedAt: number
+}
+
+interface PresenterRemoteAPI {
+  start: () => Promise<PresenterRemoteStatus>
+  stop: () => Promise<PresenterRemoteStatus>
+  status: () => Promise<PresenterRemoteStatus>
+  regenerateCodes: () => Promise<PresenterRemoteStatus>
+  regenerateCode: (
+    role: 'presenter' | 'operator' | 'viewer' | 'stage'
+  ) => Promise<PresenterRemoteStatus>
+  disconnectClients: () => Promise<PresenterRemoteStatus>
+  disconnectClient: (clientId: string) => Promise<PresenterRemoteStatus>
+  updateSecurityPolicy: (policy: unknown) => Promise<PresenterRemoteStatus>
+  clearCommandLog: () => Promise<PresenterRemoteStatus>
+  powerPointStatus: () => Promise<PowerPointBridgeStatus>
+  approvePowerPointRequest: (requestId: string) => Promise<PowerPointBridgeStatus>
+  rejectPowerPointRequest: (requestId: string) => Promise<PowerPointBridgeStatus>
+  disconnectPowerPointDevice: (deviceId: string) => Promise<PowerPointBridgeStatus>
+  updateSnapshot: (snapshot: PresenterRemoteSnapshot) => void
+  onCommand: (callback: (command: string, payload?: unknown) => void) => () => void
+  onPowerPointStatus: (callback: (status: PowerPointBridgeStatus) => void) => () => void
+}
+
+interface PowerPointBridgeSource {
+  deviceId: string
+  deviceName: string
+  deckName: string
+  title: string
+  notes: string
+  imagePath: string
+  nextImagePath: string | null
+  nextTitle: string | null
+  slideIndex: number
+  totalSlides: number
+  updatedAt: number
+}
+
+interface PowerPointBridgeStatus {
+  requests: Array<{
+    id: string
+    deviceId: string
+    deviceName: string
+    deckName: string
+    address: string
+    status: 'pending' | 'approved' | 'rejected'
+    requestedAt: number
+    updatedAt: number
+  }>
+  connectedDevices: Array<{
+    deviceId: string
+    deviceName: string
+    deckName: string
+    connectedAt: number
+    lastSeenAt: number
+  }>
+  source: PowerPointBridgeSource | null
+}
+
+interface ObsSrtStatus {
+  state: 'stopped' | 'starting' | 'listening' | 'error'
+  available: boolean
+  config: {
+    port: number
+    width: 1280 | 1920
+    height: 720 | 1080
+    fps: 25 | 30
+    bitrateMbps: number
+    latencyMs: number
+    ffmpegPath: string
+    audioDevice: string
+    audioBitrateKbps: 128 | 160 | 192
+    audioDelayMs: number
+  }
+  encoderPath: string | null
+  encoder: string | null
+  audioDevices: string[]
+  obsUrls: string[]
+  framesSent: number
+  framesDropped: number
+  error: string | null
+}
+
+interface ObsSrtAPI {
+  status: () => Promise<ObsSrtStatus>
+  start: () => Promise<ObsSrtStatus>
+  stop: () => Promise<ObsSrtStatus>
+  updateConfig: (config: Partial<ObsSrtStatus['config']>) => Promise<ObsSrtStatus>
+}
+
+interface ObsSrtIngestStatus {
+  state: 'stopped' | 'starting' | 'waiting' | 'live' | 'error'
+  available: boolean
+  binaryPath: string | null
+  config: {
+    autoStart: boolean
+    srtPort: number
+    hlsPort: number
+    webrtcPort: number
+    webrtcUdpPort: number
+    apiPort: number
+    streamPath: string
+  }
+  publisherConnected: boolean
+  srtConnectionCount: number
+  diagnostic: string | null
+  startedAt: number | null
+  obsUrls: string[]
+  hlsUrls: string[]
+  webrtcUrls: string[]
+  error: string | null
+  logTail: string[]
+}
+
+interface ObsSrtIngestAPI {
+  status: () => Promise<ObsSrtIngestStatus>
+  start: () => Promise<ObsSrtIngestStatus>
+  stop: () => Promise<ObsSrtIngestStatus>
+  setAutoStart: (autoStart: boolean) => Promise<ObsSrtIngestStatus>
+  updateConfig: (
+    config: Partial<ObsSrtIngestStatus['config']> & { resetStreamKey?: boolean }
+  ) => Promise<ObsSrtIngestStatus>
 }
 
 interface DisplayAPI {
@@ -273,9 +473,23 @@ interface PlaylistsAPI {
     }
   ) => Promise<PlaylistItemDto>
   addInfo: (playlistId: number, info: { title: string; body: string }) => Promise<PlaylistItemDto>
+  addMedia: (
+    playlistId: number,
+    media: {
+      title: string
+      path: string
+      presentation?: { slides: Array<{ index: number; title: string; notes: string }> }
+    }
+  ) => Promise<PlaylistItemDto>
   updateItem: (
     id: number,
-    data: { section_label?: string; sort_order?: number; title?: string; notes?: string }
+    data: {
+      song_id?: number
+      section_label?: string
+      sort_order?: number
+      title?: string
+      notes?: string
+    }
   ) => Promise<void>
   deleteItem: (id: number) => Promise<boolean>
   reorderItems: (items: Array<{ id: number; sort_order: number }>) => Promise<void>
@@ -322,11 +536,16 @@ interface FileAPI {
   showOpenDialog: (options: unknown) => Promise<{ canceled: boolean; filePaths: string[] }>
   writeJson: (filePath: string, data: unknown) => Promise<unknown>
   readJson: (filePath: string) => Promise<unknown>
+  scanInstruments: (
+    folderPath: string
+  ) => Promise<{ hymnalCode: string; number: number; filePath: string }[]>
+  readLrc: (audioFilePath: string) => Promise<string | null>
+  writeLrc: (audioFilePath: string, content: string) => Promise<boolean>
 }
 
 interface MediaAssetDto {
   id: string
-  type: 'image' | 'video'
+  type: 'image' | 'video' | 'pdf'
   name: string
   originalPath: string
   localPath: string
@@ -338,6 +557,7 @@ interface MediaAssetDto {
   collectionIds?: string[]
   createdAt?: string
   updatedAt?: string
+  metadata?: Record<string, unknown>
 }
 
 interface MediaCollectionDto {
@@ -354,7 +574,7 @@ interface MediaCollectionDto {
 
 interface MediaAPI {
   getAll: (filters?: {
-    type?: 'image' | 'video'
+    type?: 'image' | 'video' | 'pdf'
     search?: string
     favoriteOnly?: boolean
     category?: string
@@ -366,6 +586,24 @@ interface MediaAPI {
     category?: string
     tags?: string[]
   }) => Promise<MediaAssetDto[]>
+  cancelImport: () => Promise<boolean>
+  onImportProgress: (
+    callback: (progress: {
+      completed: number
+      total: number
+      phase: 'preparing' | 'thumbnail' | 'committing' | 'complete'
+      fileName: string
+    }) => void
+  ) => () => void
+  addLocalExternalMedia: (payload: {
+    filePaths: string[]
+    category?: string
+  }) => Promise<MediaAssetDto[]>
+  importPresentation: (payload: {
+    filePath: string
+    category?: string
+    outputMode?: 'auto' | 'pdf' | 'images'
+  }) => Promise<MediaAssetDto>
   update: (
     id: string,
     updates: { name?: string; category?: string; tags?: string[]; isFavorite?: boolean }
@@ -619,6 +857,9 @@ interface API {
   app: AppAPI
   projection: ProjectionAPI
   stage: StageAPI
+  presenterRemote: PresenterRemoteAPI
+  obsSrt: ObsSrtAPI
+  obsSrtIngest: ObsSrtIngestAPI
   display: DisplayAPI
   hymnals: HymnalsAPI
   songs: SongsAPI

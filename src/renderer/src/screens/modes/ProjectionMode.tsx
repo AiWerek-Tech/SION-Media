@@ -12,13 +12,25 @@ import {
   Music2,
   Play,
   Plus,
-  Star
+  Star,
+  Image as ImageIcon,
+  Volume2,
+  VolumeX,
+  Square,
+  Pause,
+  MonitorPlay
 } from 'lucide-react'
+import { useInstrumentStore } from '@renderer/store/useInstrumentStore'
+import { parseLrc, stripLrcTimestamps } from '@renderer/utils/lrcParser'
 import { SongLibraryPanel } from '@renderer/components/SongLibraryPanel'
 import { LivePreviewPanel } from '@renderer/components/LivePreviewPanel'
 import { PlaylistPanel } from '@renderer/components/PlaylistPanel'
 import { BiblePanel } from '@renderer/components/projection/BiblePanel'
 import { AnnouncementPanel } from '@renderer/components/projection/AnnouncementPanel'
+import { LocalMediaPanel } from '@renderer/components/projection/LocalMediaPanel'
+import { PowerPointBridgePanel } from '@renderer/components/projection/PowerPointBridgePanel'
+import { getPdfPageCount } from '@renderer/utils/pdfUtils'
+import { parseMediaPlaylistDescriptor } from '../../../../shared/media-playlist'
 import { AudioPanel } from '@renderer/components/projection/AudioPanel'
 import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
 import { useAppStore } from '@renderer/store/useAppStore'
@@ -28,7 +40,7 @@ import { mediaEngine } from '@renderer/engine/mediaEngine'
 import { useSongStore } from '@renderer/store/useSongStore'
 import type { PlaylistItem, Song } from '@renderer/types'
 
-type BottomRightTab = 'song-info' | 'bible' | 'announcement'
+type BottomRightTab = 'song-info' | 'bible' | 'announcement' | 'media-local' | 'powerpoint'
 
 type SongInfoTab = 'info' | 'lyrics' | 'chord' | 'notes'
 
@@ -80,6 +92,345 @@ function getRelativeMinor(keyNote: string): string {
   return CHROMATIC_SCALE[(idx + 9) % 12] + 'm'
 }
 
+interface InstrumentPlayerWidgetProps {
+  activeSong: Song
+  instrumentPath: string
+}
+
+function InstrumentPlayerWidget({
+  activeSong,
+  instrumentPath
+}: InstrumentPlayerWidgetProps): React.JSX.Element {
+  const {
+    isPlaying,
+    currentTime,
+    duration,
+    monitorVolume,
+    monitorMuted,
+    autoAdvanceEnabled,
+    activeLrcLines,
+    setPlaying,
+    setMonitorVolume,
+    setMonitorMuted,
+    setAutoAdvanceEnabled,
+    setActiveLrcLines
+  } = useInstrumentStore()
+
+  const localAudioRef = useRef<HTMLAudioElement | null>(null)
+  const normalizedUrl = instrumentPath ? `local-media:///${instrumentPath.replace(/\\/g, '/')}` : ''
+  const lastTargetIndexRef = useRef<number | null>(null)
+
+  const programSlides = useProjectionStore((s) => s.programSlides)
+  const programSlideIndex = useProjectionStore((s) => s.programSlideIndex)
+
+  // Sync volume & mute to native local audio
+  useEffect(() => {
+    if (localAudioRef.current) {
+      localAudioRef.current.volume = monitorVolume / 100
+      localAudioRef.current.muted = monitorMuted
+    }
+  }, [monitorVolume, monitorMuted, instrumentPath])
+
+  // Load LRC timestamps
+  useEffect(() => {
+    if (!activeSong) {
+      setActiveLrcLines([])
+      return
+    }
+
+    // 1. Check if the song has inline LRC timestamps
+    if (activeSong.lyrics_raw && /\[\d+:\d+(?:\.\d+)?\]/.test(activeSong.lyrics_raw)) {
+      const parsed = parseLrc(activeSong.lyrics_raw)
+      setActiveLrcLines(parsed)
+      return
+    }
+
+    // 2. Otherwise, check for external LRC file next to the instrument audio file
+    if (instrumentPath && window.api.file?.readLrc) {
+      window.api.file
+        .readLrc(instrumentPath)
+        .then((content) => {
+          if (content) {
+            const parsed = parseLrc(content)
+            setActiveLrcLines(parsed)
+          } else {
+            setActiveLrcLines([])
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to read external LRC file:', err)
+          setActiveLrcLines([])
+        })
+      return
+    }
+
+    setActiveLrcLines([])
+  }, [activeSong, instrumentPath, setActiveLrcLines])
+
+  // Listen to currentTime updates to trigger auto-advance
+  useEffect(() => {
+    if (!isPlaying || !autoAdvanceEnabled) return
+    if (programSlides.length === 0) return
+
+    // Find the slide that covers the currentTime
+    const targetIdx = programSlides.findIndex(
+      (slide) =>
+        slide.startTime !== undefined &&
+        currentTime >= slide.startTime &&
+        (slide.endTime === undefined || currentTime < slide.endTime)
+    )
+
+    if (targetIdx !== -1 && targetIdx !== programSlideIndex) {
+      lastTargetIndexRef.current = targetIdx
+      useProjectionStore.getState().goToSlide(targetIdx)
+    }
+  }, [currentTime, isPlaying, autoAdvanceEnabled, programSlides, programSlideIndex])
+
+  // Listen to manual slide selection to trigger seek (Smart Re-Sync)
+  useEffect(() => {
+    if (!isPlaying) return
+    const audio = localAudioRef.current
+    if (!audio) return
+
+    if (programSlideIndex >= 0 && programSlideIndex < programSlides.length) {
+      if (programSlideIndex !== lastTargetIndexRef.current) {
+        const slide = programSlides[programSlideIndex]
+        if (slide && slide.startTime !== undefined) {
+          audio.currentTime = slide.startTime
+          window.api.projection.instrumentControl('seek', slide.startTime)
+          lastTargetIndexRef.current = programSlideIndex
+        }
+      }
+    }
+  }, [programSlideIndex, programSlides, isPlaying])
+
+  // Clean up on unmount or path change
+  useEffect(() => {
+    return () => {
+      setPlaying(false)
+      window.api.projection.instrumentControl('stop')
+    }
+  }, [instrumentPath, setPlaying])
+
+  const handlePlayPause = async (): Promise<void> => {
+    const audio = localAudioRef.current
+    if (!audio) return
+
+    if (isPlaying) {
+      audio.pause()
+      setPlaying(false)
+      window.api.projection.instrumentControl('pause')
+    } else {
+      try {
+        await audio.play()
+        setPlaying(true)
+        window.api.projection.instrumentControl('play')
+      } catch (err) {
+        console.error('Local audio play failed:', err)
+      }
+    }
+  }
+
+  const handleStop = (): void => {
+    const audio = localAudioRef.current
+    if (!audio) return
+    audio.pause()
+    audio.currentTime = 0
+    setPlaying(false)
+    window.api.projection.instrumentControl('stop')
+  }
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const audio = localAudioRef.current
+    if (!audio) return
+    const val = Number(e.target.value)
+    audio.currentTime = val
+    window.api.projection.instrumentControl('seek', val)
+  }
+
+  const formatTime = (time: number): string => {
+    if (isNaN(time)) return '00:00'
+    const mins = Math.floor(time / 60)
+    const secs = Math.floor(time % 60)
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+  }
+
+  const handleSelectManualFile = async (): Promise<void> => {
+    try {
+      const result = (await window.api.file.showOpenDialog({
+        title: `Pilih Berkas Instrumen untuk ${activeSong.hymnal_code || 'LS'} ${activeSong.number}`,
+        filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav', 'm4a', 'aac'] }],
+        properties: ['openFile']
+      })) as { canceled: boolean; filePaths: string[] }
+
+      if (!result.canceled && result.filePaths.length > 0) {
+        const selectedPath = result.filePaths[0]
+        const key = `${activeSong.hymnal_code}-${activeSong.number}`.toUpperCase()
+        const currentMap = useInstrumentStore.getState().instrumentsMap
+        useInstrumentStore.getState().setInstrumentsMap({
+          ...currentMap,
+          [key]: selectedPath
+        })
+      }
+    } catch (err) {
+      console.error('Failed to choose manual instrument:', err)
+    }
+  }
+
+  // If no instrument is associated yet, show manual selection placeholder
+  if (!instrumentPath) {
+    return (
+      <div className="p-3 border-t border-white/[0.06] bg-black/40 flex flex-col gap-2 shrink-0">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold text-text-disabled uppercase tracking-wider flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-text-disabled/40" />
+            Instrumen Musik
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3 p-2 rounded-lg border border-dashed border-white/[0.08] bg-white/[0.02]">
+          <span className="text-[10px] text-text-disabled leading-tight truncate">
+            Tidak ada instrumen otomatis yang cocok
+          </span>
+          <button
+            onClick={handleSelectManualFile}
+            className="h-6 px-2 rounded-md bg-white/5 hover:bg-white/10 active:scale-95 text-text-primary text-[9px] font-bold transition-all flex items-center gap-1 flex-shrink-0"
+          >
+            <Plus size={10} />
+            Pilih Manual
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const fileName = instrumentPath.split(/[\\/]/).pop() || 'Minus One'
+
+  return (
+    <div className="p-3 border-t border-white/[0.06] bg-black/40 flex flex-col gap-2 shrink-0">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider flex items-center gap-1.5 min-w-0 flex-1 pr-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse flex-shrink-0" />
+          <span className="truncate" title={fileName}>
+            {fileName}
+          </span>
+        </span>
+        <span className="text-[10px] text-text-disabled flex-shrink-0">
+          {formatTime(currentTime)} / {formatTime(duration)}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2">
+        {/* Play/Pause Button */}
+        <button
+          onClick={handlePlayPause}
+          className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+            isPlaying
+              ? 'bg-brand-primary text-white'
+              : 'bg-white/10 text-text-primary hover:bg-white/20'
+          }`}
+          title={isPlaying ? 'Pause' : 'Play'}
+        >
+          {isPlaying ? (
+            <Pause size={12} fill="currentColor" />
+          ) : (
+            <Play size={12} fill="currentColor" className="ml-0.5" />
+          )}
+        </button>
+
+        {/* Stop Button */}
+        <button
+          onClick={handleStop}
+          className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/15 text-text-secondary flex items-center justify-center transition-all"
+          title="Stop"
+        >
+          <Square size={10} fill="currentColor" />
+        </button>
+
+        {/* Auto Slide Toggle */}
+        {activeLrcLines.length > 0 && (
+          <button
+            onClick={() => setAutoAdvanceEnabled(!autoAdvanceEnabled)}
+            className={`h-7 px-2 rounded-lg text-[10px] font-bold transition-all border flex items-center gap-1 flex-shrink-0 ${
+              autoAdvanceEnabled
+                ? 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/20'
+                : 'bg-white/5 border-white/[0.06] text-text-muted hover:bg-white/10 hover:text-text-primary'
+            }`}
+            title="Auto-Advance Slide Mengikuti Waktu Musik"
+          >
+            <Clock size={10} />
+            <span>Auto Slide</span>
+          </button>
+        )}
+
+        {/* Progress slider */}
+        <input
+          type="range"
+          min={0}
+          max={duration || 100}
+          value={currentTime}
+          onChange={handleSeek}
+          className="flex-1 h-1.5 rounded-lg appearance-none bg-white/10 accent-brand-primary outline-none cursor-pointer"
+        />
+
+        {/* Monitor Volume */}
+        <div className="flex items-center gap-1.5 bg-white/5 rounded-lg px-2 h-7">
+          <button
+            onClick={() => setMonitorMuted(!monitorMuted)}
+            className="text-text-muted hover:text-text-primary transition-colors"
+            title={monitorMuted ? 'Unmute Monitor' : 'Mute Monitor'}
+          >
+            {monitorMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={monitorMuted ? 0 : monitorVolume}
+            onChange={(e) => {
+              const val = Number(e.target.value)
+              setMonitorVolume(val)
+              if (monitorMuted && val > 0) setMonitorMuted(false)
+            }}
+            className="w-12 h-1 accent-brand-primary outline-none"
+            title="Volume Monitor PC Operator"
+          />
+        </div>
+      </div>
+
+      {normalizedUrl && (
+        <audio
+          ref={localAudioRef}
+          src={normalizedUrl}
+          onTimeUpdate={() => {
+            if (localAudioRef.current) {
+              useInstrumentStore
+                .getState()
+                .setTimeUpdate(
+                  localAudioRef.current.currentTime,
+                  localAudioRef.current.duration || 0
+                )
+            }
+          }}
+          onLoadedMetadata={() => {
+            if (localAudioRef.current) {
+              useInstrumentStore
+                .getState()
+                .setTimeUpdate(
+                  localAudioRef.current.currentTime,
+                  localAudioRef.current.duration || 0
+                )
+            }
+          }}
+          onEnded={() => {
+            setPlaying(false)
+            window.api.projection.instrumentControl('stop')
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
 function SongInfoPanel(): React.JSX.Element {
   const { selectedSong, setSelectedSong, setEditingSong, setScreen, showToast } = useAppStore()
   const songs = useSongStore((s) => s.songs)
@@ -95,6 +446,32 @@ function SongInfoPanel(): React.JSX.Element {
   const resetLyricsFontSize = useProjectionStore((s) => s.resetLyricsFontSize)
   const activePlaylistItem = playlistItems[activeItemIndex]
   const activeSong = selectedSong ?? songs.find((song) => song.id === activePlaylistItem?.song_id)
+
+  // Instrument indexing with LS/LSEL cross-lookup fallback support
+  const { instrumentsMap } = useInstrumentStore()
+  const instrumentPath = useMemo(() => {
+    if (!activeSong) return ''
+    const code = (activeSong.hymnal_code || '').toUpperCase()
+    const num = activeSong.number
+    const primaryKey = `${code}-${num}`
+    if (instrumentsMap[primaryKey]) {
+      return instrumentsMap[primaryKey]
+    }
+    // Fallback cross-lookup between LS and LSEL
+    if (code === 'LS') {
+      return instrumentsMap[`LSEL-${num}`] || ''
+    }
+    if (code === 'LSEL') {
+      return instrumentsMap[`LS-${num}`] || ''
+    }
+    return ''
+  }, [activeSong, instrumentsMap])
+
+  // Load instrument path into projection window when activeSong changes
+  useEffect(() => {
+    window.api.projection.instrumentControl('load', instrumentPath)
+  }, [instrumentPath])
+
   const [activeTab, setActiveTab] = useState<SongInfoTab>('info')
   const [isAddingToPlaylist, setIsAddingToPlaylist] = useState(false)
   const [addedToPlaylist, setAddedToPlaylist] = useState(false)
@@ -159,7 +536,7 @@ function SongInfoPanel(): React.JSX.Element {
   /** Parse lyrics into structured sections */
   const lyricsSections = useMemo(() => {
     if (!activeSong?.lyrics_raw) return []
-    const raw = activeSong.lyrics_raw
+    const raw = stripLrcTimestamps(activeSong.lyrics_raw)
     const blocks = raw.split(/\n\s*\n/).filter((b) => b.trim())
     return blocks.map((block) => {
       const lines = block.split('\n')
@@ -319,385 +696,405 @@ function SongInfoPanel(): React.JSX.Element {
   }
 
   return (
-    <aside className="projection-song-info-panel projection-song-panel">
-      {tabButtons}
+    <aside
+      className="projection-song-info-panel projection-song-panel"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: 0,
+        overflow: 'hidden'
+      }}
+    >
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          overflow: 'hidden'
+        }}
+      >
+        {tabButtons}
 
-      {/* ── Info Tab ── */}
-      {activeTab === 'info' && (
-        <div id="tabpanel-info" role="tabpanel" className="projection-song-panel__pane">
-          <div className="projection-song-panel__scroll projection-song-panel__scroll--info">
-            {/* Song header: art + title + actions */}
-            <div className="flex items-start gap-3">
-              <div
-                className="projection-song-art"
-                style={{ background: getSongArtGradient(activeSong.hymnal_code) }}
-              >
-                <span>{activeSong.hymnal_code || 'SION'}</span>
-                <strong>{activeSong.number || '—'}</strong>
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3
-                  className="text-[16px] font-black tracking-tight text-text-primary leading-tight"
-                  title={activeSong.title}
-                  style={{
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden'
-                  }}
+        {/* ── Info Tab ── */}
+        {activeTab === 'info' && (
+          <div id="tabpanel-info" role="tabpanel" className="projection-song-panel__pane">
+            <div className="projection-song-panel__scroll projection-song-panel__scroll--info">
+              {/* Song header: art + title + actions */}
+              <div className="flex items-start gap-3">
+                <div
+                  className="projection-song-art"
+                  style={{ background: getSongArtGradient(activeSong.hymnal_code) }}
                 >
-                  {activeSong.title}
-                </h3>
-                {(activeSong.alternate_title || activeSong.title_en) && (
-                  <p className="mt-0.5 truncate text-[12px] text-text-muted italic">
-                    {activeSong.alternate_title || activeSong.title_en}
-                  </p>
-                )}
-                {activeSong.hymnal_name && (
-                  <p className="mt-0.5 truncate text-[11px] text-text-muted/70">
-                    {activeSong.hymnal_name}
-                  </p>
-                )}
-                {/* Action row: favorite + add to playlist */}
-                <div className="mt-2 flex items-center gap-1.5">
-                  <button
-                    className={`projection-icon-button projection-icon-button--favorite ${isFavorite ? 'is-active' : ''} ${isFavoriteLoading ? 'opacity-50' : ''}`}
-                    title={isFavorite ? 'Hapus dari favorit' : 'Tambah ke favorit'}
-                    aria-label={isFavorite ? 'Hapus dari favorit' : 'Tambah ke favorit'}
-                    aria-pressed={isFavorite}
-                    onClick={() => void handleToggleFavorite()}
-                    disabled={isFavoriteLoading}
-                  >
-                    <Star
-                      size={14}
-                      fill={isFavorite ? 'currentColor' : 'none'}
-                      strokeWidth={isFavorite ? 0 : 1.8}
-                    />
-                  </button>
-                  <button
-                    className={`projection-icon-button ${addedToPlaylist ? 'projection-icon-button--success' : ''}`}
-                    title={addedToPlaylist ? 'Ditambahkan!' : 'Tambah ke playlist'}
-                    aria-label={`Tambah ${activeSong.title} ke playlist`}
-                    onClick={() => void handleAddToPlaylist()}
-                    disabled={isAddingToPlaylist}
-                  >
-                    {addedToPlaylist ? <Check size={14} /> : <Plus size={14} />}
-                  </button>
+                  <span>{activeSong.hymnal_code || 'SION'}</span>
+                  <strong>{activeSong.number || '—'}</strong>
                 </div>
-              </div>
-            </div>
-
-            {/* Meta table */}
-            <div className="projection-meta-table">
-              {metaRows.map(([label, value]) => (
-                <div key={label}>
-                  <span>{label}</span>
-                  <strong title={value}>{value}</strong>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="projection-song-panel__actions">
-            <button className="projection-action-button" onClick={handlePreview}>
-              <Play size={13} />
-              Preview
-            </button>
-            <button className="projection-action-button" onClick={handleEditLyrics}>
-              <Edit3 size={13} />
-              Edit Lirik
-            </button>
-            <button className="projection-action-button" onClick={() => setActiveTab('chord')}>
-              <Music2 size={13} />
-              Chord
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Lirik Tab ── */}
-      {activeTab === 'lyrics' && (
-        <div id="tabpanel-lyrics" role="tabpanel" className="projection-song-panel__pane">
-          {/* Toolbar: song ref + zoom controls */}
-          <div className="projection-song-panel__toolbar">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider shrink-0">
-                {activeSong.hymnal_code} {activeSong.number}
-              </span>
-              <span className="text-[10px] text-text-muted/50">•</span>
-              <span className="text-[11px] font-semibold text-text-secondary truncate">
-                {activeSong.title}
-              </span>
-            </div>
-            {/* Zoom controls */}
-            <div className="flex items-center gap-0.5 shrink-0">
-              <button
-                onClick={decreaseLyricsFontSize}
-                className="projection-zoom-btn"
-                title="Perkecil teks (Ctrl+-)"
-                aria-label="Perkecil teks"
-              >
-                <Minus size={10} />
-              </button>
-              <button
-                onClick={resetLyricsFontSize}
-                className="projection-zoom-label"
-                title="Reset zoom (Ctrl+0)"
-                aria-label="Reset zoom"
-              >
-                {lyricsFontSizePercent}%
-              </button>
-              <button
-                onClick={increaseLyricsFontSize}
-                className="projection-zoom-btn"
-                title="Perbesar teks (Ctrl++)"
-                aria-label="Perbesar teks"
-              >
-                <Plus size={10} />
-              </button>
-            </div>
-          </div>
-          {/* Lyrics content */}
-          <div
-            ref={lyricsRef}
-            className="projection-song-panel__scroll projection-song-panel__lyrics"
-            style={{
-              fontSize: `${lyricsFontSizePercent}%`,
-              transition: 'font-size 0.15s ease-in-out'
-            }}
-          >
-            {lyricsSections.length > 0 ? (
-              lyricsSections.map((section, idx) => (
-                <div key={idx}>
-                  {section.header && (
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-brand-primary/70 bg-brand-primary/[0.06] px-2 py-0.5 rounded-md">
-                        {section.header}
-                      </span>
-                      <div className="flex-1 h-px bg-white/[0.04]" />
-                    </div>
+                <div className="min-w-0 flex-1">
+                  <h3
+                    className="text-[16px] font-black tracking-tight text-text-primary leading-tight"
+                    title={activeSong.title}
+                    style={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    {activeSong.title}
+                  </h3>
+                  {(activeSong.alternate_title || activeSong.title_en) && (
+                    <p className="mt-0.5 truncate text-[12px] text-text-muted italic">
+                      {activeSong.alternate_title || activeSong.title_en}
+                    </p>
                   )}
-                  <div className="space-y-0.5">
-                    {section.lines.map((line, lineIdx) => (
-                      <p
-                        key={lineIdx}
-                        className="text-[0.8125rem] text-text-primary leading-relaxed font-medium"
-                      >
-                        {line}
-                      </p>
-                    ))}
+                  {activeSong.hymnal_name && (
+                    <p className="mt-0.5 truncate text-[11px] text-text-muted/70">
+                      {activeSong.hymnal_name}
+                    </p>
+                  )}
+                  {/* Action row: favorite + add to playlist */}
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <button
+                      className={`projection-icon-button projection-icon-button--favorite ${isFavorite ? 'is-active' : ''} ${isFavoriteLoading ? 'opacity-50' : ''}`}
+                      title={isFavorite ? 'Hapus dari favorit' : 'Tambah ke favorit'}
+                      aria-label={isFavorite ? 'Hapus dari favorit' : 'Tambah ke favorit'}
+                      aria-pressed={isFavorite}
+                      onClick={() => void handleToggleFavorite()}
+                      disabled={isFavoriteLoading}
+                    >
+                      <Star
+                        size={14}
+                        fill={isFavorite ? 'currentColor' : 'none'}
+                        strokeWidth={isFavorite ? 0 : 1.8}
+                      />
+                    </button>
+                    <button
+                      className={`projection-icon-button ${addedToPlaylist ? 'projection-icon-button--success' : ''}`}
+                      title={addedToPlaylist ? 'Ditambahkan!' : 'Tambah ke playlist'}
+                      aria-label={`Tambah ${activeSong.title} ke playlist`}
+                      onClick={() => void handleAddToPlaylist()}
+                      disabled={isAddingToPlaylist}
+                    >
+                      {addedToPlaylist ? <Check size={14} /> : <Plus size={14} />}
+                    </button>
                   </div>
-                </div>
-              ))
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-3 text-center py-8 text-text-muted">
-                <div className="rounded-2xl bg-white/[0.03] border border-white/[0.05] p-5 flex flex-col items-center gap-2">
-                  <Edit3 size={22} className="opacity-40" />
-                  <p className="text-[12px]">Belum ada lirik untuk lagu ini</p>
-                  <button
-                    onClick={handleEditLyrics}
-                    className="text-[11px] font-semibold text-brand-primary hover:text-brand-primary/80 transition-colors"
-                  >
-                    Tambah lirik →
-                  </button>
                 </div>
               </div>
-            )}
-          </div>
-        </div>
-      )}
 
-      {/* ── Chord Tab ── */}
-      {activeTab === 'chord' && (
-        <div id="tabpanel-chord" role="tabpanel" className="projection-song-panel__pane">
-          <div className="projection-song-panel__toolbar">
-            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
-              Chord Sheet
-            </span>
-            <button
-              onClick={handleEditLyrics}
-              className="text-[10px] font-semibold text-brand-primary/70 hover:text-brand-primary transition-colors flex items-center gap-1"
-            >
-              <Edit3 size={10} />
-              Edit
-            </button>
-          </div>
-          <div className="projection-song-panel__scroll projection-song-panel__chords">
-            {/* Key info pills */}
-            <div className="flex flex-wrap gap-2">
-              {activeSong.key_note && (
-                <div className="projection-chord-pill projection-chord-pill--key">
-                  <span className="label">Nada Dasar</span>
-                  <strong>{activeSong.key_note}</strong>
-                </div>
-              )}
-              {activeSong.time_signature && (
-                <div className="projection-chord-pill">
-                  <span className="label">Birama</span>
-                  <strong>{activeSong.time_signature}</strong>
-                </div>
-              )}
-              {activeSong.tempo && (
-                <div className="projection-chord-pill">
-                  <span className="label">Tempo</span>
-                  <strong>{activeSong.tempo}</strong>
-                </div>
-              )}
+              {/* Meta table */}
+              <div className="projection-meta-table">
+                {metaRows.map(([label, value]) => (
+                  <div key={label}>
+                    <span>{label}</span>
+                    <strong title={value}>{value}</strong>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Chord content or empty state */}
-            <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-4">
-              {activeSong.key_note ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Music2 size={13} className="text-brand-primary/60" />
-                    <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider">
-                      Informasi Musik
-                    </span>
-                  </div>
-
-                  {/* Key circle — show related chords */}
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { label: 'Tonika (I)', chord: activeSong.key_note },
-                      {
-                        label: 'Sub-Dominan (IV)',
-                        chord: getRelativeChord(activeSong.key_note, 4)
-                      },
-                      { label: 'Dominan (V)', chord: getRelativeChord(activeSong.key_note, 5) },
-                      { label: 'Relatif Minor', chord: getRelativeMinor(activeSong.key_note) }
-                    ].map((item) => (
-                      <div
-                        key={item.label}
-                        className="flex flex-col gap-0.5 p-2 rounded-lg bg-black/20 border border-white/[0.04]"
-                      >
-                        <span className="text-[9px] font-semibold text-text-disabled uppercase tracking-wider">
-                          {item.label}
-                        </span>
-                        <strong className="text-[14px] font-black text-text-primary">
-                          {item.chord}
-                        </strong>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="text-[10px] text-text-disabled leading-relaxed bg-black/20 p-2.5 rounded-lg border border-white/[0.04]">
-                    Chord sheet lengkap belum tersedia. Gunakan tombol{' '}
-                    <button
-                      onClick={handleEditLyrics}
-                      className="text-brand-primary hover:underline font-semibold"
-                    >
-                      Edit Lirik
-                    </button>{' '}
-                    untuk menambahkan chord pada lirik.
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-2 py-4 text-center text-text-muted">
-                  <Music2 size={22} className="opacity-30" />
-                  <p className="text-[12px]">Metadata nada dasar belum diatur</p>
-                  <button
-                    onClick={handleEditLyrics}
-                    className="text-[11px] font-semibold text-brand-primary hover:text-brand-primary/80 transition-colors"
-                  >
-                    Atur nada dasar →
-                  </button>
-                </div>
-              )}
+            {/* Action buttons */}
+            <div className="projection-song-panel__actions">
+              <button className="projection-action-button" onClick={handlePreview}>
+                <Play size={13} />
+                Preview
+              </button>
+              <button className="projection-action-button" onClick={handleEditLyrics}>
+                <Edit3 size={13} />
+                Edit Lirik
+              </button>
+              <button className="projection-action-button" onClick={() => setActiveTab('chord')}>
+                <Music2 size={13} />
+                Chord
+              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ── Notes Tab ── */}
-      {activeTab === 'notes' && (
-        <div id="tabpanel-notes" role="tabpanel" className="projection-song-panel__pane">
-          <div className="projection-song-panel__toolbar">
-            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
-              Operator Notes
-            </span>
-          </div>
-          <div className="projection-song-panel__scroll projection-song-panel__notes">
-            {/* Custom Notes Editor */}
-            <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-3 flex flex-col gap-2 mb-2">
-              <div className="flex items-center justify-between">
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
-                  Catatan Kustom Operator
-                </h4>
-                <span className="text-[9px] text-text-disabled bg-white/[0.04] px-1.5 py-0.5 rounded-full">
-                  Edit langsung
+        {/* ── Lirik Tab ── */}
+        {activeTab === 'lyrics' && (
+          <div id="tabpanel-lyrics" role="tabpanel" className="projection-song-panel__pane">
+            {/* Toolbar: song ref + zoom controls */}
+            <div className="projection-song-panel__toolbar">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider shrink-0">
+                  {activeSong.hymnal_code} {activeSong.number}
+                </span>
+                <span className="text-[10px] text-text-muted/50">•</span>
+                <span className="text-[11px] font-semibold text-text-secondary truncate">
+                  {activeSong.title}
                 </span>
               </div>
-              <textarea
-                value={localNote}
-                onChange={(e) => setLocalNote(e.target.value)}
-                placeholder="Ketik pengingat ibadah untuk lagu ini..."
-                className="w-full h-[72px] text-[11px] text-text-primary placeholder:text-text-disabled bg-black/25 border border-white/[0.05] focus:border-brand-primary/45 p-2 rounded-lg resize-none outline-none transition-all scrollbar-thin"
-              />
+              {/* Zoom controls */}
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button
+                  onClick={decreaseLyricsFontSize}
+                  className="projection-zoom-btn"
+                  title="Perkecil teks (Ctrl+-)"
+                  aria-label="Perkecil teks"
+                >
+                  <Minus size={10} />
+                </button>
+                <button
+                  onClick={resetLyricsFontSize}
+                  className="projection-zoom-label"
+                  title="Reset zoom (Ctrl+0)"
+                  aria-label="Reset zoom"
+                >
+                  {lyricsFontSizePercent}%
+                </button>
+                <button
+                  onClick={increaseLyricsFontSize}
+                  className="projection-zoom-btn"
+                  title="Perbesar teks (Ctrl++)"
+                  aria-label="Perbesar teks"
+                >
+                  <Plus size={10} />
+                </button>
+              </div>
+            </div>
+            {/* Lyrics content */}
+            <div
+              ref={lyricsRef}
+              className="projection-song-panel__scroll projection-song-panel__lyrics"
+              style={{
+                fontSize: `${lyricsFontSizePercent}%`,
+                transition: 'font-size 0.15s ease-in-out'
+              }}
+            >
+              {lyricsSections.length > 0 ? (
+                lyricsSections.map((section, idx) => (
+                  <div key={idx}>
+                    {section.header && (
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-brand-primary/70 bg-brand-primary/[0.06] px-2 py-0.5 rounded-md">
+                          {section.header}
+                        </span>
+                        <div className="flex-1 h-px bg-white/[0.04]" />
+                      </div>
+                    )}
+                    <div className="space-y-0.5">
+                      {section.lines.map((line, lineIdx) => (
+                        <p
+                          key={lineIdx}
+                          className="text-[0.8125rem] text-text-primary leading-relaxed font-medium"
+                        >
+                          {line}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-3 text-center py-8 text-text-muted">
+                  <div className="rounded-2xl bg-white/[0.03] border border-white/[0.05] p-5 flex flex-col items-center gap-2">
+                    <Edit3 size={22} className="opacity-40" />
+                    <p className="text-[12px]">Belum ada lirik untuk lagu ini</p>
+                    <button
+                      onClick={handleEditLyrics}
+                      className="text-[11px] font-semibold text-brand-primary hover:text-brand-primary/80 transition-colors"
+                    >
+                      Tambah lirik →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Chord Tab ── */}
+        {activeTab === 'chord' && (
+          <div id="tabpanel-chord" role="tabpanel" className="projection-song-panel__pane">
+            <div className="projection-song-panel__toolbar">
+              <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                Chord Sheet
+              </span>
               <button
-                onClick={handleSaveNote}
-                disabled={isSavingNote}
-                className="flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-white text-[11px] font-bold transition-all disabled:opacity-50"
+                onClick={handleEditLyrics}
+                className="text-[10px] font-semibold text-brand-primary/70 hover:text-brand-primary transition-colors flex items-center gap-1"
               >
-                <FileEdit size={11} className={isSavingNote ? 'animate-pulse' : ''} />
-                {isSavingNote ? 'Menyimpan...' : 'Simpan Catatan'}
+                <Edit3 size={10} />
+                Edit
               </button>
             </div>
-
-            {operatorNotes.map((note, idx) => (
-              <div
-                key={idx}
-                className={`rounded-xl border p-3 ${
-                  note.highlight
-                    ? 'bg-brand-primary/[0.05] border-brand-primary/15'
-                    : 'bg-white/[0.02] border-white/[0.04]'
-                }`}
-              >
-                <h4
-                  className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${note.highlight ? 'text-brand-primary/60' : 'text-text-muted'}`}
-                >
-                  {note.label}
-                </h4>
-                <p className="text-[12px] text-text-secondary leading-relaxed font-medium">
-                  {note.content}
-                </p>
+            <div className="projection-song-panel__scroll projection-song-panel__chords">
+              {/* Key info pills */}
+              <div className="flex flex-wrap gap-2">
+                {activeSong.key_note && (
+                  <div className="projection-chord-pill projection-chord-pill--key">
+                    <span className="label">Nada Dasar</span>
+                    <strong>{activeSong.key_note}</strong>
+                  </div>
+                )}
+                {activeSong.time_signature && (
+                  <div className="projection-chord-pill">
+                    <span className="label">Birama</span>
+                    <strong>{activeSong.time_signature}</strong>
+                  </div>
+                )}
+                {activeSong.tempo && (
+                  <div className="projection-chord-pill">
+                    <span className="label">Tempo</span>
+                    <strong>{activeSong.tempo}</strong>
+                  </div>
+                )}
               </div>
-            ))}
 
-            {/* Quick actions */}
-            <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-3 mt-1">
-              <h4 className="text-[10px] font-bold uppercase tracking-wider text-text-muted mb-2">
-                Aksi Cepat
-              </h4>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  onClick={handlePreview}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-primary bg-brand-primary/10 hover:bg-brand-primary/15 px-2.5 py-1 rounded-lg transition-colors"
-                >
-                  <Play size={10} />
-                  Preview
-                </button>
-                <button
-                  onClick={handleEditLyrics}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-text-secondary hover:text-text-primary bg-white/[0.04] hover:bg-white/[0.06] px-2.5 py-1 rounded-lg transition-colors"
-                >
-                  <Edit3 size={10} />
-                  Edit
-                </button>
-                <button
-                  onClick={() => void handleAddToPlaylist()}
-                  disabled={isAddingToPlaylist || addedToPlaylist}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-text-secondary hover:text-text-primary bg-white/[0.04] hover:bg-white/[0.06] px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {addedToPlaylist ? <Check size={10} /> : <Plus size={10} />}
-                  {addedToPlaylist ? 'Ditambahkan' : 'Playlist'}
-                </button>
+              {/* Chord content or empty state */}
+              <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-4">
+                {activeSong.key_note ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Music2 size={13} className="text-brand-primary/60" />
+                      <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider">
+                        Informasi Musik
+                      </span>
+                    </div>
+
+                    {/* Key circle — show related chords */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { label: 'Tonika (I)', chord: activeSong.key_note },
+                        {
+                          label: 'Sub-Dominan (IV)',
+                          chord: getRelativeChord(activeSong.key_note, 4)
+                        },
+                        { label: 'Dominan (V)', chord: getRelativeChord(activeSong.key_note, 5) },
+                        { label: 'Relatif Minor', chord: getRelativeMinor(activeSong.key_note) }
+                      ].map((item) => (
+                        <div
+                          key={item.label}
+                          className="flex flex-col gap-0.5 p-2 rounded-lg bg-black/20 border border-white/[0.04]"
+                        >
+                          <span className="text-[9px] font-semibold text-text-disabled uppercase tracking-wider">
+                            {item.label}
+                          </span>
+                          <strong className="text-[14px] font-black text-text-primary">
+                            {item.chord}
+                          </strong>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="text-[10px] text-text-disabled leading-relaxed bg-black/20 p-2.5 rounded-lg border border-white/[0.04]">
+                      Chord sheet lengkap belum tersedia. Gunakan tombol{' '}
+                      <button
+                        onClick={handleEditLyrics}
+                        className="text-brand-primary hover:underline font-semibold"
+                      >
+                        Edit Lirik
+                      </button>{' '}
+                      untuk menambahkan chord pada lirik.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2 py-4 text-center text-text-muted">
+                    <Music2 size={22} className="opacity-30" />
+                    <p className="text-[12px]">Metadata nada dasar belum diatur</p>
+                    <button
+                      onClick={handleEditLyrics}
+                      className="text-[11px] font-semibold text-brand-primary hover:text-brand-primary/80 transition-colors"
+                    >
+                      Atur nada dasar →
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* ── Notes Tab ── */}
+        {activeTab === 'notes' && (
+          <div id="tabpanel-notes" role="tabpanel" className="projection-song-panel__pane">
+            <div className="projection-song-panel__toolbar">
+              <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                Operator Notes
+              </span>
+            </div>
+            <div className="projection-song-panel__scroll projection-song-panel__notes">
+              {/* Custom Notes Editor */}
+              <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-3 flex flex-col gap-2 mb-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                    Catatan Kustom Operator
+                  </h4>
+                  <span className="text-[9px] text-text-disabled bg-white/[0.04] px-1.5 py-0.5 rounded-full">
+                    Edit langsung
+                  </span>
+                </div>
+                <textarea
+                  value={localNote}
+                  onChange={(e) => setLocalNote(e.target.value)}
+                  placeholder="Ketik pengingat ibadah untuk lagu ini..."
+                  className="w-full h-[72px] text-[11px] text-text-primary placeholder:text-text-disabled bg-black/25 border border-white/[0.05] focus:border-brand-primary/45 p-2 rounded-lg resize-none outline-none transition-all scrollbar-thin"
+                />
+                <button
+                  onClick={handleSaveNote}
+                  disabled={isSavingNote}
+                  className="flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded-lg bg-brand-primary hover:bg-brand-primary-hover text-white text-[11px] font-bold transition-all disabled:opacity-50"
+                >
+                  <FileEdit size={11} className={isSavingNote ? 'animate-pulse' : ''} />
+                  {isSavingNote ? 'Menyimpan...' : 'Simpan Catatan'}
+                </button>
+              </div>
+
+              {operatorNotes.map((note, idx) => (
+                <div
+                  key={idx}
+                  className={`rounded-xl border p-3 ${
+                    note.highlight
+                      ? 'bg-brand-primary/[0.05] border-brand-primary/15'
+                      : 'bg-white/[0.02] border-white/[0.04]'
+                  }`}
+                >
+                  <h4
+                    className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${note.highlight ? 'text-brand-primary/60' : 'text-text-muted'}`}
+                  >
+                    {note.label}
+                  </h4>
+                  <p className="text-[12px] text-text-secondary leading-relaxed font-medium">
+                    {note.content}
+                  </p>
+                </div>
+              ))}
+
+              {/* Quick actions */}
+              <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-3 mt-1">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-text-muted mb-2">
+                  Aksi Cepat
+                </h4>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    onClick={handlePreview}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-primary bg-brand-primary/10 hover:bg-brand-primary/15 px-2.5 py-1 rounded-lg transition-colors"
+                  >
+                    <Play size={10} />
+                    Preview
+                  </button>
+                  <button
+                    onClick={handleEditLyrics}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-text-secondary hover:text-text-primary bg-white/[0.04] hover:bg-white/[0.06] px-2.5 py-1 rounded-lg transition-colors"
+                  >
+                    <Edit3 size={10} />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => void handleAddToPlaylist()}
+                    disabled={isAddingToPlaylist || addedToPlaylist}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-text-secondary hover:text-text-primary bg-white/[0.04] hover:bg-white/[0.06] px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {addedToPlaylist ? <Check size={10} /> : <Plus size={10} />}
+                    {addedToPlaylist ? 'Ditambahkan' : 'Playlist'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      <InstrumentPlayerWidget activeSong={activeSong} instrumentPath={instrumentPath} />
     </aside>
   )
 }
@@ -709,6 +1106,16 @@ export function ProjectionMode(): React.JSX.Element {
   const { setSlides, programSlide, isAudioPanelVisible, toggleAudioPanel } = useProjectionStore()
   const [scenePreset, setScenePreset] = useState('1')
   const [bottomRightTab, setBottomRightTab] = useState<BottomRightTab>('song-info')
+  const [pendingPowerPointRequests, setPendingPowerPointRequests] = useState(0)
+  useEffect(() => {
+    const updatePending = (status: { requests: Array<{ status: string }> }): void => {
+      setPendingPowerPointRequests(
+        status.requests.filter((request) => request.status === 'pending').length
+      )
+    }
+    void window.api.presenterRemote.powerPointStatus().then(updatePending)
+    return window.api.presenterRemote.onPowerPointStatus(updatePending)
+  }, [])
   const projectedSongId = programSlide?.songId ?? null
 
   /** Phase 4: Preload next song's background asset 500ms after selection */
@@ -739,7 +1146,7 @@ export function ProjectionMode(): React.JSX.Element {
     [playlistItems, songs]
   )
 
-  const handlePlaylistItemClick = (item: PlaylistItem, index: number): void => {
+  const handlePlaylistItemClick = async (item: PlaylistItem, index: number): Promise<void> => {
     usePlaylistStore.getState().setActiveItemIndex(index)
     if (item.item_type === 'info') {
       setSelectedSong(null)
@@ -757,6 +1164,56 @@ export function ProjectionMode(): React.JSX.Element {
         hymnalCode: item.bible_version_short_name || item.bible_version_code || 'BIBLE',
         hymnalName: item.bible_book_name || 'Alkitab',
         songBackgroundConfig: ''
+      })
+      return
+    }
+    if (item.item_type === 'media') {
+      setSelectedSong(null)
+      const mediaDescriptor = parseMediaPlaylistDescriptor(item.notes)
+      const mediaPath = mediaDescriptor.path
+      const isPdf = mediaPath.toLowerCase().endsWith('.pdf')
+      const isVideo =
+        mediaPath.toLowerCase().endsWith('.mp4') ||
+        mediaPath.toLowerCase().endsWith('.webm') ||
+        mediaPath.toLowerCase().endsWith('.mov') ||
+        mediaPath.toLowerCase().endsWith('.mkv')
+
+      let mode: 'video' | 'image' | 'pdf' = 'image'
+      if (isVideo) mode = 'video'
+      else if (isPdf) mode = 'pdf'
+
+      const mediaConfig = JSON.stringify({
+        mode,
+        media: {
+          path: mediaPath
+        },
+        opacity: 100,
+        blur: 0
+      })
+
+      let slides = generateSlidesForPlaylistItem(item)
+      if (isPdf && mediaPath) {
+        try {
+          const pageCount = await getPdfPageCount(mediaPath)
+          slides = Array.from({ length: pageCount }).map((_, idx) => ({
+            contentType: 'custom',
+            songId: null,
+            playlistItemId: item.id,
+            slideIndex: idx,
+            text: '',
+            sectionLabel: mediaDescriptor.presentation?.slides[idx]?.title || `Halaman ${idx + 1}`,
+            speakerNotes: mediaDescriptor.presentation?.slides[idx]?.notes || '',
+            pdfPath: mediaPath
+          }))
+        } catch (err) {
+          console.error('Failed to get PDF page count:', err)
+        }
+      }
+
+      setSlides(slides, {
+        hymnalCode: isPdf ? 'PDF' : 'MEDIA',
+        hymnalName: item.title || 'Media',
+        songBackgroundConfig: mediaConfig
       })
       return
     }
@@ -877,7 +1334,14 @@ export function ProjectionMode(): React.JSX.Element {
                       [
                         { id: 'song-info', label: 'Lagu', icon: <Music2 size={12} /> },
                         { id: 'bible', label: 'Alkitab', icon: <Book size={12} /> },
-                        { id: 'announcement', label: 'Info', icon: <Megaphone size={12} /> }
+                        { id: 'announcement', label: 'Info', icon: <Megaphone size={12} /> },
+                        { id: 'media-local', label: 'Media', icon: <ImageIcon size={12} /> },
+                        {
+                          id: 'powerpoint',
+                          label: 'PPT',
+                          icon: <MonitorPlay size={12} />,
+                          badge: pendingPowerPointRequests || undefined
+                        }
                       ] as Array<{
                         id: BottomRightTab
                         label: string
@@ -925,6 +1389,8 @@ export function ProjectionMode(): React.JSX.Element {
                   {bottomRightTab === 'song-info' && <SongInfoPanel />}
                   {bottomRightTab === 'bible' && <BiblePanel />}
                   {bottomRightTab === 'announcement' && <AnnouncementPanel />}
+                  {bottomRightTab === 'media-local' && <LocalMediaPanel />}
+                  {bottomRightTab === 'powerpoint' && <PowerPointBridgePanel />}
                 </div>
               </div>
 

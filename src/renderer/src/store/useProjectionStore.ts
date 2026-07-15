@@ -127,6 +127,7 @@ interface ProjectionStore {
   goToSlide: (index: number) => void
   toggleBlack: () => void
   toggleFreeze: () => void
+  toggleLogo: () => void
   clearScreen: () => void
   hotSwapSlides: (songId: number, newSlides: SlideData[]) => void
 
@@ -165,6 +166,14 @@ interface ProjectionStore {
   isAudioPanelVisible: boolean
   toggleAudioPanel: () => void
   setAudioPanelVisible: (visible: boolean) => void
+  mediaVolume: number
+  mediaMuted: boolean
+  setMediaVolume: (volume: number) => void
+  setMediaMuted: (muted: boolean) => void
+  instrumentVolume: number
+  instrumentMuted: boolean
+  setInstrumentVolume: (volume: number) => void
+  setInstrumentMuted: (muted: boolean) => void
 
   // ═══════════════════════════════════════════════════════════════
   // LYRICS ZOOM STATE - Font size scaling for Preview and Live
@@ -499,6 +508,22 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
   // AUDIO PANEL STATE - Initial Values (persisted via settings)
   // ═══════════════════════════════════════════════════════════════
   isAudioPanelVisible: false,
+  mediaVolume: (() => {
+    const saved = localStorage.getItem('sion_media_volume')
+    return saved ? Number(saved) : 100
+  })(),
+  mediaMuted: (() => {
+    const saved = localStorage.getItem('sion_media_muted')
+    return saved === 'true'
+  })(),
+  instrumentVolume: (() => {
+    const saved = localStorage.getItem('sion_instrument_volume')
+    return saved ? Number(saved) : 70
+  })(),
+  instrumentMuted: (() => {
+    const saved = localStorage.getItem('sion_instrument_muted')
+    return saved === 'true'
+  })(),
 
   // ═══════════════════════════════════════════════════════════════
   // LYRICS ZOOM STATE - Initial Values (persisted via settings)
@@ -786,6 +811,23 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
       executeProjectionTransition({ type: 'projection:freeze', payload: {} }, set, get)
     } catch (err) {
       logger.error('[Projection Store] toggleFreeze transition failed:', err)
+    }
+  },
+
+  toggleLogo: () => {
+    const { projectionState } = get()
+    const nextState: ProjectionState = projectionState === 'LOGO' ? 'CLEAR' : 'LOGO'
+
+    try {
+      set({
+        projectionState: nextState,
+        prevStateBeforeBlack: null,
+        flowPosition: -1
+      })
+      window.api.projection.stateChange(nextState)
+      get().computeNextState()
+    } catch (err) {
+      logger.error('[Projection Store] toggleLogo transition failed:', err)
     }
   },
 
@@ -1298,7 +1340,8 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
       nextSlideData,
       programSongMeta,
       projectionState,
-      timerElapsed
+      timerElapsed,
+      timerRunning
     } = get()
 
     // Use top-level import (no circular dependency since confidencePayloadBuilder only imports types)
@@ -1310,7 +1353,8 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
       nextSlideData,
       programSongMeta,
       projectionState,
-      timerElapsed
+      timerElapsed,
+      timerRunning
     )
   },
 
@@ -1336,6 +1380,30 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
     window.api.settings
       .update('ui_audio_panel_visible', visible ? '1' : '0')
       .catch((err) => logger.error('Failed to save audio panel state:', err))
+  },
+
+  setMediaVolume: (volume: number) => {
+    set({ mediaVolume: volume })
+    localStorage.setItem('sion_media_volume', String(volume))
+    window.api.projection.videoControl('volume', volume / 100)
+  },
+
+  setMediaMuted: (muted: boolean) => {
+    set({ mediaMuted: muted })
+    localStorage.setItem('sion_media_muted', String(muted))
+    window.api.projection.videoControl('mute', muted)
+  },
+
+  setInstrumentVolume: (volume: number) => {
+    set({ instrumentVolume: volume })
+    localStorage.setItem('sion_instrument_volume', String(volume))
+    window.api.projection.instrumentControl('volume', volume / 100)
+  },
+
+  setInstrumentMuted: (muted: boolean) => {
+    set({ instrumentMuted: muted })
+    localStorage.setItem('sion_instrument_muted', String(muted))
+    window.api.projection.instrumentControl('mute', muted)
   },
 
   // ═══════════════════════════════════════════════════════════════

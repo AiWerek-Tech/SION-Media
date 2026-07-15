@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import {
+  BookOpen,
   Calendar,
   ChevronDown,
   Download,
   GripVertical,
+  Image as ImageIcon,
   Layers,
+  Megaphone,
+  Music2,
   Plus,
   Repeat2,
   Sparkles,
@@ -35,6 +39,7 @@ import {
   normalizePlaylistServiceDate,
   type PlaylistScheduleMode
 } from '@renderer/utils/playlistSchedule'
+import { getPlaylistComposition } from '@renderer/utils/playlistComposition'
 
 const SECTION_PRESETS = [
   'PEMBUKAAN',
@@ -65,6 +70,14 @@ export function LibraryPlaylistWorkspace(): React.JSX.Element {
   const [newName, setNewName] = useState('')
   const [newScheduleMode, setNewScheduleMode] = useState<PlaylistScheduleMode>('anytime')
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0])
+  const playlistComposition = getPlaylistComposition(playlistItems)
+  const totalItemsLabel = `${playlistItems.length} item`
+  const compositionChips = [
+    { key: 'songs', label: 'Lagu', value: playlistComposition.songs, icon: Music2 },
+    { key: 'bible', label: 'Ayat', value: playlistComposition.bible, icon: BookOpen },
+    { key: 'info', label: 'Info', value: playlistComposition.info, icon: Megaphone },
+    { key: 'media', label: 'Media', value: playlistComposition.media, icon: ImageIcon }
+  ].filter((chip) => chip.value > 0)
 
   useEffect(() => {
     loadPlaylists().catch(logger.error)
@@ -243,7 +256,16 @@ export function LibraryPlaylistWorkspace(): React.JSX.Element {
 
           {activePlaylist && (
             <div className="hidden lg:flex items-center gap-2 ml-2">
-              <span className="chip chip-active">{playlistItems.length} lagu</span>
+              <span className="chip chip-active">{totalItemsLabel}</span>
+              {compositionChips.map((chip) => {
+                const Icon = chip.icon
+                return (
+                  <span key={chip.key} className="chip">
+                    <Icon size={12} />
+                    {chip.value} {chip.label}
+                  </span>
+                )
+              })}
             </div>
           )}
         </div>
@@ -382,7 +404,7 @@ export function LibraryPlaylistWorkspace(): React.JSX.Element {
             <div className="glass-panel-strong p-6 text-center">
               <div className="text-[13px] font-semibold text-text-primary">Queue kosong</div>
               <div className="text-[11px] text-text-muted mt-1">
-                Tambahkan lagu dari tab Judul / Sidebar
+                Tambahkan lagu, ayat, info, atau media dari panel Library
               </div>
             </div>
           </div>

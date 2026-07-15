@@ -1,6 +1,7 @@
 import { closeSync, existsSync, openSync, readSync, statSync } from 'fs'
 import { extname, isAbsolute } from 'path'
 import { readSheet, type CellValue, type SheetData } from 'read-excel-file/node'
+import { excelImportRowsSchema } from '../../ipc-domain-schemas'
 
 const ALLOWED_EXTENSIONS = ['.xlsx']
 const MAX_FILE_SIZE_MB = 10
@@ -47,6 +48,9 @@ function ensureAbsoluteXlsxPath(filePath: string): void {
   }
 
   const stats = statSync(normalizedPath)
+  if (!stats.isFile()) {
+    throw new Error('Excel path must reference a regular file.')
+  }
   const fileSizeMB = stats.size / (1024 * 1024)
   if (fileSizeMB > MAX_FILE_SIZE_MB) {
     throw new Error(`File too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`)
@@ -117,7 +121,7 @@ export function mapExcelRows(rows: SheetData): ImportedExcelSong[] {
     return undefined
   }
 
-  return rows
+  const mappedRows = rows
     .slice(1)
     .filter((row) => row.some((cell) => normalizeCell(cell).length > 0))
     .map((row) => ({
@@ -133,6 +137,7 @@ export function mapExcelRows(rows: SheetData): ImportedExcelSong[] {
       tempo: normalizeCell(getCell(row, ['Tempo', 'tempo'])),
       tags: normalizeCell(getCell(row, ['Tags', 'tags']))
     }))
+  return excelImportRowsSchema.parse(mappedRows)
 }
 
 export async function parseExcelFile(filePath: string): Promise<ImportedExcelSong[]> {

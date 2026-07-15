@@ -4,6 +4,12 @@ import { useAppStore } from './store/useAppStore'
 import { usePlaylistStore } from './store/usePlaylistStore'
 import { useModeStore } from './store/useModeStore'
 import { useDisplayStore } from './store/useDisplayStore'
+import { useProjectionStore } from './store/useProjectionStore'
+import {
+  usePowerPointBridgeStore,
+  type PowerPointBridgeSourceState
+} from './store/usePowerPointBridgeStore'
+import { loadPowerPointBridgeSource } from './utils/powerPointBridge'
 import { Toast } from './components/Toast'
 import { CommandPalette } from './components/CommandPalette'
 import { KeyboardCheatSheet } from './components/KeyboardCheatSheet'
@@ -19,9 +25,39 @@ import { useGlobalShortcuts } from './hooks/useGlobalShortcuts'
 import { useCrashRecovery } from './hooks/useCrashRecovery'
 import { useModePreloader } from './startup/useModePreloader'
 import { useBootStore } from './startup/bootStore'
+import { executeRuntimeCommand } from './utils/runtimeCommandBus'
+import {
+  attachPresenterRemoteVisualDataUrl,
+  getPresenterRemotePdfVisualKey,
+  summarizePresenterRemoteSlide
+} from './utils/presenterRemoteSnapshot'
+import { getCachedPdfPageImage, prefetchAndCachePdfPage } from './utils/pdfUtils'
 import { SplashScreen } from './startup/SplashScreen'
 import { RendererBootScreen } from './startup/RendererBootScreen'
 import { LoadingSkeleton, SkeletonVariant } from './components/design-system/LoadingSkeleton'
+
+const PRESENTER_REMOTE_PDF_RENDER_SCALE = 0.65
+
+function splitStageNotesAndChord(notes: string | null | undefined): {
+  notes?: string
+  chord?: string
+} {
+  const value = notes?.trim()
+  if (!value) return {}
+  const chordPattern = /\b([A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add)?\d*(?:\/[A-G](?:#|b)?)?)\b/
+  const lines = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const chordLines = lines.filter((line) => chordPattern.test(line) && line.length <= 80)
+  if (chordLines.length > 0) {
+    return {
+      chord: chordLines.slice(0, 4).join('  '),
+      notes: lines.filter((line) => !chordLines.includes(line)).join('\n') || undefined
+    }
+  }
+  return { notes: value }
+}
 
 const ProjectionMode = lazy(() =>
   import('./screens/modes/ProjectionMode').then((module) => ({ default: module.ProjectionMode }))
@@ -54,6 +90,20 @@ function App(): React.JSX.Element {
   const { currentScreen, setScreen } = useAppStore()
   const isLyricsFullscreen = useDisplayStore((s) => s.isLyricsFullscreen)
   const isBibleFullscreen = useDisplayStore((s) => s.isBibleFullscreen)
+  const presenterProjectionState = useProjectionStore((s) => s.projectionState)
+  const presenterProgramSlide = useProjectionStore((s) => s.programSlide)
+  const presenterProgramSlideIndex = useProjectionStore((s) => s.programSlideIndex)
+  const presenterNextSlideData = useProjectionStore((s) => s.nextSlideData)
+  const presenterNextSlideIndex = useProjectionStore((s) => s.nextSlideIndex)
+  const presenterTotalSlides = useProjectionStore((s) => s.programSlides.length)
+  const presenterHasNextSlide = useProjectionStore((s) => s.hasNextSlide)
+  const presenterFlowPosition = useProjectionStore((s) => s.flowPosition)
+  const presenterIsSmartMode = useProjectionStore((s) => s.isSmartMode)
+  const presenterTimerElapsed = useProjectionStore((s) => s.timerElapsed)
+  const presenterTimerRunning = useProjectionStore((s) => s.timerRunning)
+  const presenterProgramSongBackgroundConfig = useProjectionStore(
+    (s) => s.programSongBackgroundConfig
+  )
   const { playlistItems, activePlaylist } = usePlaylistStore()
   const { currentMode, isFirstInstall } = useModeStore()
   const phase = useBootStore((s) => s.phase)
@@ -62,6 +112,7 @@ function App(): React.JSX.Element {
   const [showQuickJump, setShowQuickJump] = useState(false)
   const [showRuntimeInspector, setShowRuntimeInspector] = useState(false)
   const [showEmergencyPanel, setShowEmergencyPanel] = useState(false)
+  const [presenterPdfVisualCache, setPresenterPdfVisualCache] = useState<Record<string, string>>({})
   const [isStoreHydrated, setIsStoreHydrated] = useState(() => useModeStore.persist.hasHydrated())
 
   useEffect(() => {
@@ -101,6 +152,169 @@ function App(): React.JSX.Element {
     setShowRuntimeInspector,
     setShowEmergencyPanel
   })
+
+  useEffect(() => {
+    return window.api.presenterRemote.onCommand((command, payload) => {
+      switch (command) {
+        case 'PRESENTATION_SOURCE': {
+          const source = payload as
+            | {
+                imagePath?: unknown
+                title?: unknown
+                notes?: unknown
+                slideIndex?: unknown
+                totalSlides?: unknown
+                autoTake?: unknown
+              }
+            | undefined
+          if (!source || typeof source.imagePath !== 'string' || !source.imagePath) break
+          const bridge = usePowerPointBridgeStore.getState()
+          const bridgeSource = source as PowerPointBridgeSourceState
+          bridge.setSource(bridgeSource)
+          if (bridge.autoPreview) loadPowerPointBridgeSource(bridgeSource, bridge.autoLive)
+          break
+        }
+        case 'NEXT':
+          executeRuntimeCommand('NAV_NEXT_SLIDE', undefined, 'PRESENTER_REMOTE')
+          break
+        case 'PREV':
+          executeRuntimeCommand('NAV_PREV_SLIDE', undefined, 'PRESENTER_REMOTE')
+          break
+        case 'TAKE':
+          executeRuntimeCommand('PROJ_TAKE_CUE', undefined, 'PRESENTER_REMOTE')
+          break
+        case 'CLEAR':
+          executeRuntimeCommand('PROJ_CLEAR', undefined, 'PRESENTER_REMOTE')
+          break
+        case 'BLACK':
+          executeRuntimeCommand('PROJ_BLACK', undefined, 'PRESENTER_REMOTE')
+          break
+        case 'FREEZE':
+          executeRuntimeCommand('PROJ_FREEZE', undefined, 'PRESENTER_REMOTE')
+          break
+        case 'LOGO':
+          useProjectionStore.getState().toggleLogo()
+          break
+        case 'GOTO': {
+          const slideIndex =
+            payload && typeof payload === 'object' && 'slideIndex' in payload
+              ? Number((payload as { slideIndex?: unknown }).slideIndex)
+              : NaN
+          if (Number.isInteger(slideIndex) && slideIndex >= 0) {
+            executeRuntimeCommand('NAV_GOTO_SLIDE', { slideIndex }, 'PRESENTER_REMOTE')
+          }
+          break
+        }
+        case 'TIMER_START':
+          executeRuntimeCommand('TIMER_START', undefined, 'PRESENTER_REMOTE')
+          break
+        case 'TIMER_STOP':
+          executeRuntimeCommand('TIMER_STOP', undefined, 'PRESENTER_REMOTE')
+          break
+        case 'TIMER_RESET':
+          executeRuntimeCommand('TIMER_RESET', undefined, 'PRESENTER_REMOTE')
+          break
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const slides = [presenterProgramSlide, presenterNextSlideData]
+
+    const storeRenderedPage = (key: string, dataUrl: string): void => {
+      if (cancelled) return
+      setPresenterPdfVisualCache((previous) => {
+        if (previous[key] === dataUrl) return previous
+        return { ...previous, [key]: dataUrl }
+      })
+    }
+
+    for (const slide of slides) {
+      const key = getPresenterRemotePdfVisualKey(slide)
+      const pdfPath = slide?.pdfPath
+      if (!key || !pdfPath) continue
+
+      const pageNumber = slide.slideIndex + 1
+      const cached = getCachedPdfPageImage(pdfPath, pageNumber, PRESENTER_REMOTE_PDF_RENDER_SCALE)
+      if (cached) {
+        storeRenderedPage(key, cached)
+        continue
+      }
+
+      void prefetchAndCachePdfPage(pdfPath, pageNumber, PRESENTER_REMOTE_PDF_RENDER_SCALE).then(
+        () => {
+          const rendered = getCachedPdfPageImage(
+            pdfPath,
+            pageNumber,
+            PRESENTER_REMOTE_PDF_RENDER_SCALE
+          )
+          if (rendered) storeRenderedPage(key, rendered)
+        }
+      )
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [presenterProgramSlide, presenterNextSlideData])
+
+  useEffect(() => {
+    const currentStageMeta = splitStageNotesAndChord(
+      playlistItems.find((item) => item.id === presenterProgramSlide?.playlistItemId)?.notes
+    )
+    const nextStageMeta = splitStageNotesAndChord(
+      playlistItems.find((item) => item.id === presenterNextSlideData?.playlistItemId)?.notes
+    )
+    const currentSlideSummary = summarizePresenterRemoteSlide(
+      presenterProgramSlide,
+      presenterProgramSongBackgroundConfig,
+      currentStageMeta
+    )
+    const nextSlideSummary = summarizePresenterRemoteSlide(
+      presenterNextSlideData,
+      presenterProgramSongBackgroundConfig,
+      nextStageMeta
+    )
+    const currentPdfKey = getPresenterRemotePdfVisualKey(presenterProgramSlide)
+    const nextPdfKey = getPresenterRemotePdfVisualKey(presenterNextSlideData)
+
+    window.api.presenterRemote.updateSnapshot({
+      projectionState: presenterProjectionState,
+      currentSlide: attachPresenterRemoteVisualDataUrl(
+        currentSlideSummary,
+        currentPdfKey ? presenterPdfVisualCache[currentPdfKey] : undefined
+      ),
+      nextSlide: attachPresenterRemoteVisualDataUrl(
+        nextSlideSummary,
+        nextPdfKey ? presenterPdfVisualCache[nextPdfKey] : undefined
+      ),
+      currentIndex: presenterProgramSlideIndex,
+      nextIndex: presenterNextSlideIndex,
+      totalSlides: presenterTotalSlides,
+      hasNextSlide: presenterHasNextSlide,
+      flowPosition: presenterFlowPosition,
+      isSmartMode: presenterIsSmartMode,
+      timerElapsed: presenterTimerElapsed,
+      timerRunning: presenterTimerRunning,
+      updatedAt: Date.now()
+    })
+  }, [
+    presenterProjectionState,
+    presenterProgramSlide,
+    presenterProgramSlideIndex,
+    presenterTotalSlides,
+    presenterNextSlideData,
+    presenterNextSlideIndex,
+    presenterHasNextSlide,
+    presenterFlowPosition,
+    presenterIsSmartMode,
+    presenterTimerElapsed,
+    presenterTimerRunning,
+    presenterProgramSongBackgroundConfig,
+    playlistItems,
+    presenterPdfVisualCache
+  ])
 
   const renderScreen = (): React.JSX.Element | null => {
     if (!isStoreHydrated) return null

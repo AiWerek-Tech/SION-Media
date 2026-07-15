@@ -46,4 +46,18 @@ describe('song lyric presentation formatting', () => {
 
     expect(slides[0].text).toBe('Kasih Tuhan memenuhi seluruh hidup kita')
   })
+
+  test('never moves half of a singable line to the next slide', () => {
+    const slides = generateSlides(
+      505,
+      '[VERSE 1]\nSatu baris lagu yang sangat panjang dan harus tetap dinyanyikan sebagai satu kalimat; Baris berikutnya',
+      { maxLines: 2, maxChars: 18 }
+    )
+
+    expect(slides).toHaveLength(2)
+    expect(slides[0].text).toBe(
+      'Satu baris lagu yang sangat panjang dan harus tetap dinyanyikan sebagai satu kalimat'
+    )
+    expect(slides[1].text).toBe('Baris berikutnya')
+  })
 })

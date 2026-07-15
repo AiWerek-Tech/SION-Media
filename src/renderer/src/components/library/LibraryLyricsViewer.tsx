@@ -16,12 +16,22 @@ import {
   Check,
   Music,
   Plus,
-  Grid3X3
+  Grid3X3,
+  Clock,
+  Save,
+  RotateCcw,
+  Volume2,
+  VolumeX,
+  Square,
+  X,
+  HelpCircle
 } from 'lucide-react'
 import { TitleBar } from '@renderer/components/titlebar/TitleBar'
 import { LibrarySearchPalette } from './LibrarySearchPalette'
 import type { Song } from '@renderer/types'
 import { useAppStore } from '@renderer/store/useAppStore'
+import { useInstrumentStore } from '@renderer/store/useInstrumentStore'
+import { stripLrcTimestamps, hasLrcTimestamps } from '@renderer/utils/lrcParser'
 import { logger } from '@renderer/utils/logger'
 import { DEFAULT_GLOBAL_ATMOSPHERE } from '../../atmosphere/presets'
 import type { AtmosphereConfig, MediaAssetRecord } from '../../atmosphere/types'
@@ -250,6 +260,179 @@ export function LibraryLyricsViewer({
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  // Local backing track audio player
+  const { instrumentsMap } = useInstrumentStore()
+
+  const instrumentPath = useMemo(() => {
+    const code = (song.hymnal_code || '').toUpperCase()
+    const num = song.number
+    const primaryKey = `${code}-${num}`
+    if (instrumentsMap[primaryKey]) {
+      return instrumentsMap[primaryKey]
+    }
+    if (code === 'LS') return instrumentsMap[`LSEL-${num}`] || ''
+    if (code === 'LSEL') return instrumentsMap[`LS-${num}`] || ''
+    return ''
+  }, [song, instrumentsMap])
+
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [volume, setVolume] = useState(70)
+  const [muted, setMuted] = useState(false)
+
+  const normalizedUrl = instrumentPath ? `local-media:///${instrumentPath.replace(/\\/g, '/')}` : ''
+
+  // LRC Sync Mode states
+  const [isSyncMode, setIsSyncMode] = useState(false)
+  const [syncLines, setSyncLines] = useState<{ text: string; time?: number }[]>([])
+  const [activeSyncIndex, setActiveSyncIndex] = useState(0)
+
+  // Sync volume & mute to native audio
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume / 100
+      audioRef.current.muted = muted
+    }
+  }, [volume, muted, instrumentPath])
+
+  // Stop playback when unmounting or path changes
+  useEffect(() => {
+    const audio = audioRef.current
+    return () => {
+      if (audio) {
+        audio.pause()
+      }
+      setIsPlaying(false)
+    }
+  }, [instrumentPath])
+
+  const handlePlayPause = async (): Promise<void> => {
+    const audio = audioRef.current
+    if (!audio) return
+    if (isPlaying) {
+      audio.pause()
+      setIsPlaying(false)
+    } else {
+      try {
+        await audio.play()
+        setIsPlaying(true)
+      } catch (err) {
+        console.error('Audio play failed:', err)
+      }
+    }
+  }
+
+  const handleStop = (): void => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.pause()
+    audio.currentTime = 0
+    setIsPlaying(false)
+  }
+
+  const formatTime = (time: number): string => {
+    if (isNaN(time)) return '00:00'
+    const mins = Math.floor(time / 60)
+    const secs = Math.floor(time % 60)
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+  }
+
+  // Load sync lines from song.lyrics_raw when isSyncMode becomes active
+  useEffect(() => {
+    if (isSyncMode && song.lyrics_raw) {
+      void Promise.resolve().then(() => {
+        const rawLines = song.lyrics_raw.split('\n')
+        const parsed = rawLines.map((line) => {
+          const match = line.trim().match(/^\[(\d+):(\d+)(?:\.(\d+))?\]/)
+          let time: number | undefined = undefined
+          let cleanText = line
+          if (match) {
+            const min = parseInt(match[1], 10)
+            const sec = parseInt(match[2], 10)
+            const ms = match[3] || '0'
+            time = min * 60 + sec + parseFloat('0.' + ms)
+            cleanText = line.replace(/^\[\d+:\d+(?:\.\d+)?\]/, '')
+          }
+          return { text: cleanText, time }
+        })
+        setSyncLines(parsed)
+        const firstUnstamped = parsed.findIndex(
+          (line) =>
+            line.time === undefined && line.text.trim() !== '' && !line.text.trim().startsWith('[')
+        )
+        setActiveSyncIndex(firstUnstamped !== -1 ? firstUnstamped : 0)
+      })
+    }
+  }, [isSyncMode, song.lyrics_raw])
+
+  // Tap stamp with Space or Enter in sync mode
+  useEffect(() => {
+    if (!isSyncMode) return
+
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault()
+        e.stopPropagation()
+
+        if (activeSyncIndex >= 0 && activeSyncIndex < syncLines.length) {
+          const updated = [...syncLines]
+          updated[activeSyncIndex].time = currentTime
+          setSyncLines(updated)
+
+          // Find next stampable line
+          let nextIdx = activeSyncIndex + 1
+          while (
+            nextIdx < updated.length &&
+            (updated[nextIdx].text.trim() === '' ||
+              (updated[nextIdx].text.trim().startsWith('[') &&
+                updated[nextIdx].text.trim().endsWith(']')))
+          ) {
+            nextIdx++
+          }
+          if (nextIdx < updated.length) {
+            setActiveSyncIndex(nextIdx)
+          }
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isSyncMode, activeSyncIndex, syncLines, currentTime])
+
+  const formatLrcTag = (time: number): string => {
+    const mins = Math.floor(time / 60)
+    const secs = Math.floor(time % 60)
+    const ms = Math.floor((time % 1) * 100)
+    return `[${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(2, '0')}]`
+  }
+
+  const handleSaveLrc = async (): Promise<void> => {
+    try {
+      const updatedLyricsRaw = syncLines
+        .map((l) => (l.time !== undefined ? `${formatLrcTag(l.time)}${l.text}` : l.text))
+        .join('\n')
+
+      await window.api.songs.update(song.id, { lyrics_raw: updatedLyricsRaw })
+
+      if (instrumentPath && window.api.file?.writeLrc) {
+        await window.api.file.writeLrc(instrumentPath, updatedLyricsRaw)
+      }
+
+      // Update local state in store instantly
+      const updatedSong = { ...song, lyrics_raw: updatedLyricsRaw }
+      useAppStore.getState().setSelectedSong(updatedSong)
+      await useAppStore.getState().loadSongs()
+
+      setIsSyncMode(false)
+      logger.info('LRC timestamps sync saved successfully.')
+    } catch (err) {
+      console.error('Failed to save LRC timestamps sync:', err)
+    }
+  }
+
   const setLyricsFullscreen = useAppStore((state) => state.setLyricsFullscreen)
   const setMaximized = useAppStore((state) => state.setMaximized)
 
@@ -264,7 +447,7 @@ ${song.alternate_title || song.title_en || ''}
 Buku: ${song.hymnal_name || song.hymnal_code || 'Lagu Sion'}
 Key: ${song.key_note || '-'}, Tempo: ${song.tempo || '-'}, Birama: ${song.time_signature || '-'}
 
-${song.lyrics_raw}
+${stripLrcTimestamps(song.lyrics_raw)}
 
 Copyright SION Media Enterprise`.trim()
 
@@ -286,17 +469,55 @@ Copyright SION Media Enterprise`.trim()
   }
 
   const renderLyrics = (text: string, isChorus = false): React.ReactNode => {
-    if (!showChords) return text
+    const rawLines = text.split('\n')
 
-    return text.split('\n').map((line, i) => {
-      // Basic parser for [G] style chords
-      if (line.includes('[') && line.includes(']')) {
-        const parts = line.split(/(\[[^\]]+\])/g)
-        return (
-          <div
-            key={i}
-            className="flex flex-wrap items-baseline justify-center gap-x-1.5 min-h-[1.2em]"
-          >
+    // Parse inline timestamps
+    const timestampRegex = /^\[(\d+):(\d+)(?:\.(\d+))?\]/
+    const parsedLines = rawLines.map((line) => {
+      const trimmed = line.trim()
+      const match = trimmed.match(timestampRegex)
+      let time: number | undefined = undefined
+      let cleanText = line
+      if (match) {
+        const min = parseInt(match[1], 10)
+        const sec = parseInt(match[2], 10)
+        const msPart = match[3] || '0'
+        const fraction = parseFloat('0.' + msPart)
+        time = min * 60 + sec + fraction
+        cleanText = line.replace(timestampRegex, '')
+      }
+      return { time, text: cleanText }
+    })
+
+    // Find active line index based on current audio playback time
+    let activeLineIdx = -1
+    if (isPlaying && hasLrcTimestamps(text)) {
+      for (let k = 0; k < parsedLines.length; k++) {
+        const currentLine = parsedLines[k]
+        if (currentLine.time !== undefined && currentTime >= currentLine.time) {
+          let nextTime: number | undefined = undefined
+          for (let nextK = k + 1; nextK < parsedLines.length; nextK++) {
+            if (parsedLines[nextK].time !== undefined) {
+              nextTime = parsedLines[nextK].time
+              break
+            }
+          }
+          if (nextTime === undefined || currentTime < nextTime) {
+            activeLineIdx = k
+          }
+        }
+      }
+    }
+
+    return parsedLines.map((parsed, i) => {
+      const isActive = i === activeLineIdx
+      const lineText = parsed.text
+
+      let contentNode: React.ReactNode = lineText
+      if (showChords && lineText.includes('[') && lineText.includes(']')) {
+        const parts = lineText.split(/(\[[^\]]+\])/g)
+        contentNode = (
+          <div className="flex flex-wrap items-baseline justify-center gap-x-1.5 min-h-[1.2em]">
             {parts.map((part, j) => {
               if (part.startsWith('[') && part.endsWith(']')) {
                 const chord = part.slice(1, -1)
@@ -319,7 +540,23 @@ Copyright SION Media Enterprise`.trim()
           </div>
         )
       }
-      return <div key={i}>{line}</div>
+
+      return (
+        <motion.div
+          key={i}
+          className="transition-all duration-300 origin-center"
+          animate={{
+            opacity: activeLineIdx === -1 ? 1 : isActive ? 1 : 0.35,
+            scale: isActive ? 1.03 : 1.0
+          }}
+          style={{
+            textShadow: isActive ? '0 0 20px rgba(255,255,255,0.45)' : undefined,
+            fontWeight: isActive ? '900' : '700'
+          }}
+        >
+          {contentNode}
+        </motion.div>
+      )
     })
   }
 
@@ -821,6 +1058,19 @@ Copyright SION Media Enterprise`.trim()
             >
               <Music size={18} />
             </button>
+            {instrumentPath && (
+              <button
+                onClick={() => setIsSyncMode(!isSyncMode)}
+                className={`flex h-11 w-11 items-center justify-center rounded-[14px] transition-all ${
+                  isSyncMode
+                    ? 'bg-brand-primary text-white shadow-[0_0_20px_rgba(var(--brand-primary-rgb),0.4)] animate-pulse'
+                    : 'bg-white/[0.04] text-white/70 hover:bg-white/[0.1] hover:text-white'
+                }`}
+                title="LRC Timestamp Sync Tool"
+              >
+                <Clock size={18} />
+              </button>
+            )}
           </div>
 
           <div className="h-px w-8 bg-white/[0.08]" />
@@ -861,7 +1111,7 @@ Copyright SION Media Enterprise`.trim()
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
         style={{ pointerEvents: isUiVisible ? 'auto' : 'none' }}
       >
-        <div className="flex items-center gap-4 rounded-[24px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(15,23,42,0.85),rgba(8,14,28,0.75))] px-4 py-3 shadow-[0_24px_60px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+        <div className="flex items-center gap-4 rounded-[24px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,14,28,0.82))] px-4 py-3 shadow-[0_24px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
           <button
             onClick={onPrevSong}
             disabled={!onPrevSong}
@@ -899,6 +1149,74 @@ Copyright SION Media Enterprise`.trim()
           >
             <SkipForward size={20} className="transition-transform group-hover:translate-x-0.5" />
           </button>
+
+          {instrumentPath && (
+            <>
+              <div className="h-8 w-px bg-white/[0.06]" />
+
+              <div className="flex items-center gap-2 pl-2">
+                <button
+                  onClick={handlePlayPause}
+                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                    isPlaying
+                      ? 'bg-brand-primary text-white'
+                      : 'bg-white/10 text-white/80 hover:bg-white/20 hover:text-white'
+                  }`}
+                  title={isPlaying ? 'Pause Backing Track' : 'Play Backing Track'}
+                >
+                  {isPlaying ? (
+                    <Pause size={14} fill="currentColor" />
+                  ) : (
+                    <Play size={14} fill="currentColor" className="ml-0.5" />
+                  )}
+                </button>
+                <button
+                  onClick={handleStop}
+                  className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/15 text-white/60 hover:text-white flex items-center justify-center transition-all"
+                  title="Stop Backing Track"
+                >
+                  <Square size={10} fill="currentColor" />
+                </button>
+
+                <span className="text-[10px] text-white/40 font-mono select-none px-1">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
+
+                <input
+                  type="range"
+                  min={0}
+                  max={duration || 100}
+                  value={currentTime}
+                  onChange={(e) => {
+                    const val = Number(e.target.value)
+                    if (audioRef.current) audioRef.current.currentTime = val
+                  }}
+                  className="w-24 h-1 rounded-lg appearance-none bg-white/10 accent-brand-primary outline-none cursor-pointer"
+                />
+
+                <div className="flex items-center gap-1.5 bg-white/5 rounded-lg px-2 h-8">
+                  <button
+                    onClick={() => setMuted(!muted)}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    {muted ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                  </button>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={muted ? 0 : volume}
+                    onChange={(e) => {
+                      const val = Number(e.target.value)
+                      setVolume(val)
+                      if (muted && val > 0) setMuted(false)
+                    }}
+                    className="w-10 h-0.5 accent-brand-primary outline-none cursor-pointer"
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </motion.div>
 
@@ -1036,6 +1354,186 @@ Copyright SION Media Enterprise`.trim()
           )}
         </div>
       </div>
+
+      {/* LRC Sync Tool Side Panel Overlay */}
+      {isSyncMode && (
+        <div className="absolute top-12 bottom-0 right-0 w-[420px] bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(8,14,28,0.98))] border-l border-white/[0.08] z-[60] flex flex-col p-6 shadow-[-12px_0_40px_rgba(0,0,0,0.6)] backdrop-blur-3xl animate-in slide-in-from-right duration-300 rounded-l-3xl">
+          {/* Header */}
+          <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
+            <div className="flex items-center gap-3">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 animate-pulse"></span>
+              </span>
+              <h3 className="font-extrabold text-[12px] uppercase tracking-[0.2em] text-white/90">
+                LRC Sync Station
+              </h3>
+            </div>
+            <button
+              onClick={() => setIsSyncMode(false)}
+              className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white transition-all border border-white/[0.04] active:scale-95"
+              title="Tutup Panel"
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          {/* Guide Card */}
+          <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-transparent p-4 my-4 shadow-inner">
+            <div className="flex items-start gap-3">
+              <HelpCircle size={15} className="text-blue-400 mt-0.5 shrink-0" />
+              <div className="text-[11px] text-slate-300/80 leading-relaxed">
+                <span className="font-bold text-white block mb-1 text-[12px]">
+                  Panduan Sinkronisasi:
+                </span>
+                1. Putar lagu pengiring pada pemutar di bawah.
+                <br />
+                2. Ketuk{' '}
+                <kbd className="bg-white/10 border border-white/10 px-1.5 py-0.5 rounded text-[10px] text-white font-mono shadow-sm mx-0.5">
+                  Space
+                </kbd>{' '}
+                atau klik <strong className="text-blue-400">TAP</strong> tepat saat baris lirik
+                mulai dinyanyikan.
+                <br />
+                3. Klik <strong className="text-white">Simpan Sinkronisasi</strong> jika selesai.
+              </div>
+            </div>
+          </div>
+
+          {/* Timeline Lyric List */}
+          <div className="flex-1 overflow-y-auto space-y-3 pr-1.5 select-none relative [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 hover:[&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-track]:bg-transparent">
+            {/* Vertical timeline line */}
+            <div className="absolute left-[22px] top-3 bottom-3 w-[2px] bg-white/[0.04] pointer-events-none" />
+
+            {syncLines.map((line, idx) => {
+              const isSection = line.text.trim().startsWith('[') && line.text.trim().endsWith(']')
+              const isEmpty = line.text.trim() === ''
+              const isActive = idx === activeSyncIndex
+
+              if (isEmpty) return <div key={idx} className="h-1.5" />
+
+              if (isSection) {
+                return (
+                  <div key={idx} className="pt-4 pb-2 first:pt-1">
+                    <div className="flex items-center gap-2 pl-4">
+                      <span className="text-[9px] font-black uppercase tracking-[0.2em] text-violet-350 bg-violet-500/10 border border-violet-500/20 px-2.5 py-0.5 rounded-md">
+                        {line.text.slice(1, -1)}
+                      </span>
+                      <div className="flex-1 h-px border-t border-dashed border-white/[0.06]" />
+                    </div>
+                  </div>
+                )
+              }
+
+              return (
+                <div
+                  key={idx}
+                  onClick={() => setActiveSyncIndex(idx)}
+                  className={`relative flex items-center justify-between p-3.5 pl-10 rounded-2xl transition-all border cursor-pointer group/item ${
+                    isActive
+                      ? 'bg-gradient-to-r from-blue-500/10 to-transparent border-blue-500/35 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_8px_24px_rgba(59,130,246,0.12)]'
+                      : 'bg-white/[0.01] border-white/[0.03] text-white/50 hover:bg-white/[0.03] hover:text-white/85'
+                  }`}
+                >
+                  {/* Timeline dot */}
+                  <div className="absolute left-[22px] top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center z-10">
+                    {isActive ? (
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]"></span>
+                      </span>
+                    ) : (
+                      <div
+                        className={`h-1.5 w-1.5 rounded-full transition-all ${line.time !== undefined ? 'bg-blue-500/60' : 'bg-white/20 group-hover/item:bg-white/40'}`}
+                      />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0 pr-3">
+                    <p className={`text-xs truncate ${isActive ? 'font-bold' : 'font-medium'}`}>
+                      {line.text}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {line.time !== undefined && (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-black font-mono bg-blue-500/15 border border-blue-400/20 text-blue-300 px-2.5 py-0.5 rounded-full shadow-[0_0_12px_rgba(59,130,246,0.15)]">
+                        <Clock size={8} />
+                        {formatTime(line.time)}
+                      </span>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const updated = [...syncLines]
+                        updated[idx].time = currentTime
+                        setSyncLines(updated)
+                        // Auto advance
+                        let nextIdx = idx + 1
+                        while (
+                          nextIdx < updated.length &&
+                          (updated[nextIdx].text.trim() === '' ||
+                            (updated[nextIdx].text.trim().startsWith('[') &&
+                              updated[nextIdx].text.trim().endsWith(']')))
+                        ) {
+                          nextIdx++
+                        }
+                        if (nextIdx < updated.length) setActiveSyncIndex(nextIdx)
+                      }}
+                      className={`h-7 px-3 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all scale-100 active:scale-95 ${
+                        isActive
+                          ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-[0_0_16px_rgba(59,130,246,0.4)] border border-blue-400/30'
+                          : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white border border-white/[0.04]'
+                      }`}
+                    >
+                      TAP
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Footer Actions */}
+          <div className="pt-4 border-t border-white/[0.08] flex items-center justify-between gap-3 mt-4 bg-slate-900/40 backdrop-blur-md -mx-6 -mb-6 p-4 rounded-b-3xl">
+            <button
+              onClick={() => {
+                const reset = syncLines.map((l) => ({ ...l, time: undefined }))
+                setSyncLines(reset)
+                setActiveSyncIndex(0)
+              }}
+              className="h-10 px-4 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.06] text-white/70 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 shrink-0"
+              title="Reset semua stempel waktu"
+            >
+              <RotateCcw size={12} />
+              Reset
+            </button>
+
+            <button
+              onClick={handleSaveLrc}
+              className="flex-1 h-10 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(79,70,229,0.35)] active:scale-[0.98] border border-white/10"
+            >
+              <Save size={12} />
+              Simpan Sinkronisasi
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden local audio node */}
+      {normalizedUrl && (
+        <audio
+          ref={audioRef}
+          src={normalizedUrl}
+          onTimeUpdate={() => {
+            if (audioRef.current) {
+              setCurrentTime(audioRef.current.currentTime)
+              setDuration(audioRef.current.duration || 0)
+            }
+          }}
+          onEnded={() => setIsPlaying(false)}
+        />
+      )}
 
       {/* Quick Jump Search Palette */}
       <LibrarySearchPalette

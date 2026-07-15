@@ -3,6 +3,7 @@ import { useAppStore } from '@renderer/store/useAppStore'
 import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
 import { useProjectionStore } from '@renderer/store/useProjectionStore'
 import { handlePlaylistCueNext, handlePlaylistQueueNext } from '@core/runtime/handlers/playlist'
+import { getPlaylistComposition } from '@renderer/utils/playlistComposition'
 import type { Playlist, PlaylistItem, Song } from '@renderer/types'
 import type { RuntimeCommand } from '@core/runtime/contracts'
 
@@ -77,6 +78,7 @@ function command(payload: Record<string, unknown>): RuntimeCommand {
 beforeEach(() => {
   vi.mocked(window.api.playlists.deleteItem).mockClear()
   vi.mocked(window.api.playlists.getItems).mockClear()
+  vi.mocked(window.api.playlists.updateItem).mockClear()
 
   usePlaylistStore.setState({
     activePlaylist: makePlaylist(),
@@ -140,6 +142,59 @@ describe('playlist store active item hygiene', () => {
     expect(usePlaylistStore.getState().playlistItems).toEqual([second])
     expect(usePlaylistStore.getState().activeItemIndex).toBe(0)
   })
+
+  test('updates an Info playlist item so it can be edited instead of recreated', async () => {
+    const infoItem: PlaylistItem = {
+      id: 7,
+      playlist_id: 1,
+      song_id: null,
+      sort_order: 0,
+      section_label: '',
+      item_type: 'info',
+      title: 'Pengumuman',
+      notes: 'Teks lama'
+    }
+    usePlaylistStore.setState({ playlistItems: [infoItem], activeItemIndex: 0 })
+
+    await usePlaylistStore.getState().updateInfoItem(7, {
+      title: 'Pengumuman Baru',
+      body: 'Teks baru'
+    })
+
+    expect(window.api.playlists.updateItem).toHaveBeenCalledWith(7, {
+      title: 'Pengumuman Baru',
+      notes: 'Teks baru'
+    })
+    expect(usePlaylistStore.getState().playlistItems[0]).toMatchObject({
+      title: 'Pengumuman Baru',
+      notes: 'Teks baru'
+    })
+  })
+
+  test('replaces a song in place without changing the active rundown position', async () => {
+    const opening = makeItem(1, 1)
+    const replacement = makeSong(2, 'New Opening')
+    const updatedItem = {
+      ...opening,
+      item_type: 'song' as const,
+      song_id: replacement.id,
+      number: replacement.number,
+      title: replacement.title
+    }
+    usePlaylistStore.setState({ playlistItems: [opening], activeItemIndex: 0 })
+    vi.mocked(window.api.playlists.getItems).mockResolvedValue([updatedItem])
+
+    await usePlaylistStore.getState().replaceSongItem(opening.id, replacement)
+
+    expect(window.api.playlists.updateItem).toHaveBeenCalledWith(opening.id, {
+      song_id: replacement.id
+    })
+    expect(usePlaylistStore.getState().playlistItems[0]).toMatchObject({
+      song_id: 2,
+      title: 'New Opening'
+    })
+    expect(usePlaylistStore.getState().activeItemIndex).toBe(0)
+  })
 })
 
 describe('playlist runtime queue/cue next', () => {
@@ -156,5 +211,18 @@ describe('playlist runtime queue/cue next', () => {
     expect(usePlaylistStore.getState().activeItemIndex).toBe(1)
     expect(useProjectionStore.getState().slides[0]?.songId).toBe(2)
     expect(useAppStore.getState().selectedSong?.id).toBe(2)
+  })
+})
+
+describe('playlist mixed content summary', () => {
+  test('counts songs, Bible, Info, and Media items separately', () => {
+    expect(
+      getPlaylistComposition([
+        { song_id: 1, item_type: 'song' },
+        { song_id: null, item_type: 'bible' },
+        { song_id: null, item_type: 'info' },
+        { song_id: null, item_type: 'media' }
+      ])
+    ).toEqual({ songs: 1, bible: 1, info: 1, media: 1 })
   })
 })

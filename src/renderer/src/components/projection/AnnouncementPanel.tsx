@@ -2,7 +2,7 @@
  * Phase 7 — AnnouncementPanel (v2)
  *
  * Quick text panel for sending announcements/custom text to the projection.
- * Supports templates, character counter, and history for rapid service announcements.
+ * Supports character counter and playlist handoff for rapid service announcements.
  */
 
 import React, { useCallback, useState } from 'react'
@@ -11,18 +11,6 @@ import { useProjectionStore } from '@renderer/store/useProjectionStore'
 import { useAppStore } from '@renderer/store/useAppStore'
 import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
 import type { SlideData } from '@renderer/types'
-
-const ANNOUNCEMENT_TEMPLATES = [
-  {
-    label: 'Selamat Datang',
-    text: 'Selamat Datang di Ibadah Hari Ini\nSilakan matikan handphone Anda'
-  },
-  { label: 'Persembahan', text: 'Saat Persembahan\nTuhan memberkati setiap pemberi yang rela' },
-  { label: 'Warta Jemaat', text: 'Warta Jemaat' },
-  { label: 'Berkat', text: 'Tuhan Memberkati\nSelamat Beraktivitas' },
-  { label: 'Doa Bersama', text: 'Saat Doa Bersama\nMari kita berdoa' },
-  { label: 'Firman Tuhan', text: 'Firman Tuhan' }
-]
 
 const MAX_BODY_CHARS = 280
 
@@ -74,11 +62,6 @@ export function AnnouncementPanel(): React.JSX.Element {
     if (!hasContent || isOverLimit) return
     await addInfoToPlaylist({ title: title.trim(), body: body.trim() })
   }, [addInfoToPlaylist, body, hasContent, isOverLimit, title])
-
-  const handleTemplate = useCallback((template: { label: string; text: string }) => {
-    setTitle(template.label)
-    setBody(template.text)
-  }, [])
 
   const handleClear = useCallback(() => {
     setTitle('')
@@ -159,30 +142,6 @@ export function AnnouncementPanel(): React.JSX.Element {
           >
             {charCount}/{MAX_BODY_CHARS}
           </span>
-        </div>
-
-        {/* Templates */}
-        <div className="projection-announcement-panel__templates">
-          <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-text-muted">
-            Template Cepat
-          </span>
-          <div className="mt-1.5 flex flex-wrap gap-1">
-            {ANNOUNCEMENT_TEMPLATES.map((tmpl) => (
-              <button
-                key={tmpl.label}
-                type="button"
-                onClick={() => handleTemplate(tmpl)}
-                className="
-                  px-2 py-1 rounded-md text-[10px] font-semibold
-                  bg-white/[0.04] text-text-muted border border-white/[0.06]
-                  hover:bg-brand-primary/10 hover:text-brand-primary hover:border-brand-primary/20
-                  transition-colors
-                "
-              >
-                {tmpl.label}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Actions */}

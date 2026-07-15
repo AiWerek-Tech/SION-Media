@@ -37,6 +37,7 @@ function resetStore(): void {
     programSlides: [],
     programSlideIndex: -1,
     projectionState: 'CLEAR',
+    prevStateBeforeBlack: null,
     programLockState: 'UNLOCKED',
     pendingChanges: [],
     hasPendingLiveChanges: false,
@@ -52,7 +53,8 @@ function resetStore(): void {
     nextSongIndex: null,
     hasNextSong: false,
     queuedSlides: [],
-    nextReadyState: 'EMPTY'
+    nextReadyState: 'EMPTY',
+    lyricsFontSizePercent: 100
   })
 }
 
@@ -380,6 +382,48 @@ describe('flowPosition Consistency', () => {
 
     expect(useProjectionStore.getState().flowPosition).toBe(-1)
     expect(useProjectionStore.getState().hasNextSlide).toBe(false)
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scene strip output controls
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('scene strip output controls', () => {
+  beforeEach(resetStore)
+
+  test('toggleLogo turns logo standby on and off through projection state sync', () => {
+    useProjectionStore.setState({ flowPosition: 2, prevStateBeforeBlack: 'LIVE' })
+
+    useProjectionStore.getState().toggleLogo()
+
+    expect(useProjectionStore.getState().projectionState).toBe('LOGO')
+    expect(useProjectionStore.getState().flowPosition).toBe(-1)
+    expect(useProjectionStore.getState().prevStateBeforeBlack).toBeNull()
+    expect(window.api.projection.stateChange).toHaveBeenLastCalledWith('LOGO')
+
+    useProjectionStore.getState().toggleLogo()
+
+    expect(useProjectionStore.getState().projectionState).toBe('CLEAR')
+    expect(useProjectionStore.getState().flowPosition).toBe(-1)
+    expect(window.api.projection.stateChange).toHaveBeenLastCalledWith('CLEAR')
+  })
+
+  test('lyrics zoom controls clamp to supported range and reset to default', () => {
+    useProjectionStore.getState().setLyricsFontSize(999)
+    expect(useProjectionStore.getState().lyricsFontSizePercent).toBe(300)
+
+    useProjectionStore.getState().increaseLyricsFontSize()
+    expect(useProjectionStore.getState().lyricsFontSizePercent).toBe(300)
+
+    useProjectionStore.getState().setLyricsFontSize(1)
+    expect(useProjectionStore.getState().lyricsFontSizePercent).toBe(50)
+
+    useProjectionStore.getState().decreaseLyricsFontSize()
+    expect(useProjectionStore.getState().lyricsFontSizePercent).toBe(50)
+
+    useProjectionStore.getState().resetLyricsFontSize()
+    expect(useProjectionStore.getState().lyricsFontSizePercent).toBe(100)
   })
 })
 

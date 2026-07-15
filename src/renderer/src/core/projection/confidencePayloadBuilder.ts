@@ -33,8 +33,24 @@ export function buildConfidencePayload(
     author?: string
   } | null,
   projectionState: ProjectionState,
-  timerElapsed: number = 0
+  timerElapsed: number = 0,
+  timerRunning: boolean = false
 ): ConfidencePayload {
+  const splitStageNotes = (value?: string): { notes?: string; chord?: string } => {
+    const lines = String(value || '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+    const chordPattern =
+      /^(?:[A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add)?\d*(?:\/[A-G](?:#|b)?)?\s*)+$/
+    const chordLines = lines.filter((line) => chordPattern.test(line) && line.length <= 120)
+    return {
+      notes: lines.filter((line) => !chordLines.includes(line)).join('\n') || undefined,
+      chord: chordLines.join('  ') || undefined
+    }
+  }
+  const currentStage = splitStageNotes(programSlide?.speakerNotes)
+  const nextStage = splitStageNotes(nextSlideData?.speakerNotes)
   // Current slide data
   const currentSlide = programSlide
     ? {
@@ -45,7 +61,9 @@ export function buildConfidencePayload(
         contentType: programSlide.contentType,
         bibleReference: programSlide.bibleReference,
         bibleVersionCode: programSlide.bibleVersionCode,
-        bibleCopyright: programSlide.bibleCopyright
+        bibleCopyright: programSlide.bibleCopyright,
+        stageNotes: currentStage.notes,
+        stageChord: currentStage.chord
       }
     : null
 
@@ -56,7 +74,9 @@ export function buildConfidencePayload(
         sectionLabel: nextSlideData.sectionLabel || '',
         contentType: nextSlideData.contentType,
         bibleReference: nextSlideData.bibleReference,
-        bibleVersionCode: nextSlideData.bibleVersionCode
+        bibleVersionCode: nextSlideData.bibleVersionCode,
+        stageNotes: nextStage.notes,
+        stageChord: nextStage.chord
       }
     : null
 
@@ -98,14 +118,15 @@ export function buildConfidencePayload(
     clock,
     timer: {
       elapsed: timerElapsed,
-      running: isLive
+      running: timerRunning
     },
     status: {
       isLive,
       isFrozen,
       isBlack,
       projectionState
-    }
+    },
+    updatedAt: Date.now()
   }
 }
 

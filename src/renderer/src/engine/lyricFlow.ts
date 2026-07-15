@@ -1,6 +1,18 @@
 const LYRIC_LINE_SEPARATOR = '\uE000'
 
 /**
+ * Treat semicolons as explicit singable-line boundaries. A source line may
+ * contain several lyric lines after import, so newlines alone are not enough.
+ */
+export function expandLyricLines(lines: string[]): string[] {
+  return lines.flatMap((line) => {
+    if (!line.trim()) return ['']
+    const segments = line.split(';').map((segment) => segment.trim())
+    return segments.filter(Boolean)
+  })
+}
+
+/**
  * Preserve semantic lyric-line boundaries while the wrapping algorithm estimates
  * slide capacity. The private marker stays attached to the final word, so an
  * automatically wrapped long line never receives a false semicolon.
