@@ -171,7 +171,13 @@ function App(): React.JSX.Element {
           const bridge = usePowerPointBridgeStore.getState()
           const bridgeSource = source as PowerPointBridgeSourceState
           bridge.setSource(bridgeSource)
-          if (bridge.autoPreview) loadPowerPointBridgeSource(bridgeSource, bridge.autoLive)
+
+          const isCurrentlyLive = useProjectionStore.getState().programSongMeta?.hymnalCode === 'PPT LIVE'
+          if (isCurrentlyLive) {
+            loadPowerPointBridgeSource(bridgeSource, true)
+          } else if (bridge.autoPreview) {
+            loadPowerPointBridgeSource(bridgeSource, bridge.autoLive)
+          }
           break
         }
         case 'NEXT':

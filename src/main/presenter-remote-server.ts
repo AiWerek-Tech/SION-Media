@@ -1535,6 +1535,22 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 export async function startPresenterRemoteServer(): Promise<PresenterRemoteStatus> {
   if (server) return getPresenterRemoteStatus()
 
+  try {
+    const sourceDir = getPresentationSourceDir()
+    if (existsSync(sourceDir)) {
+      const files = readdirSync(sourceDir)
+      for (const file of files) {
+        try {
+          unlinkSync(join(sourceDir, file))
+        } catch (e) {
+          console.warn('[PresenterRemote] Gagal membersihkan berkas lama saat startup:', file, e)
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[PresenterRemote] Gagal menscan direktori slide untuk pembersihan startup:', err)
+  }
+
   roleCodes = getPersistentRoleCodes()
   token = roleCodes.presenter
   server = createServer((req, res) => {
