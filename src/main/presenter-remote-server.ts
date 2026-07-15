@@ -1,8 +1,8 @@
 import { randomBytes } from 'crypto'
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'http'
 import { networkInterfaces } from 'os'
-import { extname } from 'path'
-import { createReadStream, mkdirSync, renameSync, statSync, writeFileSync } from 'fs'
+import { extname, basename, join } from 'path'
+import { createReadStream, mkdirSync, renameSync, statSync, writeFileSync, readdirSync, unlinkSync, existsSync } from 'fs'
 import { app } from 'electron'
 import { getMainWindow, getProjectionWindow } from './windows'
 import { parseSingleByteRange, resolveAuthorizedMediaPath } from './media-security'
@@ -267,7 +267,53 @@ const powerPointBridgeSessions = new Map<
   }
 >()
 let latestPowerPointBridgeSource: PowerPointBridgeSource | null = null
-let powerPointBridgeFrameRevision = 0
+
+function getPresentationSourceDir(): string {
+  return join(app.getPath('userData'), 'presentation-source')
+}
+
+function cleanupOldSlideFiles(safeDeviceId: string, currentFile: string, nextFile?: string | null): void {
+  try {
+    const sourceDir = getPresentationSourceDir()
+    if (!existsSync(sourceDir)) return
+    const files = readdirSync(sourceDir)
+    const currentBase = basename(currentFile)
+    const nextBase = nextFile ? basename(nextFile) : null
+    
+    for (const file of files) {
+      if (file.startsWith(`${safeDeviceId}-current-`) || file.startsWith(`${safeDeviceId}-next-`)) {
+        if (file !== currentBase && file !== nextBase && !file.endsWith('.tmp')) {
+          try {
+            unlinkSync(join(sourceDir, file))
+          } catch (e) {
+            console.warn(`[PresenterRemote] Failed to delete old slide file ${file}:`, e)
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[PresenterRemote] Error scanning presentation-source for cleanup:', error)
+  }
+}
+
+function removeAllSlideFilesForDevice(safeDeviceId: string): void {
+  try {
+    const sourceDir = getPresentationSourceDir()
+    if (!existsSync(sourceDir)) return
+    const files = readdirSync(sourceDir)
+    for (const file of files) {
+      if (file.startsWith(`${safeDeviceId}-current-`) || file.startsWith(`${safeDeviceId}-next-`)) {
+        try {
+          unlinkSync(join(sourceDir, file))
+        } catch (e) {
+          console.warn(`[PresenterRemote] Failed to remove slide file ${file} on disconnect:`, e)
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[PresenterRemote] Error cleaning device slides on disconnect:', error)
+  }
+}
 
 function prunePowerPointBridgeState(): void {
   const now = Date.now()
@@ -277,7 +323,11 @@ function prunePowerPointBridgeState(): void {
     }
   }
   for (const [tokenValue, session] of powerPointBridgeSessions) {
-    if (now - session.lastSeenAt > 12 * 60 * 60_000) powerPointBridgeSessions.delete(tokenValue)
+    if (now - session.lastSeenAt > 12 * 60 * 60_000) {
+      const safeDeviceId = session.deviceId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48) || 'bridge'
+      removeAllSlideFilesForDevice(safeDeviceId)
+      powerPointBridgeSessions.delete(tokenValue)
+    }
   }
 }
 
@@ -343,7 +393,11 @@ export function rejectPowerPointBridgeRequest(requestId: string): PowerPointBrid
 
 export function disconnectPowerPointBridgeDevice(deviceId: string): PowerPointBridgeStatus {
   for (const [tokenValue, session] of powerPointBridgeSessions) {
-    if (session.deviceId === deviceId) powerPointBridgeSessions.delete(tokenValue)
+    if (session.deviceId === deviceId) {
+      const safeDeviceId = session.deviceId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48) || 'bridge'
+      removeAllSlideFilesForDevice(safeDeviceId)
+      powerPointBridgeSessions.delete(tokenValue)
+    }
   }
   if (latestPowerPointBridgeSource?.deviceId === deviceId) latestPowerPointBridgeSource = null
   notifyPowerPointBridgeStatus()
@@ -987,22 +1041,34 @@ async function handlePresentationSource(
     sendJson(res, 400, { ok: false, error: 'Posisi slide tidak valid' })
     return
   }
-  const sourceDir = `${app.getPath('userData')}\\presentation-source`
-  powerPointBridgeFrameRevision += 1
-  const slot = powerPointBridgeFrameRevision % 12
+  const sourceDir = getPresentationSourceDir()
   const deviceId = bridgeSession?.deviceId ?? 'legacy'
   const safeDeviceId = deviceId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48) || 'bridge'
-  const imagePath = `${sourceDir}\\${safeDeviceId}-current-${slot}.png`
+  
+  const timestamp = Date.now()
+  const imagePath = `${sourceDir}\\${safeDeviceId}-current-${timestamp}.png`
   const temporaryPath = `${imagePath}.tmp`
-  const nextImagePath = nextImage ? `${sourceDir}\\${safeDeviceId}-next-${slot}.png` : null
-  mkdirSync(sourceDir, { recursive: true })
-  writeFileSync(temporaryPath, image)
-  renameSync(temporaryPath, imagePath)
-  if (nextImage && nextImagePath) {
-    const nextTemporaryPath = `${nextImagePath}.tmp`
-    writeFileSync(nextTemporaryPath, nextImage)
-    renameSync(nextTemporaryPath, nextImagePath)
+  const nextImagePath = nextImage ? `${sourceDir}\\${safeDeviceId}-next-${timestamp}.png` : null
+
+  try {
+    mkdirSync(sourceDir, { recursive: true })
+    writeFileSync(temporaryPath, image)
+    renameSync(temporaryPath, imagePath)
+    if (nextImage && nextImagePath) {
+      const nextTemporaryPath = `${nextImagePath}.tmp`
+      writeFileSync(nextTemporaryPath, nextImage)
+      renameSync(nextTemporaryPath, nextImagePath)
+    }
+    
+    setTimeout(() => {
+      cleanupOldSlideFiles(safeDeviceId, imagePath, nextImagePath)
+    }, 50)
+  } catch (fileError) {
+    console.error('[PresenterRemote] Gagal menulis berkas slide PowerPoint:', fileError)
+    sendJson(res, 500, { ok: false, error: 'Gagal memproses berkas slide pada server' })
+    return
   }
+
   if (bridgeSession) {
     bridgeSession.lastSeenAt = Date.now()
     bridgeSession.deckName = sanitizeClientText(
@@ -1504,6 +1570,11 @@ export async function stopPresenterRemoteServer(): Promise<PresenterRemoteStatus
   stopExactOutputCapture()
   closeAllClients()
 
+  for (const session of powerPointBridgeSessions.values()) {
+    const safeDeviceId = session.deviceId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48) || 'bridge'
+    removeAllSlideFilesForDevice(safeDeviceId)
+  }
+
   if (server) {
     await new Promise<void>((resolve) => {
       server?.close(() => resolve())
@@ -1524,7 +1595,6 @@ export async function stopPresenterRemoteServer(): Promise<PresenterRemoteStatus
   powerPointBridgeRequests.clear()
   powerPointBridgeSessions.clear()
   latestPowerPointBridgeSource = null
-  powerPointBridgeFrameRevision = 0
   notifyPowerPointBridgeStatus()
   return getPresenterRemoteStatus()
 }
