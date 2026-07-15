@@ -396,45 +396,45 @@ export function setupIPC(): void {
   safeIpcHandle('presenter-remote:stop', () => stopPresenterRemoteServer())
   safeIpcHandle('presenter-remote:status', () => getPresenterRemoteStatus())
   safeIpcHandle('presenter-remote:regenerate-codes', () => regeneratePresenterRemoteCodes())
-  safeIpcHandle('presenter-remote:regenerate-code', (_event, role: SionLinkRole) =>
+  safeIpcHandle('presenter-remote:regenerate-code', (role: SionLinkRole) =>
     regeneratePresenterRemoteCode(role)
   )
   safeIpcHandle('presenter-remote:disconnect-clients', () => disconnectPresenterRemoteClients())
-  safeIpcHandle('presenter-remote:disconnect-client', (_event, clientId: string) =>
+  safeIpcHandle('presenter-remote:disconnect-client', (clientId: string) =>
     disconnectPresenterRemoteClient(clientId)
   )
   safeIpcHandle(
     'presenter-remote:update-security-policy',
-    (_event, policy: SionLinkSecurityPolicy) => updatePresenterRemoteSecurityPolicy(policy)
+    (policy: SionLinkSecurityPolicy) => updatePresenterRemoteSecurityPolicy(policy)
   )
   safeIpcHandle('presenter-remote:clear-command-log', () => clearPresenterRemoteCommandLog())
   safeIpcHandle('presenter-remote:powerpoint-status', () => getPowerPointBridgeStatus())
-  safeIpcHandle('presenter-remote:powerpoint-approve', (_event, requestId: string) =>
+  safeIpcHandle('presenter-remote:powerpoint-approve', (requestId: string) =>
     approvePowerPointBridgeRequest(requireBoundedString(requestId, 'PowerPoint request ID', 64))
   )
-  safeIpcHandle('presenter-remote:powerpoint-reject', (_event, requestId: string) =>
+  safeIpcHandle('presenter-remote:powerpoint-reject', (requestId: string) =>
     rejectPowerPointBridgeRequest(requireBoundedString(requestId, 'PowerPoint request ID', 64))
   )
-  safeIpcHandle('presenter-remote:powerpoint-disconnect', (_event, deviceId: string) =>
+  safeIpcHandle('presenter-remote:powerpoint-disconnect', (deviceId: string) =>
     disconnectPowerPointBridgeDevice(requireBoundedString(deviceId, 'PowerPoint device ID', 96))
   )
   safeIpcHandle('obs-srt:status', () => getObsSrtStatus())
   safeIpcHandle('obs-srt:start', () => startObsSrtOutput())
   safeIpcHandle('obs-srt:stop', () => stopObsSrtOutput())
-  safeIpcHandle('obs-srt:update-config', (_event, config: Partial<ObsSrtConfig>) => {
+  safeIpcHandle('obs-srt:update-config', (config: Partial<ObsSrtConfig>) => {
     requireSerializableSize(config, 'OBS SRT config', 16 * 1024)
     return updateObsSrtConfig(config)
   })
   safeIpcHandle('obs-srt-ingest:status', () => getObsSrtIngestStatus())
   safeIpcHandle('obs-srt-ingest:start', () => startObsSrtIngest())
   safeIpcHandle('obs-srt-ingest:stop', () => stopObsSrtIngest())
-  safeIpcHandle('obs-srt-ingest:set-auto-start', (_event, autoStart: boolean) => {
+  safeIpcHandle('obs-srt-ingest:set-auto-start', (autoStart: boolean) => {
     if (typeof autoStart !== 'boolean') throw new Error('Nilai mulai otomatis tidak valid.')
     return setObsSrtIngestAutoStart(autoStart)
   })
   safeIpcHandle(
     'obs-srt-ingest:update-config',
-    (_event, config: Partial<ObsSrtIngestConfig> & { resetStreamKey?: boolean }) => {
+    (config: Partial<ObsSrtIngestConfig> & { resetStreamKey?: boolean }) => {
       requireSerializableSize(config, 'OBS SRT ingest config', 16 * 1024)
       return updateObsSrtIngestConfig(config)
     }
