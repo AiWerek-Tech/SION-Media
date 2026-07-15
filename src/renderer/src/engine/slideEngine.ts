@@ -1,6 +1,8 @@
 import type { SlideData, Song, PlaylistItem } from '@renderer/types'
+import { usePlaylistStore } from '../store/usePlaylistStore'
 import { buildBibleSlidesFromPlaylistItem } from '../features/bible/utils/buildBibleSlides'
-import { formatLyricChunk, markLyricLineSeparators } from './lyricFlow'
+import { expandLyricLines, formatLyricChunk, markLyricLineSeparators } from './lyricFlow'
+import { parseMediaPlaylistDescriptor } from '../../../shared/media-playlist'
 
 interface ParsedSection {
   label: string
@@ -123,65 +125,33 @@ function wrapLine(line: string, maxChars: number): string[] {
 }
 
 /**
- * Split section lines into slide-sized chunks using smart balancing.
- * E.g., if a section has 5 lines and max is 4, split as 3 + 2 instead of 4 + 1.
+ * Split section lines into slides without breaking a semantic lyric line.
  */
 function splitIntoSlides(lines: string[], maxLines: number, maxChars: number): string[][] {
-  // First, wrap any long lines
-  const wrappedLines: string[] = []
-  for (const line of markLyricLineSeparators(lines)) {
-    if (line === '') {
-      wrappedLines.push('')
-    } else {
-      wrappedLines.push(...wrapLine(line, maxChars))
-    }
-  }
-
-  // Remove trailing empty lines
-  while (wrappedLines.length > 0 && wrappedLines[wrappedLines.length - 1] === '') {
-    wrappedLines.pop()
-  }
-
+  const semanticLines = markLyricLineSeparators(expandLyricLines(lines))
   const chunks: string[][] = []
+  let currentChunk: string[] = []
 
-  // Smart Balancing Algorithm
-  let i = 0
-  while (i < wrappedLines.length) {
-    // If the remaining lines are less than or equal to maxLines, just take them all
-    const remaining = wrappedLines.length - i
+  const flush = (): void => {
+    if (currentChunk.length > 0) chunks.push(currentChunk)
+    currentChunk = []
+  }
 
-    if (remaining <= maxLines) {
-      chunks.push(wrappedLines.slice(i, i + remaining).filter((l) => l !== ''))
-      break
-    }
-
-    // If we have to split, try to find a natural break (empty line) within the limit
-    let breakIdx = -1
-    for (let j = i + 1; j <= i + maxLines; j++) {
-      if (wrappedLines[j] === '') {
-        breakIdx = j
-        break
-      }
-    }
-
-    if (breakIdx !== -1) {
-      chunks.push(wrappedLines.slice(i, breakIdx).filter((l) => l !== ''))
-      i = breakIdx + 1 // Skip the empty line
+  for (const semanticLine of semanticLines) {
+    if (!semanticLine) {
+      flush()
       continue
     }
 
-    // If no natural break, use balancing
-    // Example: 5 lines total, max 4. Split into 3 and 2.
-    // Example: 6 lines total, max 4. Split into 3 and 3.
-    // Example: 7 lines total, max 4. Split into 4 and 3.
-    let take = maxLines
-    if (remaining > maxLines && remaining < maxLines * 2) {
-      take = Math.ceil(remaining / 2)
+    const wrappedSemanticLine = wrapLine(semanticLine, maxChars)
+    if (currentChunk.length > 0 && currentChunk.length + wrappedSemanticLine.length > maxLines) {
+      flush()
     }
-
-    chunks.push(wrappedLines.slice(i, i + take).filter((l) => l !== ''))
-    i += take
+    // A single singable line may exceed maxLines. Keep it intact on one slide;
+    // the canvas can fit the text, while splitting it would break congregational flow.
+    currentChunk.push(...wrappedSemanticLine)
   }
+  flush()
 
   return chunks
 }
@@ -288,6 +258,43 @@ export function generateSlidesForPlaylistItem(
         slideIndex: 0,
         text: body || title,
         sectionLabel: body ? title : ''
+      }
+    ]
+  }
+  if (item.item_type === 'media') {
+    const descriptor = parseMediaPlaylistDescriptor(item.notes)
+    const path = descriptor.path
+    const isPdf = path.toLowerCase().endsWith('.pdf')
+    if (isPdf) {
+      const pageCounts = usePlaylistStore.getState().pdfPageCounts || {}
+      const cachedCount = pageCounts[path]
+      if (cachedCount !== undefined) {
+        return Array.from({ length: cachedCount }).map((_, idx) => ({
+          contentType: 'custom',
+          songId: null,
+          playlistItemId: item.id,
+          slideIndex: idx,
+          text: '',
+          sectionLabel: descriptor.presentation?.slides[idx]?.title || `Halaman ${idx + 1}`,
+          speakerNotes: descriptor.presentation?.slides[idx]?.notes || '',
+          pdfPath: path
+        }))
+      } else {
+        // Trigger background fetch
+        setTimeout(() => {
+          usePlaylistStore.getState().fetchPdfPageCount(path).catch(console.error)
+        }, 0)
+      }
+    }
+    return [
+      {
+        contentType: 'custom',
+        songId: null,
+        playlistItemId: item.id,
+        slideIndex: 0,
+        text: '',
+        sectionLabel: item.title || 'Media',
+        pdfPath: isPdf ? path : undefined
       }
     ]
   }

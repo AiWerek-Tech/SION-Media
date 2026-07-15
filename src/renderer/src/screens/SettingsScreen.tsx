@@ -14,7 +14,8 @@ import {
   Info,
   Image,
   BookOpen,
-  Search
+  Search,
+  Smartphone
 } from 'lucide-react'
 import { useAppStore } from '@renderer/store/useAppStore'
 import { useModalStore } from '@renderer/store/useModalStore'
@@ -30,7 +31,9 @@ import {
   ShortcutsSettings,
   HymnalSettings,
   BackupSettings,
-  AboutSettings
+  AboutSettings,
+  AudioSettings,
+  PresenterRemoteSettings
 } from './settings'
 import { BiblePackManager } from '@renderer/features/bible/components/BiblePackManager'
 
@@ -42,8 +45,10 @@ type SettingsSection =
   | 'theme'
   | 'background'
   | 'shortcuts'
+  | 'presenter-remote'
   | 'backup'
   | 'about'
+  | 'audio'
 
 interface SectionDef {
   key: SettingsSection
@@ -60,6 +65,13 @@ const SECTIONS: SectionDef[] = [
   { key: 'theme', label: 'Tema & Font', subtitle: 'Warna & Tipografi', icon: Palette },
   { key: 'background', label: 'Background', subtitle: 'Wallpaper & Visual', icon: Image },
   { key: 'shortcuts', label: 'Keyboard', subtitle: 'Shortcut & Hotkey', icon: Keyboard },
+  {
+    key: 'presenter-remote',
+    label: 'SION Link',
+    subtitle: 'Remote & Viewer Lokal',
+    icon: Smartphone
+  },
+  { key: 'audio', label: 'Musik & Audio', subtitle: 'Folder Instrumen', icon: BookOpen },
   { key: 'backup', label: 'Backup', subtitle: 'Cadangan & Restore', icon: Database },
   { key: 'about', label: 'Tentang', subtitle: 'Informasi Aplikasi', icon: Info }
 ]
@@ -320,6 +332,9 @@ export function SettingsScreen(): React.JSX.Element {
               <BackgroundSettings settings={settings} updateSetting={updateSetting} />
             )}
             {activeSection === 'shortcuts' && <ShortcutsSettings />}
+            {activeSection === 'presenter-remote' && (
+              <PresenterRemoteSettings showToast={showToast} />
+            )}
             {activeSection === 'backup' && (
               <BackupSettings
                 onBackup={handleBackup}
@@ -328,6 +343,9 @@ export function SettingsScreen(): React.JSX.Element {
               />
             )}
             {activeSection === 'about' && <AboutSettings />}
+            {activeSection === 'audio' && (
+              <AudioSettings settings={settings} updateSetting={updateSetting} />
+            )}
           </div>
         </main>
       </div>

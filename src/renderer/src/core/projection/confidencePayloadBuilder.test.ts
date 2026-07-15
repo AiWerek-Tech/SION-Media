@@ -57,4 +57,23 @@ describe('buildConfidencePayload', () => {
       keyNote: 'D'
     })
   })
+
+  test('separates speaker notes and chord cues for stage display', () => {
+    const current: SlideData = {
+      contentType: 'custom',
+      slideIndex: 0,
+      text: '',
+      sectionLabel: 'Presentasi',
+      speakerNotes: 'Sampaikan ilustrasi iman.\nC  G  Am  F'
+    }
+
+    const payload = buildConfidencePayload(current, [current], 0, null, null, 'LIVE', 20, true)
+
+    expect(payload.currentSlide).toMatchObject({
+      stageNotes: 'Sampaikan ilustrasi iman.',
+      stageChord: 'C  G  Am  F'
+    })
+    expect(payload.timer.running).toBe(true)
+    expect(payload.updatedAt).toBeGreaterThan(0)
+  })
 })

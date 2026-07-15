@@ -100,7 +100,7 @@ export interface ResolvedAtmosphere {
   readability: ReadabilityConfig
 }
 
-export type MediaAssetType = 'image' | 'motion' | 'video'
+export type MediaAssetType = 'image' | 'motion' | 'video' | 'pdf'
 
 export interface MediaAssetRecord {
   id: string

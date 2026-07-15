@@ -9,8 +9,11 @@ interface LiveProjectionCanvasProps {
   animated?: boolean
   showMetadata?: boolean
   fit?: boolean
+  fitMode?: 'contain' | 'cover'
   className?: string
   lyricsFontSizePercent?: number
+  muted?: boolean
+  volume?: number
 }
 
 /**
@@ -25,8 +28,11 @@ export function LiveProjectionCanvas({
   animated = true,
   showMetadata = true,
   fit = false,
+  fitMode = 'contain',
   className,
-  lyricsFontSizePercent = 100
+  lyricsFontSizePercent = 100,
+  muted = false,
+  volume = 1.0
 }: LiveProjectionCanvasProps): React.JSX.Element {
   return (
     <PresentationCanvas
@@ -37,9 +43,12 @@ export function LiveProjectionCanvas({
       showMetadata={showMetadata}
       showIdleWatermark
       fit={fit}
+      fitMode={fitMode}
       lyricsFontSizePercent={lyricsFontSizePercent}
       transitionMode="wait"
       className={className}
+      muted={muted}
+      volume={volume}
     />
   )
 }

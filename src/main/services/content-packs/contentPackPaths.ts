@@ -53,12 +53,9 @@ export function getBundledContentPackRoot(): string {
     // In dev: projectRoot/resources/content-packs/
     return join(app.getAppPath(), 'resources', 'content-packs')
   }
-  // In production (asar-unpacked): win-unpacked/resources/app.asar.unpacked/resources/content-packs
-  return join(
-    app.getAppPath().replace('app.asar', 'app.asar.unpacked'),
-    'resources',
-    'content-packs'
-  )
+  // electron-builder extraResources copies bundled packs directly beside
+  // app.asar: <installation>/resources/content-packs.
+  return join(process.resourcesPath, 'content-packs')
 }
 
 export function getBundledBiblesDir(): string {

@@ -1,10 +1,13 @@
 import type { SlideData, Song, PlaylistItem } from '@renderer/types'
+import { usePlaylistStore } from '../../store/usePlaylistStore'
 import { buildBibleSlidesFromPlaylistItem } from '../../features/bible/utils/buildBibleSlides'
-import { formatLyricChunk, markLyricLineSeparators } from '../../engine/lyricFlow'
+import { expandLyricLines, formatLyricChunk, markLyricLineSeparators } from '../../engine/lyricFlow'
+import { parseMediaPlaylistDescriptor } from '../../../../shared/media-playlist'
 
 interface ParsedSection {
   label: string
   lines: string[]
+  lineIndices: number[]
 }
 
 // Global cache to avoid re-generating slides unnecessarily during projection
@@ -38,6 +41,7 @@ function parseSections(lyricsRaw: string): ParsedSection[] {
   const sections: ParsedSection[] = []
   let currentLabel = ''
   let currentLines: string[] = []
+  let currentIndices: number[] = []
 
   const lines = lyricsRaw.split('\n')
 
@@ -47,17 +51,19 @@ function parseSections(lyricsRaw: string): ParsedSection[] {
   const bareSectionRegex =
     /^(verse|bait|chorus|korus|reff?|refrain|bridge|intro|ending|outro|tag|pre[- ]?chorus)(\s*\d+)?$/i
 
-  for (const line of lines) {
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx]
     const trimmed = line.trim()
 
     // Check for section markers like [VERSE 1], [CHORUS], [BRIDGE]
     const sectionMatch = trimmed.match(/^\[(.+)\]$/)
     if (sectionMatch) {
       if (currentLines.length > 0) {
-        sections.push({ label: currentLabel, lines: currentLines })
+        sections.push({ label: currentLabel, lines: currentLines, lineIndices: currentIndices })
       }
       currentLabel = sectionMatch[1]
       currentLines = []
+      currentIndices = []
       continue
     }
 
@@ -66,10 +72,11 @@ function parseSections(lyricsRaw: string): ParsedSection[] {
     const bareMatch = trimmed.match(bareSectionRegex)
     if (bareMatch) {
       if (currentLines.length > 0) {
-        sections.push({ label: currentLabel, lines: currentLines })
+        sections.push({ label: currentLabel, lines: currentLines, lineIndices: currentIndices })
       }
       currentLabel = trimmed
       currentLines = []
+      currentIndices = []
       continue
     }
 
@@ -79,17 +86,19 @@ function parseSections(lyricsRaw: string): ParsedSection[] {
     // Manual slide break
     if (trimmed === '---') {
       if (currentLines.length > 0) {
-        sections.push({ label: currentLabel, lines: currentLines })
+        sections.push({ label: currentLabel, lines: currentLines, lineIndices: currentIndices })
         currentLines = []
+        currentIndices = []
       }
       continue
     }
 
     currentLines.push(trimmed || '')
+    currentIndices.push(idx)
   }
 
   if (currentLines.length > 0) {
-    sections.push({ label: currentLabel, lines: currentLines })
+    sections.push({ label: currentLabel, lines: currentLines, lineIndices: currentIndices })
   }
 
   return sections
@@ -120,65 +129,48 @@ function wrapLine(line: string, maxChars: number): string[] {
 }
 
 /**
- * Split section lines into slide-sized chunks using smart balancing.
- * E.g., if a section has 5 lines and max is 4, split as 3 + 2 instead of 4 + 1.
+ * Split section lines into slides without breaking a semantic lyric line.
  */
-function splitIntoSlides(lines: string[], maxLines: number, maxChars: number): string[][] {
-  // First, wrap any long lines
-  const wrappedLines: string[] = []
-  for (const line of markLyricLineSeparators(lines)) {
-    if (line === '') {
-      wrappedLines.push('')
-    } else {
-      wrappedLines.push(...wrapLine(line, maxChars))
+function splitIntoSlides(
+  lines: string[],
+  lineIndices: number[],
+  maxLines: number,
+  maxChars: number
+): { chunk: string[]; indices: number[] }[] {
+  const expandedLines: string[] = []
+  const expandedIndices: number[] = []
+  lines.forEach((line, index) => {
+    const segments = expandLyricLines([line])
+    segments.forEach((segment) => {
+      expandedLines.push(segment)
+      expandedIndices.push(lineIndices[index])
+    })
+  })
+  const separatorLines = markLyricLineSeparators(expandedLines)
+  const chunks: { chunk: string[]; indices: number[] }[] = []
+  let currentChunk: string[] = []
+  let currentIndices: number[] = []
+
+  const flush = (): void => {
+    if (currentChunk.length > 0) {
+      chunks.push({ chunk: currentChunk, indices: currentIndices })
     }
+    currentChunk = []
+    currentIndices = []
   }
 
-  // Remove trailing empty lines
-  while (wrappedLines.length > 0 && wrappedLines[wrappedLines.length - 1] === '') {
-    wrappedLines.pop()
-  }
-
-  const chunks: string[][] = []
-
-  // Smart Balancing Algorithm
-  let i = 0
-  while (i < wrappedLines.length) {
-    // If the remaining lines are less than or equal to maxLines, just take them all
-    const remaining = wrappedLines.length - i
-
-    if (remaining <= maxLines) {
-      chunks.push(wrappedLines.slice(i, i + remaining).filter((l) => l !== ''))
-      break
+  separatorLines.forEach((semanticLine, index) => {
+    if (!semanticLine) {
+      flush()
+      return
     }
 
-    // If we have to split, try to find a natural break (empty line) within the limit
-    let breakIdx = -1
-    for (let j = i + 1; j <= i + maxLines; j++) {
-      if (wrappedLines[j] === '') {
-        breakIdx = j
-        break
-      }
-    }
-
-    if (breakIdx !== -1) {
-      chunks.push(wrappedLines.slice(i, breakIdx).filter((l) => l !== ''))
-      i = breakIdx + 1 // Skip the empty line
-      continue
-    }
-
-    // If no natural break, use balancing
-    // Example: 5 lines total, max 4. Split into 3 and 2.
-    // Example: 6 lines total, max 4. Split into 3 and 3.
-    // Example: 7 lines total, max 4. Split into 4 and 3.
-    let take = maxLines
-    if (remaining > maxLines && remaining < maxLines * 2) {
-      take = Math.ceil(remaining / 2)
-    }
-
-    chunks.push(wrappedLines.slice(i, i + take).filter((l) => l !== ''))
-    i += take
-  }
+    const parts = wrapLine(semanticLine, maxChars)
+    if (currentChunk.length > 0 && currentChunk.length + parts.length > maxLines) flush()
+    currentChunk.push(...parts)
+    currentIndices.push(...parts.map(() => expandedIndices[index]))
+  })
+  flush()
 
   return chunks
 }
@@ -209,15 +201,52 @@ export function generateSlides(
     return cached.slides
   }
 
-  const sections = parseSections(lyricsRaw)
+  // Pre-process raw lyrics to extract inline timestamps
+  const rawLines = lyricsRaw.split('\n')
+  const cleanLines: string[] = []
+  const lineTimes: (number | undefined)[] = []
+  const timestampRegex = /\[(\d+):(\d+)(?:\.(\d+))?\]/
+
+  for (const line of rawLines) {
+    const trimmed = line.trim()
+    const match = trimmed.match(timestampRegex)
+    if (match) {
+      const min = parseInt(match[1], 10)
+      const sec = parseInt(match[2], 10)
+      const msPart = match[3] || '0'
+      const fraction = parseFloat('0.' + msPart)
+      const time = min * 60 + sec + fraction
+
+      const clean = line.replace(timestampRegex, '')
+      cleanLines.push(clean)
+      lineTimes.push(time)
+    } else {
+      cleanLines.push(line)
+      lineTimes.push(undefined)
+    }
+  }
+
+  const cleanLyrics = cleanLines.join('\n')
+  const sections = parseSections(cleanLyrics)
   const allSlides: SlideData[] = []
   let slideIndex = 0
 
   for (const [sectionId, section] of sections.entries()) {
-    const slideChunks = splitIntoSlides(section.lines, maxLines, maxChars)
+    const slideChunks = splitIntoSlides(section.lines, section.lineIndices, maxLines, maxChars)
 
-    for (const chunk of slideChunks) {
+    for (const chunkData of slideChunks) {
+      const chunk = chunkData.chunk
       if (chunk.length === 0) continue // Skip empty chunks
+
+      // Find first valid timestamp in this slide chunk
+      let startTime: number | undefined = undefined
+      for (const origIdx of chunkData.indices) {
+        if (lineTimes[origIdx] !== undefined) {
+          startTime = lineTimes[origIdx]
+          break
+        }
+      }
+
       allSlides.push({
         contentType: 'song',
         songId,
@@ -227,9 +256,27 @@ export function generateSlides(
         sectionId,
         keyNote: meta?.keyNote,
         timeSignature: meta?.timeSignature,
-        tempo: meta?.tempo
+        tempo: meta?.tempo,
+        startTime
       })
       slideIndex++
+    }
+  }
+
+  // Post-process to calculate endTime for each slide
+  for (let i = 0; i < allSlides.length; i++) {
+    const current = allSlides[i]
+    if (current.startTime !== undefined) {
+      let nextStartTime: number | undefined = undefined
+      for (let j = i + 1; j < allSlides.length; j++) {
+        if (allSlides[j].startTime !== undefined) {
+          nextStartTime = allSlides[j].startTime
+          break
+        }
+      }
+      if (nextStartTime !== undefined) {
+        current.endTime = nextStartTime
+      }
     }
   }
 
@@ -284,6 +331,43 @@ export function generateSlidesForPlaylistItem(
         slideIndex: 0,
         text: body || title,
         sectionLabel: body ? title : ''
+      }
+    ]
+  }
+  if (item.item_type === 'media') {
+    const descriptor = parseMediaPlaylistDescriptor(item.notes)
+    const path = descriptor.path
+    const isPdf = path.toLowerCase().endsWith('.pdf')
+    if (isPdf) {
+      const pageCounts = usePlaylistStore.getState().pdfPageCounts || {}
+      const cachedCount = pageCounts[path]
+      if (cachedCount !== undefined) {
+        return Array.from({ length: cachedCount }).map((_, idx) => ({
+          contentType: 'custom',
+          songId: null,
+          playlistItemId: item.id,
+          slideIndex: idx,
+          text: '',
+          sectionLabel: descriptor.presentation?.slides[idx]?.title || `Halaman ${idx + 1}`,
+          speakerNotes: descriptor.presentation?.slides[idx]?.notes || '',
+          pdfPath: path
+        }))
+      } else {
+        // Trigger background fetch
+        setTimeout(() => {
+          usePlaylistStore.getState().fetchPdfPageCount(path).catch(console.error)
+        }, 0)
+      }
+    }
+    return [
+      {
+        contentType: 'custom',
+        songId: null,
+        playlistItemId: item.id,
+        slideIndex: 0,
+        text: '',
+        sectionLabel: item.title || 'Media',
+        pdfPath: isPdf ? path : undefined
       }
     ]
   }

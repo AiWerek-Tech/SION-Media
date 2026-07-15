@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Activity,
   BookOpen,
@@ -86,8 +86,46 @@ export function TitleBarStatus(): React.JSX.Element {
   } = useAppStore()
   const { currentMode } = useModeStore()
   const { activePlaylist, playlistItems } = usePlaylistStore()
+  const [isSionLinkEnabled, setIsSionLinkEnabled] = useState(false)
+  const [isSionLinkBusy, setIsSionLinkBusy] = useState(false)
   const hasExternal = displayCount > 1
   const selectedHymnal = hymnals.find((hymnal) => hymnal.id === selectedHymnalId)
+
+  useEffect(() => {
+    if (currentMode !== 'PROJECTION') return undefined
+    let active = true
+
+    const refresh = (): void => {
+      window.api.presenterRemote
+        .status()
+        .then((status) => {
+          if (active) setIsSionLinkEnabled(status.enabled)
+        })
+        .catch((err) => logger.error('Failed to read SION Link status:', err))
+    }
+
+    refresh()
+    const timer = window.setInterval(refresh, 5000)
+    return () => {
+      active = false
+      window.clearInterval(timer)
+    }
+  }, [currentMode])
+
+  const handleStartSionLink = async (): Promise<void> => {
+    if (isSionLinkEnabled || isSionLinkBusy) return
+    setIsSionLinkBusy(true)
+    try {
+      const status = await window.api.presenterRemote.start()
+      setIsSionLinkEnabled(status.enabled)
+      useAppStore.getState().showToast('SION Link aktif', 'success')
+    } catch (err) {
+      logger.error('Failed to start SION Link:', err)
+      useAppStore.getState().showToast('Gagal mengaktifkan SION Link', 'error')
+    } finally {
+      setIsSionLinkBusy(false)
+    }
+  }
 
   const handleToggleProjection = async (): Promise<void> => {
     try {
@@ -249,6 +287,26 @@ export function TitleBarStatus(): React.JSX.Element {
 
   return (
     <div className="title-bar-status no-drag">
+      <button
+        type="button"
+        onClick={handleStartSionLink}
+        disabled={isSionLinkEnabled || isSionLinkBusy}
+        className={`titlebar-stage-btn ${isSionLinkEnabled ? 'is-active' : ''}`}
+        title={isSionLinkEnabled ? 'SION Link aktif' : 'Aktifkan SION Link'}
+        aria-label={isSionLinkEnabled ? 'SION Link aktif' : 'Aktifkan SION Link'}
+      >
+        <Radio size={12} />
+        <span>
+          {isSionLinkBusy ? 'Menyalakan...' : isSionLinkEnabled ? 'SION Link ON' : 'ON SION Link'}
+        </span>
+        {isSionLinkEnabled && (
+          <span
+            className="titlebar-output-btn__dot"
+            style={{ background: 'var(--color-preview)' }}
+          />
+        )}
+      </button>
+
       {/* Projection output toggle */}
       <button
         onClick={handleToggleProjection}

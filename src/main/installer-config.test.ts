@@ -49,6 +49,40 @@ describe('Celestial Native Windows installer', () => {
     expect(include).toContain('Jalankan SION Media')
   })
 
+  test('detects install, update, repair, and downgrade modes', () => {
+    const include = readFileSync(nsisIncludePath, 'utf8')
+    expect(include).toContain('Function DetectExistingInstallation')
+    expect(include).toContain('SetRegView 64')
+    expect(include).toContain('DisplayVersion')
+    expect(include).toContain('InstallLocation')
+    expect(include).toContain('${VersionCompare}')
+    expect(include).toContain('STR:Perbarui')
+    expect(include).toContain('STR:Perbaiki')
+    expect(include).toContain('Pembaruan SION Media')
+    expect(include).toContain('Perbaikan SION Media')
+    expect(include).toContain('versi yang lebih baru sudah terpasang')
+    expect(include).toContain('StrCpy $INSTDIR $ExistingInstallLocation')
+  })
+
+  test('keeps native update and repair UI readable at fixed NSIS dimensions', () => {
+    const include = readFileSync(nsisIncludePath, 'utf8')
+    expect(include).toMatch(/SendMessage \$0 \$\{WM_SETTEXT\} 0 "STR:Perbarui"/)
+    expect(include).toMatch(/SendMessage \$0 \$\{WM_SETTEXT\} 0 "STR:Perbaiki"/)
+    expect(include).toContain('SION Media Siap Diperbarui')
+    expect(include).toContain('SION Media Siap Diperbaiki')
+    expect(include).toContain('Data pengguna tetap dipertahankan')
+    expect(include).not.toContain('${If} $InstallerMode != "install"')
+    expect(include).not.toContain('STR:Perbarui SION Media')
+    expect(include).not.toContain('STR:Perbaiki SION Media')
+    expect(include).not.toContain('━')
+  })
+
+  test('keeps the user data directory outside installer replacement scope', () => {
+    const include = readFileSync(nsisIncludePath, 'utf8')
+    expect(config).toContain('deleteAppDataOnUninstall: false')
+    expect(include).not.toMatch(/RMDir\s+\/r\s+[^\r\n]*APPDATA/i)
+  })
+
   test('generates the Windows icon from the official SION Media brand asset', () => {
     const generator = readFileSync(assetGeneratorPath, 'utf8')
     expect(generator).toContain('resources\\branding\\app-icon.png')
@@ -71,12 +105,35 @@ describe('Bundled database contract', () => {
 
     expect(gitignore).toContain('!resources/content-packs/bibles/bible_tb/tb_lai_1974.sqlite')
     // sion.db MUST be included in the build — it is the pre-populated default database
-    expect(config).not.toContain("- '!resources/sion.db'")
+    expect(config).toContain("- '!resources/sion.db'")
     // Journal files MUST be excluded — they are transient runtime artifacts
     expect(config).toContain('!resources/**/*.db-wal')
     expect(config).toContain('!resources/**/*.db-shm')
     expect(config).toContain('!resources/**/*.sqlite-wal')
     expect(config).toContain('!resources/**/*.sqlite-shm')
+  })
+
+  test('copies Bible content packs into the installer resources directory explicitly', () => {
+    expect(config).toMatch(
+      /extraResources:\s*[\s\S]*?- from: resources\/content-packs\s*[\s\S]*?to: content-packs/
+    )
+
+    const pathSource = readFileSync(
+      resolve(root, 'src/main/services/content-packs/contentPackPaths.ts'),
+      'utf8'
+    )
+    expect(pathSource).toContain("join(process.resourcesPath, 'content-packs')")
+    expect(pathSource).not.toContain("replace('app.asar', 'app.asar.unpacked')")
+  })
+
+  test('copies the bundled song database to a real SQLite-readable production path', () => {
+    expect(config).toMatch(
+      /extraResources:\s*[\s\S]*?- from: resources\/sion\.db\s*[\s\S]*?to: sion\.db/
+    )
+    expect(config).toContain("- '!resources/sion.db'")
+
+    const databaseSource = readFileSync(resolve(root, 'src/main/database.ts'), 'utf8')
+    expect(databaseSource).toContain("join(process.resourcesPath, 'sion.db')")
   })
 
   test('ships a complete and checksum-valid TB Bible database', () => {
@@ -98,15 +155,72 @@ describe('Bundled database contract', () => {
 
 describe('native dependency runtime contract', () => {
   test('automatically targets better-sqlite3 for Node tests and Electron runtime', () => {
-    expect(packageJson.scripts.pretest).toBe('npm rebuild better-sqlite3')
-    expect(packageJson.scripts.predev).toBe('electron-builder install-app-deps')
-    expect(packageJson.scripts.prestart).toBe('electron-builder install-app-deps')
+    expect(packageJson.scripts.pretest).toBeUndefined()
+    expect(packageJson.scripts['rebuild:node-native']).toBe('npm rebuild better-sqlite3')
+    expect(packageJson.scripts['rebuild:electron-native']).toBe(
+      'electron-rebuild -f -w better-sqlite3'
+    )
+    expect(packageJson.scripts.test).toBe('node scripts/run-vitest-restore-electron.mjs')
+    const testRunner = readFileSync(
+      resolve(root, 'scripts/run-vitest-restore-electron.mjs'),
+      'utf8'
+    )
+    expect(testRunner).toContain("['run', 'rebuild:node-native']")
+    expect(testRunner).toContain("['run', 'rebuild:electron-native']")
+    expect(packageJson.scripts.predev).toBe('npm run rebuild:electron-native')
+    expect(packageJson.scripts.prestart).toBe('npm run rebuild:electron-native')
+    expect(packageJson.scripts['build:unpack']).toContain('npm run rebuild:electron-native')
+    expect(packageJson.scripts['build:win']).toContain('npm run rebuild:electron-native')
+    expect(config).toContain('npmRebuild: false')
   })
 
   test('development startup does not delete a shared Chromium cache', () => {
     const mainEntry = readFileSync(resolve(root, 'src/main/index.ts'), 'utf8')
     expect(mainEntry).not.toContain('clearDevChromiumCache')
     expect(mainEntry).not.toContain("import { rmSync } from 'fs'")
+  })
+})
+
+describe('Bundled FFmpeg contract', () => {
+  const downloaderPath = resolve(root, 'scripts/download-ffmpeg.mjs')
+  const noticePath = resolve(root, 'resources/ffmpeg.NOTICE.md')
+
+  test('prepares FFmpeg before every Windows packaging flow', () => {
+    expect(packageJson.scripts['prepare:ffmpeg']).toBe('node scripts/download-ffmpeg.mjs')
+    expect(packageJson.scripts['prepare:streaming']).toContain('npm run prepare:ffmpeg')
+    expect(packageJson.scripts['build:unpack']).toContain('npm run prepare:streaming')
+    expect(packageJson.scripts['build:win']).toContain('npm run prepare:streaming')
+    expect(config).toMatch(/- from: resources\/ffmpeg\s*[\s\S]*?to: ffmpeg/)
+  })
+
+  test('bundles a pinned and verified MediaMTX gateway for OBS live input', () => {
+    const downloader = readFileSync(resolve(root, 'scripts/download-mediamtx.mjs'), 'utf8')
+    const notice = readFileSync(resolve(root, 'resources/mediamtx.NOTICE.md'), 'utf8')
+    expect(packageJson.scripts['prepare:mediamtx']).toBe('node scripts/download-mediamtx.mjs')
+    expect(packageJson.scripts['prepare:streaming']).toContain('npm run prepare:mediamtx')
+    expect(config).toMatch(/- from: resources\/mediamtx\s*[\s\S]*?to: mediamtx/)
+    expect(downloader).toContain("const VERSION = '1.17.0'")
+    expect(downloader).toContain('ARCHIVE_SHA256')
+    expect(downloader).toContain('checksum mismatch')
+    expect(notice).toContain('License: MIT')
+  })
+
+  test('pins and verifies the upstream archive before packaging', () => {
+    const downloader = readFileSync(downloaderPath, 'utf8')
+    expect(downloader).toContain("const FFMPEG_VERSION = '8.1.2'")
+    expect(downloader).toContain(
+      "const ARCHIVE_SHA256 = 'db580001caa24ac104c8cb856cd113a87b0a443f7bdf47d8c12b1d740584a2ec'"
+    )
+    expect(downloader).toContain("['-hide_banner', '-protocols']")
+    expect(downloader).toContain("['-hide_banner', '-encoders']")
+    expect(downloader).toContain('checksum mismatch')
+  })
+
+  test('keeps generated binaries out of git while shipping upstream license notices', () => {
+    const gitignore = readFileSync(resolve(root, '.gitignore'), 'utf8')
+    expect(gitignore).toContain('resources/ffmpeg/')
+    expect(existsSync(noticePath)).toBe(true)
+    expect(readFileSync(noticePath, 'utf8')).toContain('GNU General Public License version 3')
   })
 })
 

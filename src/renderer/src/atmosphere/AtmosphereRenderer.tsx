@@ -2,21 +2,34 @@ import React, { useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { AtmosphereConfig, GradientConfig, OverlayConfig, ReadabilityConfig } from './types'
 import { MotionEngine } from './MotionEngine'
+import { toLocalMediaUrl } from '@renderer/utils/localMediaUrl'
 
 interface AtmosphereRendererProps {
   config: AtmosphereConfig
   transitionDuration?: number
   className?: string
   showReadabilityGuard?: boolean
+  muted?: boolean
+  volume?: number
 }
 
 export const AtmosphereRenderer: React.FC<AtmosphereRendererProps> = ({
   config,
   transitionDuration = 0.8,
   className = '',
-  showReadabilityGuard = true
+  showReadabilityGuard = true,
+  muted = false,
+  volume = 1.0
 }) => {
   const { mode, solidColor, gradient, media, motion: motionConfig, overlay, readability } = config
+
+  const videoRef = React.useRef<HTMLVideoElement | null>(null)
+
+  React.useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.volume = volume
+    }
+  }, [volume])
 
   const backgroundStyle = useMemo(() => {
     const isAnimated = gradient?.animated ?? true
@@ -57,7 +70,7 @@ export const AtmosphereRenderer: React.FC<AtmosphereRendererProps> = ({
               animate={{ scale: 1, opacity: 1 }}
               className="absolute inset-0"
               style={{
-                backgroundImage: `url(file://${media.path.replace(/\\/g, '/')})`,
+                backgroundImage: `url("${toLocalMediaUrl(media.path)}")`,
                 backgroundSize: media.fit || 'cover',
                 backgroundPosition: 'center'
               }}
@@ -66,10 +79,12 @@ export const AtmosphereRenderer: React.FC<AtmosphereRendererProps> = ({
 
           {mode === 'video' && media?.path && (
             <video
-              src={`file://${media.path.replace(/\\/g, '/')}`}
+              ref={videoRef}
+              src={toLocalMediaUrl(media.path)}
               autoPlay
               loop
-              muted
+              muted={muted}
+              playsInline
               className="absolute inset-0 w-full h-full object-cover"
             />
           )}

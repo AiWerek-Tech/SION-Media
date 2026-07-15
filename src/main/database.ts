@@ -10,9 +10,12 @@ import {
   writeFileSync,
   statSync
 } from 'fs'
+import { copyFile, stat, unlink } from 'fs/promises'
 import { randomUUID } from 'crypto'
 import { initialSongs } from './seed-data'
-import { runMigrations } from './migrations'
+import { getLatestMigrationVersion, runMigrations } from './migrations'
+import { openDatabaseWithUpgradeSafety } from './database-upgrade'
+import { syncBundledSongs } from './bundled-content-upgrade'
 import { setRegistryDb } from './services/content-packs/contentPackRegistry'
 import { autoRegisterBundledPacks } from './services/content-packs/contentPackManager'
 
@@ -148,6 +151,27 @@ export function filterAllowedUpdateEntries(
     throw new Error(errorMessage)
   }
   return safeEntries
+}
+
+export function tableHasColumn(
+  connection: Pick<Database.Database, 'pragma'>,
+  tableName: string,
+  columnName: string
+): boolean {
+  const safeTable = tableName.replace(/'/g, "''")
+  const columns = connection.pragma(`table_info('${safeTable}')`) as Array<{ name?: string }>
+  return columns.some((column) => column.name === columnName)
+}
+
+export function ensureSongBackgroundConfigColumn(
+  connection: Pick<Database.Database, 'exec' | 'pragma'>
+): boolean {
+  if (tableHasColumn(connection, 'songs', 'song_background_config')) {
+    return false
+  }
+
+  connection.exec("ALTER TABLE songs ADD COLUMN song_background_config TEXT DEFAULT ''")
+  return true
 }
 
 // ============================================================================
@@ -459,7 +483,9 @@ export function importSongsFromJson(
 
 export function initDatabase(): void {
   const dbPath = join(app.getPath('userData'), 'sion.db')
-  const resourcesPath = join(__dirname, '../../resources/sion.db')
+  const resourcesPath = app.isPackaged
+    ? join(process.resourcesPath, 'sion.db')
+    : join(app.getAppPath(), 'resources', 'sion.db')
 
   // Copy default database from resources if it doesn't exist
   if (!existsSync(dbPath) && existsSync(resourcesPath)) {
@@ -526,12 +552,13 @@ export function initDatabase(): void {
   }
 
   // Single assignment — `db` is set here and never reassigned.
-  db = new Database(dbPath)
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
-
-  // Run migrations (non-destructive schema updates)
-  runMigrations(db)
+  db = openDatabaseWithUpgradeSafety(dbPath, getLatestMigrationVersion(), (connection) => {
+    connection.pragma('journal_mode = WAL')
+    connection.pragma('foreign_keys = ON')
+    runMigrations(connection)
+    ensureSongBackgroundConfigColumn(connection)
+    syncBundledSongs(connection, resourcesPath)
+  })
 
   // Inject DB into content pack registry
   setRegistryDb(db)
@@ -644,6 +671,7 @@ export function reseedDatabase(): void {
 
     // 6. Re-run migrations to recreate FTS table and triggers
     runMigrations(db)
+    ensureSongBackgroundConfigColumn(db)
 
     checkpointWal('TRUNCATE')
 
@@ -1369,7 +1397,7 @@ export function getPlaylistItems(playlistId: number): unknown[] {
 
 export function updatePlaylistItem(
   id: number,
-  data: { section_label?: string; title?: string; notes?: string }
+  data: { song_id?: number; section_label?: string; title?: string; notes?: string }
 ): void {
   const existing = db.prepare('SELECT * FROM playlist_items WHERE id = ?').get(id) as Record<
     string,
@@ -1379,12 +1407,14 @@ export function updatePlaylistItem(
 
   db.prepare(
     `UPDATE playlist_items
-     SET section_label = ?, title = ?, notes = ?
+     SET song_id = ?, section_label = ?, title = ?, notes = ?, item_type = ?
      WHERE id = ?`
   ).run(
+    data.song_id !== undefined ? data.song_id : existing.song_id,
     data.section_label !== undefined ? data.section_label : existing.section_label,
     data.title !== undefined ? data.title : existing.title,
     data.notes !== undefined ? data.notes : existing.notes,
+    data.song_id !== undefined ? 'song' : existing.item_type,
     id
   )
   checkpointWal()
@@ -1510,6 +1540,45 @@ export function addInfoToPlaylist(
   }
 }
 
+export function addMediaToPlaylist(
+  playlistId: number,
+  media: {
+    title: string
+    path: string
+    presentation?: { slides: Array<{ index: number; title: string; notes: string }> }
+  }
+): unknown {
+  const maxOrder = db
+    .prepare('SELECT MAX(sort_order) as max_order FROM playlist_items WHERE playlist_id = ?')
+    .get(playlistId) as { max_order: number | null }
+  const nextOrder = (maxOrder?.max_order ?? -1) + 1
+  const title = media.title.trim()
+  const path = media.path.trim()
+  const descriptor = media.presentation
+    ? JSON.stringify({ version: 1, kind: 'media', path, presentation: media.presentation })
+    : path
+
+  const result = db
+    .prepare(
+      `INSERT INTO playlist_items (
+        playlist_id, song_id, sort_order, section_label, item_type, title, notes
+      ) VALUES (?, NULL, ?, '', 'media', ?, ?)`
+    )
+    .run(playlistId, nextOrder, title, descriptor)
+  checkpointWal()
+
+  return {
+    id: result.lastInsertRowid,
+    playlist_id: playlistId,
+    song_id: null,
+    sort_order: nextOrder,
+    section_label: '',
+    item_type: 'media',
+    title,
+    notes: descriptor
+  }
+}
+
 export function deletePlaylistItem(id: number): boolean {
   const result = db.prepare('DELETE FROM playlist_items WHERE id = ?').run(id)
   if (result.changes > 0) checkpointWal()
@@ -1529,7 +1598,7 @@ export function reorderPlaylistItems(items: { id: number; sort_order: number }[]
 
 // ========== Media Assets ==========
 
-type MediaAssetType = 'image' | 'video'
+type MediaAssetType = 'image' | 'video' | 'pdf'
 
 type MediaAssetRow = {
   id: string
@@ -1542,6 +1611,7 @@ type MediaAssetRow = {
   tags: string
   is_favorite: number
   usage_count: number
+  metadata_json: string
   created_at: string
   updated_at: string
 }
@@ -1582,8 +1652,9 @@ function ensureMediaLibraryDirs(): ReturnType<typeof getMediaLibraryPaths> {
 
 function normalizeMediaAssetType(filePath: string): MediaAssetType {
   const ext = extname(filePath).toLowerCase()
-  if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) return 'image'
-  if (['.mp4', '.webm'].includes(ext)) return 'video'
+  if (['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext)) return 'image'
+  if (['.mp4', '.webm', '.mov', '.mkv'].includes(ext)) return 'video'
+  if (ext === '.pdf') return 'pdf'
   throw new Error(`Unsupported media format: ${ext || 'unknown'}`)
 }
 
@@ -1739,6 +1810,7 @@ function mapMediaAssetRow(row: MediaAssetRow): {
   collectionIds?: string[]
   createdAt?: string
   updatedAt?: string
+  metadata?: Record<string, unknown>
 } {
   let tags: string[] = []
   try {
@@ -1748,6 +1820,15 @@ function mapMediaAssetRow(row: MediaAssetRow): {
     }
   } catch {
     tags = []
+  }
+  let metadata: Record<string, unknown> = {}
+  try {
+    const parsed = JSON.parse(row.metadata_json) as unknown
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      metadata = parsed as Record<string, unknown>
+    }
+  } catch {
+    metadata = {}
   }
 
   return {
@@ -1763,7 +1844,8 @@ function mapMediaAssetRow(row: MediaAssetRow): {
     usageCount: row.usage_count,
     collectionIds: getCollectionIdsForAsset(row.id),
     createdAt: row.created_at,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
+    metadata
   }
 }
 
@@ -1857,7 +1939,7 @@ export function addMediaCollection(payload: {
         (item): item is string => typeof item === 'string' && item.trim().length > 0
       )
     : []
-  const coverAssetId = assetIds[0] || ''
+  const coverAssetId = assetIds[0] || null
   const insertCollection = db.prepare(
     `INSERT INTO media_collections (
       id, name, description, cover_asset_id, created_at, updated_at
@@ -1896,7 +1978,7 @@ export function updateMediaCollection(
   ).run(
     updates.name?.trim() || existing.name,
     updates.description?.trim() ?? existing.description,
-    updates.coverAssetId === undefined ? existing.cover_asset_id : updates.coverAssetId,
+    updates.coverAssetId === undefined ? existing.cover_asset_id : updates.coverAssetId || null,
     id
   )
   checkpointWal()
@@ -1930,7 +2012,7 @@ export function addAssetsToMediaCollection(collectionId: string, assetIds: strin
       insertItem.run(collectionId, assetId, sortOrder)
       sortOrder += 1
     }
-    touchCollection.run(safeAssetIds[0] || '', collectionId)
+    touchCollection.run(safeAssetIds[0] || null, collectionId)
   })
   transaction()
   checkpointWal()
@@ -1966,7 +2048,7 @@ export function removeAssetsFromMediaCollection(collectionId: string, assetIds: 
         `UPDATE media_collections
          SET cover_asset_id = ?, updated_at = datetime('now')
          WHERE id = ?`
-      ).run(nextCover?.asset_id || '', collectionId)
+      ).run(nextCover?.asset_id || null, collectionId)
     } else {
       db.prepare(`UPDATE media_collections SET updated_at = datetime('now') WHERE id = ?`).run(
         collectionId
@@ -2062,37 +2144,69 @@ function cleanupMediaReferences(assetId: string, localPath: string): void {
     db.prepare('UPDATE settings SET value = ? WHERE key = ?').run('', 'projection_bg_image')
   }
 
-  const songs = db
-    .prepare(
-      "SELECT id, song_background_config FROM songs WHERE song_background_config IS NOT NULL AND TRIM(song_background_config) <> ''"
+  if (tableHasColumn(db, 'songs', 'song_background_config')) {
+    const songs = db
+      .prepare(
+        "SELECT id, song_background_config FROM songs WHERE song_background_config IS NOT NULL AND TRIM(song_background_config) <> ''"
+      )
+      .all() as Array<{ id: number; song_background_config: string }>
+    const updateSongConfig = db.prepare(
+      `UPDATE songs SET song_background_config = ?, updated_at = datetime('now') WHERE id = ?`
     )
-    .all() as Array<{ id: number; song_background_config: string }>
-  const updateSongConfig = db.prepare(
-    `UPDATE songs SET song_background_config = ?, updated_at = datetime('now') WHERE id = ?`
-  )
-  for (const song of songs) {
-    const nextConfig = scrubAtmosphereMediaReference(
-      song.song_background_config,
-      assetId,
-      localPath
-    )
-    if (nextConfig !== song.song_background_config) {
-      updateSongConfig.run(nextConfig, song.id)
+    for (const song of songs) {
+      const nextConfig = scrubAtmosphereMediaReference(
+        song.song_background_config,
+        assetId,
+        localPath
+      )
+      if (nextConfig !== song.song_background_config) {
+        updateSongConfig.run(nextConfig, song.id)
+      }
     }
   }
 
   db.prepare(
     `UPDATE media_collections
-     SET cover_asset_id = ''
+     SET cover_asset_id = NULL
      WHERE cover_asset_id = ?`
   ).run(assetId)
 }
 
-export function importMediaAssets(payload: {
-  filePaths: string[]
-  category?: string
-  tags?: string[]
-}): unknown[] {
+function yieldDatabaseEventLoop(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve))
+}
+
+async function cleanupPreparedMediaFiles(paths: string[]): Promise<void> {
+  await Promise.all(paths.map((filePath) => unlink(filePath).catch(() => undefined)))
+}
+
+export interface MediaImportProgress {
+  completed: number
+  total: number
+  phase: 'preparing' | 'thumbnail' | 'committing' | 'complete'
+  fileName: string
+}
+
+export interface MediaImportOptions {
+  signal?: AbortSignal
+  onProgress?: (progress: MediaImportProgress) => void
+}
+
+function throwIfMediaImportAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return
+  const error = new Error('Media import dibatalkan.')
+  error.name = 'AbortError'
+  throw error
+}
+
+export async function importMediaAssets(
+  payload: {
+    filePaths: string[]
+    category?: string
+    tags?: string[]
+  },
+  options: MediaImportOptions = {}
+): Promise<unknown[]> {
   if (!Array.isArray(payload.filePaths) || payload.filePaths.length === 0) {
     throw new Error('No media files selected.')
   }
@@ -2106,18 +2220,42 @@ export function importMediaAssets(payload: {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, '{}', datetime('now'), datetime('now'))
   `)
 
-  const imported: ReturnType<typeof mapMediaAssetRow>[] = []
+  type PreparedMedia = {
+    id: string
+    type: MediaAssetType
+    displayName: string
+    rawPath: string
+    localPath: string
+    thumbnailPath: string
+  }
+  const prepared: Array<PreparedMedia | MediaAssetRow> = []
+  const createdPaths: string[] = []
   const tagsJson = JSON.stringify(payload.tags || [])
   const category = String(payload.category || '').trim()
 
-  const transaction = db.transaction(() => {
-    for (const rawPath of payload.filePaths) {
-      if (typeof rawPath !== 'string' || !rawPath.trim()) continue
-      if (!existsSync(rawPath)) throw new Error(`Media file not found: ${rawPath}`)
+  try {
+    for (let index = 0; index < payload.filePaths.length; index++) {
+      throwIfMediaImportAborted(options.signal)
+      const rawPath = payload.filePaths[index]
+      const fileName = basename(rawPath)
+      options.onProgress?.({
+        completed: index,
+        total: payload.filePaths.length,
+        phase: 'preparing',
+        fileName
+      })
+      const sourceStat = await stat(rawPath).catch(() => null)
+      if (!sourceStat?.isFile()) throw new Error(`Media file not found or not regular: ${rawPath}`)
 
       const existing = selectExisting.get(rawPath) as MediaAssetRow | undefined
       if (existing) {
-        imported.push(mapMediaAssetRow(existing))
+        prepared.push(existing)
+        options.onProgress?.({
+          completed: index + 1,
+          total: payload.filePaths.length,
+          phase: 'preparing',
+          fileName
+        })
         continue
       }
 
@@ -2129,14 +2267,146 @@ export function importMediaAssets(payload: {
       const localPath = join(targetDir, `${id}${ext}`)
       const thumbnailPath = join(dirs.thumbnailDir, `${id}.png`)
 
-      copyFileSync(rawPath, localPath)
+      await copyFile(rawPath, localPath)
+      createdPaths.push(localPath)
+      throwIfMediaImportAborted(options.signal)
+      createdPaths.push(thumbnailPath)
+      options.onProgress?.({
+        completed: index,
+        total: payload.filePaths.length,
+        phase: 'thumbnail',
+        fileName
+      })
       writeThumbnail(localPath, thumbnailPath, type, displayName)
+      prepared.push({ id, type, displayName, rawPath, localPath, thumbnailPath })
+      options.onProgress?.({
+        completed: index + 1,
+        total: payload.filePaths.length,
+        phase: 'thumbnail',
+        fileName
+      })
+      await yieldDatabaseEventLoop()
+    }
 
-      insertAsset.run(id, type, displayName, rawPath, localPath, thumbnailPath, category, tagsJson)
+    throwIfMediaImportAborted(options.signal)
+    options.onProgress?.({
+      completed: payload.filePaths.length,
+      total: payload.filePaths.length,
+      phase: 'committing',
+      fileName: ''
+    })
+    const imported: ReturnType<typeof mapMediaAssetRow>[] = []
+    const transaction = db.transaction(() => {
+      for (const item of prepared) {
+        if ('original_path' in item) {
+          imported.push(mapMediaAssetRow(item))
+          continue
+        }
+        insertAsset.run(
+          item.id,
+          item.type,
+          item.displayName,
+          item.rawPath,
+          item.localPath,
+          item.thumbnailPath,
+          category,
+          tagsJson
+        )
+
+        const inserted = db
+          .prepare('SELECT * FROM media_assets WHERE id = ?')
+          .get(item.id) as MediaAssetRow
+        imported.push(mapMediaAssetRow(inserted))
+      }
+    })
+
+    transaction()
+    checkpointWal()
+    options.onProgress?.({
+      completed: payload.filePaths.length,
+      total: payload.filePaths.length,
+      phase: 'complete',
+      fileName: ''
+    })
+    return imported
+  } catch (error) {
+    await cleanupPreparedMediaFiles(createdPaths)
+    throw error
+  }
+}
+
+export async function addLocalExternalMedia(payload: {
+  filePaths: string[]
+  category?: string
+}): Promise<unknown[]> {
+  if (!Array.isArray(payload.filePaths) || payload.filePaths.length === 0) {
+    throw new Error('No media files selected.')
+  }
+
+  const selectExisting = db.prepare('SELECT * FROM media_assets WHERE original_path = ? LIMIT 1')
+  const insertAsset = db.prepare(`
+    INSERT INTO media_assets (
+      id, type, name, original_path, local_path, thumbnail_path, category, tags,
+      is_favorite, usage_count, metadata_json, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, '[]', 0, 0, ?, datetime('now'), datetime('now'))
+  `)
+
+  const imported: ReturnType<typeof mapMediaAssetRow>[] = []
+  const category = String(payload.category || 'Local Media').trim()
+  const metadataJson = JSON.stringify({ is_external: true, is_local: true })
+
+  const prepared: Array<
+    | MediaAssetRow
+    | {
+        id: string
+        type: MediaAssetType
+        displayName: string
+        rawPath: string
+        thumbnailPath: string
+      }
+  > = []
+  for (const rawPath of payload.filePaths) {
+    const sourceStat = await stat(rawPath).catch(() => null)
+    if (!sourceStat?.isFile()) throw new Error(`Media file not found or not regular: ${rawPath}`)
+    const existing = selectExisting.get(rawPath) as MediaAssetRow | undefined
+    if (existing) {
+      prepared.push(existing)
+      continue
+    }
+    const type = normalizeMediaAssetType(rawPath)
+    const ext = extname(rawPath).toLowerCase()
+    const id = randomUUID()
+    const displayName = sanitizeMediaName(basename(rawPath, ext)) || `Asset ${id.slice(0, 8)}`
+    prepared.push({
+      id,
+      type,
+      displayName,
+      rawPath,
+      thumbnailPath: type === 'image' ? rawPath : ''
+    })
+    await yieldDatabaseEventLoop()
+  }
+
+  const transaction = db.transaction(() => {
+    for (const item of prepared) {
+      if ('original_path' in item) {
+        imported.push(mapMediaAssetRow(item))
+        continue
+      }
+      insertAsset.run(
+        item.id,
+        item.type,
+        item.displayName,
+        item.rawPath,
+        item.rawPath,
+        item.thumbnailPath,
+        category,
+        metadataJson
+      )
 
       const inserted = db
         .prepare('SELECT * FROM media_assets WHERE id = ?')
-        .get(id) as MediaAssetRow
+        .get(item.id) as MediaAssetRow
       imported.push(mapMediaAssetRow(inserted))
     }
   })
@@ -2144,6 +2414,63 @@ export function importMediaAssets(payload: {
   transaction()
   checkpointWal()
   return imported
+}
+
+export function registerPresentationPackageAsset(payload: {
+  id: string
+  title: string
+  sourcePath: string
+  sourceSha256: string
+  pdfPath: string
+  manifestPath: string
+  thumbnailPath: string
+  slideCount: number
+  conversionProvider: 'powerpoint' | 'wps' | 'libreoffice'
+  outputMode: 'pdf' | 'images'
+  warnings: string[]
+  slides: Array<{ index: number; title: string; notes: string; imagePath: string }>
+  category?: string
+}): unknown {
+  const existing = db
+    .prepare('SELECT * FROM media_assets WHERE original_path = ? LIMIT 1')
+    .get(payload.sourcePath) as MediaAssetRow | undefined
+  const id = existing?.id ?? payload.id
+  const metadataJson = JSON.stringify({
+    is_external: false,
+    is_local: true,
+    presentationPackage: {
+      version: 1,
+      manifestPath: payload.manifestPath,
+      sourceSha256: payload.sourceSha256,
+      slideCount: payload.slideCount,
+      conversionProvider: payload.conversionProvider,
+      outputMode: payload.outputMode,
+      warnings: payload.warnings,
+      slides: payload.slides
+    }
+  })
+  db.prepare(
+    `INSERT INTO media_assets (
+      id, type, name, original_path, local_path, thumbnail_path, category, tags,
+      is_favorite, usage_count, metadata_json, created_at, updated_at
+    ) VALUES (?, 'pdf', ?, ?, ?, ?, ?, '["presentation","pptx"]', 0, 0, ?, datetime('now'), datetime('now'))
+    ON CONFLICT(id) DO UPDATE SET
+      type = 'pdf', name = excluded.name, local_path = excluded.local_path,
+      thumbnail_path = excluded.thumbnail_path, category = excluded.category,
+      metadata_json = excluded.metadata_json, updated_at = datetime('now')`
+  ).run(
+    id,
+    sanitizeMediaName(payload.title),
+    payload.sourcePath,
+    payload.pdfPath,
+    payload.thumbnailPath,
+    String(payload.category || 'Local Media').trim(),
+    metadataJson
+  )
+  checkpointWal()
+  return mapMediaAssetRow(
+    db.prepare('SELECT * FROM media_assets WHERE id = ?').get(id) as MediaAssetRow
+  )
 }
 
 export function updateMediaAsset(
@@ -2181,12 +2508,24 @@ export function deleteMediaAsset(id: string): boolean {
   cleanupMediaReferences(existing.id, existing.local_path)
   const result = db.prepare('DELETE FROM media_assets WHERE id = ?').run(id)
   if (result.changes > 0) {
-    for (const filePath of [existing.local_path, existing.thumbnail_path]) {
-      if (filePath && existsSync(filePath)) {
-        try {
-          unlinkSync(filePath)
-        } catch {
-          // ignore cleanup failures
+    let isExternal = false
+    try {
+      const meta = JSON.parse(existing.metadata_json || '{}')
+      if (meta.is_external || meta.is_local) {
+        isExternal = true
+      }
+    } catch {
+      // ignore
+    }
+
+    if (!isExternal) {
+      for (const filePath of [existing.local_path, existing.thumbnail_path]) {
+        if (filePath && existsSync(filePath)) {
+          try {
+            unlinkSync(filePath)
+          } catch {
+            // ignore cleanup failures
+          }
         }
       }
     }

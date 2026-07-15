@@ -9,11 +9,17 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Film, HardDrive, Image as ImageIcon, Search, Upload, X } from 'lucide-react'
+import { Film, HardDrive, Image as ImageIcon, LoaderCircle, Search, Upload, X } from 'lucide-react'
 import { useAppStore } from '@renderer/store/useAppStore'
 import type { MediaAssetRecord, MediaCollectionRecord } from '@renderer/atmosphere/types'
 
 type MediaFilter = 'all' | 'image' | 'video'
+type ImportProgress = {
+  completed: number
+  total: number
+  phase: 'preparing' | 'thumbnail' | 'committing' | 'complete'
+  fileName: string
+}
 
 function toFileUrl(path?: string): string {
   if (!path) return ''
@@ -28,18 +34,19 @@ export function MediaLibrarySection(): React.JSX.Element {
   const [filter, setFilter] = useState<MediaFilter>('all')
   const [query, setQuery] = useState('')
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null)
+  const [isImporting, setIsImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null)
 
   // Load assets on mount
   useEffect(() => {
     const loadMedia = async (): Promise<void> => {
       try {
-        // Future: wire to window.api.backgrounds when available
-        // For now, media assets are loaded from local atmosphere engine
-        const stored = localStorage.getItem('sion:media-assets')
-        const storedCollections = localStorage.getItem('sion:media-collections')
-        if (stored) setAssets(JSON.parse(stored) as MediaAssetRecord[])
-        if (storedCollections)
-          setCollections(JSON.parse(storedCollections) as MediaCollectionRecord[])
+        const [nextAssets, nextCollections] = await Promise.all([
+          window.api.media.getAll(),
+          window.api.media.getCollections()
+        ])
+        setAssets(nextAssets as MediaAssetRecord[])
+        setCollections(nextCollections as MediaCollectionRecord[])
       } catch {
         // Backgrounds API may not be fully available yet
         setAssets([])
@@ -48,6 +55,8 @@ export function MediaLibrarySection(): React.JSX.Element {
     }
     loadMedia().catch(() => {})
   }, [])
+
+  useEffect(() => window.api.media.onImportProgress(setImportProgress), [])
 
   const filteredAssets = useMemo(() => {
     let result = assets
@@ -70,11 +79,45 @@ export function MediaLibrarySection(): React.JSX.Element {
 
   const handleImport = useCallback(async () => {
     try {
-      showToast('Import media belum tersedia — menunggu modul backend', 'info')
-    } catch {
-      showToast('Import media gagal', 'error')
+      const selection = (await window.api.file.showOpenDialog({
+        title: 'Pilih media untuk diimpor',
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          {
+            name: 'Media',
+            extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm', 'mov', 'mkv', 'pdf']
+          }
+        ]
+      })) as { canceled: boolean; filePaths: string[] }
+      if (selection.canceled || selection.filePaths.length === 0) return
+      setIsImporting(true)
+      setImportProgress({
+        completed: 0,
+        total: selection.filePaths.length,
+        phase: 'preparing',
+        fileName: ''
+      })
+      const imported = (await window.api.media.importAssets({
+        filePaths: selection.filePaths
+      })) as MediaAssetRecord[]
+      setAssets((current) => {
+        const byId = new Map(current.map((asset) => [asset.id, asset]))
+        for (const asset of imported) byId.set(asset.id, asset)
+        return Array.from(byId.values())
+      })
+      showToast(`${imported.length} media berhasil diimpor`, 'success')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Import media gagal'
+      showToast(message.includes('dibatalkan') ? 'Import media dibatalkan' : message, 'error')
+    } finally {
+      setIsImporting(false)
+      setImportProgress(null)
     }
   }, [showToast])
+
+  const handleCancelImport = useCallback(() => {
+    void window.api.media.cancelImport()
+  }, [])
 
   return (
     <div className="flex flex-col h-full">
@@ -86,17 +129,40 @@ export function MediaLibrarySection(): React.JSX.Element {
         </div>
         <button
           type="button"
-          onClick={handleImport}
+          onClick={isImporting ? handleCancelImport : handleImport}
           className="
             inline-flex items-center gap-2 h-8 px-3 rounded-lg
             bg-brand-primary text-white text-[12px] font-semibold
             hover:bg-brand-primary-hover transition-colors
           "
         >
-          <Upload size={14} />
-          Import Media
+          {isImporting ? <LoaderCircle size={14} className="animate-spin" /> : <Upload size={14} />}
+          {isImporting ? 'Batalkan' : 'Import Media'}
         </button>
       </div>
+
+      {isImporting && importProgress && (
+        <div className="border-b border-border-subtle px-5 py-2" role="status" aria-live="polite">
+          <div className="mb-1 flex items-center justify-between gap-3 text-[10px] text-text-muted">
+            <span className="truncate">
+              {importProgress.phase === 'committing'
+                ? 'Menyimpan ke library...'
+                : importProgress.fileName || 'Menyiapkan import...'}
+            </span>
+            <span>
+              {importProgress.completed}/{importProgress.total}
+            </span>
+          </div>
+          <div className="h-1 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full bg-brand-primary transition-[width] duration-200"
+              style={{
+                width: `${importProgress.total > 0 ? Math.round((importProgress.completed / importProgress.total) * 100) : 0}%`
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Stats bar */}
       <div className="flex items-center gap-4 px-5 py-2 border-b border-border-subtle text-[10px]">

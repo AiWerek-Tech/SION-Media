@@ -66,7 +66,7 @@ export interface PlaylistItem {
   song_id: number | null
   sort_order: number
   section_label: string
-  item_type?: 'song' | 'bible' | 'info'
+  item_type?: 'song' | 'bible' | 'info' | 'media'
   title: string
   notes?: string
   number?: string

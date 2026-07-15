@@ -25,6 +25,7 @@ let stageDisplayWindow: BrowserWindow | null = null
 // Projection state tracking
 let latestSlideData: unknown = null
 let latestProjectionState = 'CLEAR'
+let latestConfidencePayload: unknown = null
 
 function denyWindowOpen(details: { url: string }): { action: 'deny' } {
   const safeUrl = normalizeSafeExternalUrl(details.url)
@@ -63,6 +64,26 @@ export function repositionProjectionWindowFromSettings(): void {
   projectionWindow.setFullScreen(fullscreen)
 }
 
+export function repositionStageDisplayWindowFromSettings(): void {
+  if (!stageDisplayWindow || stageDisplayWindow.isDestroyed()) return
+  const displays = screen.getAllDisplays()
+  const settings = getSettings()
+  const configuredStageId = Number(settings['stage_monitor_id'] || 0)
+  const projectionDisplayId = Number(settings['projection_monitor_id'] || 0)
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const target =
+    displays.find((display) => display.id === configuredStageId) ||
+    displays.find(
+      (display) => display.id !== primaryDisplay.id && display.id !== projectionDisplayId
+    ) ||
+    displays.find((display) => display.id !== primaryDisplay.id) ||
+    primaryDisplay
+  const fullscreen = (settings['stage_display_fullscreen'] ?? '1') === '1'
+  stageDisplayWindow.setFullScreen(false)
+  stageDisplayWindow.setBounds(target.bounds)
+  stageDisplayWindow.setFullScreen(fullscreen)
+}
+
 export function showMainWindow(): void {
   if (!mainWindow || mainWindow.isDestroyed()) return
   if (!mainWindow.isVisible()) {
@@ -80,6 +101,14 @@ export function sendProjectionSnapshot(window: BrowserWindow | null): void {
   if (latestSlideData) window.webContents.send('projection:slide-update', latestSlideData)
   const theme = getLatestProjectionTheme()
   if (theme) window.webContents.send('projection:theme-update', theme)
+  if (latestConfidencePayload) window.webContents.send('confidence:update', latestConfidencePayload)
+}
+
+export function updateConfidencePayload(payload: unknown): void {
+  latestConfidencePayload = payload
+  if (stageDisplayWindow && !stageDisplayWindow.isDestroyed()) {
+    stageDisplayWindow.webContents.send('confidence:update', payload)
+  }
 }
 
 /**
@@ -277,6 +306,7 @@ export function createProjectionWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: true,
+      backgroundThrottling: false,
       sandbox: isSandboxEnabled,
       webviewTag: false
     }
@@ -312,16 +342,26 @@ export function createProjectionWindow(): void {
  */
 export function createStageDisplayWindow(): void {
   const displays = screen.getAllDisplays()
-  // Try to find a third monitor, otherwise fallback to primary
-  const stageDisplay = displays.length > 2 ? displays[2] : screen.getPrimaryDisplay()
+  const settings = getSettings()
+  const configuredStageId = Number(settings['stage_monitor_id'] || 0)
+  const projectionDisplayId = Number(settings['projection_monitor_id'] || 0)
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const stageDisplay =
+    displays.find((display) => display.id === configuredStageId) ||
+    displays.find(
+      (display) => display.id !== primaryDisplay.id && display.id !== projectionDisplayId
+    ) ||
+    displays.find((display) => display.id !== primaryDisplay.id) ||
+    primaryDisplay
+  const stageFullscreen = (settings['stage_display_fullscreen'] ?? '1') === '1'
 
   stageDisplayWindow = new BrowserWindow({
     x: stageDisplay.bounds.x,
     y: stageDisplay.bounds.y,
     width: stageDisplay.bounds.width,
     height: stageDisplay.bounds.height,
-    fullscreen: false, // Start windowed for musisi/singer to move if needed
-    frame: true,
+    fullscreen: stageFullscreen,
+    frame: !stageFullscreen,
     title: 'SION Stage Display',
     autoHideMenuBar: true,
     show: false,
@@ -414,6 +454,7 @@ export function hideProjectionWindow(): void {
  */
 export function showStageDisplayWindow(): void {
   if (!stageDisplayWindow) createStageDisplayWindow()
+  repositionStageDisplayWindowFromSettings()
   stageDisplayWindow?.show()
   sendProjectionSnapshot(stageDisplayWindow)
 }

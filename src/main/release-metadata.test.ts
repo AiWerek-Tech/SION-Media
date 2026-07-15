@@ -13,13 +13,13 @@ const packageLock = JSON.parse(readFileSync(resolve(root, 'package-lock.json'), 
 const changelog = readFileSync(resolve(root, 'CHANGELOG.md'), 'utf8')
 
 describe('production release metadata', () => {
-  test('keeps beta.2 version synchronized across package metadata', () => {
-    expect(packageJson.version).toBe('1.0.0-beta.2')
+  test('keeps beta release version synchronized across package metadata', () => {
+    expect(packageJson.version).toBe('1.1.0-beta.1')
     expect(packageLock.version).toBe(packageJson.version)
     expect(packageLock.packages['']?.version).toBe(packageJson.version)
   })
 
   test('includes release notes for the packaged version', () => {
-    expect(changelog).toContain(`## ${packageJson.version} - 2026-07-02`)
+    expect(changelog).toContain(`## ${packageJson.version} - 2026-07-13`)
   })
 })

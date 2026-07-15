@@ -67,6 +67,32 @@ const api = {
       ): void => callback(payload)
       ipcRenderer.on('projection:emergency', listener)
       return () => ipcRenderer.removeListener('projection:emergency', listener)
+    },
+    videoControl: (command: string, value?: unknown): void =>
+      ipcRenderer.send('projection:video-control', command, value),
+    onVideoControl: (callback: (command: string, value: unknown) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, command: string, value: unknown): void =>
+        callback(command, value)
+      ipcRenderer.on('projection:video-control', listener)
+      return () => ipcRenderer.removeListener('projection:video-control', listener)
+    },
+    instrumentControl: (command: string, value?: unknown): void =>
+      ipcRenderer.send('projection:instrument-control', command, value),
+    onInstrumentControl: (callback: (command: string, value: unknown) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, command: string, value: unknown): void =>
+        callback(command, value)
+      ipcRenderer.on('projection:instrument-control', listener)
+      return () => ipcRenderer.removeListener('projection:instrument-control', listener)
+    },
+    instrumentTimeUpdate: (currentTime: number, duration: number): void =>
+      ipcRenderer.send('projection:instrument-timeupdate', currentTime, duration),
+    onInstrumentTimeUpdate: (
+      callback: (currentTime: number, duration: number) => void
+    ): (() => void) => {
+      const listener = (_e: IpcRendererEvent, currentTime: number, duration: number): void =>
+        callback(currentTime, duration)
+      ipcRenderer.on('projection:instrument-timeupdate', listener)
+      return () => ipcRenderer.removeListener('projection:instrument-timeupdate', listener)
     }
   },
 
@@ -74,6 +100,63 @@ const api = {
   stage: {
     show: (): void => ipcRenderer.send('stage:show'),
     hide: (): void => ipcRenderer.send('stage:hide')
+  },
+
+  presenterRemote: {
+    start: (): Promise<unknown> => ipcRenderer.invoke('presenter-remote:start'),
+    stop: (): Promise<unknown> => ipcRenderer.invoke('presenter-remote:stop'),
+    status: (): Promise<unknown> => ipcRenderer.invoke('presenter-remote:status'),
+    regenerateCodes: (): Promise<unknown> =>
+      ipcRenderer.invoke('presenter-remote:regenerate-codes'),
+    regenerateCode: (role: string): Promise<unknown> =>
+      ipcRenderer.invoke('presenter-remote:regenerate-code', role),
+    disconnectClients: (): Promise<unknown> =>
+      ipcRenderer.invoke('presenter-remote:disconnect-clients'),
+    disconnectClient: (clientId: string): Promise<unknown> =>
+      ipcRenderer.invoke('presenter-remote:disconnect-client', clientId),
+    updateSecurityPolicy: (policy: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('presenter-remote:update-security-policy', policy),
+    clearCommandLog: (): Promise<unknown> =>
+      ipcRenderer.invoke('presenter-remote:clear-command-log'),
+    powerPointStatus: (): Promise<unknown> =>
+      ipcRenderer.invoke('presenter-remote:powerpoint-status'),
+    approvePowerPointRequest: (requestId: string): Promise<unknown> =>
+      ipcRenderer.invoke('presenter-remote:powerpoint-approve', requestId),
+    rejectPowerPointRequest: (requestId: string): Promise<unknown> =>
+      ipcRenderer.invoke('presenter-remote:powerpoint-reject', requestId),
+    disconnectPowerPointDevice: (deviceId: string): Promise<unknown> =>
+      ipcRenderer.invoke('presenter-remote:powerpoint-disconnect', deviceId),
+    updateSnapshot: (snapshot: unknown): void =>
+      ipcRenderer.send('presenter-remote:update-snapshot', snapshot),
+    onCommand: (callback: (command: string, payload?: unknown) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, command: string, payload?: unknown): void =>
+        callback(command, payload)
+      ipcRenderer.on('presenter-remote:command', listener)
+      return () => ipcRenderer.removeListener('presenter-remote:command', listener)
+    },
+    onPowerPointStatus: (callback: (status: unknown) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, status: unknown): void => callback(status)
+      ipcRenderer.on('powerpoint-bridge:status', listener)
+      return () => ipcRenderer.removeListener('powerpoint-bridge:status', listener)
+    }
+  },
+
+  obsSrt: {
+    status: (): Promise<unknown> => ipcRenderer.invoke('obs-srt:status'),
+    start: (): Promise<unknown> => ipcRenderer.invoke('obs-srt:start'),
+    stop: (): Promise<unknown> => ipcRenderer.invoke('obs-srt:stop'),
+    updateConfig: (config: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('obs-srt:update-config', config)
+  },
+
+  obsSrtIngest: {
+    status: (): Promise<unknown> => ipcRenderer.invoke('obs-srt-ingest:status'),
+    start: (): Promise<unknown> => ipcRenderer.invoke('obs-srt-ingest:start'),
+    stop: (): Promise<unknown> => ipcRenderer.invoke('obs-srt-ingest:stop'),
+    setAutoStart: (autoStart: boolean): Promise<unknown> =>
+      ipcRenderer.invoke('obs-srt-ingest:set-auto-start', autoStart),
+    updateConfig: (config: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('obs-srt-ingest:update-config', config)
   },
 
   // Display
@@ -147,6 +230,8 @@ const api = {
       ipcRenderer.invoke('db:add-bible-to-playlist', playlistId, bible),
     addInfo: (playlistId: number, info: unknown): Promise<unknown> =>
       ipcRenderer.invoke('db:add-info-to-playlist', playlistId, info),
+    addMedia: (playlistId: number, media: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('db:add-media-to-playlist', playlistId, media),
     updateItem: (id: number, data: unknown): Promise<void> =>
       ipcRenderer.invoke('db:update-playlist-item', id, data),
     deleteItem: (id: number): Promise<boolean> => ipcRenderer.invoke('db:delete-playlist-item', id),
@@ -196,7 +281,14 @@ const api = {
       ipcRenderer.invoke('file:show-open-dialog', options),
     writeJson: (filePath: string, data: unknown): Promise<unknown> =>
       ipcRenderer.invoke('file:write-json', filePath, data),
-    readJson: (filePath: string): Promise<unknown> => ipcRenderer.invoke('file:read-json', filePath)
+    readJson: (filePath: string): Promise<unknown> =>
+      ipcRenderer.invoke('file:read-json', filePath),
+    scanInstruments: (folderPath: string): Promise<unknown[]> =>
+      ipcRenderer.invoke('file:scan-instruments', folderPath),
+    readLrc: (audioFilePath: string): Promise<string | null> =>
+      ipcRenderer.invoke('file:read-lrc', audioFilePath),
+    writeLrc: (audioFilePath: string, content: string): Promise<boolean> =>
+      ipcRenderer.invoke('file:write-lrc', audioFilePath, content)
   },
 
   // Media Library
@@ -206,6 +298,24 @@ const api = {
     getCollections: (): Promise<unknown[]> => ipcRenderer.invoke('db:get-media-collections'),
     importAssets: (payload: unknown): Promise<unknown[]> =>
       ipcRenderer.invoke('db:import-media-assets', payload),
+    cancelImport: (): Promise<boolean> => ipcRenderer.invoke('db:cancel-media-import'),
+    onImportProgress: (
+      callback: (progress: {
+        completed: number
+        total: number
+        phase: 'preparing' | 'thumbnail' | 'committing' | 'complete'
+        fileName: string
+      }) => void
+    ): (() => void) => {
+      const listener = (_event: IpcRendererEvent, progress: Parameters<typeof callback>[0]): void =>
+        callback(progress)
+      ipcRenderer.on('media:import-progress', listener)
+      return () => ipcRenderer.removeListener('media:import-progress', listener)
+    },
+    addLocalExternalMedia: (payload: unknown): Promise<unknown[]> =>
+      ipcRenderer.invoke('db:add-local-external-media', payload),
+    importPresentation: (payload: unknown): Promise<unknown> =>
+      ipcRenderer.invoke('presentation:import-pptx', payload),
     update: (id: string, updates: unknown): Promise<unknown> =>
       ipcRenderer.invoke('db:update-media-asset', id, updates),
     delete: (id: string): Promise<boolean> => ipcRenderer.invoke('db:delete-media-asset', id),

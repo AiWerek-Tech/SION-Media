@@ -7,6 +7,7 @@
 
 import { ipcMain } from 'electron'
 import { IPC_BIBLE_PACK } from '@shared/ipc-channels'
+import { requireMainWindowSender } from '../../ipc-sender-policy'
 import {
   getBibleVersions,
   getBibleBooks,
@@ -38,7 +39,8 @@ function ensurePositiveInt(value: unknown, field: string): number {
 
 export function setupBiblePackIPC(): void {
   // List all installed bible versions (from registry)
-  ipcMain.handle(IPC_BIBLE_PACK.GET_VERSIONS, () => {
+  ipcMain.handle(IPC_BIBLE_PACK.GET_VERSIONS, (event) => {
+    requireMainWindowSender(event, IPC_BIBLE_PACK.GET_VERSIONS)
     try {
       return getBibleVersions()
     } catch (err) {
@@ -48,6 +50,7 @@ export function setupBiblePackIPC(): void {
 
   // Get all books for a version
   ipcMain.handle(IPC_BIBLE_PACK.GET_BOOKS, (_event, versionCode: unknown) => {
+    requireMainWindowSender(_event, IPC_BIBLE_PACK.GET_BOOKS)
     try {
       const code = ensureString(versionCode, 'versionCode')
       return getBibleBooks(code)
@@ -60,6 +63,7 @@ export function setupBiblePackIPC(): void {
   ipcMain.handle(
     IPC_BIBLE_PACK.GET_CHAPTER,
     (_event, versionCode: unknown, bookCode: unknown, chapter: unknown) => {
+      requireMainWindowSender(_event, IPC_BIBLE_PACK.GET_CHAPTER)
       try {
         const vc = ensureString(versionCode, 'versionCode')
         const bc = ensureString(bookCode, 'bookCode')
@@ -82,6 +86,7 @@ export function setupBiblePackIPC(): void {
       verseStart: unknown,
       verseEnd: unknown
     ) => {
+      requireMainWindowSender(_event, IPC_BIBLE_PACK.GET_VERSE_RANGE)
       try {
         const vc = ensureString(versionCode, 'versionCode')
         const bc = ensureString(bookCode, 'bookCode')
@@ -100,6 +105,7 @@ export function setupBiblePackIPC(): void {
   ipcMain.handle(
     IPC_BIBLE_PACK.SEARCH,
     (_event, versionCode: unknown, query: unknown, limit?: unknown) => {
+      requireMainWindowSender(_event, IPC_BIBLE_PACK.SEARCH)
       try {
         const vc = ensureString(versionCode, 'versionCode')
         const q = ensureString(query, 'query')
@@ -116,6 +122,7 @@ export function setupBiblePackIPC(): void {
 
   // Parse a Bible reference string
   ipcMain.handle(IPC_BIBLE_PACK.PARSE_REFERENCE, (_event, referenceStr: unknown) => {
+    requireMainWindowSender(_event, IPC_BIBLE_PACK.PARSE_REFERENCE)
     try {
       const ref = ensureString(referenceStr, 'referenceStr')
       return parseReference(ref)

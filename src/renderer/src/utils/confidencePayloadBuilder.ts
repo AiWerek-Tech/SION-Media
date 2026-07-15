@@ -98,7 +98,8 @@ export function buildConfidencePayload(
       isFrozen,
       isBlack,
       projectionState
-    }
+    },
+    updatedAt: Date.now()
   }
 }
 

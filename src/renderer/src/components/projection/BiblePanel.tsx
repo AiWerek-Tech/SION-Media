@@ -15,13 +15,11 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Book,
   BookOpen,
   ChevronRight,
   Loader2,
   Search,
   Send,
-  Type,
   X,
   Zap,
   Globe,
@@ -89,7 +87,7 @@ interface HistoryItem {
   verses: Array<{ verse: number; text: string }>
 }
 
-type PanelMode = 'search' | 'browse' | 'manual'
+type PanelMode = 'search' | 'browse'
 
 // ─── Helper Functions ─────────────────────────────────────────────────────────
 
@@ -160,10 +158,8 @@ export function BiblePanel(): React.JSX.Element {
   const [isLoadingVerses, setIsLoadingVerses] = useState(false)
   const [selectedVerses, setSelectedVerses] = useState<Set<number>>(new Set())
   const [lastClickedVerse, setLastClickedVerse] = useState<number | null>(null)
-
-  // ─── Manual mode state ──────────────────────────────────────────────────────
-  const [manualRef, setManualRef] = useState('')
-  const [manualText, setManualText] = useState('')
+  const [showOldTestament, setShowOldTestament] = useState(true)
+  const [showNewTestament, setShowNewTestament] = useState(true)
 
   // ─── History state ──────────────────────────────────────────────────────────
   const [recentVerses, setRecentVerses] = useState<HistoryItem[]>([])
@@ -202,12 +198,10 @@ export function BiblePanel(): React.JSX.Element {
         if (list.length > 0) {
           const def = list.find((v) => v.isDefault) ?? list[0]
           setSelectedVersion(def)
-        } else {
-          setMode('manual')
         }
       })
       .catch(() => {
-        setMode('manual')
+        setMode('search')
       })
   }, [])
 
@@ -490,22 +484,17 @@ export function BiblePanel(): React.JSX.Element {
     [selectedBook, selectedChapter, selectedVerses, chapterVerses, handleProjectVerses]
   )
 
-  // ─── Manual Mode projection trigger ──────────────────────────────────────────
-  const handleManualSend = useCallback(
-    (live = false) => {
-      if (!manualText.trim()) return
-      const refLabel = manualRef.trim() || 'Ayat Manual'
-      handleProjectVerses([{ verse: 1, text: manualText.trim() }], refLabel, refLabel, 1, live)
-    },
-    [manualText, manualRef, handleProjectVerses]
-  )
-
   // ─── Book list filters inside browse sidebar ──────────────────────────────────
   const filteredBooks = useMemo(() => {
     const q = bookSearchQuery.toLowerCase().trim()
-    if (!q) return books
-    return books.filter((b) => b.name.toLowerCase().includes(q))
-  }, [books, bookSearchQuery])
+    return books.filter((b) => {
+      const matchesTestament =
+        (showOldTestament && b.testament === 'OT') || (showNewTestament && b.testament === 'NT')
+      if (!matchesTestament) return false
+      if (!q) return true
+      return b.name.toLowerCase().includes(q)
+    })
+  }, [books, bookSearchQuery, showNewTestament, showOldTestament])
 
   const otBooks = useMemo(() => filteredBooks.filter((b) => b.testament === 'OT'), [filteredBooks])
   const ntBooks = useMemo(() => filteredBooks.filter((b) => b.testament === 'NT'), [filteredBooks])
@@ -528,7 +517,7 @@ export function BiblePanel(): React.JSX.Element {
               </button>
 
               {showHelpPopover && (
-                <div className="absolute left-0 mt-1.5 z-50 w-64 rounded-xl border border-white/[0.1] bg-bg-surface p-3 shadow-xl backdrop-blur-md">
+                <div className="projection-bible-panel__help-popover">
                   <div className="flex items-center justify-between border-b border-white/[0.06] pb-1.5 mb-2">
                     <span className="text-[10px] font-black text-brand-primary uppercase tracking-wider">
                       Panduan Mini Alkitab
@@ -642,7 +631,7 @@ export function BiblePanel(): React.JSX.Element {
 
         {/* Inline tabs switcher */}
         <div className="projection-bible-panel__mode-tabs flex items-center gap-1 bg-black/20 rounded-lg p-0.5 border border-white/[0.05]">
-          {(['search', 'browse', 'manual'] as PanelMode[]).map((m) => (
+          {(['search', 'browse'] as PanelMode[]).map((m) => (
             <button
               key={m}
               type="button"
@@ -660,8 +649,7 @@ export function BiblePanel(): React.JSX.Element {
             >
               {m === 'search' && <Search size={10} />}
               {m === 'browse' && <BookOpen size={10} />}
-              {m === 'manual' && <Type size={10} />}
-              <span>{m === 'search' ? 'Cari' : m === 'browse' ? 'Browse' : 'Manual'}</span>
+              <span>{m === 'search' ? 'Cari' : 'Pilih Ayat'}</span>
             </button>
           ))}
         </div>
@@ -957,50 +945,72 @@ export function BiblePanel(): React.JSX.Element {
         {!isHistoryExpanded && mode === 'browse' && (
           <div className="projection-bible-panel__browse projection-bible-panel__mode-scroll projection-bible-panel__mode-scroll--browse flex-1 min-h-0 flex flex-col gap-2">
             {/* Breadcrumb Trail */}
-            <div className="projection-bible-panel__breadcrumb flex items-center gap-1.5 text-[9px] font-bold text-text-muted shrink-0 pb-1 border-b border-white/[0.04]">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedBook(null)
-                  setSelectedChapter(null)
-                  setChapterVerses([])
-                  setSelectedVerses(new Set())
-                  setLastClickedVerse(null)
-                  setSpotlight(null)
-                }}
-                className={`hover:text-text-primary transition-colors ${!selectedBook ? 'text-brand-primary' : ''}`}
-              >
-                Kitab
-              </button>
-              {selectedBook && (
-                <>
-                  <ChevronRight size={8} />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedChapter(null)
-                      setChapterVerses([])
-                      setSelectedVerses(new Set())
-                      setLastClickedVerse(null)
-                      setSpotlight(null)
-                    }}
-                    className={`hover:text-text-primary transition-colors ${selectedChapter === null ? 'text-brand-primary' : ''}`}
-                  >
-                    {selectedBook.name}
-                  </button>
-                </>
-              )}
-              {selectedChapter !== null && (
-                <>
-                  <ChevronRight size={8} />
-                  <span className="text-brand-primary">Pasal {selectedChapter}</span>
-                </>
-              )}
-            </div>
+            {selectedBook && (
+              <div className="projection-bible-panel__breadcrumb flex items-center gap-1.5 text-[9px] font-bold text-text-muted shrink-0 pb-1 border-b border-white/[0.04]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedBook(null)
+                    setSelectedChapter(null)
+                    setChapterVerses([])
+                    setSelectedVerses(new Set())
+                    setLastClickedVerse(null)
+                    setSpotlight(null)
+                  }}
+                  className="hover:text-text-primary transition-colors"
+                >
+                  Kitab
+                </button>
+                <ChevronRight size={8} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedChapter(null)
+                    setChapterVerses([])
+                    setSelectedVerses(new Set())
+                    setLastClickedVerse(null)
+                    setSpotlight(null)
+                  }}
+                  className={`hover:text-text-primary transition-colors ${selectedChapter === null ? 'text-brand-primary' : ''}`}
+                >
+                  {selectedBook.name}
+                </button>
+                {selectedChapter !== null && (
+                  <>
+                    <ChevronRight size={8} />
+                    <span className="text-brand-primary">Pasal {selectedChapter}</span>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* State A: Book List Directory */}
             {!selectedBook && (
               <div className="flex-grow flex flex-col min-h-0 overflow-hidden gap-2">
+                <div className="flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] p-1">
+                  {[
+                    { label: 'PL', checked: showOldTestament, setChecked: setShowOldTestament },
+                    { label: 'PB', checked: showNewTestament, setChecked: setShowNewTestament }
+                  ].map((option) => (
+                    <label
+                      key={option.label}
+                      className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-bold transition-colors ${
+                        option.checked
+                          ? 'bg-brand-primary/15 text-brand-primary'
+                          : 'text-text-disabled hover:bg-white/[0.04] hover:text-text-secondary'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={option.checked}
+                        onChange={(e) => option.setChecked(e.target.checked)}
+                        className="h-3 w-3 accent-brand-primary"
+                        aria-label={option.label}
+                      />
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
                 <SearchInput
                   value={bookSearchQuery}
                   onChange={(e) => setBookSearchQuery(e.target.value)}
@@ -1253,85 +1263,6 @@ export function BiblePanel(): React.JSX.Element {
                 </div>
               </div>
             )}
-          </div>
-        )}
-
-        {/* ─── Mode 3: Manual Input ─── */}
-        {!isHistoryExpanded && mode === 'manual' && (
-          <div className="projection-bible-panel__mode-scroll projection-bible-panel__mode-scroll--manual flex-1 flex flex-col gap-2.5 min-h-0">
-            <div className="relative shrink-0">
-              <Book
-                size={12}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
-              />
-              <input
-                type="text"
-                value={manualRef}
-                onChange={(e) => setManualRef(e.target.value)}
-                placeholder="Referensi (cth: Mazmur 23:1)"
-                className="w-full h-8 pl-8 pr-3 rounded-lg border border-white/[0.08] bg-white/[0.02] text-[11px] text-text-primary placeholder:text-text-disabled outline-none focus:ring-1 focus:ring-brand-primary/40 focus:border-brand-primary/60"
-              />
-            </div>
-
-            <textarea
-              value={manualText}
-              onChange={(e) => setManualText(e.target.value)}
-              placeholder="Ketik atau tempel teks ayat di sini..."
-              rows={4}
-              className="w-full flex-1 rounded-lg border border-white/[0.08] bg-white/[0.02] text-[11px] text-text-primary p-2.5 resize-none placeholder:text-text-disabled outline-none leading-relaxed focus:ring-1 focus:ring-brand-primary/40 focus:border-brand-primary/60 scrollbar-thin"
-            />
-
-            <div className="flex gap-2 shrink-0">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="flex-grow h-8 text-[11px]"
-                disabled={!manualText.trim()}
-                onClick={() => handleManualSend(false)}
-              >
-                Kirim Preview
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                className="flex-grow h-8 text-[11px]"
-                disabled={!manualText.trim()}
-                onClick={() => handleManualSend(true)}
-              >
-                Langsung Live
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="h-8 px-2 text-[11px]"
-                disabled={!manualText.trim()}
-                icon={<Plus size={12} />}
-                onClick={() => {
-                  const refLabel = manualRef.trim() || 'Ayat Manual'
-                  addBibleToPlaylist({
-                    bible_version_code: 'MANUAL',
-                    bible_version_short_name: 'MANUAL',
-                    bible_book_code: 'MANUAL',
-                    bible_book_name: 'Manual',
-                    bible_chapter: 1,
-                    bible_verse_start: 1,
-                    bible_verse_end: 1,
-                    bible_reference: refLabel,
-                    bible_text_json: JSON.stringify([
-                      {
-                        book_code: 'MANUAL',
-                        book_name: 'Manual',
-                        chapter: 1,
-                        verse: 1,
-                        text: manualText.trim()
-                      }
-                    ]),
-                    bible_copyright: ''
-                  })
-                }}
-                title="Tambah ke Playlist"
-              />
-            </div>
           </div>
         )}
 

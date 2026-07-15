@@ -686,8 +686,39 @@ export const migrations: Migration[] = [
         CREATE INDEX IF NOT EXISTS idx_bible_notes_chapter ON bible_notes(book_code, chapter);
       `)
     }
+  },
+  {
+    version: 21,
+    name: 'bundled_content_provenance',
+    up: (db) => {
+      db.exec(`
+        ALTER TABLE hymnals ADD COLUMN content_origin TEXT NOT NULL DEFAULT 'user';
+        ALTER TABLE hymnals ADD COLUMN bundled_key TEXT;
+        ALTER TABLE songs ADD COLUMN content_origin TEXT NOT NULL DEFAULT 'user';
+        ALTER TABLE songs ADD COLUMN bundled_key TEXT;
+
+        UPDATE hymnals
+        SET content_origin = 'bundled', bundled_key = 'hymnal:' || code
+        WHERE code = 'LS';
+
+        UPDATE songs
+        SET content_origin = 'bundled',
+            bundled_key = 'song:LS:' || number
+        WHERE hymnal_id IN (SELECT id FROM hymnals WHERE code = 'LS');
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_hymnals_bundled_key
+          ON hymnals(bundled_key) WHERE bundled_key IS NOT NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_songs_bundled_key
+          ON songs(bundled_key) WHERE bundled_key IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_songs_content_origin ON songs(content_origin);
+      `)
+    }
   }
 ]
+
+export function getLatestMigrationVersion(): number {
+  return migrations.at(-1)?.version ?? 0
+}
 
 // ... (rest of the code remains the same)
 /**

@@ -11,6 +11,7 @@ import {
   Trash2,
   Upload,
   Repeat2,
+  Search,
   X
 } from 'lucide-react'
 import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
@@ -157,11 +158,25 @@ export function PlaylistPanel({
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [showLoadDialog, setShowLoadDialog] = useState(false)
   const [showSectionMenu, setShowSectionMenu] = useState(false)
+  const [replaceTarget, setReplaceTarget] = useState<PlaylistItem | null>(null)
+  const [replaceQuery, setReplaceQuery] = useState('')
   const [newName, setNewName] = useState('')
   const [newScheduleMode, setNewScheduleMode] = useState<PlaylistScheduleMode>('anytime')
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0])
   const activeItemIndex = usePlaylistStore((s) => s.activeItemIndex)
   const setActiveItemIndex = usePlaylistStore((s) => s.setActiveItemIndex)
+  const replaceSongItem = usePlaylistStore((s) => s.replaceSongItem)
+  const replacementSongs = React.useMemo(() => {
+    const query = replaceQuery.trim().toLocaleLowerCase('id-ID')
+    if (!query) return songs.slice(0, 80)
+    return songs
+      .filter((song) =>
+        `${song.number} ${song.title} ${song.hymnal_code || ''}`
+          .toLocaleLowerCase('id-ID')
+          .includes(query)
+      )
+      .slice(0, 100)
+  }, [replaceQuery, songs])
 
   // Total slide count
   const totalSlideCount = React.useMemo(
@@ -610,6 +625,10 @@ export function PlaylistPanel({
                     isProjected={projectedSongId === item.song_id}
                     onClick={() => handleItemClick(item, index)}
                     onRemove={(e) => handleRemoveItem(e, item.id)}
+                    onReplace={(target) => {
+                      setReplaceTarget(target)
+                      setReplaceQuery('')
+                    }}
                   />
                 ))}
               </div>
@@ -738,6 +757,55 @@ export function PlaylistPanel({
               ))}
             </div>
           )}
+        </Modal>
+      )}
+
+      {replaceTarget && (
+        <Modal
+          id="playlist-replace-song"
+          title="Ganti Lagu Rundown"
+          subtitle={`Posisi, urutan, dan label “${replaceTarget.section_label || replaceTarget.title}” tetap dipertahankan.`}
+          size="lg"
+          onClose={() => setReplaceTarget(null)}
+        >
+          <div className="playlist-replace">
+            <label className="playlist-replace__search">
+              <Search size={16} />
+              <input
+                autoFocus
+                value={replaceQuery}
+                onChange={(event) => setReplaceQuery(event.target.value)}
+                placeholder="Cari nomor atau judul lagu…"
+              />
+            </label>
+            <div className="playlist-replace__list">
+              {replacementSongs.map((song) => (
+                <button
+                  key={song.id}
+                  type="button"
+                  className="playlist-replace__item"
+                  onClick={async () => {
+                    await replaceSongItem(replaceTarget.id, song)
+                    setReplaceTarget(null)
+                  }}
+                >
+                  <span className="playlist-replace__number">{song.number || '—'}</span>
+                  <span className="playlist-replace__copy">
+                    <strong>{song.title}</strong>
+                    <small>{song.hymnal_code || song.hymnal_name || 'Koleksi lagu'}</small>
+                  </span>
+                  <span className="playlist-replace__action">Pilih</span>
+                </button>
+              ))}
+              {replacementSongs.length === 0 && (
+                <div className="sp-modal-empty">
+                  <Music size={24} />
+                  <strong>Lagu tidak ditemukan</strong>
+                  <span>Coba nomor atau kata kunci lain.</span>
+                </div>
+              )}
+            </div>
+          </div>
         </Modal>
       )}
     </div>

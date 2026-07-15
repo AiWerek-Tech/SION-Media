@@ -61,6 +61,10 @@ export interface SlideData {
   // External SQLite content pack
   bibleVersionCode?: string
   bibleCopyright?: string
+  pdfPath?: string
+  speakerNotes?: string
+  startTime?: number
+  endTime?: number
 }
 
 export interface Playlist {
@@ -78,7 +82,7 @@ export interface PlaylistItem {
   song_id: number | null
   sort_order: number
   section_label: string
-  item_type?: 'song' | 'bible' | 'info'
+  item_type?: 'song' | 'bible' | 'info' | 'media'
   title: string
   notes?: string
   number?: string
@@ -356,6 +360,8 @@ export interface ConfidencePayload {
     bibleReference?: string
     bibleVersionCode?: string
     bibleCopyright?: string
+    stageNotes?: string
+    stageChord?: string
   } | null
 
   // Next content
@@ -365,6 +371,8 @@ export interface ConfidencePayload {
     contentType?: SlideData['contentType']
     bibleReference?: string
     bibleVersionCode?: string
+    stageNotes?: string
+    stageChord?: string
   } | null
 
   // Section context
@@ -387,6 +395,8 @@ export interface ConfidencePayload {
     elapsed: number // seconds
     running: boolean
   }
+
+  updatedAt: number
 
   // Runtime status
   status: {

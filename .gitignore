@@ -1,5 +1,7 @@
 # Dependencies
 node_modules
+resources/ffmpeg/
+resources/mediamtx/
 
 # Build output
 dist

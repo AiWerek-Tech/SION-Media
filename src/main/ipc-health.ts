@@ -5,6 +5,7 @@
 
 import { ipcMain } from 'electron'
 import { getMainWindow } from './windows'
+import { getAppWindowRole, requireMainWindowSender } from './ipc-sender-policy'
 
 export type EndpointId =
   | 'MAIN_DASHBOARD'
@@ -55,6 +56,23 @@ class IPCHealthRegistry {
   public setup(): void {
     // Listen for heartbeats from renderer windows
     ipcMain.on('health:heartbeat', (event, endpointId: EndpointId) => {
+      const role = getAppWindowRole(event.sender.id)
+      const expectedEndpoint =
+        role === 'projection'
+          ? 'PROJECTION_WINDOW'
+          : role === 'stage'
+            ? 'STAGE_DISPLAY'
+            : role === 'main'
+              ? 'MAIN_DASHBOARD'
+              : null
+      if (!expectedEndpoint || endpointId !== expectedEndpoint) {
+        console.warn('[IPC Health] Rejected spoofed heartbeat', {
+          senderId: event.sender.id,
+          role,
+          endpointId
+        })
+        return
+      }
       this.recordHeartbeat(endpointId)
 
       // Echo back immediately to allow renderer to calculate latency
@@ -138,7 +156,8 @@ export function setupIPCHealth(): void {
   healthRegistry.setup()
 
   // Expose manual fetch for renderer initial load
-  ipcMain.handle('health:get-status', () => {
+  ipcMain.handle('health:get-status', (event) => {
+    requireMainWindowSender(event, 'health:get-status')
     return healthRegistry.getState()
   })
 }

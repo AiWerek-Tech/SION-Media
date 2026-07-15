@@ -7400,6 +7400,15 @@ input[type='range']:focus::-webkit-slider-thumb {
 .worship-flow-indicator__mode.is-linear {
   background: rgba(100, 116, 139, 0.5); /* slate — linear mode */
 }
+.worship-flow-indicator__mode.is-material {
+  background: rgba(14, 165, 233, 0.9);
+  box-shadow: 0 0 5px rgba(14, 165, 233, 0.55);
+}
+
+.flow-badge--material {
+  min-width: 28px;
+  font-variant-numeric: tabular-nums;
+}
 
 /* Scrollable badge strip */
 .worship-flow-indicator__scroll {
@@ -8977,6 +8986,114 @@ input[type='range']:focus::-webkit-slider-thumb {
   line-height: 1.5;
 }
 
+.playlist-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px 16px;
+}
+
+.playlist-replace {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.playlist-replace__search {
+  display: flex;
+  height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 0 14px;
+  background: rgba(2, 6, 23, 0.48);
+  color: var(--color-text-muted);
+}
+
+.playlist-replace__search:focus-within {
+  border-color: rgba(59, 130, 246, 0.45);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.09);
+}
+
+.playlist-replace__search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 13px;
+}
+
+.playlist-replace__list {
+  display: flex;
+  max-height: min(56dvh, 520px);
+  flex-direction: column;
+  gap: 7px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.playlist-replace__item {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 13px;
+  padding: 9px 12px;
+  background: rgba(255, 255, 255, 0.025);
+  text-align: left;
+  transition: 150ms ease;
+}
+
+.playlist-replace__item:hover,
+.playlist-replace__item:focus-visible {
+  border-color: rgba(59, 130, 246, 0.28);
+  background: rgba(59, 130, 246, 0.08);
+  outline: none;
+}
+
+.playlist-replace__number {
+  display: grid;
+  min-height: 34px;
+  place-items: center;
+  border-radius: 9px;
+  background: rgba(59, 130, 246, 0.12);
+  color: #93c5fd;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.playlist-replace__copy {
+  min-width: 0;
+}
+.playlist-replace__copy strong,
+.playlist-replace__copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.playlist-replace__copy strong {
+  color: var(--color-text-primary);
+  font-size: 13px;
+}
+.playlist-replace__copy small {
+  margin-top: 3px;
+  color: var(--color-text-muted);
+  font-size: 10px;
+}
+.playlist-replace__action {
+  color: #60a5fa;
+  font-size: 11px;
+  font-weight: 800;
+}
+
 @media (max-width: 520px) {
   .playlist-schedule-options {
     grid-template-columns: 1fr;
@@ -9623,6 +9740,22 @@ input[type='range']:focus::-webkit-slider-thumb {
   flex: 0 0 auto;
 }
 
+.projection-bible-panel__help-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 80;
+  width: min(272px, calc(100vw - 32px));
+  max-height: min(520px, calc(100vh - 120px));
+  overflow-y: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--color-bg-surface, #151a27);
+  padding: 12px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(14px);
+}
+
 .projection-bible-panel__mode-scroll {
   min-width: 0;
   min-height: 0;
@@ -9966,6 +10099,140 @@ input[type='range']:focus::-webkit-slider-thumb {
   font-size: 9px;
   color: rgba(148, 163, 184, 0.35);
   text-align: center;
+}
+
+/* ═══ OBS-Style Mixer Component ═══ */
+.obs-mixer {
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 8px 10px;
+  margin-top: 8px;
+}
+
+.obs-mixer__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.obs-mixer__channel-name {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.obs-mixer__mute-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--color-text-muted);
+  transition: all 0.15s ease;
+}
+
+.obs-mixer__mute-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+.obs-mixer__mute-btn.is-muted {
+  background: #ef4444;
+  border-color: #f87171;
+  color: #fff;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+.obs-mixer__vu-container {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.obs-mixer__vu-channel {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 1.5px;
+  overflow: hidden;
+  position: relative;
+}
+
+.obs-mixer__vu-fill {
+  height: 100%;
+  border-radius: 1.5px;
+  background: linear-gradient(90deg, #22c55e 0%, #22c55e 70%, #eab308 85%, #ef4444 100%);
+  transition: width 0.08s ease-out;
+}
+
+.obs-mixer__db-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding: 0 2px;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 7px;
+  color: var(--color-text-disabled);
+  opacity: 0.6;
+}
+
+.obs-mixer__fader-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.obs-mixer__fader-container {
+  flex: 1;
+}
+
+.obs-mixer__fader-slider {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.obs-mixer__fader-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 8px;
+  height: 14px;
+  background: #3b82f6;
+  border: 1.5px solid #60a5fa;
+  border-radius: 2px;
+  box-shadow: 0 0 4px rgba(59, 130, 246, 0.5);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.obs-mixer__fader-slider::-webkit-slider-thumb:hover {
+  background: #60a5fa;
+}
+
+.obs-mixer__db-value {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  min-width: 36px;
+  text-align: right;
 }
 
 /* Operational compact contract for Projection utility panels */
@@ -12744,7 +13011,7 @@ input[type='range']:focus::-webkit-slider-thumb {
   flex: 1;
   overflow-y: auto;
   background: rgba(5, 8, 16, 0.2);
-  padding: 32px 36px;
+  padding: clamp(18px, 2vw, 32px) clamp(18px, 2.35vw, 44px);
 }
 
 .settings-content::-webkit-scrollbar {
@@ -12761,12 +13028,13 @@ input[type='range']:focus::-webkit-slider-thumb {
 }
 
 .settings-content__inner {
-  max-width: 760px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
 }
 
 .settings-content__inner--wide {
-  max-width: 1200px;
+  max-width: none;
 }
 
 /* ============================================================
@@ -16748,6 +17016,719 @@ input[type='range']:focus::-webkit-slider-thumb {
 /* ── sp-card-grid 1-col variant ── */
 .sp-card-grid--1 {
   grid-template-columns: minmax(0, 1fr);
+}
+
+/* SION Link Settings */
+.sion-link-settings {
+  --sion-link-panel: linear-gradient(135deg, rgba(21, 28, 46, 0.78), rgba(10, 15, 26, 0.9));
+  gap: 18px;
+  width: 100%;
+}
+
+.sion-link-settings .sp-page-header {
+  align-items: center;
+}
+
+.sion-link-settings .sp-page-subtitle {
+  max-width: 720px;
+}
+
+.sion-link-workspace-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 16px;
+  background: rgba(3, 7, 18, 0.46);
+  padding: 6px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.sion-link-workspace-tabs button {
+  display: flex;
+  min-width: 0;
+  min-height: 54px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  padding: 8px 13px;
+  color: var(--color-text-muted);
+  text-align: left;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.sion-link-workspace-tabs button:hover {
+  border-color: rgba(96, 165, 250, 0.12);
+  color: var(--color-text-secondary);
+  background: rgba(59, 130, 246, 0.055);
+}
+
+.sion-link-workspace-tabs button.is-active {
+  border-color: rgba(96, 165, 250, 0.28);
+  color: white;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.3), rgba(14, 165, 233, 0.1));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 24px rgba(30, 64, 175, 0.12);
+}
+
+.sion-link-workspace-tabs strong {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 820;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sion-link-workspace-tabs span {
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sion-link-view {
+  display: none !important;
+}
+
+.sion-link-settings[data-sion-view='overview'] .sion-link-view--overview,
+.sion-link-settings[data-sion-view='remote'] .sion-link-view--remote,
+.sion-link-settings[data-sion-view='broadcast'] .sion-link-view--broadcast,
+.sion-link-settings[data-sion-view='security'] .sion-link-view--security {
+  display: block !important;
+}
+
+.sion-link-settings .sp-section.sion-link-view,
+.sion-link-settings .sp-action-card.sion-link-view,
+.sion-link-settings .sp-notice.sion-link-view {
+  display: flex !important;
+}
+
+.sion-link-settings .sp-metric-grid.sion-link-view {
+  display: grid !important;
+}
+
+.sion-link-settings
+  .sion-link-view:not(.sion-link-view--overview):not(.sion-link-view--remote):not(
+    .sion-link-view--broadcast
+  ):not(.sion-link-view--security),
+.sion-link-settings[data-sion-view='overview'] .sion-link-view:not(.sion-link-view--overview),
+.sion-link-settings[data-sion-view='remote'] .sion-link-view:not(.sion-link-view--remote),
+.sion-link-settings[data-sion-view='broadcast'] .sion-link-view:not(.sion-link-view--broadcast),
+.sion-link-settings[data-sion-view='security'] .sion-link-view:not(.sion-link-view--security) {
+  display: none !important;
+}
+
+.sion-link-settings[data-sion-view='remote'] .sion-link-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.34fr);
+}
+
+.sion-link-settings[data-sion-view='overview'] .sion-link-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.sion-link-settings[data-sion-view='overview'] .sion-link-sidebar {
+  display: none;
+}
+
+.sion-link-settings[data-sion-view='security'] .sion-link-layout {
+  grid-template-columns: 1fr;
+}
+
+.sion-link-settings[data-sion-view='security'] .sion-link-layout > .sp-section {
+  display: none;
+}
+
+.sion-link-settings[data-sion-view='security'] .sion-link-sidebar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sion-link-settings[data-sion-view='broadcast'] .sion-link-layout {
+  display: none;
+}
+
+.sion-link-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid rgba(59, 130, 246, 0.12);
+  border-radius: 22px;
+  background: var(--sion-link-panel);
+  padding: 20px 22px;
+  box-shadow:
+    0 12px 34px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.sion-link-hero__main {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.sion-link-hero__icon {
+  display: flex;
+  height: 52px;
+  width: 52px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  border-radius: 16px;
+  background: rgba(59, 130, 246, 0.13);
+  color: rgba(147, 197, 253, 0.95);
+}
+
+.sion-link-hero__title {
+  color: var(--color-text-primary);
+  font-size: 15px;
+  font-weight: 850;
+}
+
+.sion-link-hero__desc {
+  margin-top: 6px;
+  max-width: 780px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.sion-link-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.34fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.sion-link-url-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: center;
+}
+
+.sion-link-portal-share {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.sion-link-portal-share__body {
+  min-width: 0;
+}
+
+.sion-link-qr {
+  display: grid;
+  place-items: center;
+  width: 82px;
+  height: 82px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid rgba(147, 197, 253, 0.18);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.95);
+  padding: 7px;
+}
+
+.sion-link-qr.is-error {
+  border-color: rgba(248, 113, 113, 0.3);
+  background: rgba(127, 29, 29, 0.16);
+}
+
+.sion-link-qr__fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border: 1px dashed rgba(148, 163, 184, 0.38);
+  border-radius: 10px;
+  color: rgba(148, 163, 184, 0.88);
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.sion-link-qr--large {
+  width: 128px;
+  height: 128px;
+  border-radius: 18px;
+  padding: 10px;
+}
+
+.sion-link-qr img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sion-link-qr-hint {
+  margin: 9px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sion-link-qr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.sion-link-url,
+.sion-link-network-url {
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.42);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.sion-link-url {
+  grid-column: 1 / -1;
+  padding: 11px 12px;
+}
+
+.sion-link-empty {
+  padding: 18px;
+}
+
+.sion-link-role-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sion-link-role-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 16px;
+}
+
+.sion-link-role-card--presenter {
+  border-color: rgba(56, 189, 248, 0.18);
+  background: rgba(14, 165, 233, 0.055);
+}
+
+.sion-link-role-card--operator {
+  border-color: rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.sion-link-role-card--viewer {
+  border-color: rgba(52, 211, 153, 0.18);
+  background: rgba(16, 185, 129, 0.055);
+}
+
+.sion-link-role-card--stage {
+  border-color: rgba(139, 92, 246, 0.2);
+  background: rgba(109, 40, 217, 0.06);
+}
+
+.sion-link-role-card__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sion-link-role-card__title,
+.sion-link-side-card__title {
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.sion-link-side-card__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sion-link-role-card__desc {
+  margin-top: 5px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sion-link-role-card__clients {
+  display: inline-flex;
+  height: 30px;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.32);
+  padding: 0 9px;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.sion-link-code {
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.36);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+}
+
+.sion-link-role-card__actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.sion-link-role-status {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  border: 1px solid rgba(248, 113, 113, 0.22);
+  border-radius: 999px;
+  background: rgba(127, 29, 29, 0.14);
+  padding: 2px 7px;
+  color: #fecaca;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.sion-link-client-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sion-link-client-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  background: rgba(2, 6, 23, 0.28);
+  padding: 12px;
+}
+
+.sion-link-client-card__main {
+  min-width: 0;
+}
+
+.sion-link-client-card__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.sion-link-client-card__title span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sion-link-trust-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(52, 211, 153, 0.18);
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 2px 7px;
+  color: #a7f3d0;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.sion-link-client-card__title .sion-link-trust-badge {
+  color: #a7f3d0;
+  font-family: inherit;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.sion-link-client-card p {
+  margin: 5px 0 0;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sion-link-role-card__qr {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 11px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.24);
+  padding: 10px;
+}
+
+.sion-link-role-card__qr strong,
+.sion-link-role-card__qr span {
+  display: block;
+}
+
+.sion-link-role-card__qr strong {
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.sion-link-role-card__qr span {
+  margin-top: 3px;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.sion-link-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sion-link-side-card {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 16px;
+}
+
+.sion-link-side-card--warning {
+  border-color: rgba(245, 158, 11, 0.18);
+  background: rgba(245, 158, 11, 0.055);
+}
+
+.sion-link-steps {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.sion-link-network-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.sion-link-network-url {
+  width: 100%;
+  padding: 10px 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sion-link-policy-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  margin-top: 12px;
+}
+
+.sion-link-policy-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.sion-link-policy-controls select,
+.sion-link-policy-controls input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.42);
+  color: var(--color-text-primary);
+  padding: 8px 10px;
+  font-size: 12px;
+  outline: none;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background 150ms ease;
+}
+
+.sion-link-policy-controls select:focus,
+.sion-link-policy-controls input:focus {
+  border-color: rgba(96, 165, 250, 0.42);
+  background: rgba(8, 15, 30, 0.78);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.sion-link-role-toggles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.sion-link-policy-controls .sion-link-role-toggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.22);
+  padding: 8px;
+}
+
+.sion-link-command-log {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.sion-link-command-log__item {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.25);
+  padding: 9px 10px;
+}
+
+.sion-link-command-log__item strong,
+.sion-link-command-log__item span,
+.sion-link-command-log__item em {
+  display: block;
+}
+
+.sion-link-command-log__item strong {
+  color: var(--color-text-primary);
+  font-size: 12px;
+}
+
+.sion-link-command-log__item span,
+.sion-link-muted {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.sion-link-command-log__item em {
+  margin-top: 4px;
+  color: #fca5a5;
+  font-size: 11px;
+  font-style: normal;
+}
+
+@media (max-width: 1180px) {
+  .sion-link-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sion-link-sidebar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sion-link-role-card__actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sion-link-settings[data-sion-view='security'] .sion-link-sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1100px) {
+  .settings-sidebar {
+    width: 218px;
+  }
+
+  .settings-sidebar__item {
+    gap: 9px;
+    padding-inline: 9px;
+  }
+
+  .settings-content {
+    padding: 18px;
+  }
+
+  .sp-page-header,
+  .sion-link-settings .sp-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sp-page-header__actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 760px) {
+  .sion-link-workspace-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sion-link-settings[data-sion-view='security'] .sion-link-sidebar {
+    grid-template-columns: 1fr;
+  }
+  .sion-link-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sion-link-url-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sion-link-portal-share {
+    grid-template-columns: 1fr;
+  }
+
+  .sion-link-qr--large {
+    margin-inline: auto;
+  }
+
+  .sion-link-role-grid,
+  .sion-link-sidebar,
+  .sion-link-role-card__actions,
+  .sion-link-client-card {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ============================================================
