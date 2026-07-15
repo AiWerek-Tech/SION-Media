@@ -266,6 +266,7 @@ const powerPointBridgeSessions = new Map<
     lastSeenAt: number
   }
 >()
+const powerPointBridgeCommandQueues = new Map<string, string[]>()
 let latestPowerPointBridgeSource: PowerPointBridgeSource | null = null
 
 function getPresentationSourceDir(): string {
@@ -402,6 +403,14 @@ export function disconnectPowerPointBridgeDevice(deviceId: string): PowerPointBr
   if (latestPowerPointBridgeSource?.deviceId === deviceId) latestPowerPointBridgeSource = null
   notifyPowerPointBridgeStatus()
   return getPowerPointBridgeStatus()
+}
+
+export function sendPowerPointBridgeCommand(deviceId: string, command: 'NEXT' | 'PREV'): void {
+  if (!powerPointBridgeCommandQueues.has(deviceId)) {
+    powerPointBridgeCommandQueues.set(deviceId, [])
+  }
+  powerPointBridgeCommandQueues.get(deviceId)!.push(command)
+  console.log(`[PresenterRemote] Command ${command} queued for device ${deviceId}`)
 }
 
 function createAccessCode(used: Set<string>): string {
@@ -959,11 +968,16 @@ function handlePowerPointBridgeRequestStatus(res: ServerResponse, url: URL): voi
     )
     if (session) {
       session[1].lastSeenAt = Date.now()
+      const commands = powerPointBridgeCommandQueues.get(deviceId) || []
+      if (commands.length > 0) {
+        powerPointBridgeCommandQueues.delete(deviceId)
+      }
       sendJson(res, 200, {
         ok: true,
         status: 'approved',
         requestId,
-        bridgeToken: session[0]
+        bridgeToken: session[0],
+        pendingCommands: commands
       })
       return
     }
@@ -1002,40 +1016,55 @@ async function handlePresentationSource(
     }
   }
   const imageDataUrlStr = String(payload.imageDataUrl ?? '')
-  if (!imageDataUrlStr.startsWith('data:image/png;base64,')) {
-    console.error('[PresenterRemote] Bad Request: imageDataUrl does not start with PNG base64 prefix')
-    sendJson(res, 400, { ok: false, error: 'Frame PNG tidak valid' })
+  let imageType = 'png'
+  let base64Data = ''
+  if (imageDataUrlStr.startsWith('data:image/png;base64,')) {
+    imageType = 'png'
+    base64Data = imageDataUrlStr.substring(22)
+  } else if (imageDataUrlStr.startsWith('data:image/jpeg;base64,')) {
+    imageType = 'jpg'
+    base64Data = imageDataUrlStr.substring(23)
+  } else {
+    console.error('[PresenterRemote] Bad Request: imageDataUrl does not start with valid base64 prefix')
+    sendJson(res, 400, { ok: false, error: 'Format gambar tidak valid' })
     return
   }
-  const image = Buffer.from(imageDataUrlStr.substring(22), 'base64')
-  if (
-    image.length < 8 ||
-    image.length > 8 * 1024 * 1024 ||
-    image.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a'
-  ) {
+
+  const image = Buffer.from(base64Data, 'base64')
+  const isPng = imageType === 'png' && image.length >= 8 && image.subarray(0, 8).toString('hex') === '89504e470d0a1a0a'
+  const isJpeg = imageType === 'jpg' && image.length >= 3 && image.subarray(0, 3).toString('hex') === 'ffd8ff'
+  if (!isPng && !isJpeg) {
     console.error('[PresenterRemote] Bad Request: image buffer validation failed. Length:', image.length, 'Header:', image.subarray(0, 8).toString('hex'))
-    sendJson(res, 400, { ok: false, error: 'Data gambar PNG tidak valid' })
+    sendJson(res, 400, { ok: false, error: 'Data gambar tidak valid' })
     return
   }
+
   let nextImage: Buffer | null = null
   if (payload.nextImageDataUrl) {
     const nextStr = String(payload.nextImageDataUrl)
-    if (!nextStr.startsWith('data:image/png;base64,')) {
-      console.error('[PresenterRemote] Bad Request: nextImageDataUrl does not start with PNG base64 prefix')
-      sendJson(res, 400, { ok: false, error: 'Data slide berikutnya tidak valid' })
+    let nextImageType = 'png'
+    let nextBase64Data = ''
+    if (nextStr.startsWith('data:image/png;base64,')) {
+      nextImageType = 'png'
+      nextBase64Data = nextStr.substring(22)
+    } else if (nextStr.startsWith('data:image/jpeg;base64,')) {
+      nextImageType = 'jpg'
+      nextBase64Data = nextStr.substring(23)
+    } else {
+      console.error('[PresenterRemote] Bad Request: nextImageDataUrl does not start with valid base64 prefix')
+      sendJson(res, 400, { ok: false, error: 'Format gambar slide berikutnya tidak valid' })
       return
     }
-    nextImage = Buffer.from(nextStr.substring(22), 'base64')
-    if (
-      nextImage.length < 8 ||
-      nextImage.length > 8 * 1024 * 1024 ||
-      nextImage.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a'
-    ) {
+    nextImage = Buffer.from(nextBase64Data, 'base64')
+    const isNextPng = nextImageType === 'png' && nextImage.length >= 8 && nextImage.subarray(0, 8).toString('hex') === '89504e470d0a1a0a'
+    const isNextJpeg = nextImageType === 'jpg' && nextImage.length >= 3 && nextImage.subarray(0, 3).toString('hex') === 'ffd8ff'
+    if (!isNextPng && !isNextJpeg) {
       console.error('[PresenterRemote] Bad Request: nextImage buffer validation failed. Length:', nextImage.length)
-      sendJson(res, 400, { ok: false, error: 'Data slide berikutnya tidak valid' })
+      sendJson(res, 400, { ok: false, error: 'Data gambar slide berikutnya tidak valid' })
       return
     }
   }
+
   const slideIndex = Number(payload.slideIndex)
   const totalSlides = Number(payload.totalSlides)
   if (
@@ -1048,14 +1077,16 @@ async function handlePresentationSource(
     sendJson(res, 400, { ok: false, error: 'Posisi slide tidak valid' })
     return
   }
+
   const sourceDir = getPresentationSourceDir()
   const deviceId = bridgeSession?.deviceId ?? 'legacy'
   const safeDeviceId = deviceId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48) || 'bridge'
   
   const timestamp = Date.now()
-  const imagePath = `${sourceDir}\\${safeDeviceId}-current-${timestamp}.png`
+  const ext = imageType === 'jpg' ? 'jpg' : 'png'
+  const imagePath = `${sourceDir}\\${safeDeviceId}-current-${timestamp}.${ext}`
   const temporaryPath = `${imagePath}.tmp`
-  const nextImagePath = nextImage ? `${sourceDir}\\${safeDeviceId}-next-${timestamp}.png` : null
+  const nextImagePath = nextImage ? `${sourceDir}\\${safeDeviceId}-next-${timestamp}.${ext}` : null
 
   try {
     mkdirSync(sourceDir, { recursive: true })

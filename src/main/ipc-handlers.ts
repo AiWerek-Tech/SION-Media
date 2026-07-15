@@ -182,6 +182,7 @@ import {
   approvePowerPointBridgeRequest,
   rejectPowerPointBridgeRequest,
   disconnectPowerPointBridgeDevice,
+  sendPowerPointBridgeCommand,
   regeneratePresenterRemoteCode,
   regeneratePresenterRemoteCodes,
   type SionLinkRole,
@@ -417,6 +418,16 @@ export function setupIPC(): void {
   )
   safeIpcHandle('presenter-remote:powerpoint-disconnect', (deviceId: string) =>
     disconnectPowerPointBridgeDevice(requireBoundedString(deviceId, 'PowerPoint device ID', 96))
+  )
+  safeIpcHandle(
+    'presenter-remote:powerpoint-command',
+    (deviceId: string, command: 'NEXT' | 'PREV') => {
+      if (command !== 'NEXT' && command !== 'PREV') throw new Error('Perintah PowerPoint tidak valid.')
+      return sendPowerPointBridgeCommand(
+        requireBoundedString(deviceId, 'PowerPoint device ID', 96),
+        command
+      )
+    }
   )
   safeIpcHandle('obs-srt:status', () => getObsSrtStatus())
   safeIpcHandle('obs-srt:start', () => startObsSrtOutput())

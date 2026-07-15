@@ -126,6 +126,8 @@ const api = {
       ipcRenderer.invoke('presenter-remote:powerpoint-reject', requestId),
     disconnectPowerPointDevice: (deviceId: string): Promise<unknown> =>
       ipcRenderer.invoke('presenter-remote:powerpoint-disconnect', deviceId),
+    sendPowerPointCommand: (deviceId: string, command: 'NEXT' | 'PREV'): Promise<unknown> =>
+      ipcRenderer.invoke('presenter-remote:powerpoint-command', deviceId, command),
     updateSnapshot: (snapshot: unknown): void =>
       ipcRenderer.send('presenter-remote:update-snapshot', snapshot),
     onCommand: (callback: (command: string, payload?: unknown) => void): (() => void) => {

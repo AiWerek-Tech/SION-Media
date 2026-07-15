@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { Check, Laptop, MonitorPlay, PlugZap, Radio, Unplug, X } from 'lucide-react'
+import { Check, Laptop, MonitorPlay, PlugZap, Radio, Unplug, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   usePowerPointBridgeStore,
   type PowerPointBridgeSourceState,
@@ -132,6 +132,20 @@ export function PowerPointBridgePanel(): React.JSX.Element {
             <p className="max-h-28 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-slate-300">
               {effectiveSource.notes || 'Tidak ada catatan pada slide ini.'}
             </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => void window.api.presenterRemote.sendPowerPointCommand(effectiveSource.deviceId, 'PREV')}
+              className="flex items-center justify-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors"
+            >
+              <ChevronLeft size={14} /> Slide Sebelumnya
+            </button>
+            <button
+              onClick={() => void window.api.presenterRemote.sendPowerPointCommand(effectiveSource.deviceId, 'NEXT')}
+              className="flex items-center justify-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors"
+            >
+              Slide Berikutnya <ChevronRight size={14} />
+            </button>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button
