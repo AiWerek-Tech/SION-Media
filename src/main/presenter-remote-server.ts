@@ -982,7 +982,8 @@ async function handlePresentationSource(
   let payload: Record<string, unknown>
   try {
     payload = await readPresentationSourceBody(req)
-  } catch {
+  } catch (err) {
+    console.error('[PresenterRemote] Bad Request: read presentation body failed:', err)
     sendJson(res, 400, { ok: false, error: 'Payload sumber presentasi tidak valid' })
     return
   }
@@ -1000,35 +1001,40 @@ async function handlePresentationSource(
       return
     }
   }
-  const match = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(
-    String(payload.imageDataUrl ?? '')
-  )
-  if (!match) {
+  const imageDataUrlStr = String(payload.imageDataUrl ?? '')
+  if (!imageDataUrlStr.startsWith('data:image/png;base64,')) {
+    console.error('[PresenterRemote] Bad Request: imageDataUrl does not start with PNG base64 prefix')
     sendJson(res, 400, { ok: false, error: 'Frame PNG tidak valid' })
     return
   }
-  const image = Buffer.from(match[1], 'base64')
+  const image = Buffer.from(imageDataUrlStr.substring(22), 'base64')
   if (
     image.length < 8 ||
     image.length > 8 * 1024 * 1024 ||
     image.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a'
   ) {
+    console.error('[PresenterRemote] Bad Request: image buffer validation failed. Length:', image.length, 'Header:', image.subarray(0, 8).toString('hex'))
     sendJson(res, 400, { ok: false, error: 'Data gambar PNG tidak valid' })
     return
   }
-  const nextImageMatch = payload.nextImageDataUrl
-    ? /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String(payload.nextImageDataUrl))
-    : null
-  const nextImage = nextImageMatch ? Buffer.from(nextImageMatch[1], 'base64') : null
-  if (
-    payload.nextImageDataUrl &&
-    (!nextImage ||
+  let nextImage: Buffer | null = null
+  if (payload.nextImageDataUrl) {
+    const nextStr = String(payload.nextImageDataUrl)
+    if (!nextStr.startsWith('data:image/png;base64,')) {
+      console.error('[PresenterRemote] Bad Request: nextImageDataUrl does not start with PNG base64 prefix')
+      sendJson(res, 400, { ok: false, error: 'Data slide berikutnya tidak valid' })
+      return
+    }
+    nextImage = Buffer.from(nextStr.substring(22), 'base64')
+    if (
       nextImage.length < 8 ||
       nextImage.length > 8 * 1024 * 1024 ||
-      nextImage.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a')
-  ) {
-    sendJson(res, 400, { ok: false, error: 'Data slide berikutnya tidak valid' })
-    return
+      nextImage.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a'
+    ) {
+      console.error('[PresenterRemote] Bad Request: nextImage buffer validation failed. Length:', nextImage.length)
+      sendJson(res, 400, { ok: false, error: 'Data slide berikutnya tidak valid' })
+      return
+    }
   }
   const slideIndex = Number(payload.slideIndex)
   const totalSlides = Number(payload.totalSlides)
@@ -1038,6 +1044,7 @@ async function handlePresentationSource(
     !Number.isInteger(totalSlides) ||
     totalSlides < 1
   ) {
+    console.error('[PresenterRemote] Bad Request: slide index/total invalid. slideIndex:', payload.slideIndex, 'totalSlides:', payload.totalSlides)
     sendJson(res, 400, { ok: false, error: 'Posisi slide tidak valid' })
     return
   }
