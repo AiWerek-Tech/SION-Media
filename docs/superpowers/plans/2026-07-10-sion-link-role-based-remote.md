@@ -23,6 +23,7 @@
 ### Task 1: Role Model and Server Routes
 
 **Files:**
+
 - Modify: `src/main/presenter-remote-server.ts`
 - Modify: `src/preload/index.d.ts`
 
@@ -102,6 +103,7 @@ Expected: both commands exit `0`.
 ### Task 2: Role-Specific UI Pages
 
 **Files:**
+
 - Modify: `src/main/presenter-remote-server.ts`
 
 - [x] **Step 1: Presenter page**
@@ -149,6 +151,7 @@ Expected: build exits `0`.
 ### Task 3: Server-Side Command Authorization
 
 **Files:**
+
 - Modify: `src/main/presenter-remote-server.ts`
 
 - [x] **Step 1: Parse role from code**
@@ -203,6 +206,7 @@ Expected: both commands exit `0`.
 ### Task 4: Settings Screen Rename and Role Cards
 
 **Files:**
+
 - Modify: `src/renderer/src/screens/settings/PresenterRemoteSettings.tsx`
 - Modify: `src/preload/index.d.ts`
 
@@ -244,6 +248,7 @@ Expected: all commands exit `0`.
 ### Task 5: PWA and Native Companion Research Spike
 
 **Files:**
+
 - Create: `docs/superpowers/specs/2026-07-10-sion-link-native-companion.md`
 
 - [x] **Step 1: Document PWA-first decision**

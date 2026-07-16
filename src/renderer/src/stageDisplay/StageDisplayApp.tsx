@@ -59,6 +59,17 @@ export function StageDisplayApp(): React.JSX.Element {
   const [payload, setPayload] = useState<ConfidencePayload | null>(null)
   const [time, setTime] = useState(() => new Date())
   const [lastHeartbeatAck, setLastHeartbeatAck] = useState(0)
+  const [stageNotesZoom, setStageNotesZoom] = useState(() => {
+    return Number(localStorage.getItem('sion-stage-notes-zoom')) || 32
+  })
+
+  const handleStageNotesZoom = (delta: number): void => {
+    setStageNotesZoom((prev) => {
+      const next = Math.max(16, Math.min(80, prev + delta * 4))
+      localStorage.setItem('sion-stage-notes-zoom', String(next))
+      return next
+    })
+  }
 
   useEffect(() => {
     const clockTimer = setInterval(() => setTime(new Date()), 1000)
@@ -167,6 +178,7 @@ export function StageDisplayApp(): React.JSX.Element {
   const { currentSlide, nextSlide, currentSection, nextSection, song, timer, status } =
     displayPayload
   const isBible = currentSlide?.contentType === 'bible'
+  const isCustom = currentSlide?.contentType === 'custom'
   const currentText = currentSlide
     ? isBible
       ? cleanStageBibleText(currentSlide.text)
@@ -210,6 +222,27 @@ export function StageDisplayApp(): React.JSX.Element {
         </div>
 
         <div className="flex items-center gap-[clamp(14px,2vw,32px)]">
+          {currentSlide?.contentType === 'custom' && (
+            <div className="flex items-center gap-1.5 rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-1.5 mr-2">
+              <span className="text-[10px] font-black uppercase tracking-[0.12em] text-amber-300">
+                Catatan:
+              </span>
+              <button
+                onClick={() => handleStageNotesZoom(-1)}
+                className="flex h-7 w-8 items-center justify-center rounded-lg bg-white/5 border border-white/10 text-xs font-bold hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+                title="Perkecil Catatan"
+              >
+                A-
+              </button>
+              <button
+                onClick={() => handleStageNotesZoom(1)}
+                className="flex h-7 w-8 items-center justify-center rounded-lg bg-white/5 border border-white/10 text-xs font-bold hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+                title="Perbesar Catatan"
+              >
+                A+
+              </button>
+            </div>
+          )}
           <div
             className={`flex items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] ${
               backendConnected
@@ -257,13 +290,21 @@ export function StageDisplayApp(): React.JSX.Element {
             <div className="flex min-h-10 items-center justify-center gap-3">
               {isBible ? (
                 <BookOpen className="text-sky-400" size={24} aria-hidden="true" />
+              ) : isCustom ? (
+                <BookOpen className="text-amber-400" size={24} aria-hidden="true" />
               ) : (
                 <Music2 className="text-violet-400" size={24} aria-hidden="true" />
               )}
               <span
-                className={`text-[clamp(15px,1.45vw,23px)] font-black uppercase tracking-[0.2em] ${isBible ? 'text-sky-300' : 'text-violet-300'}`}
+                className={`text-[clamp(15px,1.45vw,23px)] font-black uppercase tracking-[0.2em] ${
+                  isBible ? 'text-sky-300' : isCustom ? 'text-amber-300' : 'text-violet-300'
+                }`}
               >
-                {isBible ? reference : currentSection || currentSlide.sectionLabel || 'Lagu'}
+                {isBible
+                  ? reference
+                  : isCustom
+                    ? 'Catatan Slide Pemateri'
+                    : currentSection || currentSlide.sectionLabel || 'Lagu'}
               </span>
               {isBible && currentSlide.bibleVersionCode ? (
                 <span className="rounded-md border border-sky-400/20 bg-sky-400/10 px-2 py-1 text-xs font-black tracking-[0.12em] text-sky-300">
@@ -273,12 +314,21 @@ export function StageDisplayApp(): React.JSX.Element {
             </div>
 
             <div className="flex min-h-0 items-center justify-center overflow-hidden py-[clamp(14px,2vh,30px)] text-center">
-              <p
-                data-text-fit={currentFit}
-                className={`mx-auto max-h-full max-w-[1580px] overflow-hidden text-balance font-extrabold tracking-[-0.02em] text-white [text-wrap:balance] ${stageTextFitClass(currentFit)}`}
-              >
-                {currentText || currentSlide.stageNotes || 'Konten visual sedang ditayangkan'}
-              </p>
+              {isCustom ? (
+                <p
+                  className="mx-auto max-h-full max-w-[1520px] overflow-y-auto px-8 font-extrabold tracking-wide text-amber-100 whitespace-pre-wrap select-none leading-relaxed"
+                  style={{ fontSize: `${stageNotesZoom}px` }}
+                >
+                  {currentSlide.stageNotes || 'Tidak ada catatan untuk slide ini'}
+                </p>
+              ) : (
+                <p
+                  data-text-fit={currentFit}
+                  className={`mx-auto max-h-full max-w-[1580px] overflow-hidden text-balance font-extrabold tracking-[-0.02em] text-white [text-wrap:balance] ${stageTextFitClass(currentFit)}`}
+                >
+                  {currentText || currentSlide.stageNotes || 'Konten visual sedang ditayangkan'}
+                </p>
+              )}
             </div>
 
             <div className="shrink-0">
@@ -306,7 +356,7 @@ export function StageDisplayApp(): React.JSX.Element {
               </div>
 
               <div className="min-h-[clamp(96px,15vh,152px)] border-t border-white/8 pt-[clamp(12px,2vh,22px)]">
-                {currentSlide.stageNotes || currentSlide.stageChord ? (
+                {!isCustom && (currentSlide.stageNotes || currentSlide.stageChord) ? (
                   <div className="mb-4 grid grid-cols-[minmax(0,1fr)_auto] gap-3">
                     {currentSlide.stageNotes ? (
                       <div className="rounded-xl border border-amber-300/15 bg-amber-300/[0.06] px-4 py-3">
@@ -372,7 +422,7 @@ export function StageDisplayApp(): React.JSX.Element {
       </section>
 
       <footer className="relative z-10 flex h-[clamp(54px,7vh,72px)] shrink-0 items-center justify-between border-t border-white/8 bg-[#080b0f]/96 px-[clamp(22px,3vw,54px)]">
-        {song ? (
+        {!isCustom && song ? (
           <>
             <div className="flex min-w-0 items-center gap-4">
               <span className="rounded-md bg-violet-400/10 px-2.5 py-1 text-sm font-black text-violet-300">
@@ -405,8 +455,8 @@ export function StageDisplayApp(): React.JSX.Element {
             </span>
           </>
         ) : (
-          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-700">
-            <span className="h-2 w-2 rounded-full bg-zinc-700" /> Siap menerima konten
+          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-500">
+            <span className="h-2 w-2 rounded-full bg-amber-400" /> Presentasi / Slide Aktif
           </div>
         )}
       </footer>

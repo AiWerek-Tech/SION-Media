@@ -404,9 +404,8 @@ export function setupIPC(): void {
   safeIpcHandle('presenter-remote:disconnect-client', (clientId: string) =>
     disconnectPresenterRemoteClient(clientId)
   )
-  safeIpcHandle(
-    'presenter-remote:update-security-policy',
-    (policy: SionLinkSecurityPolicy) => updatePresenterRemoteSecurityPolicy(policy)
+  safeIpcHandle('presenter-remote:update-security-policy', (policy: SionLinkSecurityPolicy) =>
+    updatePresenterRemoteSecurityPolicy(policy)
   )
   safeIpcHandle('presenter-remote:clear-command-log', () => clearPresenterRemoteCommandLog())
   safeIpcHandle('presenter-remote:powerpoint-status', () => getPowerPointBridgeStatus())
@@ -422,7 +421,8 @@ export function setupIPC(): void {
   safeIpcHandle(
     'presenter-remote:powerpoint-command',
     (deviceId: string, command: 'NEXT' | 'PREV') => {
-      if (command !== 'NEXT' && command !== 'PREV') throw new Error('Perintah PowerPoint tidak valid.')
+      if (command !== 'NEXT' && command !== 'PREV')
+        throw new Error('Perintah PowerPoint tidak valid.')
       return sendPowerPointBridgeCommand(
         requireBoundedString(deviceId, 'PowerPoint device ID', 96),
         command
@@ -627,27 +627,52 @@ export function setupIPC(): void {
   })
   mainOnlyHandle('presentation:import-pptx', async (_event, payload: unknown) => {
     const parsed = presentationImportSchema.parse(payload)
-    const manifest = await createPresentationPackage(parsed.filePath, parsed.outputMode)
-    return registerPresentationPackageAsset({
-      id: manifest.id,
-      title: manifest.title,
-      sourcePath: manifest.sourcePath,
-      sourceSha256: manifest.sourceSha256,
-      pdfPath: manifest.pdfPath,
-      manifestPath: join(dirname(manifest.pdfPath), 'manifest.json'),
-      thumbnailPath: manifest.slides[0]?.imagePath ?? '',
-      slideCount: manifest.slideCount,
-      conversionProvider: manifest.conversionProvider,
-      outputMode: manifest.outputMode,
-      warnings: manifest.warnings,
-      slides: manifest.slides.map(({ index, title, notes, imagePath }) => ({
-        index,
-        title,
-        notes,
-        imagePath
-      })),
-      category: parsed.category
-    })
+    const onProgress = (
+      percent: number,
+      step: 'parsing' | 'converting' | 'generating' | 'finishing' | 'done' | 'failed',
+      errorMessage?: string
+    ): void => {
+      _event.sender.send('presentation:import-progress', {
+        filePath: parsed.filePath,
+        percent,
+        step,
+        errorMessage
+      })
+    }
+
+    try {
+      const manifest = await createPresentationPackage(
+        parsed.filePath,
+        parsed.outputMode,
+        onProgress
+      )
+      const asset = await registerPresentationPackageAsset({
+        id: manifest.id,
+        title: manifest.title,
+        sourcePath: manifest.sourcePath,
+        sourceSha256: manifest.sourceSha256,
+        pdfPath: manifest.pdfPath,
+        manifestPath: join(dirname(manifest.pdfPath), 'manifest.json'),
+        thumbnailPath: manifest.slides[0]?.imagePath ?? '',
+        slideCount: manifest.slideCount,
+        conversionProvider: manifest.conversionProvider,
+        outputMode: manifest.outputMode,
+        warnings: manifest.warnings,
+        slides: manifest.slides.map(({ index, title, notes, imagePath }) => ({
+          index,
+          title,
+          notes,
+          imagePath
+        })),
+        category: parsed.category
+      })
+      onProgress(100, 'done')
+      return asset
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error)
+      onProgress(100, 'failed', errMsg)
+      throw error
+    }
   })
   safeIpcHandle('db:update-media-asset', (id: unknown, updates: unknown) => {
     return updateMediaAsset(mediaIdSchema.parse(id), mediaAssetUpdateSchema.parse(updates))

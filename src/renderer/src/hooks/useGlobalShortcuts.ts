@@ -186,12 +186,14 @@ export function useGlobalShortcuts({
           executeRuntimeCommand('PROJ_TAKE_CUE', undefined, 'KEYBOARD')
           break
         case 'ArrowRight':
+        case 'ArrowDown':
         case 'PageDown':
           e.preventDefault()
           if (e.shiftKey) executeRuntimeCommand('NAV_CUE_NEXT', undefined, 'KEYBOARD')
           else executeRuntimeCommand('NAV_NEXT_SLIDE', undefined, 'KEYBOARD')
           break
         case 'ArrowLeft':
+        case 'ArrowUp':
         case 'PageUp':
           e.preventDefault()
           if (e.shiftKey) executeRuntimeCommand('NAV_CUE_PREV', undefined, 'KEYBOARD')

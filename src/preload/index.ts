@@ -318,6 +318,19 @@ const api = {
       ipcRenderer.invoke('db:add-local-external-media', payload),
     importPresentation: (payload: unknown): Promise<unknown> =>
       ipcRenderer.invoke('presentation:import-pptx', payload),
+    onPresentationImportProgress: (
+      callback: (progress: {
+        filePath: string
+        percent: number
+        step: 'parsing' | 'converting' | 'generating' | 'finishing' | 'done' | 'failed'
+        errorMessage?: string
+      }) => void
+    ): (() => void) => {
+      const listener = (_event: IpcRendererEvent, progress: Parameters<typeof callback>[0]): void =>
+        callback(progress)
+      ipcRenderer.on('presentation:import-progress', listener)
+      return () => ipcRenderer.removeListener('presentation:import-progress', listener)
+    },
     update: (id: string, updates: unknown): Promise<unknown> =>
       ipcRenderer.invoke('db:update-media-asset', id, updates),
     delete: (id: string): Promise<boolean> => ipcRenderer.invoke('db:delete-media-asset', id),

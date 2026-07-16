@@ -271,7 +271,10 @@ interface PresenterRemoteAPI {
   approvePowerPointRequest: (requestId: string) => Promise<PowerPointBridgeStatus>
   rejectPowerPointRequest: (requestId: string) => Promise<PowerPointBridgeStatus>
   disconnectPowerPointDevice: (deviceId: string) => Promise<PowerPointBridgeStatus>
-  sendPowerPointCommand: (deviceId: string, command: 'NEXT' | 'PREV') => Promise<PowerPointBridgeStatus>
+  sendPowerPointCommand: (
+    deviceId: string,
+    command: 'NEXT' | 'PREV'
+  ) => Promise<PowerPointBridgeStatus>
   updateSnapshot: (snapshot: PresenterRemoteSnapshot) => void
   onCommand: (callback: (command: string, payload?: unknown) => void) => () => void
   onPowerPointStatus: (callback: (status: PowerPointBridgeStatus) => void) => () => void
@@ -605,6 +608,14 @@ interface MediaAPI {
     category?: string
     outputMode?: 'auto' | 'pdf' | 'images'
   }) => Promise<MediaAssetDto>
+  onPresentationImportProgress: (
+    callback: (progress: {
+      filePath: string
+      percent: number
+      step: 'parsing' | 'converting' | 'generating' | 'finishing' | 'done' | 'failed'
+      errorMessage?: string
+    }) => void
+  ) => () => void
   update: (
     id: string,
     updates: { name?: string; category?: string; tags?: string[]; isFavorite?: boolean }

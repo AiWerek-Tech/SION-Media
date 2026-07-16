@@ -13,6 +13,7 @@
 ### Task 1: Media PNG Local URL Reliability
 
 **Files:**
+
 - Modify: `src/main/index.ts`
 - Test: `src/main/local-media-url.test.ts`
 
@@ -24,6 +25,7 @@
 ### Task 2: Info Playlist Item Editing and Template Removal
 
 **Files:**
+
 - Modify: `src/renderer/src/components/projection/AnnouncementPanel.tsx`
 - Modify: `src/renderer/src/components/PlaylistItemCard.tsx`
 - Modify: `src/renderer/src/store/usePlaylistStore.ts`
@@ -38,6 +40,7 @@
 ### Task 3: Bible Panel Simplification
 
 **Files:**
+
 - Modify: `src/renderer/src/components/projection/BiblePanel.tsx`
 - Test: `src/renderer/src/components/projection/__tests__/BiblePanel.test.tsx`
 
@@ -49,6 +52,7 @@
 ### Task 4: Playlist UX Polish for Mixed Content
 
 **Files:**
+
 - Modify: `src/renderer/src/components/library/LibraryPlaylistWorkspace.tsx`
 - Modify: `src/renderer/src/components/PlaylistItemCard.tsx`
 - Modify: `src/renderer/src/types.ts`

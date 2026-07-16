@@ -9,7 +9,9 @@ Fitur presentasi PDF & gambar telah diimplementasikan secara lengkap di SION Pre
 ## Architecture Decisions
 
 ### 1. File Asli Tidak Disalin ke Database
+
 Sesuai prinsip SION Presenter, file PDF asli **tidak** diimpor/disalin ke database internal. Yang disimpan hanya:
+
 - `original_path` — path absolut ke file PDF asli
 - `local_path` — sama dengan original_path (referensi lokal)
 - `type` — `'pdf'`
@@ -18,27 +20,33 @@ Sesuai prinsip SION Presenter, file PDF asli **tidak** diimpor/disalin ke databa
 File PDF dipanggil langsung dari direktori asal melalui protokol `local-media://`.
 
 ### 2. PPT/PPTX Tidak Didukung Langsung
+
 Ketika operator memilih file `.ppt`/`.pptx`, muncul dialog instruksi konversi langkah demi langkah:
+
 1. Buka di Microsoft PowerPoint / Google Slides
 2. Export sebagai PDF atau kumpulan gambar (PNG/JPEG)
 3. Upload hasil konversi ke SION Media
 
 ### 4. PDF Page Count & Document Cache (Zustand Store & Global Memory)
+
 - Jumlah halaman PDF di-cache di `usePlaylistStore.pdfPageCounts` agar `generateSlidesForPlaylistItem()` tetap sinkronus (cepat) untuk rendering UI.
 - Dokumen PDF (`PDFDocumentProxy`) di-cache di memori global (`pdfUtils.ts`) agar perpindahan slide/halaman PDF tidak memuat ulang dan mem-parsing file dari awal (sangat cepat).
 - Indikator "Memuat Slide..." diberikan delay 150ms di `PdfSlideViewer.tsx` sehingga jika rendering selesai dalam waktu sangat cepat (< 150ms), teks memuat tidak akan pernah berkedip/muncul ke layar jemaat.
 
 ### 5. Efek Transisi Paralel untuk PDF
+
 - Blok rendering presentasi PDF dipisahkan dari `AnimatePresence` lirik/teks biasa.
 - `AnimatePresence` lirik/teks tetap menggunakan mode `"wait"` agar pergantian bait lirik teratur, sedangkan `AnimatePresence` dokumen PDF diubah menggunakan mode paralel (`mode` tidak dideklarasikan/sync).
 - Hal ini memungkinkan halaman PDF lama dan halaman PDF baru beranimasi secara bersamaan (tumpang-tindih/cross-fade) sehingga transisi slide (fade, smooth-blur, slide, premium-slide) berjalan langsung dari gambar A ke gambar B tanpa melewati layar hitam gelap di tengahnya.
 
 ### 6. Dynamic PDF Thumbnail Generation
+
 - Menambahkan komponen `PdfThumbnail` di `LocalMediaPanel.tsx` untuk memuat halaman pertama (page 1) dari setiap file PDF lokal di background secara asinkronus (skala 0.2x).
 - Hasil render thumbnail disimpan ke dalam cache memori global (`pdfRenderCache`) sehingga saat tab Media dibuka kembali, semua thumbnail dimuat secara instan tanpa lag.
 - Menggunakan red PDF fallback icon standar saat thumbnail sedang diproses atau jika terjadi kesalahan pemuatan.
 
 ### 7. Rendering Offline 100%
+
 Menggunakan `pdfjs-dist` dengan Web Worker lokal — tidak memerlukan CDN atau koneksi internet.
 
 ---
@@ -47,25 +55,25 @@ Menggunakan `pdfjs-dist` dengan Web Worker lokal — tidak memerlukan CDN atau k
 
 ### New Files
 
-| File | Purpose |
-|------|---------|
-| [pdfUtils.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/utils/pdfUtils.ts) | Shared helper & cache: `getPdfPageCount()`, `getPdfDocument()`, `getCachedPdfPageImage()` & `prefetchAndCachePdfPage()` — manajemen memuat, merender, dan prefetching file PDF |
-| [PdfSlideViewer.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/components/presentation/PdfSlideViewer.tsx) | Komponen React: render halaman PDF ke HTML5 canvas (1.5x resolusi, 16:9 fit, delayed loading spinner) |
+| File                                                                                                                              | Purpose                                                                                                                                                                        |
+| --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [pdfUtils.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/utils/pdfUtils.ts)                                 | Shared helper & cache: `getPdfPageCount()`, `getPdfDocument()`, `getCachedPdfPageImage()` & `prefetchAndCachePdfPage()` — manajemen memuat, merender, dan prefetching file PDF |
+| [PdfSlideViewer.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/components/presentation/PdfSlideViewer.tsx) | Komponen React: render halaman PDF ke HTML5 canvas (1.5x resolusi, 16:9 fit, delayed loading spinner)                                                                          |
 
 ### Modified Files
 
-| File | Changes |
-|------|---------|
-| [index.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/main/index.ts) | Added `.pdf` → `application/pdf` to MIME_TYPES map |
-| [database.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/main/database.ts) | Extended `MediaAssetType` with `'pdf'`; updated `normalizeMediaAssetType` |
-| [types.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/types.ts) | Added `pdfPath?: string` to `SlideData` |
-| [atmosphere/types.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/atmosphere/types.ts) | Extended renderer `MediaAssetType` with `'pdf'` |
-| [usePlaylistStore.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/store/usePlaylistStore.ts) | Added `pdfPageCounts` cache + `fetchPdfPageCount()` async action |
-| [engine/slideEngine.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/engine/slideEngine.ts) | PDF media items expand into N slides (one per page) using cached page counts |
-| [core/projection/slideEngine.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/core/projection/slideEngine.ts) | Same PDF expansion logic |
+| File                                                                                                                              | Changes                                                                                                                                                               |
+| --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [index.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/main/index.ts)                                                     | Added `.pdf` → `application/pdf` to MIME_TYPES map                                                                                                                    |
+| [database.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/main/database.ts)                                               | Extended `MediaAssetType` with `'pdf'`; updated `normalizeMediaAssetType`                                                                                             |
+| [types.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/types.ts)                                             | Added `pdfPath?: string` to `SlideData`                                                                                                                               |
+| [atmosphere/types.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/atmosphere/types.ts)                       | Extended renderer `MediaAssetType` with `'pdf'`                                                                                                                       |
+| [usePlaylistStore.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/store/usePlaylistStore.ts)                 | Added `pdfPageCounts` cache + `fetchPdfPageCount()` async action                                                                                                      |
+| [engine/slideEngine.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/engine/slideEngine.ts)                   | PDF media items expand into N slides (one per page) using cached page counts                                                                                          |
+| [core/projection/slideEngine.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/core/projection/slideEngine.ts) | Same PDF expansion logic                                                                                                                                              |
 | [LocalMediaPanel.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/components/projection/LocalMediaPanel.tsx) | PDF import support, PPT conversion dialog, PDF tab filter, async page expansion on double-click, and dynamic PDF cover thumbnail rendering (`PdfThumbnail` component) |
-| [ProjectionMode.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/screens/modes/ProjectionMode.tsx) | Async PDF page count in playlist item click handler |
-| [PresentationCanvas.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/components/PresentationCanvas.tsx) | Renders `PdfSlideViewer` for PDF slides; separates lyrics and PDF slides into separate AnimatePresence containers to allow parallel transition animations |
+| [ProjectionMode.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/screens/modes/ProjectionMode.tsx)           | Async PDF page count in playlist item click handler                                                                                                                   |
+| [PresentationCanvas.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/components/PresentationCanvas.tsx)      | Renders `PdfSlideViewer` for PDF slides; separates lyrics and PDF slides into separate AnimatePresence containers to allow parallel transition animations             |
 
 ---
 

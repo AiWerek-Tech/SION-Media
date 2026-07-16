@@ -1,5 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { Check, Laptop, MonitorPlay, PlugZap, Radio, Unplug, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  Check,
+  Laptop,
+  MonitorPlay,
+  PlugZap,
+  Radio,
+  Unplug,
+  X,
+  ChevronLeft,
+  ChevronRight
+} from 'lucide-react'
 import {
   usePowerPointBridgeStore,
   type PowerPointBridgeSourceState,
@@ -12,10 +22,8 @@ export function PowerPointBridgePanel(): React.JSX.Element {
   const [status, setStatus] = useState<PowerPointBridgeStatusState | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const source = usePowerPointBridgeStore((state) => state.source)
-  const autoPreview = usePowerPointBridgeStore((state) => state.autoPreview)
-  const autoLive = usePowerPointBridgeStore((state) => state.autoLive)
-  const setAutoPreview = usePowerPointBridgeStore((state) => state.setAutoPreview)
-  const setAutoLive = usePowerPointBridgeStore((state) => state.setAutoLive)
+  const followMode = usePowerPointBridgeStore((state) => state.followMode)
+  const setFollowMode = usePowerPointBridgeStore((state) => state.setFollowMode)
 
   const refresh = useCallback(async () => {
     setStatus(await window.api.presenterRemote.powerPointStatus())
@@ -101,7 +109,7 @@ export function PowerPointBridgePanel(): React.JSX.Element {
       {effectiveSource ? (
         <>
           <div className="overflow-hidden rounded-xl border border-white/10 bg-black/30">
-            <img
+            <DecodedBridgeImage
               src={toLocalMediaUrl(effectiveSource.imagePath)}
               alt="Slide PowerPoint saat ini"
               className="aspect-video w-full object-contain"
@@ -118,7 +126,7 @@ export function PowerPointBridgePanel(): React.JSX.Element {
               <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 Slide berikutnya
               </div>
-              <img
+              <DecodedBridgeImage
                 src={toLocalMediaUrl(effectiveSource.nextImagePath)}
                 alt="Slide PowerPoint berikutnya"
                 className="aspect-video w-full rounded-lg border border-white/10 bg-black object-contain"
@@ -135,13 +143,23 @@ export function PowerPointBridgePanel(): React.JSX.Element {
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={() => void window.api.presenterRemote.sendPowerPointCommand(effectiveSource.deviceId, 'PREV')}
+              onClick={() =>
+                void window.api.presenterRemote.sendPowerPointCommand(
+                  effectiveSource.deviceId,
+                  'PREV'
+                )
+              }
               className="flex items-center justify-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors"
             >
               <ChevronLeft size={14} /> Slide Sebelumnya
             </button>
             <button
-              onClick={() => void window.api.presenterRemote.sendPowerPointCommand(effectiveSource.deviceId, 'NEXT')}
+              onClick={() =>
+                void window.api.presenterRemote.sendPowerPointCommand(
+                  effectiveSource.deviceId,
+                  'NEXT'
+                )
+              }
               className="flex items-center justify-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-3 py-2 text-xs font-semibold text-slate-200 transition-colors"
             >
               Slide Berikutnya <ChevronRight size={14} />
@@ -169,20 +187,18 @@ export function PowerPointBridgePanel(): React.JSX.Element {
       )}
 
       <label className="flex items-center justify-between gap-3 rounded-lg border border-white/10 px-3 py-2 text-xs">
-        <span>Ikuti perubahan ke Preview</span>
-        <input
-          type="checkbox"
-          checked={autoPreview}
-          onChange={(event) => setAutoPreview(event.target.checked)}
-        />
-      </label>
-      <label className="flex items-center justify-between gap-3 rounded-lg border border-white/10 px-3 py-2 text-xs">
-        <span>Ikuti perubahan langsung ke Live</span>
-        <input
-          type="checkbox"
-          checked={autoLive}
-          onChange={(event) => setAutoLive(event.target.checked)}
-        />
+        <span>Mode sinkronisasi</span>
+        <select
+          value={followMode}
+          onChange={(event) =>
+            setFollowMode(event.target.value as 'MANUAL' | 'FOLLOW_PREVIEW' | 'FOLLOW_LIVE')
+          }
+          className="rounded border border-white/10 bg-slate-900 px-2 py-1 text-xs text-slate-100"
+        >
+          <option value="MANUAL">Manual</option>
+          <option value="FOLLOW_PREVIEW">Ikuti Preview</option>
+          <option value="FOLLOW_LIVE">Ikuti Live setelah TAKE</option>
+        </select>
       </label>
       {(status?.connectedDevices ?? []).map((device) => (
         <button
@@ -199,4 +215,33 @@ export function PowerPointBridgePanel(): React.JSX.Element {
       ))}
     </div>
   )
+}
+
+function DecodedBridgeImage({
+  src,
+  alt,
+  className
+}: {
+  src: string
+  alt: string
+  className: string
+}): React.JSX.Element {
+  const [readySrc, setReadySrc] = useState(src)
+  useEffect(() => {
+    let cancelled = false
+    const image = new Image()
+    image.src = src
+    image
+      .decode()
+      .then(() => {
+        if (!cancelled) setReadySrc(src)
+      })
+      .catch(() => {
+        // Keep last good frame instead of blanking the operator view.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [src])
+  return <img src={readySrc} alt={alt} className={className} />
 }

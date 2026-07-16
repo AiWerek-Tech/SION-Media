@@ -65,15 +65,10 @@ export const AtmosphereRenderer: React.FC<AtmosphereRendererProps> = ({
 
           {/* Layer 2: Media (Image/Video) */}
           {mode === 'image' && media?.path && (
-            <motion.div
-              initial={{ scale: 1.05, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="absolute inset-0"
-              style={{
-                backgroundImage: `url("${toLocalMediaUrl(media.path)}")`,
-                backgroundSize: media.fit || 'cover',
-                backgroundPosition: 'center'
-              }}
+            <DecodedImageBackground
+              path={media.path}
+              fit={media.fit || 'cover'}
+              transitionDuration={transitionDuration}
             />
           )}
 
@@ -100,6 +95,111 @@ export const AtmosphereRenderer: React.FC<AtmosphereRendererProps> = ({
         </motion.div>
       </AnimatePresence>
     </div>
+  )
+}
+
+interface DecodedImageBackgroundProps {
+  path: string
+  fit: string
+  transitionDuration: number
+}
+
+export const DecodedImageBackground: React.FC<DecodedImageBackgroundProps> = ({
+  path,
+  fit,
+  transitionDuration
+}) => {
+  const [displayUrl, setDisplayUrl] = React.useState('')
+  const displayedObjectUrlRef = React.useRef<string | null>(null)
+  const requestGenerationRef = React.useRef(0)
+
+  React.useEffect(() => {
+    let cancelled = false
+    const generation = ++requestGenerationRef.current
+    const sourceUrl = toLocalMediaUrl(path)
+    let candidateObjectUrl: string | null = null
+
+    const revokeCandidate = (): void => {
+      if (candidateObjectUrl) {
+        URL.revokeObjectURL(candidateObjectUrl)
+        candidateObjectUrl = null
+      }
+    }
+
+    const loadDecoded = async (): Promise<void> => {
+      try {
+        let decodeUrl = sourceUrl
+
+        if (/^https?:/i.test(sourceUrl)) {
+          const response = await fetch(sourceUrl, { cache: 'no-store' })
+          if (!response.ok) throw new Error(`Image fetch failed: ${response.status}`)
+          const blob = await response.blob()
+          candidateObjectUrl = URL.createObjectURL(blob)
+          decodeUrl = candidateObjectUrl
+        }
+
+        const image = new Image()
+        image.src = decodeUrl
+        if (typeof image.decode === 'function') {
+          await image.decode()
+        } else {
+          await new Promise<void>((resolve, reject) => {
+            image.onload = () => resolve()
+            image.onerror = () => reject(new Error('Image load failed'))
+          })
+        }
+
+        if (cancelled || generation !== requestGenerationRef.current) {
+          revokeCandidate()
+          return
+        }
+
+        const previousObjectUrl = displayedObjectUrlRef.current
+        displayedObjectUrlRef.current = candidateObjectUrl
+        candidateObjectUrl = null
+        setDisplayUrl(decodeUrl)
+
+        if (previousObjectUrl) {
+          window.setTimeout(() => URL.revokeObjectURL(previousObjectUrl), 1000)
+        }
+      } catch {
+        revokeCandidate()
+      }
+    }
+
+    void loadDecoded()
+
+    return () => {
+      cancelled = true
+      revokeCandidate()
+    }
+  }, [path])
+
+  React.useEffect(() => {
+    return () => {
+      if (displayedObjectUrlRef.current) {
+        URL.revokeObjectURL(displayedObjectUrlRef.current)
+        displayedObjectUrlRef.current = null
+      }
+    }
+  }, [])
+
+  if (!displayUrl) return null
+
+  return (
+    <motion.div
+      initial={{ scale: 1.05, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ duration: transitionDuration }}
+      className="absolute inset-0"
+      data-testid="decoded-image-background"
+      data-image-url={displayUrl}
+      style={{
+        backgroundImage: `url("${displayUrl}")`,
+        backgroundSize: fit,
+        backgroundPosition: 'center'
+      }}
+    />
   )
 }
 

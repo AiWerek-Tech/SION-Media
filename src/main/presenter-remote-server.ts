@@ -1,8 +1,19 @@
-import { randomBytes } from 'crypto'
+import { createHash, randomBytes } from 'crypto'
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'http'
+import type { Socket } from 'net'
 import { networkInterfaces } from 'os'
 import { extname, basename, join } from 'path'
-import { createReadStream, mkdirSync, renameSync, statSync, writeFileSync, readdirSync, unlinkSync, existsSync } from 'fs'
+import {
+  createReadStream,
+  mkdirSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+  readdirSync,
+  unlinkSync,
+  existsSync,
+  readFileSync
+} from 'fs'
 import { app } from 'electron'
 import { getMainWindow, getProjectionWindow } from './windows'
 import { parseSingleByteRange, resolveAuthorizedMediaPath } from './media-security'
@@ -140,6 +151,13 @@ export interface PowerPointBridgeSource {
   slideIndex: number
   totalSlides: number
   updatedAt: number
+  sequence?: number
+  frameId?: string
+  cacheHit?: boolean
+  provider?: string
+  platform?: string
+  protocolVersion?: number
+  agentVersion?: string
 }
 
 export interface PowerPointBridgeStatus {
@@ -268,19 +286,30 @@ const powerPointBridgeSessions = new Map<
 >()
 const powerPointBridgeCommandQueues = new Map<string, string[]>()
 let latestPowerPointBridgeSource: PowerPointBridgeSource | null = null
+const powerPointBridgeDeviceStates = new Map<string, PowerPointBridgeSource>()
+const powerPointBridgeFrameStore = new Map<
+  string,
+  { bytes: Buffer; mimeType: string; updatedAt: number; deviceId: string; sequence: number }
+>()
+const powerPointBridgeSockets = new Map<string, Socket>()
+const MAX_POWERPOINT_FRAME_BYTES = 12 * 1024 * 1024
 
 function getPresentationSourceDir(): string {
   return join(app.getPath('userData'), 'presentation-source')
 }
 
-function cleanupOldSlideFiles(safeDeviceId: string, currentFile: string, nextFile?: string | null): void {
+function cleanupOldSlideFiles(
+  safeDeviceId: string,
+  currentFile: string,
+  nextFile?: string | null
+): void {
   try {
     const sourceDir = getPresentationSourceDir()
     if (!existsSync(sourceDir)) return
     const files = readdirSync(sourceDir)
     const currentBase = basename(currentFile)
     const nextBase = nextFile ? basename(nextFile) : null
-    
+
     for (const file of files) {
       if (file.startsWith(`${safeDeviceId}-current-`) || file.startsWith(`${safeDeviceId}-next-`)) {
         if (file !== currentBase && file !== nextBase && !file.endsWith('.tmp')) {
@@ -360,6 +389,244 @@ function notifyPowerPointBridgeStatus(): void {
   }
 }
 
+function getPresentationFrameUrl(frameId: string): string {
+  return `http://127.0.0.1:${port ?? DEFAULT_SION_LINK_PORT}/api/presentation-frame/${encodeURIComponent(frameId)}`
+}
+
+function isValidJpeg(buffer: Buffer): boolean {
+  return (
+    buffer.length >= 4 &&
+    buffer[0] === 0xff &&
+    buffer[1] === 0xd8 &&
+    buffer[buffer.length - 2] === 0xff &&
+    buffer[buffer.length - 1] === 0xd9
+  )
+}
+
+function sendPowerPointBridgeWs(socket: Socket, opcode: number, payload: Buffer): void {
+  let header: Buffer
+  if (payload.length < 126) {
+    header = Buffer.from([0x80 | opcode, payload.length])
+  } else if (payload.length <= 0xffff) {
+    header = Buffer.alloc(4)
+    header[0] = 0x80 | opcode
+    header[1] = 126
+    header.writeUInt16BE(payload.length, 2)
+  } else {
+    header = Buffer.alloc(10)
+    header[0] = 0x80 | opcode
+    header[1] = 127
+    header.writeBigUInt64BE(BigInt(payload.length), 2)
+  }
+  socket.write(Buffer.concat([header, payload]))
+}
+
+function sendPowerPointBridgeWsJson(socket: Socket, payload: Record<string, unknown>): void {
+  sendPowerPointBridgeWs(socket, 1, Buffer.from(JSON.stringify(payload), 'utf-8'))
+}
+
+function decodePowerPointBridgeWsFrames(buffer: Buffer): {
+  frames: Array<{ opcode: number; payload: Buffer }>
+  rest: Buffer
+} {
+  const frames: Array<{ opcode: number; payload: Buffer }> = []
+  let offset = 0
+  while (buffer.length - offset >= 2) {
+    const opcode = buffer[offset] & 0x0f
+    let length = buffer[offset + 1] & 0x7f
+    let cursor = offset + 2
+    if (length === 126) {
+      if (buffer.length - cursor < 2) break
+      length = buffer.readUInt16BE(cursor)
+      cursor += 2
+    } else if (length === 127) {
+      if (buffer.length - cursor < 8) break
+      const big = buffer.readBigUInt64BE(cursor)
+      if (big > BigInt(MAX_POWERPOINT_FRAME_BYTES + 1024 * 1024))
+        throw new Error('Frame WebSocket terlalu besar')
+      length = Number(big)
+      cursor += 8
+    }
+    const masked = (buffer[offset + 1] & 0x80) !== 0
+    let mask: Buffer | null = null
+    if (masked) {
+      if (buffer.length - cursor < 4) break
+      mask = buffer.subarray(cursor, cursor + 4)
+      cursor += 4
+    }
+    if (buffer.length - cursor < length) break
+    const payload = Buffer.from(buffer.subarray(cursor, cursor + length))
+    if (mask) for (let i = 0; i < payload.length; i++) payload[i] ^= mask[i % 4]
+    frames.push({ opcode, payload })
+    offset = cursor + length
+  }
+  return { frames, rest: buffer.subarray(offset) }
+}
+
+function handlePowerPointBridgeWebSocket(req: IncomingMessage, socket: Socket): void {
+  const key = req.headers['sec-websocket-key']
+  const bridgeToken = String(req.headers['x-sion-bridge-token'] ?? '')
+  const deviceId = String(req.headers['x-sion-device-id'] ?? '')
+  const session = powerPointBridgeSessions.get(bridgeToken)
+  if (!key || Array.isArray(key) || !session || session.deviceId !== deviceId) {
+    socket.end('HTTP/1.1 401 Unauthorized\r\n\r\n')
+    return
+  }
+  const accept = createHash('sha1')
+    .update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
+    .digest('base64')
+  socket.write(
+    [
+      'HTTP/1.1 101 Switching Protocols',
+      'Upgrade: websocket',
+      'Connection: Upgrade',
+      `Sec-WebSocket-Accept: ${accept}`,
+      '\r\n'
+    ].join('\r\n')
+  )
+  powerPointBridgeSockets.set(deviceId, socket)
+  let pendingMeta: Record<string, unknown> | null = null
+  let buffer = Buffer.alloc(0)
+  socket.on('data', (chunk) => {
+    try {
+      buffer = Buffer.concat([buffer, chunk]) as Buffer<ArrayBuffer>
+      const decoded = decodePowerPointBridgeWsFrames(buffer)
+      buffer = decoded.rest as Buffer<ArrayBuffer>
+      for (const frame of decoded.frames) {
+        if (frame.opcode === 1) {
+          const message = JSON.parse(frame.payload.toString('utf-8')) as Record<string, unknown>
+          if (message.messageType === 'FRAME_META') pendingMeta = message
+          handlePowerPointBridgeWsMessage(session, message)
+        } else if (frame.opcode === 2 && pendingMeta) {
+          handlePowerPointBridgeWsBinary(session, pendingMeta, frame.payload)
+          pendingMeta = null
+        } else if (frame.opcode === 8) {
+          socket.end()
+        }
+      }
+    } catch (error) {
+      console.warn('[PresenterRemote] Presentation Bridge WebSocket frame rejected:', error)
+      socket.destroy()
+    }
+  })
+  socket.on('close', () => {
+    if (powerPointBridgeSockets.get(deviceId) === socket) powerPointBridgeSockets.delete(deviceId)
+    notifyPowerPointBridgeStatus()
+  })
+  sendPowerPointBridgeWsJson(socket, {
+    protocolVersion: 1,
+    messageType: 'WELCOME',
+    sessionId: session.requestId,
+    capabilities: {
+      binaryFrame: true,
+      commandAck: true,
+      memoryFrameStore: true,
+      sourceOwnership: true,
+      protocolNeutralProviders: true
+    }
+  })
+}
+
+function handlePowerPointBridgeWsMessage(
+  session: {
+    deviceId: string
+    deviceName: string
+    deckName: string
+    lastSeenAt: number
+    connectedAt: number
+  },
+  message: Record<string, unknown>
+): void {
+  session.lastSeenAt = Date.now()
+  if (message.messageType === 'HELLO') {
+    notifyPowerPointBridgeStatus()
+    return
+  }
+  if (message.messageType === 'SLIDE_STATE_CHANGED') {
+    const source = powerPointBridgeDeviceStates.get(session.deviceId)
+    const slideIndex = Number(message.slideIndex ?? source?.slideIndex ?? -1)
+    const totalSlides = Number(message.slideCount ?? source?.totalSlides ?? 0)
+    const next: PowerPointBridgeSource = {
+      deviceId: session.deviceId,
+      deviceName: session.deviceName,
+      deckName: sanitizeClientText(String(message.deckName ?? session.deckName), session.deckName),
+      title: String(message.title ?? source?.title ?? 'Presentation Live').slice(0, 300),
+      notes: String(message.notes ?? source?.notes ?? '').slice(0, 100_000),
+      imagePath: source?.imagePath ?? '',
+      nextImagePath: source?.nextImagePath ?? null,
+      nextTitle: source?.nextTitle ?? null,
+      slideIndex,
+      totalSlides,
+      updatedAt: Date.now(),
+      sequence: Number(message.sequence ?? source?.sequence ?? 0),
+      provider: source?.provider,
+      platform: source?.platform,
+      protocolVersion: Number(message.protocolVersion ?? 1)
+    }
+    powerPointBridgeDeviceStates.set(session.deviceId, next)
+    latestPowerPointBridgeSource = next
+    notifyPowerPointBridgeStatus()
+  } else if (message.messageType === 'COMMAND_ACK') {
+    notifyPowerPointBridgeStatus()
+  }
+}
+
+function handlePowerPointBridgeWsBinary(
+  session: { deviceId: string; deviceName: string; deckName: string; lastSeenAt: number },
+  meta: Record<string, unknown>,
+  bytes: Buffer
+): void {
+  if (
+    bytes.length > MAX_POWERPOINT_FRAME_BYTES ||
+    String(meta.mimeType ?? '') !== 'image/jpeg' ||
+    !isValidJpeg(bytes)
+  )
+    return
+  const sequence = Number(meta.sequence ?? 0)
+  const current = powerPointBridgeDeviceStates.get(session.deviceId)
+  if (current?.sequence && sequence < current.sequence) return
+  const frameId = String(meta.frameId ?? randomBytes(12).toString('hex')).replace(
+    /[^a-zA-Z0-9_-]/g,
+    ''
+  )
+  powerPointBridgeFrameStore.set(frameId, {
+    bytes,
+    mimeType: 'image/jpeg',
+    updatedAt: Date.now(),
+    deviceId: session.deviceId,
+    sequence
+  })
+  for (const [id, frame] of Array.from(powerPointBridgeFrameStore)) {
+    if (Date.now() - frame.updatedAt > 30 * 60_000 || powerPointBridgeFrameStore.size > 48) {
+      powerPointBridgeFrameStore.delete(id)
+    }
+  }
+  const next: PowerPointBridgeSource = {
+    deviceId: session.deviceId,
+    deviceName: session.deviceName,
+    deckName: current?.deckName ?? session.deckName,
+    title: current?.title ?? 'Presentation Live',
+    notes: current?.notes ?? '',
+    imagePath: getPresentationFrameUrl(frameId),
+    nextImagePath: current?.nextImagePath ?? null,
+    nextTitle: current?.nextTitle ?? null,
+    slideIndex: Number(meta.slideIndex ?? current?.slideIndex ?? -1),
+    totalSlides: current?.totalSlides ?? 0,
+    updatedAt: Date.now(),
+    sequence,
+    frameId,
+    cacheHit: meta.cacheHit === true,
+    protocolVersion: Number(meta.protocolVersion ?? 1)
+  }
+  powerPointBridgeDeviceStates.set(session.deviceId, next)
+  latestPowerPointBridgeSource = next
+  const mainWindow = getMainWindow()
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('presenter-remote:command', 'PRESENTATION_SOURCE', next)
+  }
+  notifyPowerPointBridgeStatus()
+}
+
 export function approvePowerPointBridgeRequest(requestId: string): PowerPointBridgeStatus {
   const request = powerPointBridgeRequests.get(requestId)
   if (!request || request.status !== 'pending')
@@ -406,11 +673,44 @@ export function disconnectPowerPointBridgeDevice(deviceId: string): PowerPointBr
 }
 
 export function sendPowerPointBridgeCommand(deviceId: string, command: 'NEXT' | 'PREV'): void {
+  const socket = powerPointBridgeSockets.get(deviceId)
+  if (socket && !socket.destroyed) {
+    const issuedAt = Date.now()
+    sendPowerPointBridgeWsJson(socket, {
+      protocolVersion: 1,
+      messageType: 'COMMAND',
+      sessionId: 'sion-media',
+      commandId: randomBytes(12).toString('hex'),
+      type: command,
+      issuedAt,
+      expiresAt: issuedAt + 3000
+    })
+    return
+  }
   if (!powerPointBridgeCommandQueues.has(deviceId)) {
     powerPointBridgeCommandQueues.set(deviceId, [])
   }
   powerPointBridgeCommandQueues.get(deviceId)!.push(command)
   console.log(`[PresenterRemote] Command ${command} queued for device ${deviceId}`)
+}
+
+function sendPresentationFrame(res: ServerResponse, url: URL): void {
+  const frameId = decodeURIComponent(url.pathname.replace('/api/presentation-frame/', '')).replace(
+    /[^a-zA-Z0-9_-]/g,
+    ''
+  )
+  const frame = powerPointBridgeFrameStore.get(frameId)
+  if (!frame) {
+    sendJson(res, 404, { ok: false, error: 'Frame presentasi tidak ditemukan' })
+    return
+  }
+  res.writeHead(200, {
+    'Content-Type': frame.mimeType,
+    'Content-Length': frame.bytes.length,
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff'
+  })
+  res.end(frame.bytes)
 }
 
 function createAccessCode(used: Set<string>): string {
@@ -658,28 +958,60 @@ function sendManifest(res: ServerResponse): void {
   res.end(body)
 }
 
+function getOfficialLogoBuffer(): { buffer: Buffer; contentType: string } | null {
+  try {
+    // Try development source path first
+    const devPath = join(app.getAppPath(), 'src', 'renderer', 'src', 'assets', 'logo.png')
+    if (existsSync(devPath)) {
+      try {
+        const buf = readFileSync(devPath)
+        return { buffer: buf, contentType: 'image/png' }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    // Try built output path (development or packaged)
+    const outAssetsDir = join(app.getAppPath(), 'out', 'renderer', 'assets')
+    if (existsSync(outAssetsDir)) {
+      try {
+        const files = readdirSync(outAssetsDir)
+        const logoFile = files.find((f) => f.startsWith('logo-') && f.endsWith('.png'))
+        if (logoFile) {
+          const buf = readFileSync(join(outAssetsDir, logoFile))
+          return { buffer: buf, contentType: 'image/png' }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load official logo:', e)
+  }
+  return null
+}
+
 function sendIcon(res: ServerResponse): void {
-  const body = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="bg" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#2563eb"/>
-      <stop offset="0.52" stop-color="#0f172a"/>
-      <stop offset="1" stop-color="#14b8a6"/>
-    </linearGradient>
-    <linearGradient id="flame" x1="208" y1="104" x2="306" y2="392" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#facc15"/>
-      <stop offset="0.55" stop-color="#38bdf8"/>
-      <stop offset="1" stop-color="#2563eb"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <path d="M257 78c-44 56-30 96-79 145-29 29-42 62-42 99 0 74 55 126 120 126 72 0 128-51 128-126 0-56-32-101-74-139 5 34-5 62-31 84 4-68-10-130-22-189Z" fill="url(#flame)"/>
-  <path d="M255 226c-21 30-51 54-51 96 0 33 24 57 54 57 34 0 59-24 59-57 0-33-21-57-40-78 1 27-8 47-28 62 4-32 2-56 6-80Z" fill="#f8fafc"/>
+  const logoData = getOfficialLogoBuffer()
+  let body = ''
+
+  if (logoData) {
+    const b64 = logoData.buffer.toString('base64')
+    body = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <image width="512" height="512" href="data:image/png;base64,${b64}"/>
 </svg>`
+  } else {
+    // Fallback if logo not found
+    body = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <rect width="512" height="512" rx="112" fill="#2563eb"/>
+  <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-size="200" font-family="sans-serif" font-weight="bold">S</text>
+</svg>`
+  }
+
   res.writeHead(200, {
     'Content-Type': 'image/svg+xml; charset=utf-8',
     'Content-Length': Buffer.byteLength(body),
-    'Cache-Control': 'public, max-age=86400',
+    'Cache-Control': 'public, max-age=60',
     'X-Content-Type-Options': 'nosniff'
   })
   res.end(body)
@@ -1025,16 +1357,27 @@ async function handlePresentationSource(
     imageType = 'jpg'
     base64Data = imageDataUrlStr.substring(23)
   } else {
-    console.error('[PresenterRemote] Bad Request: imageDataUrl does not start with valid base64 prefix')
+    console.error(
+      '[PresenterRemote] Bad Request: imageDataUrl does not start with valid base64 prefix'
+    )
     sendJson(res, 400, { ok: false, error: 'Format gambar tidak valid' })
     return
   }
 
   const image = Buffer.from(base64Data, 'base64')
-  const isPng = imageType === 'png' && image.length >= 8 && image.subarray(0, 8).toString('hex') === '89504e470d0a1a0a'
-  const isJpeg = imageType === 'jpg' && image.length >= 3 && image.subarray(0, 3).toString('hex') === 'ffd8ff'
+  const isPng =
+    imageType === 'png' &&
+    image.length >= 8 &&
+    image.subarray(0, 8).toString('hex') === '89504e470d0a1a0a'
+  const isJpeg =
+    imageType === 'jpg' && image.length >= 3 && image.subarray(0, 3).toString('hex') === 'ffd8ff'
   if (!isPng && !isJpeg) {
-    console.error('[PresenterRemote] Bad Request: image buffer validation failed. Length:', image.length, 'Header:', image.subarray(0, 8).toString('hex'))
+    console.error(
+      '[PresenterRemote] Bad Request: image buffer validation failed. Length:',
+      image.length,
+      'Header:',
+      image.subarray(0, 8).toString('hex')
+    )
     sendJson(res, 400, { ok: false, error: 'Data gambar tidak valid' })
     return
   }
@@ -1051,15 +1394,26 @@ async function handlePresentationSource(
       nextImageType = 'jpg'
       nextBase64Data = nextStr.substring(23)
     } else {
-      console.error('[PresenterRemote] Bad Request: nextImageDataUrl does not start with valid base64 prefix')
+      console.error(
+        '[PresenterRemote] Bad Request: nextImageDataUrl does not start with valid base64 prefix'
+      )
       sendJson(res, 400, { ok: false, error: 'Format gambar slide berikutnya tidak valid' })
       return
     }
     nextImage = Buffer.from(nextBase64Data, 'base64')
-    const isNextPng = nextImageType === 'png' && nextImage.length >= 8 && nextImage.subarray(0, 8).toString('hex') === '89504e470d0a1a0a'
-    const isNextJpeg = nextImageType === 'jpg' && nextImage.length >= 3 && nextImage.subarray(0, 3).toString('hex') === 'ffd8ff'
+    const isNextPng =
+      nextImageType === 'png' &&
+      nextImage.length >= 8 &&
+      nextImage.subarray(0, 8).toString('hex') === '89504e470d0a1a0a'
+    const isNextJpeg =
+      nextImageType === 'jpg' &&
+      nextImage.length >= 3 &&
+      nextImage.subarray(0, 3).toString('hex') === 'ffd8ff'
     if (!isNextPng && !isNextJpeg) {
-      console.error('[PresenterRemote] Bad Request: nextImage buffer validation failed. Length:', nextImage.length)
+      console.error(
+        '[PresenterRemote] Bad Request: nextImage buffer validation failed. Length:',
+        nextImage.length
+      )
       sendJson(res, 400, { ok: false, error: 'Data gambar slide berikutnya tidak valid' })
       return
     }
@@ -1073,7 +1427,12 @@ async function handlePresentationSource(
     !Number.isInteger(totalSlides) ||
     totalSlides < 1
   ) {
-    console.error('[PresenterRemote] Bad Request: slide index/total invalid. slideIndex:', payload.slideIndex, 'totalSlides:', payload.totalSlides)
+    console.error(
+      '[PresenterRemote] Bad Request: slide index/total invalid. slideIndex:',
+      payload.slideIndex,
+      'totalSlides:',
+      payload.totalSlides
+    )
     sendJson(res, 400, { ok: false, error: 'Posisi slide tidak valid' })
     return
   }
@@ -1081,7 +1440,7 @@ async function handlePresentationSource(
   const sourceDir = getPresentationSourceDir()
   const deviceId = bridgeSession?.deviceId ?? 'legacy'
   const safeDeviceId = deviceId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48) || 'bridge'
-  
+
   const timestamp = Date.now()
   const ext = imageType === 'jpg' ? 'jpg' : 'png'
   const imagePath = `${sourceDir}\\${safeDeviceId}-current-${timestamp}.${ext}`
@@ -1097,7 +1456,7 @@ async function handlePresentationSource(
       writeFileSync(nextTemporaryPath, nextImage)
       renameSync(nextTemporaryPath, nextImagePath)
     }
-    
+
     setTimeout(() => {
       cleanupOldSlideFiles(safeDeviceId, imagePath, nextImagePath)
     }, 50)
@@ -1519,6 +1878,11 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     return
   }
 
+  if (req.method === 'GET' && url.pathname.startsWith('/api/presentation-frame/')) {
+    sendPresentationFrame(res, url)
+    return
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/status') {
     const role = authenticateRequest(req, res, url)
     if (!role) return
@@ -1593,6 +1957,14 @@ export async function startPresenterRemoteServer(): Promise<PresenterRemoteStatu
         res.end()
       }
     })
+  })
+  server.on('upgrade', (req, socket) => {
+    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
+    if (url.pathname === '/api/presentation-bridge/ws') {
+      handlePowerPointBridgeWebSocket(req, socket as Socket)
+      return
+    }
+    socket.end('HTTP/1.1 404 Not Found\r\n\r\n')
   })
 
   const persistentPort = getPersistentSionLinkPort()
@@ -1842,6 +2214,7 @@ function getPresenterRemoteHtml(role: SionLinkRole): string {
     .panel { border: 1px solid rgba(148, 163, 184, .16); background: linear-gradient(180deg, rgba(15, 23, 42, .92), rgba(9, 14, 26, .94)); border-radius: 20px; padding: 9px; box-shadow: 0 18px 50px rgba(0,0,0,.28); overflow: hidden; }
     .panel.current { flex: 1 1 auto; min-height: 0; }
     .panel.next { width: 92%; margin: 0 auto; flex: 0 0 auto; min-height: 0; opacity: .95; }
+    .panel.notes { width: 92%; margin: 0 auto; flex: 0 0 auto; min-height: 120px; opacity: .95; display: flex; flex-direction: column; }
     .label { color: #9fb2d0; font-size: 9px; text-transform: uppercase; letter-spacing: .13em; font-weight: 900; margin: 0 2px 7px; }
     .slide { white-space: pre-wrap; min-height: 158px; display: grid; place-items: center; text-align: center; font-size: clamp(22px, 7vw, 34px); line-height: 1.12; font-weight: 900; padding: 12px; }
     .visual { position: relative; display: none; width: 100%; aspect-ratio: 16 / 9; min-height: 0; overflow: hidden; border-radius: 14px; background: #020617; border: 1px solid rgba(148, 163, 184, .14); }
@@ -1950,6 +2323,7 @@ function getPresenterRemoteHtml(role: SionLinkRole): string {
       .panel { padding: 7px; border-radius: 16px; min-height: 0; }
       .panel.current { grid-column: 1; height: 100%; }
       .panel.next { grid-column: 2; width: 100%; height: 100%; margin: 0; }
+      .panel.notes { grid-column: 2; width: 100%; height: 100%; margin: 0; }
       .label { font-size: 8px; margin-bottom: 5px; }
       .visual { border-radius: 11px; }
       .current .visual.is-visible, .next .visual.is-visible { max-height: calc(100dvh - 90px); }
@@ -1972,6 +2346,8 @@ function getPresenterRemoteHtml(role: SionLinkRole): string {
       .top-action { min-height: 36px; padding-inline: 12px; }
       .stage-stack { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 28vw); gap: 16px; min-height: 0; }
       .control-rail { grid-column: 2; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 16px; min-height: 0; }
+      .role-presenter .control-rail { grid-template-rows: minmax(0, 1.2fr) minmax(0, 1fr) auto; }
+      .role-presenter .panel.notes { width: 100%; margin: 0; min-height: 0; height: 100%; }
       .role-viewer .stage-stack { grid-template-columns: minmax(0, 1fr); }
       .role-viewer .control-rail { display: none; }
       .role-viewer .panel.current { grid-column: 1 / -1; }
@@ -2017,9 +2393,14 @@ function getPresenterRemoteHtml(role: SionLinkRole): string {
   <main>
     <header>
       <div class="role-identity">
-        <div class="role-mark">${role === 'presenter' ? 'P' : role === 'operator' ? 'O' : role === 'viewer' ? 'L' : 'S'}</div>
+        <img src="/icon.svg" class="role-mark" alt="SION Logo" style="border: none; padding: 2px; box-sizing: border-box;" />
         <div class="title-block">
-          <h1>${roleTitle[role]}</h1>
+          <h1 style="display: flex; align-items: center; gap: 6px;">
+            ${roleTitle[role]}
+            <span class="role-badge" style="font-size: 8px; padding: 2px 6px; border-radius: 99px; background: rgba(37, 99, 235, 0.15); border: 1px solid rgba(96, 165, 250, 0.2); color: #bfdbfe; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: inline-block; line-height: 1;">
+              ${role === 'presenter' ? 'Pemateri' : role === 'operator' ? 'Operator' : role === 'viewer' ? 'Live' : 'Stage'}
+            </span>
+          </h1>
           <div class="subtitle">${roleSubtitle[role]}</div>
         </div>
       </div>
@@ -2046,10 +2427,29 @@ function getPresenterRemoteHtml(role: SionLinkRole): string {
           <div class="meta"><span id="mode">Mode normal</span><span id="nextIndex">-</span></div>
         </section>
         ${
+          role === 'presenter'
+            ? `<section class="panel notes" id="notesPanel">
+          <div class="label-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 7px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 4px;">
+            <div class="label" style="margin:0;">Catatan Slide</div>
+            <div class="zoom-controls" style="display:flex; gap:6px;">
+              <button type="button" class="zoom-btn" onclick="adjustNotesZoom(-1)" style="min-height:24px; width:28px; padding:0; font-size:11px; border-radius:6px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#9fb2d0; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:none;">A-</button>
+              <button type="button" class="zoom-btn" onclick="adjustNotesZoom(1)" style="min-height:24px; width:28px; padding:0; font-size:11px; border-radius:6px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#9fb2d0; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:none;">A+</button>
+            </div>
+          </div>
+          <div id="slideNotes" style="line-height: 1.6; font-weight: 500; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; overflow-x: hidden; overflow-y: auto; max-height: 180px; padding: 10px 12px; color: #fbbf24; background: rgba(2, 6, 23, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; text-align: left; margin-top: 6px;">Belum ada catatan slide</div>
+        </section>`
+            : ''
+        }
+        ${
           role === 'stage'
-            ? `<section class="stage-insights">
-          <div class="stage-insights__title">Info Panggung</div>
-          <div class="stage-grid">
+            ? `<section class="stage-insights" id="stageInsightsSection">
+          <div class="stage-insights__title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <span>Info Panggung</span>
+            <span id="wallClock" style="font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 20px; font-weight: 900; color: #10b981; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); padding: 4px 10px; border-radius: 9px; letter-spacing: 0.02em;">00:00:00</span>
+          </div>
+          
+          <!-- View 1: Song Mode -->
+          <div id="stageSongGrid" class="stage-grid">
             <div class="stage-stat"><div class="stage-stat__label">Timer</div><div id="timerFace" class="stage-stat__value">00:00</div></div>
             <div class="stage-stat"><div class="stage-stat__label">Status</div><div id="stageStatus" class="stage-stat__value">CLEAR</div></div>
             <div class="stage-stat"><div class="stage-stat__label">Konten</div><div id="stageContent" class="stage-stat__value">-</div></div>
@@ -2058,8 +2458,30 @@ function getPresenterRemoteHtml(role: SionLinkRole): string {
             <div class="stage-stat"><div class="stage-stat__label">Tempo</div><div id="stageTempo" class="stage-stat__value">-</div></div>
             <div class="stage-stat"><div class="stage-stat__label">Birama</div><div id="stageTimeSignature" class="stage-stat__value">-</div></div>
             <div class="stage-stat"><div class="stage-stat__label">Referensi</div><div id="stageReference" class="stage-stat__value">-</div></div>
-            <div class="stage-stat stage-stat--wide"><div class="stage-stat__label">Notes</div><div id="stageNotes" class="stage-stat__value">-</div></div>
-            <div class="stage-stat stage-stat--wide"><div class="stage-stat__label">Chord</div><div id="stageChord" class="stage-stat__value">-</div></div>
+            <div class="stage-stat stage-stat--wide"><div class="stage-stat__label">Notes</div><div id="stageNotes" class="stage-stat__value" style="white-space: pre-wrap; max-height: 100px; overflow-y: auto;">-</div></div>
+            <div class="stage-stat stage-stat--wide"><div class="stage-stat__label">Chord</div><div id="stageChord" class="stage-stat__value" style="font-family: ui-monospace, monospace; font-size: 15px; color: #38bdf8;">-</div></div>
+          </div>
+
+          <!-- View 2: Media Mode -->
+          <div id="stageMediaGrid" class="stage-grid" style="display: none; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="stage-stat" style="padding: 16px; text-align: center; background: rgba(15, 23, 42, 0.75);">
+              <div class="stage-stat__label" style="font-size: 11px;">Timer</div>
+              <div id="stageMediaTimer" class="stage-stat__value" style="font-size: 38px; font-family: ui-monospace, monospace; color: #f8fafc; margin-top: 8px; font-weight: 950; letter-spacing: 0.05em;">00:00</div>
+            </div>
+            <div class="stage-stat" style="padding: 16px; text-align: center; background: rgba(15, 23, 42, 0.75);">
+              <div class="stage-stat__label" style="font-size: 11px;">Posisi Slide</div>
+              <div id="stageMediaPosition" class="stage-stat__value" style="font-size: 38px; color: #bfdbfe; margin-top: 8px; font-weight: 950;">-</div>
+            </div>
+            <div class="stage-stat stage-stat--wide" style="padding: 16px; display: flex; flex-direction: column; gap: 10px; background: rgba(15, 23, 42, 0.75); min-height: 200px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 6px;">
+                <div class="stage-stat__label" style="font-size: 11px; margin: 0;">Catatan Presentasi (Notes)</div>
+                <div style="display: flex; gap: 6px;">
+                  <button type="button" class="zoom-btn" onclick="adjustStageNotesZoom(-1)" style="min-height: 24px; width: 28px; padding: 0; font-size: 11px; border-radius: 6px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #9fb2d0; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: none;">A-</button>
+                  <button type="button" class="zoom-btn" onclick="adjustStageNotesZoom(1)" style="min-height: 24px; width: 28px; padding: 0; font-size: 11px; border-radius: 6px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #9fb2d0; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: none;">A+</button>
+                </div>
+              </div>
+              <div id="stageMediaNotes" style="font-size: 24px; font-weight: 700; color: #fbbf24; line-height: 1.6; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; overflow-x: hidden; overflow-y: auto; max-height: 280px; padding: 12px 14px; background: rgba(2, 6, 23, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; text-align: left; margin-top: 8px;">-</div>
+            </div>
           </div>
         </section>`
             : ''
@@ -2197,6 +2619,10 @@ ${controlsHtml[role]}
       updateStageInsights(snapshot);
       updatePresenterControls(snapshot);
       updateOperatorControls(snapshot);
+      const notesNode = document.getElementById('slideNotes');
+      if (notesNode) {
+        notesNode.textContent = (snapshot.currentSlide && snapshot.currentSlide.stageNotes) || 'Tidak ada catatan slide';
+      }
       const exactNode = document.getElementById('exactFrame');
       const currentVisual = document.getElementById('currentVisual');
       const currentText = document.getElementById('current');
@@ -2260,7 +2686,7 @@ ${controlsHtml[role]}
       } catch {}
     }
     function updateTimer(snapshot) {
-      for (const node of Array.from(document.querySelectorAll('#timerFace'))) {
+      for (const node of Array.from(document.querySelectorAll('#timerFace, #stageMediaTimer'))) {
         node.textContent = formatTimer(snapshot.timerElapsed || 0);
         node.classList.toggle('is-running', snapshot.timerRunning === true);
       }
@@ -2268,19 +2694,41 @@ ${controlsHtml[role]}
     function updateStageInsights(snapshot) {
       if (role !== 'stage') return;
       const current = snapshot.currentSlide || null;
-      const setText = (id, value) => {
-        const node = document.getElementById(id);
-        if (node) node.textContent = value || '-';
-      };
-      setText('stageStatus', snapshot.projectionState || 'CLEAR');
-      setText('stageContent', contentLabel(current));
-      setText('stagePosition', snapshot.currentIndex >= 0 ? (snapshot.currentIndex + 1) + ' / ' + (snapshot.totalSlides || '-') : '-');
-      setText('stageKey', current && current.keyNote);
-      setText('stageTempo', current && current.tempo);
-      setText('stageTimeSignature', current && current.timeSignature);
-      setText('stageReference', current && (current.bibleReference || current.label));
-      setText('stageNotes', current && current.stageNotes);
-      setText('stageChord', current && current.stageChord);
+      const isMedia = current && (current.visualType === 'pdf' || current.canPresenterNavigate === true || current.visualType === 'video' || current.visualType === 'image');
+      
+      const songGrid = document.getElementById('stageSongGrid');
+      const mediaGrid = document.getElementById('stageMediaGrid');
+      
+      if (isMedia) {
+        if (songGrid) songGrid.style.display = 'none';
+        if (mediaGrid) mediaGrid.style.display = 'grid';
+        
+        const posText = snapshot.currentIndex >= 0 ? (snapshot.currentIndex + 1) + ' / ' + (snapshot.totalSlides || '-') : '-';
+        const notesText = (current && current.stageNotes) || 'Tidak ada catatan presentasi';
+        
+        const mediaPos = document.getElementById('stageMediaPosition');
+        if (mediaPos) mediaPos.textContent = posText;
+        
+        const mediaNotes = document.getElementById('stageMediaNotes');
+        if (mediaNotes) mediaNotes.textContent = notesText;
+      } else {
+        if (songGrid) songGrid.style.display = 'grid';
+        if (mediaGrid) mediaGrid.style.display = 'none';
+        
+        const setText = (id, value) => {
+          const node = document.getElementById(id);
+          if (node) node.textContent = value || '-';
+        };
+        setText('stageStatus', snapshot.projectionState || 'CLEAR');
+        setText('stageContent', contentLabel(current));
+        setText('stagePosition', snapshot.currentIndex >= 0 ? (snapshot.currentIndex + 1) + ' / ' + (snapshot.totalSlides || '-') : '-');
+        setText('stageKey', current && current.keyNote);
+        setText('stageTempo', current && current.tempo);
+        setText('stageTimeSignature', current && current.timeSignature);
+        setText('stageReference', current && (current.bibleReference || current.label));
+        setText('stageNotes', current && current.stageNotes);
+        setText('stageChord', current && current.stageChord);
+      }
     }
     function updatePresenterControls(snapshot) {
       if (role !== 'presenter') return;
@@ -2379,6 +2827,21 @@ ${controlsHtml[role]}
       updateInstallButton();
     });
     window.matchMedia('(display-mode: standalone)').addEventListener?.('change', updateInstallButton);
+    window.addEventListener('keydown', (event) => {
+      const target = event.target;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+      const key = event.key;
+      const code = event.code;
+      if (key === 'ArrowRight' || key === 'ArrowDown' || key === 'PageDown' || key === ' ' || code === 'Space') {
+        event.preventDefault();
+        sendCommand('NEXT');
+      } else if (key === 'ArrowLeft' || key === 'ArrowUp' || key === 'PageUp') {
+        event.preventDefault();
+        sendCommand('PREV');
+      }
+    });
     function logout() {
       location.replace('/connect');
     }
@@ -2456,6 +2919,42 @@ ${controlsHtml[role]}
       void refreshObsLive();
       window.setInterval(() => void refreshObsLive(), 750);
     }
+    let notesZoom = Number(localStorage.getItem('sion-link-notes-zoom')) || 16;
+    function adjustNotesZoom(delta) {
+      notesZoom = Math.max(12, Math.min(48, notesZoom + delta * 2));
+      localStorage.setItem('sion-link-notes-zoom', notesZoom);
+      const node = document.getElementById('slideNotes');
+      if (node) {
+        node.style.fontSize = notesZoom + 'px';
+      }
+    }
+    let stageNotesZoom = Number(localStorage.getItem('sion-link-stage-notes-zoom')) || 24;
+    function adjustStageNotesZoom(delta) {
+      stageNotesZoom = Math.max(14, Math.min(48, stageNotesZoom + delta * 2));
+      localStorage.setItem('sion-link-stage-notes-zoom', stageNotesZoom);
+      const node = document.getElementById('stageMediaNotes');
+      if (node) {
+        node.style.fontSize = stageNotesZoom + 'px';
+      }
+    }
+    function startClock() {
+      const clockNode = document.getElementById('wallClock');
+      if (!clockNode) return;
+      const pad = (n) => String(n).padStart(2, '0');
+      function update() {
+        const d = new Date();
+        clockNode.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+      }
+      update();
+      window.setInterval(update, 1000);
+    }
+    setTimeout(() => {
+      adjustNotesZoom(0);
+      if (role === 'stage') {
+        adjustStageNotesZoom(0);
+        startClock();
+      }
+    }, 100);
   </script>
 </body>
 </html>`
@@ -2500,7 +2999,10 @@ function getSionLinkConnectHtml(): string {
 <body>
   <main>
     <div class="brand">
-      <h1>SION Link</h1>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <img src="/icon.svg" alt="SION Logo" style="width: 32px; height: 32px; border-radius: 9px; box-shadow: 0 4px 10px rgba(0,0,0,0.25);" />
+        <h1>SION Link</h1>
+      </div>
       <div style="display:flex;align-items:center;gap:8px">
         <button id="installButton" class="install is-hidden" type="button">Install</button>
         <div class="pill">Local WiFi</div>

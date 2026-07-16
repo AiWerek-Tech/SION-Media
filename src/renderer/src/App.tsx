@@ -9,7 +9,10 @@ import {
   usePowerPointBridgeStore,
   type PowerPointBridgeSourceState
 } from './store/usePowerPointBridgeStore'
-import { loadPowerPointBridgeSource } from './utils/powerPointBridge'
+import {
+  loadPowerPointBridgeSource,
+  updateLivePowerPointBridgeFrame
+} from './utils/powerPointBridge'
 import { Toast } from './components/Toast'
 import { CommandPalette } from './components/CommandPalette'
 import { KeyboardCheatSheet } from './components/KeyboardCheatSheet'
@@ -172,11 +175,12 @@ function App(): React.JSX.Element {
           const bridgeSource = source as PowerPointBridgeSourceState
           bridge.setSource(bridgeSource)
 
-          const isCurrentlyLive = useProjectionStore.getState().programSongMeta?.hymnalCode === 'PPT LIVE'
+          const isCurrentlyLive =
+            useProjectionStore.getState().programSongMeta?.hymnalCode === 'PPT LIVE'
           if (isCurrentlyLive) {
-            loadPowerPointBridgeSource(bridgeSource, true)
-          } else if (bridge.autoPreview) {
-            loadPowerPointBridgeSource(bridgeSource, bridge.autoLive)
+            updateLivePowerPointBridgeFrame(bridgeSource)
+          } else if (bridge.followMode !== 'MANUAL') {
+            loadPowerPointBridgeSource(bridgeSource, bridge.followMode === 'FOLLOW_LIVE')
           }
           break
         }

@@ -18,9 +18,11 @@ Saya telah sukses mengimplementasikan fitur **Panel Media Lokal** dan mengintegr
 ## Perubahan yang Dilakukan
 
 ### 1. Main Process (Electron)
+
 - **[MODIFY] [src/main/index.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/main/index.ts):** Memperbaiki parser `local-media` agar menormalisasi backslash Windows dan memotong leading slash jika terdapat drive letter, menjamin pemuatan media fisik 100% andal di PC lokal.
 
 ### 2. Sisi UI & Store (React/TypeScript)
+
 - **[MODIFY] [src/renderer/src/atmosphere/AtmosphereRenderer.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/atmosphere/AtmosphereRenderer.tsx):** Menambahkan helper `toLocalMediaUrl` dan mengubah pemuatan image dan video agar dimuat lewat protokol `local-media://` alih-alih `file://`.
 - **[MODIFY] [src/renderer/src/components/projection/LocalMediaPanel.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/components/projection/LocalMediaPanel.tsx):**
   - Mengimpor dan mengintegrasikan `<SearchInput />` dan `<Button />` dari SION design system.

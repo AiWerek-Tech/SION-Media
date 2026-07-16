@@ -93,50 +93,61 @@ function shapePlaceholderType(shape: Record<string, unknown>): string {
 }
 
 export function extractSpeakerNotes(notesXml: string): string {
-  const parser = new XMLParser({
-    ignoreAttributes: false,
-    attributeNamePrefix: '@_',
-    removeNSPrefix: true
-  })
-  const parsed = parser.parse(notesXml) as Record<string, unknown>
-  const notes = parsed.notes as Record<string, unknown> | undefined
-  const cSld = notes?.cSld as Record<string, unknown> | undefined
-  const spTree = cSld?.spTree as Record<string, unknown> | undefined
-  const shapes = asArray(spTree?.sp as Record<string, unknown> | Array<Record<string, unknown>>)
-  const paragraphs: string[] = []
-  for (const shape of shapes) {
-    if (shapePlaceholderType(shape) !== 'body') continue
-    const txBody = shape.txBody as Record<string, unknown> | undefined
-    for (const paragraph of asArray(txBody?.p)) {
-      const text: string[] = []
-      collectText(paragraph, text)
-      const line = text.join('').replace(/\s+/g, ' ').trim()
-      if (line) paragraphs.push(line)
+  try {
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+      removeNSPrefix: true,
+      trimValues: false
+    })
+    const parsed = parser.parse(notesXml) as Record<string, unknown>
+    const notes = parsed.notes as Record<string, unknown> | undefined
+    const cSld = notes?.cSld as Record<string, unknown> | undefined
+    const spTree = cSld?.spTree as Record<string, unknown> | undefined
+    const shapes = asArray(spTree?.sp as Record<string, unknown> | Array<Record<string, unknown>>)
+    const paragraphs: string[] = []
+    for (const shape of shapes) {
+      if (shapePlaceholderType(shape) !== 'body') continue
+      const txBody = shape.txBody as Record<string, unknown> | undefined
+      for (const paragraph of asArray(txBody?.p)) {
+        const text: string[] = []
+        collectText(paragraph, text)
+        const line = text.join('').replace(/\s+/g, ' ').trim()
+        if (line) paragraphs.push(line)
+      }
     }
+    return paragraphs.join('\n')
+  } catch (error) {
+    console.error('Error parsing speaker notes XML:', error)
+    return ''
   }
-  return paragraphs.join('\n')
 }
 
 export function extractSlideTitle(slideXml: string): string {
-  const parser = new XMLParser({
-    ignoreAttributes: false,
-    attributeNamePrefix: '@_',
-    removeNSPrefix: true
-  })
-  const parsed = parser.parse(slideXml) as Record<string, unknown>
-  const slide = parsed.sld as Record<string, unknown> | undefined
-  const cSld = slide?.cSld as Record<string, unknown> | undefined
-  const spTree = cSld?.spTree as Record<string, unknown> | undefined
-  const shapes = asArray(spTree?.sp as Record<string, unknown> | Array<Record<string, unknown>>)
-  for (const shape of shapes) {
-    const type = shapePlaceholderType(shape)
-    if (type !== 'title' && type !== 'ctrTitle') continue
-    const text: string[] = []
-    collectText(shape.txBody, text)
-    const title = text.join(' ').replace(/\s+/g, ' ').trim()
-    if (title) return title.slice(0, 300)
+  try {
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+      removeNSPrefix: true
+    })
+    const parsed = parser.parse(slideXml) as Record<string, unknown>
+    const slide = parsed.sld as Record<string, unknown> | undefined
+    const cSld = slide?.cSld as Record<string, unknown> | undefined
+    const spTree = cSld?.spTree as Record<string, unknown> | undefined
+    const shapes = asArray(spTree?.sp as Record<string, unknown> | Array<Record<string, unknown>>)
+    for (const shape of shapes) {
+      const type = shapePlaceholderType(shape)
+      if (type !== 'title' && type !== 'ctrTitle') continue
+      const text: string[] = []
+      collectText(shape.txBody, text)
+      const title = text.join(' ').replace(/\s+/g, ' ').trim()
+      if (title) return title.slice(0, 300)
+    }
+    return ''
+  } catch (error) {
+    console.error('Error parsing slide title XML:', error)
+    return ''
   }
-  return ''
 }
 
 async function readPptxEntries(filePath: string): Promise<Map<string, Buffer>> {
@@ -222,42 +233,140 @@ async function exportWithOfficeCom(
   sourcePath: string,
   pdfPath: string,
   slidesDir: string,
-  progId: 'PowerPoint.Application' | 'KWPP.Application'
+  progId: 'PowerPoint.Application' | 'KWPP.Application',
+  onProgress?: (percent: number) => void
 ): Promise<void> {
-  const escapedSource = sourcePath.replace(/'/g, "''")
-  const escapedPdf = pdfPath.replace(/'/g, "''")
-  const escapedSlides = slidesDir.replace(/'/g, "''")
-  const script = `$ErrorActionPreference='Stop'; $ppt=$null; $deck=$null; try { $ppt=New-Object -ComObject '${progId}'; $deck=$ppt.Presentations.Open('${escapedSource}', $true, $false, $false); $deck.ExportAsFixedFormat('${escapedPdf}', 2); $deck.Export('${escapedSlides}', 'PNG', 1920, 1080) } finally { if($deck){$deck.Close()}; if($ppt){$ppt.Quit()}; [GC]::Collect(); [GC]::WaitForPendingFinalizers() }`
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(
-      'powershell.exe',
-      [
-        '-NoLogo',
-        '-NoProfile',
-        '-NonInteractive',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-EncodedCommand',
-        encodePowerShell(script)
-      ],
-      { windowsHide: true }
-    )
-    let errorText = ''
-    const timer = setTimeout(() => {
-      child.kill()
-      reject(new Error('PowerPoint conversion exceeded the 3 minute timeout.'))
-    }, 180_000)
-    child.stderr.on('data', (chunk: Buffer) => (errorText += chunk.toString()))
-    child.once('error', (error) => {
-      clearTimeout(timer)
-      reject(error)
+  // Use VBScript (cscript.exe) for COM interop. VBScript's integer literals
+  // are native VT_I2 (COM Integer), unlike JScript (all numbers = VT_R8/Double)
+  // and PowerShell (.NET Int32 → COM type coercion issues). This matches what
+  // Office COM dispatch expects for enum parameters like PpFixedFormatType.
+  //
+  // Multiple export strategies are tried in sequence because WPS Office can
+  // hijack the 'PowerPoint.Application' ProgID while having a different
+  // (often incompatible) ExportAsFixedFormat implementation.
+  const escVbs = (s: string): string => s.replace(/"/g, '""')
+
+  const vbsLines = [
+    'On Error Resume Next',
+    'Dim ppt, deck, ok',
+    '',
+    `Set ppt = CreateObject("${escVbs(progId)}")`,
+    'If Err.Number <> 0 Then',
+    '  WScript.StdErr.Write "Tidak dapat membuat objek COM: " & Err.Description',
+    '  WScript.Quit 1',
+    'End If',
+    'Err.Clear',
+    '',
+    `Set deck = ppt.Presentations.Open("${escVbs(sourcePath)}", True, False, False)`,
+    'If Err.Number <> 0 Then',
+    '  WScript.StdErr.Write "Gagal membuka presentasi: " & Err.Description',
+    '  ppt.Quit',
+    '  WScript.Quit 2',
+    'End If',
+    'Err.Clear',
+    '',
+    "' --- PDF Export: try multiple strategies ---",
+    'ok = False',
+    '',
+    "' Strategy 1: ExportAsFixedFormat standard (ppFixedFormatTypePDF = 2)",
+    `deck.ExportAsFixedFormat "${escVbs(pdfPath)}", 2`,
+    'If Err.Number = 0 Then',
+    '  ok = True',
+    'Else',
+    '  Err.Clear',
+    'End If',
+    '',
+    "' Strategy 2: ExportAsFixedFormat with full parameter list",
+    "' (Intent=2/Print, FrameSlides=0/False, HandoutOrder=1, OutputType=1/Slides, PrintHidden=0/False)",
+    'If Not ok Then',
+    `  deck.ExportAsFixedFormat "${escVbs(pdfPath)}", 2, 2, 0, 1, 1, 0`,
+    '  If Err.Number = 0 Then',
+    '    ok = True',
+    '  Else',
+    '    Err.Clear',
+    '  End If',
+    'End If',
+    '',
+    "' Strategy 3: SaveAs with ppSaveAsPDF = 32",
+    'If Not ok Then',
+    `  deck.SaveAs "${escVbs(pdfPath)}", 32`,
+    '  If Err.Number = 0 Then',
+    '    ok = True',
+    '  Else',
+    '    Err.Clear',
+    '  End If',
+    'End If',
+    '',
+    'If Not ok Then',
+    '  WScript.StdErr.Write "Gagal mengekspor PDF. Semua strategi ekspor gagal."',
+    '  deck.Close',
+    '  If ppt.Presentations.Count = 0 Then ppt.Quit',
+    '  WScript.Quit 3',
+    'End If',
+    'Err.Clear',
+    '',
+    "' --- PNG slide images export (non-critical) ---",
+    'Dim i, totalSlides',
+    'totalSlides = deck.Slides.Count',
+    'WScript.StdOut.WriteLine "slides_count:" & totalSlides',
+    'For i = 1 To totalSlides',
+    '  WScript.StdOut.WriteLine "slide_export:" & i',
+    '  Err.Clear',
+    `  deck.Slides(i).Export "${escVbs(slidesDir)}\\slide" & i & ".png", "PNG", 1920, 1080`,
+    'Next',
+    'Err.Clear',
+    '',
+    'deck.Close',
+    'If ppt.Presentations.Count = 0 Then ppt.Quit',
+    'Set deck = Nothing',
+    'Set ppt = Nothing',
+    'WScript.Quit 0'
+  ]
+
+  const scriptPath = join(dirname(pdfPath), 'export-presentation.vbs')
+  await writeFile(scriptPath, vbsLines.join('\r\n'), 'utf8')
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn('cscript.exe', ['//Nologo', '//B', scriptPath], { windowsHide: true })
+      let errorText = ''
+      let totalSlides = 0
+      const timer = setTimeout(() => {
+        child.kill()
+        reject(new Error('Konversi presentasi melewati batas waktu 3 menit.'))
+      }, 180_000)
+      child.stderr.on('data', (chunk: Buffer) => (errorText += chunk.toString()))
+      child.stdout.on('data', (chunk: Buffer) => {
+        const lines = chunk.toString().split(/\r?\n/)
+        for (const line of lines) {
+          if (line.startsWith('slides_count:')) {
+            totalSlides = parseInt(line.substring(13), 10) || 0
+            if (totalSlides > 0) {
+              onProgress?.(50)
+            }
+          } else if (line.startsWith('slide_export:')) {
+            const i = parseInt(line.substring(13), 10) || 0
+            if (totalSlides > 0 && i > 0) {
+              const pct = 50 + Math.floor((i / totalSlides) * 40)
+              onProgress?.(pct)
+            }
+          }
+        }
+      })
+      child.once('error', (error) => {
+        clearTimeout(timer)
+        reject(error)
+      })
+      child.once('exit', (code) => {
+        clearTimeout(timer)
+        if (code === 0) resolve()
+        else
+          reject(new Error(errorText.trim() || `Konversi presentasi gagal (kode keluar: ${code}).`))
+      })
     })
-    child.once('exit', (code) => {
-      clearTimeout(timer)
-      if (code === 0) resolve()
-      else reject(new Error(errorText.trim() || `PowerPoint conversion failed (${code}).`))
-    })
-  })
+  } finally {
+    await rm(scriptPath, { force: true }).catch(() => {})
+  }
 }
 
 function findLibreOffice(): string | null {
@@ -334,7 +443,12 @@ async function exportWithLibreOffice(sourcePath: string, pdfPath: string): Promi
 
 export async function createPresentationPackage(
   sourcePath: string,
-  requestedOutput: 'auto' | 'pdf' | 'images' = 'auto'
+  requestedOutput: 'auto' | 'pdf' | 'images' = 'auto',
+  onProgress?: (
+    percent: number,
+    step: 'parsing' | 'converting' | 'generating' | 'finishing' | 'done' | 'failed',
+    errorMessage?: string
+  ) => void
 ): Promise<PresentationPackageManifest> {
   if (extname(sourcePath).toLowerCase() !== '.pptx')
     throw new Error('Only .pptx presentations are supported.')
@@ -342,9 +456,11 @@ export async function createPresentationPackage(
   if (!sourceStat?.isFile()) throw new Error('PPTX file was not found.')
   if (sourceStat.size > MAX_PPTX_BYTES) throw new Error('PPTX exceeds the 300 MB import limit.')
 
+  onProgress?.(5, 'parsing')
   const sourceBytes = await readFile(sourcePath)
   const sourceSha256 = createHash('sha256').update(sourceBytes).digest('hex')
   const parsedSlides = await parsePptx(sourcePath)
+  onProgress?.(15, 'parsing')
   const id = randomUUID()
   const root = join(app.getPath('userData'), 'presentation-packages')
   const temporaryDir = join(root, `.importing-${id}`)
@@ -353,22 +469,28 @@ export async function createPresentationPackage(
   const pdfPath = join(temporaryDir, 'presentation.pdf')
   await mkdir(slidesDir, { recursive: true })
   try {
+    onProgress?.(20, 'converting')
     const conversionProvider = await selectConversionProvider()
     const warnings: string[] = []
     if (conversionProvider === 'libreoffice') {
+      onProgress?.(30, 'generating')
       await exportWithLibreOffice(sourcePath, pdfPath)
       if (requestedOutput === 'images') {
         warnings.push(
           'LibreOffice menghasilkan PDF; mode gambar memerlukan PowerPoint atau WPS Presentation.'
         )
       }
+      onProgress?.(85, 'finishing')
     } else {
+      onProgress?.(30, 'generating')
       await exportWithOfficeCom(
         sourcePath,
         pdfPath,
         slidesDir,
-        conversionProvider === 'powerpoint' ? 'PowerPoint.Application' : 'KWPP.Application'
+        conversionProvider === 'powerpoint' ? 'PowerPoint.Application' : 'KWPP.Application',
+        (pct) => onProgress?.(pct, 'generating')
       )
+      onProgress?.(90, 'finishing')
     }
     if (!existsSync(pdfPath))
       throw new Error('Mesin konversi tidak menghasilkan PDF yang diharapkan.')
@@ -379,15 +501,27 @@ export async function createPresentationPackage(
         const rightNumber = Number(right.match(/\d+/)?.[0] ?? 0)
         return leftNumber - rightNumber
       })
-    if (conversionProvider !== 'libreoffice' && exportedImages.length !== parsedSlides.length) {
-      throw new Error(
-        `PowerPoint exported ${exportedImages.length} slide images; expected ${parsedSlides.length}.`
+    let finalOutputMode: 'pdf' | 'images' = 'pdf'
+    if (conversionProvider !== 'libreoffice' && exportedImages.length === parsedSlides.length) {
+      if (requestedOutput === 'images' || requestedOutput === 'auto') {
+        finalOutputMode = 'images'
+      }
+    } else if (
+      conversionProvider !== 'libreoffice' &&
+      exportedImages.length !== parsedSlides.length
+    ) {
+      warnings.push(
+        `Jumlah gambar slide tidak cocok (${exportedImages.length} diekspor, tetapi terdeteksi ${parsedSlides.length} slide). Menggunakan mode render PDF.`
       )
     }
+
     const slides = parsedSlides.map((slide, index) => ({
       index,
       sourcePath: slide.sourcePath,
-      imagePath: exportedImages[index] ? join(packageDir, 'slides', exportedImages[index]) : '',
+      imagePath:
+        finalOutputMode === 'images' && exportedImages[index]
+          ? join(packageDir, 'slides', exportedImages[index])
+          : '',
       title: slide.title || `Slide ${index + 1}`,
       notes: slide.notes
     }))
@@ -401,8 +535,7 @@ export async function createPresentationPackage(
       pdfPath: join(packageDir, 'presentation.pdf'),
       slideCount: slides.length,
       conversionProvider,
-      outputMode:
-        requestedOutput === 'images' && conversionProvider !== 'libreoffice' ? 'images' : 'pdf',
+      outputMode: finalOutputMode,
       warnings,
       slides
     }
