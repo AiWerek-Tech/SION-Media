@@ -2186,19 +2186,19 @@ function getPresenterRemoteHtml(role: SionLinkRole): string {
     :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #050811; color: #f8fafc; }
     * { box-sizing: border-box; }
     html { min-height: 100%; background: #050811; -webkit-text-size-adjust: 100%; }
-    body { margin: 0; min-height: 100vh; min-height: 100dvh; background: radial-gradient(circle at 20% 0%, rgba(37, 99, 235, .28) 0, transparent 34%), #050811; overscroll-behavior: none; }
+    body { margin: 0; min-height: 100vh; min-height: 100dvh; background: radial-gradient(circle at 20% 0%, rgba(14, 165, 233, .28) 0, transparent 34%), #050811; overscroll-behavior: none; }
     main { width: min(100%, 520px); min-height: 100vh; min-height: 100dvh; margin: 0 auto; padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; }
     header { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; padding: 0 2px; }
     .title-block { min-width: 0; }
     .role-identity { display: flex; align-items: center; gap: 8px; min-width: 0; }
-    .role-mark { width: 30px; height: 30px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 10px; border: 1px solid rgba(96,165,250,.25); background: linear-gradient(145deg, rgba(37,99,235,.28), rgba(15,23,42,.76)); color: #bfdbfe; font-size: 12px; font-weight: 950; box-shadow: inset 0 1px 0 rgba(255,255,255,.07); }
+    .role-mark { width: 30px; height: 30px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 10px; border: 1px solid rgba(56,189,248,.25); background: linear-gradient(145deg, rgba(14,165,233,.28), rgba(15,23,42,.76)); color: #bfdbfe; font-size: 12px; font-weight: 950; box-shadow: inset 0 1px 0 rgba(255,255,255,.07); }
     h1 { margin: 0; font-size: 13px; letter-spacing: .09em; text-transform: uppercase; }
     .subtitle { margin-top: 3px; color: #7f91aa; font-size: 10px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .status { display:flex; align-items:center; gap:7px; padding: 7px 10px; border: 1px solid rgba(52, 211, 153, .24); border-radius: 999px; color: #a7f3d0; background: rgba(6, 78, 59, .24); font-size: 11px; font-weight: 800; white-space: nowrap; }
     .status::before { content:''; width:7px; height:7px; border-radius:999px; background:currentColor; box-shadow:0 0 0 4px rgba(52,211,153,.1); }
     .top-action { appearance: none; min-height: 34px; width: auto; padding: 0 10px; border-radius: 999px; border: 1px solid rgba(148, 163, 184, .16); background: rgba(15, 23, 42, .68); color: #cbd5e1; font-size: 11px; font-weight: 900; box-shadow: none; }
-    .top-action:hover { border-color: rgba(96, 165, 250, .34); color: #f8fafc; }
+    .top-action:hover { border-color: rgba(56, 189, 248, .34); color: #f8fafc; }
     .top-action.is-hidden { display: none; }
     .stage-stack { display: flex; flex-direction: column; gap: 10px; flex: 1 1 auto; min-height: 0; }
     .control-rail { display: flex; flex-direction: column; gap: 10px; }
@@ -2232,12 +2232,12 @@ function getPresenterRemoteHtml(role: SionLinkRole): string {
     .controls { position: sticky; bottom: max(8px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: 1fr 1.18fr; gap: 9px; padding: 10px; margin-top: 0; border: 1px solid rgba(148, 163, 184, .14); border-radius: 24px; background: rgba(4, 8, 18, .9); box-shadow: 0 -18px 50px rgba(0,0,0,.34); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
     button { appearance: none; -webkit-tap-highlight-color: transparent; user-select: none; border: 1px solid rgba(148, 163, 184, .18); background: linear-gradient(180deg, #182235, #111827); color: #f8fafc; border-radius: 18px; min-height: 58px; font-size: 17px; font-weight: 900; box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 24px rgba(0,0,0,.18); touch-action: manipulation; }
     button:active { transform: translateY(1px) scale(.985); filter: brightness(1.08); }
-    .primary { background: linear-gradient(180deg, #3b82f6, #2563eb); border-color: rgba(147, 197, 253, .58); }
+    .primary { background: linear-gradient(135deg, #0ea5e9, #2563eb); border-color: rgba(56, 189, 248, .58); }
     .danger { background: linear-gradient(180deg, #171717, #0b0b0b); border-color: rgba(245, 158, 11, .8); color: #fbbf24; }
     button.is-active { border-color: rgba(52, 211, 153, .6); color: #a7f3d0; box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 1px rgba(52,211,153,.14), 0 14px 30px rgba(16,185,129,.16); }
     button.is-busy { opacity: .72; pointer-events: none; }
     .small { min-height: 46px; font-size: 13px; border-radius: 15px; }
-    .primary-soft { background: linear-gradient(180deg, rgba(37,99,235,.34), rgba(30,64,175,.26)); border-color: rgba(96,165,250,.36); color: #dbeafe; }
+    .primary-soft { background: linear-gradient(135deg, rgba(14,165,233,.34), rgba(30,64,175,.26)); border-color: rgba(56,189,248,.36); color: #dbeafe; }
     .control-note { grid-column: 1 / -1; min-height: 34px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(245, 158, 11, .18); border-radius: 14px; background: rgba(245, 158, 11, .08); color: #fcd34d; font-size: 11px; font-weight: 800; text-align: center; padding: 7px 10px; }
     .operator-advanced { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr; gap: 9px; }
     .advanced-card, .stage-insights { border: 1px solid rgba(148, 163, 184, .14); border-radius: 18px; background: rgba(2, 6, 23, .36); padding: 11px; }
@@ -2975,18 +2975,19 @@ function getSionLinkConnectHtml(): string {
     :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #050811; color: #f8fafc; }
     * { box-sizing: border-box; }
     html, body { min-height: 100%; }
-    body { margin: 0; min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; background: radial-gradient(circle at 18% 0%, rgba(37, 99, 235, .34) 0, transparent 34%), radial-gradient(circle at 82% 20%, rgba(16, 185, 129, .16) 0, transparent 30%), #050811; padding: max(16px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
+    body { margin: 0; min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; background: radial-gradient(circle at 18% 0%, rgba(14, 165, 233, .3) 0, transparent 34%), radial-gradient(circle at 82% 20%, rgba(16, 185, 129, .16) 0, transparent 30%), #050811; padding: max(16px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
     main { width: min(100%, 430px); border: 1px solid rgba(148, 163, 184, .16); border-radius: 28px; background: linear-gradient(180deg, rgba(15, 23, 42, .92), rgba(5, 8, 17, .96)); box-shadow: 0 26px 80px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.05); padding: 22px; }
     .brand { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 28px; }
-    h1 { margin: 0; font-size: 22px; letter-spacing: .02em; }
-    .pill { padding: 7px 10px; border-radius: 999px; background: rgba(37, 99, 235, .14); border: 1px solid rgba(96, 165, 250, .2); color: #bfdbfe; font-size: 11px; font-weight: 900; }
+    h1 { margin: 0; font-size: 22px; letter-spacing: .02em; font-weight: 850; color: #ffffff; }
+    h1 span { color: #38bdf8; font-weight: 850; }
+    .pill { padding: 7px 10px; border-radius: 999px; background: rgba(14, 165, 233, .14); border: 1px solid rgba(56, 189, 248, .2); color: #bfdbfe; font-size: 11px; font-weight: 900; }
     .install { width: auto; min-height: 34px; margin: 0; padding: 0 11px; border-radius: 999px; border-color: rgba(52, 211, 153, .22); background: rgba(6, 78, 59, .2); color: #a7f3d0; font-size: 11px; box-shadow: none; }
     .install.is-hidden { display: none; }
     label { display: block; color: #9fb2d0; font-size: 11px; text-transform: uppercase; letter-spacing: .12em; font-weight: 900; margin-bottom: 8px; }
     input { width: 100%; height: 62px; border: 1px solid rgba(148, 163, 184, .18); border-radius: 18px; outline: none; background: rgba(2, 6, 23, .72); color: #f8fafc; font-size: 26px; font-weight: 900; text-align: center; letter-spacing: .12em; text-transform: uppercase; box-shadow: inset 0 1px 0 rgba(255,255,255,.04); }
     input.device-name { height: 48px; margin-bottom: 12px; font-size: 15px; letter-spacing: 0; text-transform: none; }
-    input:focus { border-color: rgba(96, 165, 250, .72); box-shadow: 0 0 0 4px rgba(37, 99, 235, .16), inset 0 1px 0 rgba(255,255,255,.04); }
-    button { width: 100%; min-height: 58px; margin-top: 14px; border: 1px solid rgba(147, 197, 253, .42); border-radius: 18px; background: linear-gradient(180deg, #3b82f6, #2563eb); color: white; font-size: 17px; font-weight: 950; box-shadow: 0 18px 38px rgba(37, 99, 235, .28), inset 0 1px 0 rgba(255,255,255,.16); }
+    input:focus { border-color: rgba(56, 189, 248, .72); box-shadow: 0 0 0 4px rgba(14, 165, 233, .16), inset 0 1px 0 rgba(255,255,255,.04); }
+    button { width: 100%; min-height: 58px; margin-top: 14px; border: 1px solid rgba(56, 189, 248, .42); border-radius: 18px; background: linear-gradient(135deg, #0ea5e9, #2563eb); color: white; font-size: 17px; font-weight: 950; box-shadow: 0 12px 28px rgba(14, 165, 233, 0.25), inset 0 1px 0 rgba(255,255,255,.16); }
     button:active { transform: translateY(1px) scale(.99); }
     .hint { margin: 14px 0 0; color: #7f91aa; font-size: 12px; line-height: 1.5; text-align: center; }
     .status { min-height: 18px; margin-top: 12px; color: #a7f3d0; font-size: 12px; text-align: center; font-weight: 800; }
@@ -3001,7 +3002,7 @@ function getSionLinkConnectHtml(): string {
     <div class="brand">
       <div style="display: flex; align-items: center; gap: 10px;">
         <img src="/icon.svg" alt="SION Logo" style="width: 32px; height: 32px; border-radius: 9px; box-shadow: 0 4px 10px rgba(0,0,0,0.25);" />
-        <h1>SION Link</h1>
+        <h1>SION <span>Link</span></h1>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <button id="installButton" class="install is-hidden" type="button">Install</button>
