@@ -2337,7 +2337,7 @@ function getPresenterRemoteHtml(role: SionLinkRole): string {
       body.role-stage.is-fullscreen .stage-stack { grid-template-columns: minmax(0, 1.25fr) minmax(240px, .75fr); }
     }
     @media (min-width: 1024px) and (min-height: 620px) {
-      body { overflow: hidden; background: radial-gradient(circle at 18% 0%, rgba(37, 99, 235, .32) 0, transparent 30%), radial-gradient(circle at 92% 16%, rgba(16, 185, 129, .08) 0, transparent 28%), #050811; }
+      body { overflow: hidden; background: radial-gradient(circle at 18% 0%, rgba(14, 165, 233, .32) 0, transparent 30%), radial-gradient(circle at 92% 16%, rgba(16, 185, 129, .08) 0, transparent 28%), #050811; }
       main { width: 100%; max-width: 1680px; height: 100vh; height: 100dvh; min-height: 0; padding: 22px 28px 18px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 28vw); grid-template-rows: 38px minmax(0, 1fr) 18px; gap: 16px; }
       header { grid-column: 1 / -1; min-height: 38px; padding: 0; }
       h1 { font-size: 15px; letter-spacing: .12em; }
@@ -2397,7 +2397,7 @@ function getPresenterRemoteHtml(role: SionLinkRole): string {
         <div class="title-block">
           <h1 style="display: flex; align-items: center; gap: 6px;">
             ${roleTitle[role]}
-            <span class="role-badge" style="font-size: 8px; padding: 2px 6px; border-radius: 99px; background: rgba(37, 99, 235, 0.15); border: 1px solid rgba(96, 165, 250, 0.2); color: #bfdbfe; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: inline-block; line-height: 1;">
+            <span class="role-badge" style="font-size: 8px; padding: 2px 6px; border-radius: 99px; background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(56, 189, 248, 0.2); color: #bfdbfe; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: inline-block; line-height: 1;">
               ${role === 'presenter' ? 'Pemateri' : role === 'operator' ? 'Operator' : role === 'viewer' ? 'Live' : 'Stage'}
             </span>
           </h1>
