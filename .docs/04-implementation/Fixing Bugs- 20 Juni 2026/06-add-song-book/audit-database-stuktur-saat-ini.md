@@ -127,17 +127,22 @@ Berikut adalah penjelasan lengkap mengenai **struktur data**, **sistem database*
 ---
 
 ### 1. Arsitektur Sistem & Aliran Data
+
 Aplikasi SION Media Desktop dibangun menggunakan Electron dengan React (TypeScript). Aliran datanya terbagi menjadi dua proses:
-*   **Main Process (Backend):** Menggunakan pustaka `better-sqlite3` untuk mengelola database SQLite lokal bernama `sion.db` yang terletak di direktori `userData` sistem operasi (untuk Windows biasanya di `%APPDATA%/sion-media-desktop/sion.db`). Fungsi pengelolaan database didefinisikan di [database.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/main/database.ts).
-*   **Renderer Process (Frontend):** Berjalan di UI React. Antara Frontend dan Backend berkomunikasi secara aman melalui jalur IPC (Inter-Process Communication) yang dideklarasikan di [ipc-handlers.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/main/ipc-handlers.ts).
+
+- **Main Process (Backend):** Menggunakan pustaka `better-sqlite3` untuk mengelola database SQLite lokal bernama `sion.db` yang terletak di direktori `userData` sistem operasi (untuk Windows biasanya di `%APPDATA%/sion-media-desktop/sion.db`). Fungsi pengelolaan database didefinisikan di [database.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/main/database.ts).
+- **Renderer Process (Frontend):** Berjalan di UI React. Antara Frontend dan Backend berkomunikasi secara aman melalui jalur IPC (Inter-Process Communication) yang dideklarasikan di [ipc-handlers.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/main/ipc-handlers.ts).
 
 ---
 
 ### 2. Struktur Database (Database Schema)
+
 Skema database didefinisikan di dalam file migrasi [migrations.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/main/migrations.ts). Hubungan antar tabel utama lagu adalah **One-to-Many** antara buku lagu (`hymnals`) dengan lagu (`songs`).
 
 #### A. Tabel `hymnals` (Buku Lagu)
+
 Menyimpan informasi metadata dari setiap buku lagu (misalnya: Lagu Sion Edisi Lengkap, Kidung Jemaat, dll).
+
 ```sql
 CREATE TABLE IF NOT EXISTS hymnals (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -154,7 +159,9 @@ CREATE TABLE IF NOT EXISTS hymnals (
 ```
 
 #### B. Tabel `songs` (Daftar Lagu)
+
 Menyimpan data lagu spesifik yang terikat ke salah satu buku lagu melalui foreign key `hymnal_id`.
+
 ```sql
 CREATE TABLE IF NOT EXISTS songs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -182,47 +189,52 @@ CREATE TABLE IF NOT EXISTS songs (
 ```
 
 #### C. Full-Text Search Virtual Table (`songs_fts`)
-Untuk mempercepat pencarian lirik dan lagu secara instan, aplikasi menggunakan fitur FTS5 dari SQLite yang disinkronkan secara otomatis menggunakan SQLite *triggers* di [migrations.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/main/migrations.ts#L125-L169).
+
+Untuk mempercepat pencarian lirik dan lagu secara instan, aplikasi menggunakan fitur FTS5 dari SQLite yang disinkronkan secara otomatis menggunakan SQLite _triggers_ di [migrations.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/main/migrations.ts#L125-L169).
 
 ---
 
 ### 3. Cara Kerja Pembagian Lirik Lagu (`lyrics_raw` parsing)
+
 Saat lagu ditampilkan pada layar proyeksi, teks lirik mentah (`lyrics_raw`) diproses oleh modul [slideEngine.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/engine/slideEngine.ts) menggunakan fungsi [generateSlides](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/engine/slideEngine.ts#L191) untuk dipecah menjadi beberapa slide secara otomatis dengan aturan berikut:
 
 1.  **Pemisahan Bagian (Sectioning):**
-    *   Sistem mendeteksi penanda bagian dengan kurung siku seperti `[Verse 1]`, `[Chorus]`, atau `[Reff]` di awal baris lirik.
-    *   Sistem juga mengenali teks header bagian murni tanpa kurung siku menggunakan Regex (seperti baris tunggal bertuliskan `Verse 1`, `Bait 2`, `Reff`, `Chorus`, `Bridge`, `Ending`).
+    - Sistem mendeteksi penanda bagian dengan kurung siku seperti `[Verse 1]`, `[Chorus]`, atau `[Reff]` di awal baris lirik.
+    - Sistem juga mengenali teks header bagian murni tanpa kurung siku menggunakan Regex (seperti baris tunggal bertuliskan `Verse 1`, `Bait 2`, `Reff`, `Chorus`, `Bridge`, `Ending`).
 2.  **Pemisahan Manual (`---`):**
-    *   Jika Anda menaruh baris `---` (tiga tanda hubung) di dalam teks lirik, sistem akan langsung memotong teks pada bagian tersebut dan memulai slide baru (manual slide break).
+    - Jika Anda menaruh baris `---` (tiga tanda hubung) di dalam teks lirik, sistem akan langsung memotong teks pada bagian tersebut dan memulai slide baru (manual slide break).
 3.  **Algoritma Penyeimbang Pintar (Smart Balancing):**
-    *   Jika jumlah baris dalam satu bait melebihi batas konfigurasi global (`maxLines`, defaultnya 4 baris per slide), mesin [splitIntoSlides](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/engine/slideEngine.ts#L128) akan memecah lirik secara seimbang.
-    *   *Contoh:* Jika bait memiliki 5 baris lirik sedangkan `maxLines = 4`, mesin akan membaginya menjadi **3 baris di slide pertama** dan **2 baris di slide kedua**, alih-alih membaginya secara kaku menjadi 4 dan 1.
+    - Jika jumlah baris dalam satu bait melebihi batas konfigurasi global (`maxLines`, defaultnya 4 baris per slide), mesin [splitIntoSlides](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/engine/slideEngine.ts#L128) akan memecah lirik secara seimbang.
+    - _Contoh:_ Jika bait memiliki 5 baris lirik sedangkan `maxLines = 4`, mesin akan membaginya menjadi **3 baris di slide pertama** dan **2 baris di slide kedua**, alih-alih membaginya secara kaku menjadi 4 dan 1.
 
 ---
 
 ### 4. Cara Menambahkan Buku Lagu Baru agar Sistem Fleksibel
+
 Ada dua metode utama yang bisa digunakan untuk menambahkan buku lagu baru:
 
 #### Metode A: Melalui Fitur Import di UI Aplikasi (Rekomendasi untuk Pengguna)
+
 Aplikasi ini sudah menyediakan antarmuka import/export berbasis Excel (`.xlsx`) dan JSON pada file [ImportExportScreen.tsx](file:///d:/my_dev/SION-Media/sion-media-desktop/src/renderer/src/screens/ImportExportScreen.tsx).
 
 1.  **Buat File Excel baru dengan ekstensi `.xlsx`.**
 2.  Pastikan nama-nama kolom pada baris pertama sesuai dengan yang dipetakan oleh parser Excel aplikasi di [excel/index.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/main/services/excel/index.ts#L126-L138). Kolom yang dibaca adalah:
-    *   `Nomor` atau `number` (Nomor lagu, misal: `1`, `2`)
-    *   `Judul` or `title` (Judul lagu)
-    *   `Lirik` or `lyrics_raw` (Lirik lagu, gunakan baris kosong atau `---` untuk memisahkan slide)
-    *   `Kategori` or `category` (Opsional)
-    *   `Bahasa` or `language` (Opsional, default: `Indonesia`)
-    *   `Penulis` or `author` (Opsional)
-    *   `Komposer` or `composer` (Opsional)
-    *   `Nada Dasar` or `key_note` (Opsional)
-    *   `Tempo` or `tempo` (Opsional)
-    *   `Tags` or `tags` (Opsional)
+    - `Nomor` atau `number` (Nomor lagu, misal: `1`, `2`)
+    - `Judul` or `title` (Judul lagu)
+    - `Lirik` or `lyrics_raw` (Lirik lagu, gunakan baris kosong atau `---` untuk memisahkan slide)
+    - `Kategori` or `category` (Opsional)
+    - `Bahasa` or `language` (Opsional, default: `Indonesia`)
+    - `Penulis` or `author` (Opsional)
+    - `Komposer` or `composer` (Opsional)
+    - `Nada Dasar` or `key_note` (Opsional)
+    - `Tempo` or `tempo` (Opsional)
+    - `Tags` or `tags` (Opsional)
 3.  Di aplikasi SION Media, buka menu **Settings / Pengelolaan** lalu ke bagian **Import / Export**.
 4.  Pilih target Buku Lagu yang ingin Anda impor di dropdown **"Impor ke Buku"** (atau Anda bisa membuat buku lagu baru terlebih dahulu di menu manajemen buku lagu).
 5.  Unggah file Excel tersebut. Jika ada konflik nomor atau judul lagu, UI akan memunculkan menu resolusi konflik: **Skip** (Lewati), **Timpa** (Overwrite), atau **Gabung** (Merge lirik).
 
 #### Metode B: Melalui Pengodean Program / Database Seeding (Rekomendasi untuk Developer)
+
 Jika Anda adalah pengembang aplikasi ini dan ingin menyematkan buku lagu baru secara bawaan saat database pertama kali diinstal:
 
 1.  **Daftarkan buku lagu** di fungsi `seedDatabase` pada [database.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/main/database.ts#L542).
@@ -234,7 +246,8 @@ Jika Anda adalah pengembang aplikasi ini dan ingin menyematkan buku lagu baru se
          VALUES ('KJ', 'Kidung Jemaat', 'Indonesia', 'Indonesia', 'YAMUGER', 1)`
       )
       .run()
-    const kjId = kjResult.lastInsertRowid || db.prepare("SELECT id FROM hymnals WHERE code = 'KJ'").get().id
+    const kjId =
+      kjResult.lastInsertRowid || db.prepare("SELECT id FROM hymnals WHERE code = 'KJ'").get().id
     ```
 2.  **Sediakan data lirik lagu** di [seed-data.ts](file:///d:/my_dev/SION-Media/sion-media-desktop/src/main/seed-data.ts) dalam format array objek JSON:
     ```typescript

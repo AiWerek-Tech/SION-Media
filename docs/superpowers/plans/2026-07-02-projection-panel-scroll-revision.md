@@ -13,6 +13,7 @@
 ### Task 1: Add failing layout-contract tests
 
 **Files:**
+
 - Modify: `src/renderer/src/components/projection/__tests__/BiblePanel.test.tsx`
 - Create: `src/renderer/src/screens/modes/__tests__/ProjectionPanelLayout.test.ts`
 
@@ -23,6 +24,7 @@
 ### Task 2: Fix Song Info scrolling and remove Notifications
 
 **Files:**
+
 - Modify: `src/renderer/src/screens/modes/ProjectionMode.tsx`
 - Modify: `src/renderer/src/assets/main.css`
 - Test: `src/renderer/src/screens/modes/__tests__/ProjectionPanelLayout.test.ts`
@@ -34,6 +36,7 @@
 ### Task 3: Compact Bible header and add mode scrolling
 
 **Files:**
+
 - Modify: `src/renderer/src/components/projection/BiblePanel.tsx`
 - Modify: `src/renderer/src/assets/main.css`
 - Test: `src/renderer/src/components/projection/__tests__/BiblePanel.test.tsx`
@@ -46,6 +49,7 @@
 ### Task 4: Full verification
 
 **Files:**
+
 - Modify only if a scoped regression is found.
 
 - [ ] Run focused tests, lint, typecheck, full tests, and `npm run build`.

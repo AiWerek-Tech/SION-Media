@@ -1,14 +1,15 @@
 import { useProjectionStore } from '@renderer/store/useProjectionStore'
 import type { PowerPointBridgeSourceState } from '@renderer/store/usePowerPointBridgeStore'
+import type { SlideData } from '@renderer/types'
 import { executeRuntimeCommand } from '@renderer/utils/runtimeCommandBus'
 
-export function loadPowerPointBridgeSource(
-  source: PowerPointBridgeSourceState,
-  takeLive = false
-): void {
+function buildPowerPointBridgeProjection(source: PowerPointBridgeSourceState): {
+  slides: SlideData[]
+  meta: { hymnalCode: string; hymnalName: string; songBackgroundConfig: string }
+} {
   const slideNumber = Math.max(1, source.slideIndex + 1)
-  useProjectionStore.getState().setSlides(
-    [
+  return {
+    slides: [
       {
         contentType: 'custom',
         songId: null,
@@ -18,7 +19,7 @@ export function loadPowerPointBridgeSource(
         speakerNotes: source.notes
       }
     ],
-    {
+    meta: {
       hymnalCode: 'PPT LIVE',
       hymnalName: source.deckName || source.title || 'PowerPoint Live',
       songBackgroundConfig: JSON.stringify({
@@ -28,6 +29,19 @@ export function loadPowerPointBridgeSource(
         blur: 0
       })
     }
-  )
+  }
+}
+
+export function loadPowerPointBridgeSource(
+  source: PowerPointBridgeSourceState,
+  takeLive = false
+): void {
+  const { slides, meta } = buildPowerPointBridgeProjection(source)
+  useProjectionStore.getState().setSlides(slides, meta)
   if (takeLive) executeRuntimeCommand('PROJ_TAKE_CUE', undefined, 'PRESENTER_REMOTE')
+}
+
+export function updateLivePowerPointBridgeFrame(source: PowerPointBridgeSourceState): void {
+  const { slides, meta } = buildPowerPointBridgeProjection(source)
+  useProjectionStore.getState().updateLiveExternalSourceFrame(slides, meta)
 }

@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import { join, basename, extname } from 'path'
+import { join, basename, extname, dirname } from 'path'
 import { app, nativeImage } from 'electron'
 import {
   copyFileSync,
@@ -8,7 +8,8 @@ import {
   renameSync,
   unlinkSync,
   writeFileSync,
-  statSync
+  statSync,
+  rmSync
 } from 'fs'
 import { copyFile, stat, unlink } from 'fs/promises'
 import { randomUUID } from 'crypto'
@@ -2519,8 +2520,21 @@ export function deleteMediaAsset(id: string): boolean {
     }
 
     if (!isExternal) {
+      let isPresentationPackage = false
+      if (existing.local_path && existing.local_path.includes('presentation-packages')) {
+        isPresentationPackage = true
+        const packageDir = dirname(existing.local_path)
+        if (existsSync(packageDir)) {
+          try {
+            rmSync(packageDir, { recursive: true, force: true })
+          } catch {
+            // ignore cleanup failures
+          }
+        }
+      }
+
       for (const filePath of [existing.local_path, existing.thumbnail_path]) {
-        if (filePath && existsSync(filePath)) {
+        if (filePath && !isPresentationPackage && existsSync(filePath)) {
           try {
             unlinkSync(filePath)
           } catch {

@@ -13,6 +13,7 @@
 ### Task 1: Main Process Presenter Remote Server
 
 **Files:**
+
 - Create: `src/main/presenter-remote-server.ts`
 - Modify: `src/main/index.ts`
 - Modify: `src/main/ipc-handlers.ts`
@@ -27,6 +28,7 @@
 ### Task 2: Renderer Command Bridge
 
 **Files:**
+
 - Modify: `src/renderer/src/App.tsx`
 - Modify: `src/renderer/src/store/useProjectionStore.ts`
 
@@ -36,17 +38,19 @@
 ### Task 3: Settings UI
 
 **Files:**
+
 - Create: `src/renderer/src/screens/settings/PresenterRemoteSettings.tsx`
 - Modify: `src/renderer/src/screens/settings/index.ts`
 - Modify: `src/renderer/src/screens/SettingsScreen.tsx`
 
-- [ ] Add a “Remote Pemateri” settings section.
+- [ ] Add a ï¿½Remote Pemateriï¿½ settings section.
 - [ ] Provide Start, Stop, refresh status, URL, token, local IP list, and copy/open controls.
 - [ ] Explain same-network usage briefly inside the panel.
 
 ### Task 4: Verification
 
 **Files:**
+
 - Test existing type/lint/build paths.
 
 - [ ] Run `npm run lint`.

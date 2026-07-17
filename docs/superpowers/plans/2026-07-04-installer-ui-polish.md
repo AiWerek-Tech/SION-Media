@@ -13,6 +13,7 @@
 ### Task 1: Add UI regression contract
 
 **Files:**
+
 - Modify: `src/main/installer-config.test.ts`
 
 - [x] Assert that SmartScreen aborts for every mode except `install`.
@@ -23,6 +24,7 @@
 ### Task 2: Correct native installer presentation
 
 **Files:**
+
 - Modify: `build/installer.nsh`
 
 - [x] Add an early `Abort` in `SmartScreenGuidancePage` when `$InstallerMode != "install"`.
@@ -33,6 +35,7 @@
 ### Task 3: Build verification
 
 **Files:**
+
 - Modify: `docs/superpowers/plans/2026-07-04-installer-ui-polish.md`
 
 - [x] Run `npm run typecheck` and `git diff --check`.

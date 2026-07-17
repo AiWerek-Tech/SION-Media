@@ -13,6 +13,7 @@
 ### Task 1: Establish Baseline
 
 **Files:**
+
 - Read: `package.json`
 - Read: `src/main/ipc-handlers.ts`
 - Read: `src/renderer/src/components/projection/LocalMediaPanel.tsx`
@@ -29,6 +30,7 @@ npm run lint
 ```
 
 Expected:
+
 - `typecheck` passes.
 - `test` passes.
 - `lint` fails with known July 7 issues that will be fixed in later tasks.
@@ -36,6 +38,7 @@ Expected:
 ### Task 2: Fix Lint-Blocking Backend Issues
 
 **Files:**
+
 - Modify: `src/main/ipc-handlers.ts`
 - Modify: `src/main/database.ts`
 
@@ -54,6 +57,7 @@ For media playlist insertion and local external media import, ensure title/path/
 ### Task 3: Fix Renderer Lint Errors
 
 **Files:**
+
 - Modify: `src/renderer/src/components/LivePreviewPanel.tsx`
 - Modify: `src/renderer/src/components/library/LibraryLyricsViewer.tsx`
 - Modify: `src/renderer/src/components/presentation/PdfSlideViewer.tsx`
@@ -76,6 +80,7 @@ Use React state and JSX fallback rendering for media thumbnail load errors.
 ### Task 4: UI/UX Polish For Local Media And LRC
 
 **Files:**
+
 - Modify: `src/renderer/src/components/projection/LocalMediaPanel.tsx`
 - Modify: `src/renderer/src/components/library/LibraryLyricsViewer.tsx`
 - Modify: `src/renderer/src/screens/settings/AudioSettings.tsx`
@@ -91,6 +96,7 @@ Clarify “hapus referensi” behavior, show save failures in LRC sync via toast
 ### Task 5: Verification
 
 **Files:**
+
 - Read: all changed files
 
 - [ ] **Step 1: Format touched files**
@@ -112,6 +118,7 @@ npm run test
 ```
 
 Expected:
+
 - Lint errors from July 7 changes are resolved.
 - TypeScript passes.
 - Vitest passes.

@@ -7,11 +7,13 @@ Dokumentasi lengkap tentang penandatanganan digital (code signing) untuk install
 ## Mengapa Code Signing Penting?
 
 Windows SmartScreen memfilter aplikasi berdasarkan **reputasi digital**. Tanpa tanda tangan:
+
 - SmartScreen menampilkan "Windows protected your PC"
 - User harus klik "More info" → "Run anyway"
 - Kepercayaan terhadap aplikasi berkurang
 
 Dengan tanda tangan dari **CA terpercaya** (Certificate Authority):
+
 - SmartScreen tidak akan memblokir installer
 - Dialog "Properties" menampilkan nama publisher
 - User dapat memverifikasi keaslian software
@@ -20,12 +22,12 @@ Dengan tanda tangan dari **CA terpercaya** (Certificate Authority):
 
 ## Status Saat Ini
 
-| Item | Status |
-|---|---|
-| Infrastructure (scripts, config) | ✅ Siap |
-| Self-Signed Certificate | ✅ Tersedia |
-| Trusted CA Certificate | ❌ Belum dibeli |
-| SmartScreen bypass otomatis | ❌ Perlu CA cert |
+| Item                             | Status           |
+| -------------------------------- | ---------------- |
+| Infrastructure (scripts, config) | ✅ Siap          |
+| Self-Signed Certificate          | ✅ Tersedia      |
+| Trusted CA Certificate           | ❌ Belum dibeli  |
+| SmartScreen bypass otomatis      | ❌ Perlu CA cert |
 
 ---
 
@@ -39,6 +41,7 @@ cd sion-media-desktop
 ```
 
 Ini akan:
+
 - Membuat certificate RSA-4096 SHA-256 dengan EKU Code Signing
 - Export ke `certs/sion-media-signing.pfx`
 - Berlaku 3 tahun
@@ -71,11 +74,11 @@ Get-AuthenticodeSignature ".\dist\SION-Media-1.0.0-beta.2-Setup.exe"
 
 Saat siap untuk rilis stabil, beli certificate dari salah satu CA berikut:
 
-| CA | Tipe | Harga (±) | SmartScreen |
-|---|---|---|---|
-| [SSL.com](https://ssl.com) | OV Code Signing | ~$70/tahun | ✅ Reputasi bertahap |
-| [Sectigo](https://sectigo.com) | OV Code Signing | ~$90/tahun | ✅ Reputasi bertahap |
-| [DigiCert](https://digicert.com) | EV Code Signing | ~$400/tahun | ✅ Langsung trusted |
+| CA                               | Tipe            | Harga (±)   | SmartScreen          |
+| -------------------------------- | --------------- | ----------- | -------------------- |
+| [SSL.com](https://ssl.com)       | OV Code Signing | ~$70/tahun  | ✅ Reputasi bertahap |
+| [Sectigo](https://sectigo.com)   | OV Code Signing | ~$90/tahun  | ✅ Reputasi bertahap |
+| [DigiCert](https://digicert.com) | EV Code Signing | ~$400/tahun | ✅ Langsung trusted  |
 
 > **Catatan**: EV (Extended Validation) certificate memberikan reputasi SmartScreen **langsung** tanpa masa tunggu. OV certificate memerlukan waktu beberapa minggu untuk membangun reputasi.
 
@@ -91,8 +94,9 @@ Saat siap untuk rilis stabil, beli certificate dari salah satu CA berikut:
 ```
 
 5. Update `electron-builder.yml`:
+
 ```yaml
-forceCodeSigning: true  # Sekarang wajib — gagal build jika cert tidak ada
+forceCodeSigning: true # Sekarang wajib — gagal build jika cert tidak ada
 ```
 
 ---
@@ -101,10 +105,10 @@ forceCodeSigning: true  # Sekarang wajib — gagal build jika cert tidak ada
 
 electron-builder mengenali variabel berikut secara otomatis:
 
-| Variable | Deskripsi |
-|---|---|
-| `CSC_LINK` | Path ke file `.pfx` atau `.p12` |
-| `CSC_KEY_PASSWORD` | Password untuk membuka PFX |
+| Variable                      | Deskripsi                                      |
+| ----------------------------- | ---------------------------------------------- |
+| `CSC_LINK`                    | Path ke file `.pfx` atau `.p12`                |
+| `CSC_KEY_PASSWORD`            | Password untuk membuka PFX                     |
 | `CSC_IDENTITY_AUTO_DISCOVERY` | Set `false` untuk menonaktifkan auto-discovery |
 
 Script `sign-build.ps1` mengatur variabel ini secara otomatis.
@@ -118,8 +122,8 @@ File `electron-builder.yml` telah dikonfigurasi dengan:
 ```yaml
 # Identitas publisher — ditampilkan di Windows
 win:
-  publisherName: "AiWerek Tech"
-  verifyUpdateCodeSignature: false   # Beta: skip untuk auto-update
+  publisherName: 'AiWerek Tech'
+  verifyUpdateCodeSignature: false # Beta: skip untuk auto-update
   requestedExecutionLevel: asInvoker # Tidak perlu UAC elevation
 
 # Jangan gagalkan build jika cert tidak ada (beta)
@@ -151,6 +155,7 @@ sion-media-desktop/
 ### SmartScreen masih muncul setelah signing?
 
 Self-signed certificate **tidak menghilangkan** peringatan SmartScreen. Hanya certificate dari CA terpercaya yang dapat menghilangkannya. Self-signed cert tetap berguna karena:
+
 - Menambahkan metadata publisher ke EXE
 - Membuktikan integritas file (tidak dimodifikasi pihak ketiga)
 - Menyiapkan infrastruktur untuk CA cert di masa depan

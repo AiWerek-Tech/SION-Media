@@ -13,6 +13,7 @@
 ### Task 1: Installer mode detection
 
 **Files:**
+
 - Modify: `build/installer.nsh`
 - Modify: `src/main/installer-config.test.ts`
 
@@ -25,6 +26,7 @@
 ### Task 2: Pre-migration backup boundary
 
 **Files:**
+
 - Create: `src/main/database-upgrade.ts`
 - Create: `src/main/database-upgrade.test.ts`
 - Modify: `src/main/database.ts`
@@ -38,6 +40,7 @@
 ### Task 3: Explicit bundled provenance
 
 **Files:**
+
 - Modify: `src/main/migrations.ts`
 - Create: `src/main/bundled-content-upgrade.ts`
 - Create: `src/main/bundled-content-upgrade.test.ts`
@@ -52,6 +55,7 @@
 ### Task 4: Release and packaged verification
 
 **Files:**
+
 - Modify: `src/main/installer-config.test.ts`
 - Modify: `docs/superpowers/plans/2026-07-04-upgrade-aware-installer.md`
 

@@ -122,6 +122,10 @@ interface ProjectionStore {
   cueNextSlide: () => void
   cuePrevSlide: () => void
   takeCue: () => void
+  updateLiveExternalSourceFrame: (
+    slides: SlideData[],
+    meta: { hymnalCode: string; hymnalName: string; songBackgroundConfig?: string }
+  ) => void
   nextSlide: () => void
   prevSlide: () => void
   goToSlide: (index: number) => void
@@ -628,6 +632,35 @@ export const useProjectionStore = create<ProjectionStore>((set, get) => ({
       )
     } catch (err) {
       logger.error('[Projection Store] takeCue failed:', err)
+    }
+  },
+
+  updateLiveExternalSourceFrame: (slides, meta) => {
+    try {
+      if (slides.length === 0) return
+      const slideIndex = 0
+      const navigationFlow = resolveNavigationFlow(slides)
+      const flowPosition = navigationFlow ? resolveFlowPosition(slideIndex, navigationFlow, 0) : -1
+      const slide = withProgramNextSlide(slides, slideIndex, navigationFlow, flowPosition)
+      const backgroundConfig = meta.songBackgroundConfig || ''
+      set({
+        projectionState: 'LIVE',
+        programSlides: slides,
+        programSlideIndex: slideIndex,
+        programSlide: slide,
+        programSongMeta: { hymnalCode: meta.hymnalCode, hymnalName: meta.hymnalName },
+        programSongBackgroundConfig: backgroundConfig,
+        navigationFlow,
+        isSmartMode: navigationFlow.isSmartMode,
+        flowPosition,
+        programSectionMap: buildSectionIndexMap(slides)
+      })
+      window.api.projection.stateChange('LIVE')
+      window.api.projection.slideUpdate(slide)
+      window.api.projection.themeUpdate({ song_background_config: backgroundConfig })
+      get().computeNextState()
+    } catch (err) {
+      logger.error('[Projection Store] updateLiveExternalSourceFrame failed:', err)
     }
   },
 

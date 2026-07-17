@@ -182,6 +182,7 @@ import {
   approvePowerPointBridgeRequest,
   rejectPowerPointBridgeRequest,
   disconnectPowerPointBridgeDevice,
+  sendPowerPointBridgeCommand,
   regeneratePresenterRemoteCode,
   regeneratePresenterRemoteCodes,
   type SionLinkRole,
@@ -396,45 +397,55 @@ export function setupIPC(): void {
   safeIpcHandle('presenter-remote:stop', () => stopPresenterRemoteServer())
   safeIpcHandle('presenter-remote:status', () => getPresenterRemoteStatus())
   safeIpcHandle('presenter-remote:regenerate-codes', () => regeneratePresenterRemoteCodes())
-  safeIpcHandle('presenter-remote:regenerate-code', (_event, role: SionLinkRole) =>
+  safeIpcHandle('presenter-remote:regenerate-code', (role: SionLinkRole) =>
     regeneratePresenterRemoteCode(role)
   )
   safeIpcHandle('presenter-remote:disconnect-clients', () => disconnectPresenterRemoteClients())
-  safeIpcHandle('presenter-remote:disconnect-client', (_event, clientId: string) =>
+  safeIpcHandle('presenter-remote:disconnect-client', (clientId: string) =>
     disconnectPresenterRemoteClient(clientId)
   )
-  safeIpcHandle(
-    'presenter-remote:update-security-policy',
-    (_event, policy: SionLinkSecurityPolicy) => updatePresenterRemoteSecurityPolicy(policy)
+  safeIpcHandle('presenter-remote:update-security-policy', (policy: SionLinkSecurityPolicy) =>
+    updatePresenterRemoteSecurityPolicy(policy)
   )
   safeIpcHandle('presenter-remote:clear-command-log', () => clearPresenterRemoteCommandLog())
   safeIpcHandle('presenter-remote:powerpoint-status', () => getPowerPointBridgeStatus())
-  safeIpcHandle('presenter-remote:powerpoint-approve', (_event, requestId: string) =>
+  safeIpcHandle('presenter-remote:powerpoint-approve', (requestId: string) =>
     approvePowerPointBridgeRequest(requireBoundedString(requestId, 'PowerPoint request ID', 64))
   )
-  safeIpcHandle('presenter-remote:powerpoint-reject', (_event, requestId: string) =>
+  safeIpcHandle('presenter-remote:powerpoint-reject', (requestId: string) =>
     rejectPowerPointBridgeRequest(requireBoundedString(requestId, 'PowerPoint request ID', 64))
   )
-  safeIpcHandle('presenter-remote:powerpoint-disconnect', (_event, deviceId: string) =>
+  safeIpcHandle('presenter-remote:powerpoint-disconnect', (deviceId: string) =>
     disconnectPowerPointBridgeDevice(requireBoundedString(deviceId, 'PowerPoint device ID', 96))
+  )
+  safeIpcHandle(
+    'presenter-remote:powerpoint-command',
+    (deviceId: string, command: 'NEXT' | 'PREV') => {
+      if (command !== 'NEXT' && command !== 'PREV')
+        throw new Error('Perintah PowerPoint tidak valid.')
+      return sendPowerPointBridgeCommand(
+        requireBoundedString(deviceId, 'PowerPoint device ID', 96),
+        command
+      )
+    }
   )
   safeIpcHandle('obs-srt:status', () => getObsSrtStatus())
   safeIpcHandle('obs-srt:start', () => startObsSrtOutput())
   safeIpcHandle('obs-srt:stop', () => stopObsSrtOutput())
-  safeIpcHandle('obs-srt:update-config', (_event, config: Partial<ObsSrtConfig>) => {
+  safeIpcHandle('obs-srt:update-config', (config: Partial<ObsSrtConfig>) => {
     requireSerializableSize(config, 'OBS SRT config', 16 * 1024)
     return updateObsSrtConfig(config)
   })
   safeIpcHandle('obs-srt-ingest:status', () => getObsSrtIngestStatus())
   safeIpcHandle('obs-srt-ingest:start', () => startObsSrtIngest())
   safeIpcHandle('obs-srt-ingest:stop', () => stopObsSrtIngest())
-  safeIpcHandle('obs-srt-ingest:set-auto-start', (_event, autoStart: boolean) => {
+  safeIpcHandle('obs-srt-ingest:set-auto-start', (autoStart: boolean) => {
     if (typeof autoStart !== 'boolean') throw new Error('Nilai mulai otomatis tidak valid.')
     return setObsSrtIngestAutoStart(autoStart)
   })
   safeIpcHandle(
     'obs-srt-ingest:update-config',
-    (_event, config: Partial<ObsSrtIngestConfig> & { resetStreamKey?: boolean }) => {
+    (config: Partial<ObsSrtIngestConfig> & { resetStreamKey?: boolean }) => {
       requireSerializableSize(config, 'OBS SRT ingest config', 16 * 1024)
       return updateObsSrtIngestConfig(config)
     }
@@ -616,27 +627,52 @@ export function setupIPC(): void {
   })
   mainOnlyHandle('presentation:import-pptx', async (_event, payload: unknown) => {
     const parsed = presentationImportSchema.parse(payload)
-    const manifest = await createPresentationPackage(parsed.filePath, parsed.outputMode)
-    return registerPresentationPackageAsset({
-      id: manifest.id,
-      title: manifest.title,
-      sourcePath: manifest.sourcePath,
-      sourceSha256: manifest.sourceSha256,
-      pdfPath: manifest.pdfPath,
-      manifestPath: join(dirname(manifest.pdfPath), 'manifest.json'),
-      thumbnailPath: manifest.slides[0]?.imagePath ?? '',
-      slideCount: manifest.slideCount,
-      conversionProvider: manifest.conversionProvider,
-      outputMode: manifest.outputMode,
-      warnings: manifest.warnings,
-      slides: manifest.slides.map(({ index, title, notes, imagePath }) => ({
-        index,
-        title,
-        notes,
-        imagePath
-      })),
-      category: parsed.category
-    })
+    const onProgress = (
+      percent: number,
+      step: 'parsing' | 'converting' | 'generating' | 'finishing' | 'done' | 'failed',
+      errorMessage?: string
+    ): void => {
+      _event.sender.send('presentation:import-progress', {
+        filePath: parsed.filePath,
+        percent,
+        step,
+        errorMessage
+      })
+    }
+
+    try {
+      const manifest = await createPresentationPackage(
+        parsed.filePath,
+        parsed.outputMode,
+        onProgress
+      )
+      const asset = await registerPresentationPackageAsset({
+        id: manifest.id,
+        title: manifest.title,
+        sourcePath: manifest.sourcePath,
+        sourceSha256: manifest.sourceSha256,
+        pdfPath: manifest.pdfPath,
+        manifestPath: join(dirname(manifest.pdfPath), 'manifest.json'),
+        thumbnailPath: manifest.slides[0]?.imagePath ?? '',
+        slideCount: manifest.slideCount,
+        conversionProvider: manifest.conversionProvider,
+        outputMode: manifest.outputMode,
+        warnings: manifest.warnings,
+        slides: manifest.slides.map(({ index, title, notes, imagePath }) => ({
+          index,
+          title,
+          notes,
+          imagePath
+        })),
+        category: parsed.category
+      })
+      onProgress(100, 'done')
+      return asset
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error)
+      onProgress(100, 'failed', errMsg)
+      throw error
+    }
   })
   safeIpcHandle('db:update-media-asset', (id: unknown, updates: unknown) => {
     return updateMediaAsset(mediaIdSchema.parse(id), mediaAssetUpdateSchema.parse(updates))
