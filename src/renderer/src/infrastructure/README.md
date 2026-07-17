@@ -1,6 +1,6 @@
 # Infrastructure Layer
 
-> **Dokumentasi lengkap:** `.docs/11-source-architecture/infrastructure/infrastructure-layer.md`
+> **Dokumentasi lengkap:** `.dev-docs/11-source-architecture/infrastructure/infrastructure-layer.md`
 
 **Status:** ✅ Active — Electron IPC, SQLite (WAL+FTS5), Excel import, Firebase (stub), update checker, cache.
 

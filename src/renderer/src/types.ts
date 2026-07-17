@@ -41,8 +41,11 @@ export interface Song {
   last_used?: string
 }
 
+export type SlideContentType = 'song' | 'bible' | 'reading' | 'custom' | 'media'
+export type SlideMediaKind = 'image' | 'video' | 'pdf' | 'presentation' | 'unknown'
+
 export interface SlideData {
-  contentType?: 'song' | 'bible' | 'reading' | 'custom'
+  contentType?: SlideContentType
   songId?: number | null
   playlistItemId?: number | null
   slideIndex: number
@@ -62,6 +65,10 @@ export interface SlideData {
   bibleVersionCode?: string
   bibleCopyright?: string
   pdfPath?: string
+  visualImagePath?: string
+  mediaKind?: SlideMediaKind
+  mediaSourcePath?: string
+  mediaPageNumber?: number
   speakerNotes?: string
   startTime?: number
   endTime?: number

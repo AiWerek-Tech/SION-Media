@@ -14,6 +14,8 @@ export interface PresenterRemoteSlideSummary {
   visualPath?: string
   visualDataUrl?: string
   pageNumber?: number
+  mediaKind?: SlideData['mediaKind']
+  mediaSourcePath?: string
   canPresenterNavigate?: boolean
 }
 
@@ -88,20 +90,26 @@ export function summarizePresenterRemoteSlide(
   if (tempo) slideMeta.tempo = tempo
   const backgroundVisual = parseBackgroundVisual(songBackgroundConfig)
   const visual =
-    slide.pdfPath && cleanText(slide.pdfPath)
+    slide.visualImagePath && cleanText(slide.visualImagePath)
       ? {
-          visualType: 'pdf' as const,
-          visualPath: cleanText(slide.pdfPath),
+          visualType: 'image' as const,
+          visualPath: cleanText(slide.visualImagePath),
           pageNumber: slide.slideIndex + 1
         }
-      : backgroundVisual.visualType === 'pdf'
+      : slide.pdfPath && cleanText(slide.pdfPath)
         ? {
-            ...backgroundVisual,
+            visualType: 'pdf' as const,
+            visualPath: cleanText(slide.pdfPath),
             pageNumber: slide.slideIndex + 1
           }
-        : backgroundVisual
+        : backgroundVisual.visualType === 'pdf'
+          ? {
+              ...backgroundVisual,
+              pageNumber: slide.slideIndex + 1
+            }
+          : backgroundVisual
   const canPresenterNavigate =
-    visual.visualType === 'pdf' &&
+    (visual.visualType === 'pdf' || slide.mediaKind === 'presentation') &&
     slide.contentType !== 'song' &&
     slide.contentType !== 'bible' &&
     slide.contentType !== 'reading'
@@ -111,6 +119,8 @@ export function summarizePresenterRemoteSlide(
       text,
       label: sectionLabel || bibleReference || null,
       contentType: slide.contentType,
+      mediaKind: slide.mediaKind,
+      mediaSourcePath: slide.mediaSourcePath,
       canPresenterNavigate,
       ...slideMeta,
       ...visual
@@ -122,6 +132,8 @@ export function summarizePresenterRemoteSlide(
       text: sectionLabel,
       label: slide.contentType === 'bible' ? bibleReference || 'Alkitab' : 'Media',
       contentType: slide.contentType,
+      mediaKind: slide.mediaKind,
+      mediaSourcePath: slide.mediaSourcePath,
       canPresenterNavigate,
       ...slideMeta,
       ...visual
@@ -133,6 +145,8 @@ export function summarizePresenterRemoteSlide(
       text: bibleReference,
       label: 'Alkitab',
       contentType: slide.contentType,
+      mediaKind: slide.mediaKind,
+      mediaSourcePath: slide.mediaSourcePath,
       canPresenterNavigate,
       ...slideMeta,
       ...visual

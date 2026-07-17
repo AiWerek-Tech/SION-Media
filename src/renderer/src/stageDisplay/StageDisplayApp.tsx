@@ -84,7 +84,8 @@ export function StageDisplayApp(): React.JSX.Element {
         slideIndex?: number
         totalSlides?: number
         nextSlideText?: string
-        contentType?: 'song' | 'bible' | 'reading' | 'custom'
+        contentType?: 'song' | 'bible' | 'reading' | 'custom' | 'media'
+        mediaKind?: 'image' | 'video' | 'pdf' | 'presentation' | 'unknown'
         bibleReference?: string
         bibleVersionCode?: string
       }

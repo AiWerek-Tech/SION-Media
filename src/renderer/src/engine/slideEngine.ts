@@ -3,6 +3,11 @@ import { usePlaylistStore } from '../store/usePlaylistStore'
 import { buildBibleSlidesFromPlaylistItem } from '../features/bible/utils/buildBibleSlides'
 import { expandLyricLines, formatLyricChunk, markLyricLineSeparators } from './lyricFlow'
 import { parseMediaPlaylistDescriptor } from '../../../shared/media-playlist'
+import {
+  getProjectionMediaMode,
+  isPagedMediaKind,
+  resolveMediaKind
+} from '../../../shared/media-kind'
 
 interface ParsedSection {
   label: string
@@ -264,21 +269,32 @@ export function generateSlidesForPlaylistItem(
   if (item.item_type === 'media') {
     const descriptor = parseMediaPlaylistDescriptor(item.notes)
     const path = descriptor.path
-    const isPdf = path.toLowerCase().endsWith('.pdf')
-    if (isPdf) {
+    const mediaKind = resolveMediaKind({
+      path,
+      hasPresentationPackage: Boolean(descriptor.presentation?.slides.length)
+    })
+    const projectionMode = getProjectionMediaMode(mediaKind)
+    if (isPagedMediaKind(mediaKind)) {
       const pageCounts = usePlaylistStore.getState().pdfPageCounts || {}
       const cachedCount = pageCounts[path]
       if (cachedCount !== undefined) {
-        return Array.from({ length: cachedCount }).map((_, idx) => ({
-          contentType: 'custom',
-          songId: null,
-          playlistItemId: item.id,
-          slideIndex: idx,
-          text: '',
-          sectionLabel: descriptor.presentation?.slides[idx]?.title || `Halaman ${idx + 1}`,
-          speakerNotes: descriptor.presentation?.slides[idx]?.notes || '',
-          pdfPath: path
-        }))
+        return Array.from({ length: cachedCount }).map((_, idx) => {
+          const slideImagePath = descriptor.presentation?.slides[idx]?.imagePath
+          return {
+            contentType: 'media',
+            songId: null,
+            playlistItemId: item.id,
+            slideIndex: idx,
+            text: '',
+            sectionLabel: descriptor.presentation?.slides[idx]?.title || `Halaman ${idx + 1}`,
+            speakerNotes: descriptor.presentation?.slides[idx]?.notes || '',
+            pdfPath: slideImagePath ? undefined : path,
+            visualImagePath: slideImagePath,
+            mediaKind,
+            mediaSourcePath: path,
+            mediaPageNumber: idx + 1
+          }
+        })
       } else {
         // Trigger background fetch
         setTimeout(() => {
@@ -288,13 +304,17 @@ export function generateSlidesForPlaylistItem(
     }
     return [
       {
-        contentType: 'custom',
+        contentType: 'media',
         songId: null,
         playlistItemId: item.id,
         slideIndex: 0,
         text: '',
         sectionLabel: item.title || 'Media',
-        pdfPath: isPdf ? path : undefined
+        pdfPath: projectionMode === 'pdf' ? path : undefined,
+        visualImagePath: projectionMode === 'image' ? path : undefined,
+        mediaKind,
+        mediaSourcePath: path,
+        mediaPageNumber: projectionMode === 'pdf' ? 1 : undefined
       }
     ]
   }

@@ -1,0 +1,596 @@
+[
+  {
+    "code": "kej",
+    "osis_id": "Gen",
+    "name": "Kejadian",
+    "url_name": "Kejadian",
+    "testament": "OT",
+    "order": 1,
+    "chapters": 50
+  },
+  {
+    "code": "kel",
+    "osis_id": "Exod",
+    "name": "Keluaran",
+    "url_name": "Keluaran",
+    "testament": "OT",
+    "order": 2,
+    "chapters": 40
+  },
+  {
+    "code": "ima",
+    "osis_id": "Lev",
+    "name": "Imamat",
+    "url_name": "Imamat",
+    "testament": "OT",
+    "order": 3,
+    "chapters": 27
+  },
+  {
+    "code": "bil",
+    "osis_id": "Num",
+    "name": "Bilangan",
+    "url_name": "Bilangan",
+    "testament": "OT",
+    "order": 4,
+    "chapters": 36
+  },
+  {
+    "code": "ula",
+    "osis_id": "Deut",
+    "name": "Ulangan",
+    "url_name": "Ulangan",
+    "testament": "OT",
+    "order": 5,
+    "chapters": 34
+  },
+  {
+    "code": "yos",
+    "osis_id": "Josh",
+    "name": "Yosua",
+    "url_name": "Yosua",
+    "testament": "OT",
+    "order": 6,
+    "chapters": 24
+  },
+  {
+    "code": "hak",
+    "osis_id": "Judg",
+    "name": "Hakim-hakim",
+    "url_name": "Hakim-hakim",
+    "testament": "OT",
+    "order": 7,
+    "chapters": 21
+  },
+  {
+    "code": "rut",
+    "osis_id": "Ruth",
+    "name": "Rut",
+    "url_name": "Rut",
+    "testament": "OT",
+    "order": 8,
+    "chapters": 4
+  },
+  {
+    "code": "1sa",
+    "osis_id": "1Sam",
+    "name": "1 Samuel",
+    "url_name": "1 Samuel",
+    "testament": "OT",
+    "order": 9,
+    "chapters": 31
+  },
+  {
+    "code": "2sa",
+    "osis_id": "2Sam",
+    "name": "2 Samuel",
+    "url_name": "2 Samuel",
+    "testament": "OT",
+    "order": 10,
+    "chapters": 24
+  },
+  {
+    "code": "1ra",
+    "osis_id": "1Kgs",
+    "name": "1 Raja-raja",
+    "url_name": "1 Raja-raja",
+    "testament": "OT",
+    "order": 11,
+    "chapters": 22
+  },
+  {
+    "code": "2ra",
+    "osis_id": "2Kgs",
+    "name": "2 Raja-raja",
+    "url_name": "2 Raja-raja",
+    "testament": "OT",
+    "order": 12,
+    "chapters": 25
+  },
+  {
+    "code": "1ta",
+    "osis_id": "1Chr",
+    "name": "1 Tawarikh",
+    "url_name": "1 Tawarikh",
+    "testament": "OT",
+    "order": 13,
+    "chapters": 29
+  },
+  {
+    "code": "2ta",
+    "osis_id": "2Chr",
+    "name": "2 Tawarikh",
+    "url_name": "2 Tawarikh",
+    "testament": "OT",
+    "order": 14,
+    "chapters": 36
+  },
+  {
+    "code": "ezr",
+    "osis_id": "Ezra",
+    "name": "Ezra",
+    "url_name": "Ezra",
+    "testament": "OT",
+    "order": 15,
+    "chapters": 10
+  },
+  {
+    "code": "neh",
+    "osis_id": "Neh",
+    "name": "Nehemia",
+    "url_name": "Nehemia",
+    "testament": "OT",
+    "order": 16,
+    "chapters": 13
+  },
+  {
+    "code": "est",
+    "osis_id": "Esth",
+    "name": "Ester",
+    "url_name": "Ester",
+    "testament": "OT",
+    "order": 17,
+    "chapters": 10
+  },
+  {
+    "code": "ayb",
+    "osis_id": "Job",
+    "name": "Ayub",
+    "url_name": "Ayub",
+    "testament": "OT",
+    "order": 18,
+    "chapters": 42
+  },
+  {
+    "code": "mzm",
+    "osis_id": "Ps",
+    "name": "Mazmur",
+    "url_name": "Mazmur",
+    "testament": "OT",
+    "order": 19,
+    "chapters": 150
+  },
+  {
+    "code": "ams",
+    "osis_id": "Prov",
+    "name": "Amsal",
+    "url_name": "Amsal",
+    "testament": "OT",
+    "order": 20,
+    "chapters": 31
+  },
+  {
+    "code": "pkh",
+    "osis_id": "Eccl",
+    "name": "Pengkhotbah",
+    "url_name": "Pengkhotbah",
+    "testament": "OT",
+    "order": 21,
+    "chapters": 12
+  },
+  {
+    "code": "kid",
+    "osis_id": "Song",
+    "name": "Kidung Agung",
+    "url_name": "Kidung Agung",
+    "testament": "OT",
+    "order": 22,
+    "chapters": 8
+  },
+  {
+    "code": "yes",
+    "osis_id": "Isa",
+    "name": "Yesaya",
+    "url_name": "Yesaya",
+    "testament": "OT",
+    "order": 23,
+    "chapters": 66
+  },
+  {
+    "code": "yer",
+    "osis_id": "Jer",
+    "name": "Yeremia",
+    "url_name": "Yeremia",
+    "testament": "OT",
+    "order": 24,
+    "chapters": 52
+  },
+  {
+    "code": "rat",
+    "osis_id": "Lam",
+    "name": "Ratapan",
+    "url_name": "Ratapan",
+    "testament": "OT",
+    "order": 25,
+    "chapters": 5
+  },
+  {
+    "code": "yeh",
+    "osis_id": "Ezek",
+    "name": "Yehezkiel",
+    "url_name": "Yehezkiel",
+    "testament": "OT",
+    "order": 26,
+    "chapters": 48
+  },
+  {
+    "code": "dan",
+    "osis_id": "Dan",
+    "name": "Daniel",
+    "url_name": "Daniel",
+    "testament": "OT",
+    "order": 27,
+    "chapters": 12
+  },
+  {
+    "code": "hos",
+    "osis_id": "Hos",
+    "name": "Hosea",
+    "url_name": "Hosea",
+    "testament": "OT",
+    "order": 28,
+    "chapters": 14
+  },
+  {
+    "code": "yoe",
+    "osis_id": "Joel",
+    "name": "Yoel",
+    "url_name": "Yoel",
+    "testament": "OT",
+    "order": 29,
+    "chapters": 3
+  },
+  {
+    "code": "amo",
+    "osis_id": "Amos",
+    "name": "Amos",
+    "url_name": "Amos",
+    "testament": "OT",
+    "order": 30,
+    "chapters": 9
+  },
+  {
+    "code": "oba",
+    "osis_id": "Obad",
+    "name": "Obaja",
+    "url_name": "Obaja",
+    "testament": "OT",
+    "order": 31,
+    "chapters": 1
+  },
+  {
+    "code": "yun",
+    "osis_id": "Jonah",
+    "name": "Yunus",
+    "url_name": "Yunus",
+    "testament": "OT",
+    "order": 32,
+    "chapters": 4
+  },
+  {
+    "code": "mik",
+    "osis_id": "Mic",
+    "name": "Mikha",
+    "url_name": "Mikha",
+    "testament": "OT",
+    "order": 33,
+    "chapters": 7
+  },
+  {
+    "code": "nah",
+    "osis_id": "Nah",
+    "name": "Nahum",
+    "url_name": "Nahum",
+    "testament": "OT",
+    "order": 34,
+    "chapters": 3
+  },
+  {
+    "code": "hab",
+    "osis_id": "Hab",
+    "name": "Habakuk",
+    "url_name": "Habakuk",
+    "testament": "OT",
+    "order": 35,
+    "chapters": 3
+  },
+  {
+    "code": "zef",
+    "osis_id": "Zeph",
+    "name": "Zefanya",
+    "url_name": "Zefanya",
+    "testament": "OT",
+    "order": 36,
+    "chapters": 3
+  },
+  {
+    "code": "hag",
+    "osis_id": "Hag",
+    "name": "Hagai",
+    "url_name": "Hagai",
+    "testament": "OT",
+    "order": 37,
+    "chapters": 2
+  },
+  {
+    "code": "zak",
+    "osis_id": "Zech",
+    "name": "Zakharia",
+    "url_name": "Zakharia",
+    "testament": "OT",
+    "order": 38,
+    "chapters": 14
+  },
+  {
+    "code": "mal",
+    "osis_id": "Mal",
+    "name": "Maleakhi",
+    "url_name": "Maleakhi",
+    "testament": "OT",
+    "order": 39,
+    "chapters": 4
+  },
+  {
+    "code": "mat",
+    "osis_id": "Matt",
+    "name": "Matius",
+    "url_name": "Matius",
+    "testament": "NT",
+    "order": 40,
+    "chapters": 28
+  },
+  {
+    "code": "mrk",
+    "osis_id": "Mark",
+    "name": "Markus",
+    "url_name": "Markus",
+    "testament": "NT",
+    "order": 41,
+    "chapters": 16
+  },
+  {
+    "code": "luk",
+    "osis_id": "Luke",
+    "name": "Lukas",
+    "url_name": "Lukas",
+    "testament": "NT",
+    "order": 42,
+    "chapters": 24
+  },
+  {
+    "code": "yoh",
+    "osis_id": "John",
+    "name": "Yohanes",
+    "url_name": "Yohanes",
+    "testament": "NT",
+    "order": 43,
+    "chapters": 21
+  },
+  {
+    "code": "kis",
+    "osis_id": "Acts",
+    "name": "Kisah Para Rasul",
+    "url_name": "Kisah Para Rasul",
+    "testament": "NT",
+    "order": 44,
+    "chapters": 28
+  },
+  {
+    "code": "rom",
+    "osis_id": "Rom",
+    "name": "Roma",
+    "url_name": "Roma",
+    "testament": "NT",
+    "order": 45,
+    "chapters": 16
+  },
+  {
+    "code": "1ko",
+    "osis_id": "1Cor",
+    "name": "1 Korintus",
+    "url_name": "1 Korintus",
+    "testament": "NT",
+    "order": 46,
+    "chapters": 16
+  },
+  {
+    "code": "2ko",
+    "osis_id": "2Cor",
+    "name": "2 Korintus",
+    "url_name": "2 Korintus",
+    "testament": "NT",
+    "order": 47,
+    "chapters": 13
+  },
+  {
+    "code": "gal",
+    "osis_id": "Gal",
+    "name": "Galatia",
+    "url_name": "Galatia",
+    "testament": "NT",
+    "order": 48,
+    "chapters": 6
+  },
+  {
+    "code": "efe",
+    "osis_id": "Eph",
+    "name": "Efesus",
+    "url_name": "Efesus",
+    "testament": "NT",
+    "order": 49,
+    "chapters": 6
+  },
+  {
+    "code": "flp",
+    "osis_id": "Phil",
+    "name": "Filipi",
+    "url_name": "Filipi",
+    "testament": "NT",
+    "order": 50,
+    "chapters": 4
+  },
+  {
+    "code": "kol",
+    "osis_id": "Col",
+    "name": "Kolose",
+    "url_name": "Kolose",
+    "testament": "NT",
+    "order": 51,
+    "chapters": 4
+  },
+  {
+    "code": "1te",
+    "osis_id": "1Thess",
+    "name": "1 Tesalonika",
+    "url_name": "1 Tesalonika",
+    "testament": "NT",
+    "order": 52,
+    "chapters": 5
+  },
+  {
+    "code": "2te",
+    "osis_id": "2Thess",
+    "name": "2 Tesalonika",
+    "url_name": "2 Tesalonika",
+    "testament": "NT",
+    "order": 53,
+    "chapters": 3
+  },
+  {
+    "code": "1ti",
+    "osis_id": "1Tim",
+    "name": "1 Timotius",
+    "url_name": "1 Timotius",
+    "testament": "NT",
+    "order": 54,
+    "chapters": 6
+  },
+  {
+    "code": "2ti",
+    "osis_id": "2Tim",
+    "name": "2 Timotius",
+    "url_name": "2 Timotius",
+    "testament": "NT",
+    "order": 55,
+    "chapters": 4
+  },
+  {
+    "code": "tit",
+    "osis_id": "Titus",
+    "name": "Titus",
+    "url_name": "Titus",
+    "testament": "NT",
+    "order": 56,
+    "chapters": 3
+  },
+  {
+    "code": "flm",
+    "osis_id": "Phlm",
+    "name": "Filemon",
+    "url_name": "Filemon",
+    "testament": "NT",
+    "order": 57,
+    "chapters": 1
+  },
+  {
+    "code": "ibr",
+    "osis_id": "Heb",
+    "name": "Ibrani",
+    "url_name": "Ibrani",
+    "testament": "NT",
+    "order": 58,
+    "chapters": 13
+  },
+  {
+    "code": "yak",
+    "osis_id": "Jas",
+    "name": "Yakobus",
+    "url_name": "Yakobus",
+    "testament": "NT",
+    "order": 59,
+    "chapters": 5
+  },
+  {
+    "code": "1pt",
+    "osis_id": "1Pet",
+    "name": "1 Petrus",
+    "url_name": "1 Petrus",
+    "testament": "NT",
+    "order": 60,
+    "chapters": 5
+  },
+  {
+    "code": "2pt",
+    "osis_id": "2Pet",
+    "name": "2 Petrus",
+    "url_name": "2 Petrus",
+    "testament": "NT",
+    "order": 61,
+    "chapters": 3
+  },
+  {
+    "code": "1yo",
+    "osis_id": "1John",
+    "name": "1 Yohanes",
+    "url_name": "1 Yohanes",
+    "testament": "NT",
+    "order": 62,
+    "chapters": 5
+  },
+  {
+    "code": "2yo",
+    "osis_id": "2John",
+    "name": "2 Yohanes",
+    "url_name": "2 Yohanes",
+    "testament": "NT",
+    "order": 63,
+    "chapters": 1
+  },
+  {
+    "code": "3yo",
+    "osis_id": "3John",
+    "name": "3 Yohanes",
+    "url_name": "3 Yohanes",
+    "testament": "NT",
+    "order": 64,
+    "chapters": 1
+  },
+  {
+    "code": "yud",
+    "osis_id": "Jude",
+    "name": "Yudas",
+    "url_name": "Yudas",
+    "testament": "NT",
+    "order": 65,
+    "chapters": 1
+  },
+  {
+    "code": "why",
+    "osis_id": "Rev",
+    "name": "Wahyu",
+    "url_name": "Wahyu",
+    "testament": "NT",
+    "order": 66,
+    "chapters": 22
+  }
+]

@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import type { ProjectionState, SlideData } from '@renderer/types'
-import { AtmosphereRenderer } from '@renderer/atmosphere/AtmosphereRenderer'
+import { AtmosphereRenderer, DecodedImageBackground } from '@renderer/atmosphere/AtmosphereRenderer'
 import { useAtmosphereStore } from '@renderer/store/useAtmosphereStore'
 import { BibleAutoFitText } from './presentation/BibleAutoFitText'
 import { PdfSlideViewer } from './presentation/PdfSlideViewer'
@@ -175,6 +175,7 @@ export function PresentationCanvas({
   const contentKey = slide ? `${slide.songId}-${slide.slideIndex}-${slide.text}` : 'empty'
   const isInfoSlide = slide?.contentType === 'custom' && Boolean(slide.sectionLabel?.trim())
   const isBibleSlide = slide?.contentType === 'bible'
+  const isMediaSlide = slide?.contentType === 'media'
   const getResolvedAtmosphere = useAtmosphereStore((s) => s.getResolvedAtmosphere)
   const resolvedAtmosphere = useMemo(() => {
     // Use centralized store resolution with legacy theme fallback
@@ -183,9 +184,11 @@ export function PresentationCanvas({
   }, [theme, getResolvedAtmosphere])
   const hasVisualMedia = Boolean(
     showLive &&
-    (slide?.pdfPath ||
+    (slide?.visualImagePath ||
+      slide?.pdfPath ||
       ((resolvedAtmosphere.mode === 'image' || resolvedAtmosphere.mode === 'video') &&
-        resolvedAtmosphere.media?.path))
+        resolvedAtmosphere.media?.path) ||
+      isMediaSlide)
   )
 
   const primaryTextContent = slide ? (
@@ -288,7 +291,7 @@ export function PresentationCanvas({
           : CANVAS_STYLE
       }
     >
-      {!showBlack && !slide?.pdfPath && (
+      {!showBlack && !slide?.pdfPath && !slide?.visualImagePath && (
         <AtmosphereRenderer
           config={resolvedAtmosphere}
           transitionDuration={transitionDuration}
@@ -398,6 +401,27 @@ export function PresentationCanvas({
           </AnimatePresence>
 
           <AnimatePresence>
+            {showLive && !showBlack && slide?.visualImagePath && (
+              <motion.div
+                key={`image-slide-${slide.visualImagePath}-${slide.slideIndex}`}
+                initial={transition.initial}
+                animate={transition.animate}
+                exit={transition.exit}
+                transition={transition.transition}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: '#000',
+                  willChange: 'transform, opacity, filter'
+                }}
+              >
+                <DecodedImageBackground
+                  path={slide.visualImagePath}
+                  fit="contain"
+                  transitionDuration={Math.min(transitionDuration, 0.18)}
+                />
+              </motion.div>
+            )}
             {showLive && !showBlack && slide?.pdfPath && (
               <motion.div
                 key={`pdf-${slide.pdfPath}-${slide.slideIndex}`}
@@ -496,6 +520,16 @@ export function PresentationCanvas({
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {showLive && !showBlack && slide?.visualImagePath && (
+            <div style={{ position: 'absolute', inset: 0, background: '#000' }}>
+              <DecodedImageBackground
+                path={slide.visualImagePath}
+                fit="contain"
+                transitionDuration={0.1}
+              />
             </div>
           )}
 

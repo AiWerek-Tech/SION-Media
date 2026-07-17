@@ -1546,7 +1546,9 @@ export function addMediaToPlaylist(
   media: {
     title: string
     path: string
-    presentation?: { slides: Array<{ index: number; title: string; notes: string }> }
+    presentation?: {
+      slides: Array<{ index: number; title: string; notes: string; imagePath?: string }>
+    }
   }
 ): unknown {
   const maxOrder = db

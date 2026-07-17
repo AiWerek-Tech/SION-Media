@@ -1,6 +1,6 @@
 # Core: Timing System
 
-> **Dokumentasi lengkap:** `.docs/11-source-architecture/core/timing-system.md`
+> **Dokumentasi lengkap:** `.dev-docs/11-source-architecture/core/timing-system.md`
 
 **Status:** ⬜ Planned — Placeholder, belum diimplementasikan.
 

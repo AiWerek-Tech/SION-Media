@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   CalendarDays,
   ChevronDown,
+  Clock3,
   Download,
   FolderOpen,
   ListMusic,
@@ -25,6 +26,10 @@ import {
   normalizePlaylistServiceDate,
   type PlaylistScheduleMode
 } from '@renderer/utils/playlistSchedule'
+import {
+  buildRundownTimingSummary,
+  formatRundownDuration
+} from '@renderer/utils/rundownDuration'
 import PlaylistItemCard from '@renderer/components/PlaylistItemCard'
 import { Modal, ModalButton } from '@renderer/components/modals/Modal'
 import { PlaylistSelector } from '@renderer/components/playlist/PlaylistSelector'
@@ -184,6 +189,15 @@ export function PlaylistPanel({
     [playlistItems]
   )
 
+  const rundownTiming = React.useMemo(
+    () =>
+      buildRundownTimingSummary({
+        items: playlistItems,
+        currentPlaylistItemId: playlistItems[activeItemIndex]?.id
+      }),
+    [playlistItems, activeItemIndex]
+  )
+
   // FIX: Apply section label to the currently active item, or last item
   const handleAddSectionDivider = useCallback(
     (label: string): void => {
@@ -252,7 +266,7 @@ export function PlaylistPanel({
   const handleExportPlaylist = async (): Promise<void> => {
     const showToast = useAppStore.getState().showToast
     if (!activePlaylist || playlistItems.length === 0) {
-      showToast('Playlist kosong, tidak ada yang diekspor', 'error')
+      showToast('Rundown kosong, tidak ada yang diekspor', 'error')
       return
     }
 
@@ -337,12 +351,12 @@ export function PlaylistPanel({
         const filePath = (result as { filePath?: string }).filePath
         if (filePath) {
           await window.api.file.writeJson(filePath, exportData)
-          showToast('Berhasil mengekspor playlist', 'success')
+          showToast('Berhasil mengekspor rundown', 'success')
         }
       }
     } catch (err) {
       logger.error('Export failed:', err)
-      showToast('Gagal mengekspor playlist', 'error')
+      showToast('Gagal mengekspor rundown', 'error')
     }
   }
 
@@ -358,7 +372,7 @@ export function PlaylistPanel({
       const filePath = result.filePaths[0]
       const rawData = await window.api.file.readJson(filePath)
       if (!rawData || typeof rawData !== 'object' || !('isSionPlaylist' in rawData)) {
-        showToast('Format file playlist tidak valid', 'error')
+        showToast('Format file rundown tidak valid', 'error')
         return
       }
       const data = rawData as {
@@ -368,7 +382,7 @@ export function PlaylistPanel({
         songs?: Array<Record<string, unknown>>
       }
       if (!data.isSionPlaylist) {
-        showToast('Format file playlist tidak valid', 'error')
+        showToast('Format file rundown tidak valid', 'error')
         return
       }
 
@@ -379,7 +393,7 @@ export function PlaylistPanel({
 
       const { activePlaylist: newPlaylist } = usePlaylistStore.getState()
       if (!newPlaylist) {
-        showToast('Gagal membuat playlist untuk import', 'error')
+        showToast('Gagal membuat rundown untuk import', 'error')
         return
       }
 
@@ -439,11 +453,11 @@ export function PlaylistPanel({
           'info'
         )
       } else {
-        showToast(`Berhasil mengimpor ${matchCount} item ke playlist baru.`, 'success')
+        showToast(`Berhasil mengimpor ${matchCount} item ke rundown baru.`, 'success')
       }
     } catch (err) {
       logger.error('Import failed:', err)
-      showToast('Gagal mengimpor playlist', 'error')
+      showToast('Gagal mengimpor rundown', 'error')
     }
   }
 
@@ -452,7 +466,7 @@ export function PlaylistPanel({
     const confirmed = await useModalStore
       .getState()
       .openAsync<boolean>('confirm-delete-playlist', 'confirm', {
-        title: 'Hapus Playlist?',
+        title: 'Hapus Rundown Worship?',
         description: `"${activePlaylist.name}" akan dihapus permanen beserta semua item di dalamnya.`,
         confirmLabel: 'Hapus',
         danger: true
@@ -466,7 +480,7 @@ export function PlaylistPanel({
       await usePlaylistStore.getState().loadPlaylists()
     } catch (err) {
       logger.error('Failed to delete playlist:', err)
-      useAppStore.getState().showToast('Gagal menghapus playlist', 'error')
+      useAppStore.getState().showToast('Gagal menghapus rundown', 'error')
     }
   }
 
@@ -531,21 +545,21 @@ export function PlaylistPanel({
               <button
                 onClick={handleExportPlaylist}
                 className="playlist-panel__tool"
-                title="Export playlist"
+                title="Export rundown"
               >
                 <Download size={14} />
               </button>
               <button
                 onClick={handleImportPlaylist}
                 className="playlist-panel__tool"
-                title="Import playlist"
+                title="Import rundown"
               >
                 <Upload size={14} />
               </button>
               <button
                 onClick={handleDeletePlaylist}
                 className="playlist-panel__tool playlist-panel__tool--danger"
-                title="Hapus playlist"
+                title="Hapus rundown"
               >
                 <Trash2 size={14} />
               </button>
@@ -555,7 +569,7 @@ export function PlaylistPanel({
           <button
             onClick={() => setShowNewDialog(true)}
             className="playlist-panel__tool playlist-panel__tool--primary"
-            title="Playlist baru"
+            title="Rundown baru"
           >
             <Plus size={14} />
           </button>
@@ -563,7 +577,7 @@ export function PlaylistPanel({
             <button
               onClick={handleClosePlaylist}
               className="playlist-panel__tool"
-              title="Tutup playlist"
+              title="Tutup rundown"
             >
               <X size={13} />
             </button>
@@ -573,18 +587,45 @@ export function PlaylistPanel({
 
       {/* ── Content ────────────────────────────────────────────────────── */}
       <div className="playlist-panel__body">
+        {activePlaylist && playlistItems.length > 0 && (
+          <div className="mx-2 mb-2 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.045] px-3 py-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-200">
+                  <Clock3 size={14} />
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-[11px] font-black uppercase tracking-[0.14em] text-cyan-100">
+                    Durasi Rundown Worship
+                  </div>
+                  <div className="truncate text-[11px] font-semibold text-text-muted">
+                    {playlistItems.length} item · {totalSlideCount} slide · estimasi ibadah
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-mono text-[18px] font-black tabular-nums text-text-primary">
+                  {formatRundownDuration(rundownTiming.rundownTotalSeconds)}
+                </div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-text-disabled">
+                  Total
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {!activePlaylist ? (
           /* Empty — no playlist selected */
           <div className="playlist-panel__empty">
             <div className="playlist-panel__empty-icon">
               <ListMusic size={22} />
             </div>
-            <h3>Belum ada playlist aktif</h3>
-            <p>Buat playlist baru atau buka playlist yang sudah ada.</p>
+            <h3>Belum ada Rundown Worship aktif</h3>
+            <p>Buat rundown baru atau buka rundown yang sudah ada.</p>
             <div className="flex items-center gap-2 mt-1">
               <button onClick={() => setShowLoadDialog(true)} className="playlist-panel__empty-btn">
                 <FolderOpen size={13} />
-                Buka Playlist
+                Buka Rundown
               </button>
               <button
                 onClick={() => setShowNewDialog(true)}
@@ -601,7 +642,7 @@ export function PlaylistPanel({
             <div className="playlist-panel__empty-icon">
               <Music size={20} />
             </div>
-            <h3>Playlist Kosong</h3>
+            <h3>Rundown Kosong</h3>
             <p>Klik tombol + pada lagu di library untuk menambahkan ke sini.</p>
           </div>
         ) : (
@@ -640,8 +681,8 @@ export function PlaylistPanel({
       {showNewDialog && (
         <Modal
           id="playlist-panel-create"
-          title="Buat Playlist Baru"
-          subtitle="Siapkan rundown yang dapat digunakan kapan saja atau untuk tanggal tertentu."
+          title="Buat Rundown Worship"
+          subtitle="Siapkan urutan ibadah yang dapat dipakai kapan saja atau untuk tanggal tertentu."
           size="md"
           onClose={() => setShowNewDialog(false)}
           footer={
@@ -652,7 +693,7 @@ export function PlaylistPanel({
                 onClick={() => void handleCreatePlaylist()}
                 disabled={!newName.trim() || (newScheduleMode === 'dated' && !newDate)}
               >
-                Simpan Playlist
+                Simpan Rundown
               </ModalButton>
             </>
           }
@@ -725,16 +766,16 @@ export function PlaylistPanel({
       {showLoadDialog && (
         <Modal
           id="playlist-panel-load"
-          title="Buka Playlist"
-          subtitle="Pilih playlist tersimpan untuk melanjutkan persiapan."
+          title="Buka Rundown Worship"
+          subtitle="Pilih rundown tersimpan untuk melanjutkan persiapan ibadah."
           size="md"
           onClose={() => setShowLoadDialog(false)}
         >
           {playlists.length === 0 ? (
             <div className="sp-modal-empty">
               <ListMusic size={24} />
-              <strong>Belum ada playlist tersimpan</strong>
-              <span>Buat playlist baru untuk memulai rundown ibadah.</span>
+              <strong>Belum ada rundown tersimpan</strong>
+              <span>Buat Rundown Worship baru untuk memulai persiapan ibadah.</span>
             </div>
           ) : (
             <div className="playlist-modal-list">

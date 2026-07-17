@@ -269,7 +269,7 @@ describe('Code signing infrastructure', () => {
   })
 
   test('code signing documentation exists', () => {
-    const docPath = resolve(root, 'docs/CODE_SIGNING.md')
+    const docPath = resolve(root, '.dev-docs/05-guides/CODE_SIGNING.md')
     expect(existsSync(docPath)).toBe(true)
     const doc = readFileSync(docPath, 'utf8')
     expect(doc).toContain('Self-Signed Certificate')

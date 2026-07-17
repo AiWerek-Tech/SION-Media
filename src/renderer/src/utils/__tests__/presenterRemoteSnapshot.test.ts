@@ -9,18 +9,22 @@ import type { SlideData } from '@renderer/types'
 describe('summarizePresenterRemoteSlide', () => {
   it('uses the media title from sectionLabel when slide text is empty', () => {
     const slide: SlideData = {
-      contentType: 'custom',
+      contentType: 'media',
       songId: null,
       playlistItemId: 1,
       slideIndex: 0,
       text: '',
-      sectionLabel: 'KKR H3'
+      sectionLabel: 'KKR H3',
+      mediaKind: 'image',
+      mediaSourcePath: 'C:\\Media\\H3.png'
     }
 
     expect(summarizePresenterRemoteSlide(slide, '')).toEqual({
       text: 'KKR H3',
       label: 'Media',
-      contentType: 'custom',
+      contentType: 'media',
+      mediaKind: 'image',
+      mediaSourcePath: 'C:\\Media\\H3.png',
       canPresenterNavigate: false
     })
   })
@@ -45,13 +49,15 @@ describe('summarizePresenterRemoteSlide', () => {
 
   it('adds a PDF visual descriptor from pdfPath', () => {
     const slide: SlideData = {
-      contentType: 'custom',
+      contentType: 'media',
       songId: null,
       playlistItemId: 3,
       slideIndex: 1,
       text: '',
       sectionLabel: 'Halaman 2',
-      pdfPath: 'C:\\Media\\seminar.pdf'
+      pdfPath: 'C:\\Media\\seminar.pdf',
+      mediaKind: 'pdf',
+      mediaSourcePath: 'C:\\Media\\seminar.pdf'
     }
 
     expect(summarizePresenterRemoteSlide(slide, '')).toEqual({
@@ -60,7 +66,9 @@ describe('summarizePresenterRemoteSlide', () => {
       visualType: 'pdf',
       visualPath: 'C:\\Media\\seminar.pdf',
       pageNumber: 2,
-      contentType: 'custom',
+      contentType: 'media',
+      mediaKind: 'pdf',
+      mediaSourcePath: 'C:\\Media\\seminar.pdf',
       canPresenterNavigate: true
     })
   })
@@ -107,12 +115,14 @@ describe('summarizePresenterRemoteSlide', () => {
 
   it('adds an image visual descriptor from media background config', () => {
     const slide: SlideData = {
-      contentType: 'custom',
+      contentType: 'media',
       songId: null,
       playlistItemId: 4,
       slideIndex: 0,
       text: '',
-      sectionLabel: 'KKR H3'
+      sectionLabel: 'KKR H3',
+      mediaKind: 'image',
+      mediaSourcePath: 'C:\\Media\\H3.png'
     }
     const config = JSON.stringify({
       mode: 'image',
@@ -124,8 +134,37 @@ describe('summarizePresenterRemoteSlide', () => {
       label: 'Media',
       visualType: 'image',
       visualPath: 'C:\\Media\\H3.png',
-      contentType: 'custom',
+      contentType: 'media',
+      mediaKind: 'image',
+      mediaSourcePath: 'C:\\Media\\H3.png',
       canPresenterNavigate: false
+    })
+  })
+
+  it('prefers imported PPTX slide images over PDF render for presenter clients', () => {
+    const slide: SlideData = {
+      contentType: 'media',
+      songId: null,
+      playlistItemId: 5,
+      slideIndex: 2,
+      text: '',
+      sectionLabel: 'Slide 3',
+      pdfPath: 'C:\\Media\\deck.pdf',
+      visualImagePath: 'C:\\AppData\\presentation-packages\\deck\\slides\\slide3.png',
+      mediaKind: 'presentation',
+      mediaSourcePath: 'C:\\Media\\deck.pdf'
+    }
+
+    expect(summarizePresenterRemoteSlide(slide, '')).toEqual({
+      text: 'Slide 3',
+      label: 'Media',
+      visualType: 'image',
+      visualPath: 'C:\\AppData\\presentation-packages\\deck\\slides\\slide3.png',
+      pageNumber: 3,
+      contentType: 'media',
+      mediaKind: 'presentation',
+      mediaSourcePath: 'C:\\Media\\deck.pdf',
+      canPresenterNavigate: true
     })
   })
 })

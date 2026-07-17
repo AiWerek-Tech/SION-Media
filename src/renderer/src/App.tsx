@@ -34,6 +34,7 @@ import {
   getPresenterRemotePdfVisualKey,
   summarizePresenterRemoteSlide
 } from './utils/presenterRemoteSnapshot'
+import { buildRundownTimingSummary } from './utils/rundownDuration'
 import { getCachedPdfPageImage, prefetchAndCachePdfPage } from './utils/pdfUtils'
 import { SplashScreen } from './startup/SplashScreen'
 import { RendererBootScreen } from './startup/RendererBootScreen'
@@ -174,6 +175,8 @@ function App(): React.JSX.Element {
           const bridge = usePowerPointBridgeStore.getState()
           const bridgeSource = source as PowerPointBridgeSourceState
           bridge.setSource(bridgeSource)
+          const activeDeviceId = usePowerPointBridgeStore.getState().activeDeviceId
+          if (activeDeviceId !== bridgeSource.deviceId) break
 
           const isCurrentlyLive =
             useProjectionStore.getState().programSongMeta?.hymnalCode === 'PPT LIVE'
@@ -288,6 +291,12 @@ function App(): React.JSX.Element {
     )
     const currentPdfKey = getPresenterRemotePdfVisualKey(presenterProgramSlide)
     const nextPdfKey = getPresenterRemotePdfVisualKey(presenterNextSlideData)
+    const rundownTiming = buildRundownTimingSummary({
+      items: playlistItems,
+      currentPlaylistItemId: presenterProgramSlide?.playlistItemId,
+      currentSlideIndex: presenterProgramSlide?.slideIndex,
+      timerElapsedSeconds: presenterTimerElapsed
+    })
 
     window.api.presenterRemote.updateSnapshot({
       projectionState: presenterProjectionState,
@@ -307,6 +316,8 @@ function App(): React.JSX.Element {
       isSmartMode: presenterIsSmartMode,
       timerElapsed: presenterTimerElapsed,
       timerRunning: presenterTimerRunning,
+      rundownName: activePlaylist?.name || '',
+      ...rundownTiming,
       updatedAt: Date.now()
     })
   }, [
@@ -322,6 +333,7 @@ function App(): React.JSX.Element {
     presenterTimerElapsed,
     presenterTimerRunning,
     presenterProgramSongBackgroundConfig,
+    activePlaylist,
     playlistItems,
     presenterPdfVisualCache
   ])

@@ -4,6 +4,12 @@ import {
   FileVideo,
   FolderOpen,
   Image as ImageIcon,
+  AlertTriangle,
+  CheckCircle2,
+  FileStack,
+  Loader2,
+  Minimize2,
+  Maximize2,
   Play,
   Plus,
   Trash2,
@@ -21,6 +27,14 @@ import {
   setCachedPdfPageImage
 } from '@renderer/utils/pdfUtils'
 import { toLocalMediaUrl } from '@renderer/utils/localMediaUrl'
+import {
+  getMediaKindCapability,
+  getMediaKindLabel,
+  getProjectionMediaMode,
+  isPagedMediaKind,
+  resolveMediaKind,
+  type LocalMediaKind
+} from '../../../../shared/media-kind'
 
 interface LocalMediaAsset {
   id: string
@@ -46,6 +60,47 @@ interface LocalMediaAsset {
 }
 
 type MediaTypeFilter = 'all' | 'image' | 'video' | 'pdf'
+
+type PresentationImportStep =
+  | 'parsing'
+  | 'converting'
+  | 'generating'
+  | 'finishing'
+  | 'done'
+  | 'failed'
+
+interface PresentationImportStatus {
+  fileName: string
+  percent: number
+  step: PresentationImportStep
+  isMinimized: boolean
+  fileIndex: number
+  fileTotal: number
+  startedAt: number
+  error?: string
+}
+
+const PRESENTATION_IMPORT_COPY: Record<
+  Exclude<PresentationImportStep, 'done' | 'failed'>,
+  { title: string; detail: string }
+> = {
+  parsing: {
+    title: 'Menganalisis struktur PPTX',
+    detail: 'Membaca jumlah slide, judul, dan catatan pemateri.'
+  },
+  converting: {
+    title: 'Menyiapkan mesin konversi',
+    detail: 'SION memilih PowerPoint, WPS, atau LibreOffice yang tersedia.'
+  },
+  generating: {
+    title: 'Mengekspor slide',
+    detail: 'Membuat PDF dan gambar slide agar tampil cepat di Preview, Program, dan SION Link.'
+  },
+  finishing: {
+    title: 'Menyimpan ke Media Lokal',
+    detail: 'Mendaftarkan presentasi ke pustaka media dan menyiapkan thumbnail.'
+  }
+}
 
 interface PdfThumbnailProps {
   pdfPath: string
@@ -162,19 +217,16 @@ export function LocalMediaPanel(): React.JSX.Element {
   const [presentationOutputMode, setPresentationOutputMode] = useState<'auto' | 'pdf' | 'images'>(
     'auto'
   )
-  const [importStatus, setImportStatus] = useState<{
-    fileName: string
-    percent: number
-    step: 'parsing' | 'converting' | 'generating' | 'finishing' | 'done' | 'failed'
-    isMinimized: boolean
-    error?: string
-  } | null>(null)
+  const [importStatus, setImportStatus] = useState<PresentationImportStatus | null>(null)
+  const [importNow, setImportNow] = useState(() => Date.now())
 
   const activeImportResolver = React.useRef<(() => void) | null>(null)
 
   const { showToast } = useAppStore()
   const { setSlides } = useProjectionStore()
   const addMediaToPlaylist = usePlaylistStore((state) => state.addMediaToPlaylist)
+  const importStartedAt = importStatus?.startedAt
+  const importStep = importStatus?.step
 
   const handleCloseImportError = (): void => {
     setImportStatus(null)
@@ -182,18 +234,27 @@ export function LocalMediaPanel(): React.JSX.Element {
   }
 
   useEffect(() => {
+    if (!importStartedAt || importStep === 'failed') return
+    const timer = window.setInterval(() => setImportNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [importStartedAt, importStep])
+
+  useEffect(() => {
     if (!window.api.media.onPresentationImportProgress) return
 
     const unsubscribe = window.api.media.onPresentationImportProgress((progress) => {
       const fileName = progress.filePath.split(/[\\/]/).pop() ?? ''
       if (progress.step === 'failed') {
-        setImportStatus({
+        setImportStatus((prev) => ({
           fileName,
           percent: 100,
           step: 'failed',
           isMinimized: false,
+          fileIndex: prev?.fileIndex ?? 1,
+          fileTotal: prev?.fileTotal ?? 1,
+          startedAt: prev?.startedAt ?? Date.now(),
           error: progress.errorMessage || 'Gagal mengimpor file'
-        })
+        }))
       } else if (progress.step === 'done') {
         setImportStatus(null)
         activeImportResolver.current?.()
@@ -204,7 +265,8 @@ export function LocalMediaPanel(): React.JSX.Element {
             ...prev,
             fileName,
             percent: progress.percent,
-            step: progress.step
+            step: progress.step,
+            error: undefined
           }
         })
       }
@@ -339,13 +401,18 @@ export function LocalMediaPanel(): React.JSX.Element {
 
       if (pptxFiles.length > 0) {
         const runPptxImports = async (): Promise<void> => {
-          for (const filePath of pptxFiles) {
+          for (const [index, filePath] of pptxFiles.entries()) {
             const fileName = filePath.split(/[\\/]/).pop() ?? ''
+            const startedAt = Date.now()
+            setImportNow(startedAt)
             setImportStatus({
               fileName,
               percent: 0,
               step: 'parsing',
-              isMinimized: false
+              isMinimized: false,
+              fileIndex: index + 1,
+              fileTotal: pptxFiles.length,
+              startedAt
             })
 
             let resolveCompleted: () => void = () => {}
@@ -368,6 +435,7 @@ export function LocalMediaPanel(): React.JSX.Element {
               resolveCompleted()
             } catch (err) {
               console.error('Failed to import presentation:', filePath, err)
+              showToast(`Gagal mengimpor "${fileName}"`, 'error')
             }
 
             await completedPromise
@@ -391,32 +459,49 @@ export function LocalMediaPanel(): React.JSX.Element {
   // Handle projecting (going live with) the media
   const handleProjectMedia = useCallback(
     async (asset: LocalMediaAsset) => {
-      const isPdf = asset.type === 'pdf'
+      const mediaKind = resolveMediaKind({
+        path: asset.localPath,
+        hasPresentationPackage: Boolean(asset.metadata?.presentationPackage)
+      })
+      const projectionMode = getProjectionMediaMode(mediaKind)
+      const isPagedMedia = isPagedMediaKind(mediaKind)
       let slides: SlideData[] = [
         {
-          contentType: 'custom',
+          contentType: 'media',
           songId: null,
           playlistItemId: null,
           slideIndex: 0,
           text: '',
-          sectionLabel: asset.name
+          sectionLabel: asset.name,
+          visualImagePath: projectionMode === 'image' ? asset.localPath : undefined,
+          mediaKind,
+          mediaSourcePath: asset.localPath,
+          mediaPageNumber: projectionMode === 'pdf' ? 1 : undefined
         }
       ]
 
-      if (isPdf) {
+      if (isPagedMedia) {
         try {
           const pageCount = await getPdfPageCount(asset.localPath)
           const presentationSlides = asset.metadata?.presentationPackage?.slides ?? []
-          slides = Array.from({ length: pageCount }).map((_, idx) => ({
-            contentType: 'custom',
-            songId: null,
-            playlistItemId: null,
-            slideIndex: idx,
-            text: '',
-            sectionLabel: presentationSlides[idx]?.title || `Halaman ${idx + 1}`,
-            pdfPath: asset.localPath,
-            speakerNotes: presentationSlides[idx]?.notes || undefined
-          }))
+          const useSlideImages = asset.metadata?.presentationPackage?.outputMode === 'images'
+          slides = Array.from({ length: pageCount }).map((_, idx) => {
+            const slideImagePath = useSlideImages ? presentationSlides[idx]?.imagePath : undefined
+            return {
+              contentType: 'media',
+              songId: null,
+              playlistItemId: null,
+              slideIndex: idx,
+              text: '',
+              sectionLabel: presentationSlides[idx]?.title || `Halaman ${idx + 1}`,
+              pdfPath: slideImagePath ? undefined : asset.localPath,
+              visualImagePath: slideImagePath || undefined,
+              speakerNotes: presentationSlides[idx]?.notes || undefined,
+              mediaKind,
+              mediaSourcePath: asset.localPath,
+              mediaPageNumber: idx + 1
+            }
+          })
         } catch (err) {
           console.error('Failed to get PDF page count:', err)
           showToast('Gagal memproses file PDF', 'error')
@@ -425,7 +510,7 @@ export function LocalMediaPanel(): React.JSX.Element {
       }
 
       const mediaConfig = JSON.stringify({
-        mode: asset.type,
+        mode: projectionMode,
         media: {
           path: asset.localPath
         },
@@ -434,12 +519,12 @@ export function LocalMediaPanel(): React.JSX.Element {
       })
 
       setSlides(slides, {
-        hymnalCode: isPdf ? 'PDF' : 'MEDIA',
+        hymnalCode: isPagedMedia ? 'PDF' : 'MEDIA',
         hymnalName: asset.name,
         songBackgroundConfig: mediaConfig
       })
 
-      showToast(`Media "${asset.name}" masuk ke Preview/Live`, 'success')
+      showToast(`Media "${asset.name}" masuk ke Preview. Tekan TAKE untuk menayangkan.`, 'success')
     },
     [setSlides, showToast]
   )
@@ -455,10 +540,11 @@ export function LocalMediaPanel(): React.JSX.Element {
             ? {
                 presentation: {
                   slides: asset.metadata.presentationPackage.slides.map(
-                    ({ index, title, notes }) => ({
+                    ({ index, title, notes, imagePath }) => ({
                       index,
                       title,
-                      notes
+                      notes,
+                      ...(imagePath ? { imagePath } : {})
                     })
                   )
                 }
@@ -637,6 +723,12 @@ export function LocalMediaPanel(): React.JSX.Element {
           <div className="grid grid-cols-2 gap-2.5">
             {filteredAssets.map((asset) => {
               const isVideo = asset.type === 'video'
+              const mediaKind: LocalMediaKind = resolveMediaKind({
+                path: asset.localPath,
+                hasPresentationPackage: Boolean(asset.metadata?.presentationPackage)
+              })
+              const mediaLabel = getMediaKindLabel(mediaKind)
+              const mediaCapability = getMediaKindCapability(mediaKind)
               const normalizedSrc = toLocalMediaUrl(asset.localPath)
               const thumbnailSrc = toLocalMediaUrl(asset.thumbnailPath || asset.localPath)
               const hasPreviewError = Boolean(previewErrors[asset.id])
@@ -695,15 +787,16 @@ export function LocalMediaPanel(): React.JSX.Element {
                       {/* 1. Large Circular Play Button in center */}
                       <button
                         onClick={() => handleProjectMedia(asset)}
-                        title="Tampilkan ke Proyektor (Live)"
+                        title="Muat media ini ke Preview"
                         className="
-                          w-10 h-10 rounded-full bg-brand-primary text-white
+                          min-w-20 h-10 rounded-full bg-brand-primary px-3 text-white
                           hover:bg-brand-primary-hover hover:scale-110
-                          flex items-center justify-center transition-all duration-150
+                          flex items-center justify-center gap-1.5 transition-all duration-150
                           shadow-lg active:scale-90 mt-1
                         "
                       >
                         <Play size={16} fill="currentColor" className="ml-0.5" />
+                        <span className="text-[10px] font-black">Preview</span>
                       </button>
 
                       {/* 2. Playlist & Delete actions at bottom */}
@@ -738,13 +831,22 @@ export function LocalMediaPanel(): React.JSX.Element {
 
                   {/* Title & Info */}
                   <div className="min-w-0 px-0.5">
+                    <div className="mb-1 flex items-center gap-1.5">
+                      <span className="rounded-md border border-brand-primary/20 bg-brand-primary/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-sky-200">
+                        {mediaLabel}
+                      </span>
+                      <span className="truncate text-[8px] font-bold text-text-disabled">
+                        {mediaCapability}
+                      </span>
+                    </div>
                     <p
                       title={asset.name}
-                      className="text-[10px] font-semibold text-text-secondary truncate leading-tight group-hover:text-text-primary"
+                      className="truncate text-[10px] font-semibold leading-tight text-text-secondary group-hover:text-text-primary"
                     >
                       {asset.name}
                     </p>
-                    <p className="text-[9px] text-text-disabled truncate mt-0.5 opacity-60">
+                    <p className="mt-0.5 truncate text-[9px] text-text-disabled opacity-60">
+                      Folder:{' '}
                       {asset.category && asset.category.startsWith('Local - ')
                         ? asset.category.slice(8)
                         : 'Default'}
@@ -777,77 +879,150 @@ export function LocalMediaPanel(): React.JSX.Element {
         <>
           {/* Modal Dialog (when NOT minimized) */}
           {!importStatus.isMinimized && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-300">
-              <div className="w-[420px] rounded-2xl border border-white/10 bg-[#0c101d] p-6 shadow-2xl scale-100 transition-all">
-                {/* Header */}
-                <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <h3 className="text-sm font-extrabold text-white tracking-wide">
-                    {importStatus.step === 'failed' ? 'Gagal Mengimpor' : 'Mengimpor Presentasi'}
-                  </h3>
-                  {importStatus.step !== 'failed' && (
-                    <button
-                      onClick={() =>
-                        setImportStatus((prev) => (prev ? { ...prev, isMinimized: true } : null))
-                      }
-                      className="rounded-lg p-1.5 text-zinc-400 hover:bg-white/5 hover:text-white transition-all active:scale-95 cursor-pointer"
-                      title="Minimize ke latar belakang"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm transition-opacity duration-300">
+              <div className="w-[min(520px,100%)] overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900 shadow-2xl shadow-black/50">
+                <div className="border-b border-white/10 bg-white/[0.025] px-5 py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div
+                        className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl border ${
+                          importStatus.step === 'failed'
+                            ? 'border-red-400/30 bg-red-500/10 text-red-200'
+                            : 'border-sky-300/25 bg-sky-400/10 text-sky-200'
+                        }`}
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
-                      </svg>
-                    </button>
-                  )}
+                        {importStatus.step === 'failed' ? (
+                          <AlertTriangle size={20} />
+                        ) : (
+                          <FileStack size={20} />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-[15px] font-black tracking-tight text-white">
+                          {importStatus.step === 'failed'
+                            ? 'Import PPT lokal gagal'
+                            : 'Mengimpor PPT lokal'}
+                        </h3>
+                        <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                          {importStatus.fileTotal > 1
+                            ? `File ${importStatus.fileIndex} dari ${importStatus.fileTotal}`
+                            : 'Menyiapkan presentasi untuk Media Lokal, Preview, Program, dan SION Link.'}
+                        </p>
+                      </div>
+                    </div>
+                    {importStatus.step !== 'failed' && (
+                      <button
+                        onClick={() =>
+                          setImportStatus((prev) => (prev ? { ...prev, isMinimized: true } : null))
+                        }
+                        className="rounded-xl p-2 text-slate-400 transition-all hover:bg-white/10 hover:text-white active:scale-95"
+                        title="Minimalkan ke pojok kanan"
+                        aria-label="Minimalkan progress import"
+                      >
+                        <Minimize2 size={16} />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {/* Body Content */}
-                <div className="mt-4 space-y-4">
-                  <div className="space-y-1">
-                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
-                      Nama File
+                <div className="space-y-5 px-5 py-5">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-3.5">
+                    <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+                      File presentasi
                     </div>
-                    <div className="text-xs font-bold text-white truncate">
+                    <div className="mt-1 truncate text-[13px] font-bold text-white">
                       {importStatus.fileName}
                     </div>
                   </div>
 
                   {importStatus.step === 'failed' ? (
-                    <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3.5 text-xs text-red-300 font-semibold leading-relaxed">
-                      {importStatus.error || 'Terjadi kesalahan saat mengimpor presentasi.'}
-                    </div>
+                    <>
+                      <div className="rounded-2xl border border-red-400/25 bg-red-500/10 p-4 text-[12px] font-semibold leading-relaxed text-red-100">
+                        {importStatus.error || 'Terjadi kesalahan saat mengimpor presentasi.'}
+                      </div>
+                      <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-[11px] leading-relaxed text-amber-100">
+                        Coba buka file di PowerPoint lalu simpan ulang sebagai{' '}
+                        <strong>.pptx</strong>. Jika masih gagal, gunakan mode{' '}
+                        <strong>PDF kompatibel</strong> atau ekspor manual ke PDF.
+                      </div>
+                    </>
                   ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-[11px] font-bold">
-                        <span className="text-zinc-400">
-                          {importStatus.step === 'parsing' && 'Menganalisis file presentasi...'}
-                          {importStatus.step === 'converting' &&
-                            'Menginisialisasi mesin konversi...'}
-                          {importStatus.step === 'generating' && 'Mengekspor halaman presentasi...'}
-                          {importStatus.step === 'finishing' && 'Menyimpan ke pustaka media...'}
-                        </span>
-                        <span className="text-brand-primary tabular-nums font-black">
-                          {importStatus.percent}%
-                        </span>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex items-end justify-between gap-3">
+                          <div>
+                            <div className="text-[13px] font-black text-white">
+                              {PRESENTATION_IMPORT_COPY[importStatus.step].title}
+                            </div>
+                            <div className="mt-0.5 text-[11px] leading-relaxed text-slate-400">
+                              {PRESENTATION_IMPORT_COPY[importStatus.step].detail}
+                            </div>
+                          </div>
+                          <span className="shrink-0 text-[20px] font-black tabular-nums text-sky-300">
+                            {importStatus.percent}%
+                          </span>
+                        </div>
+                        <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-sky-400 to-blue-500 shadow-[0_0_24px_rgba(56,189,248,.35)] transition-all duration-300 ease-out"
+                            style={{ width: `${Math.max(3, importStatus.percent)}%` }}
+                          />
+                        </div>
                       </div>
 
-                      {/* Progress Bar Track */}
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
-                        <div
-                          className="h-full bg-gradient-to-r from-brand-primary to-sky-400 transition-all duration-300 ease-out"
-                          style={{ width: `${importStatus.percent}%` }}
-                        />
+                      <div className="grid grid-cols-4 gap-2">
+                        {(['parsing', 'converting', 'generating', 'finishing'] as const).map(
+                          (step) => {
+                            const steps = ['parsing', 'converting', 'generating', 'finishing']
+                            const currentIndex = steps.indexOf(importStatus.step)
+                            const stepIndex = steps.indexOf(step)
+                            const complete = stepIndex < currentIndex
+                            const active = step === importStatus.step
+                            return (
+                              <div
+                                key={step}
+                                className={`rounded-xl border px-2 py-2 text-center ${
+                                  active
+                                    ? 'border-sky-300/35 bg-sky-400/10 text-sky-100'
+                                    : complete
+                                      ? 'border-emerald-300/25 bg-emerald-400/10 text-emerald-100'
+                                      : 'border-white/10 bg-white/[0.025] text-slate-500'
+                                }`}
+                              >
+                                <div className="mb-1 flex justify-center">
+                                  {complete ? (
+                                    <CheckCircle2 size={13} />
+                                  ) : active ? (
+                                    <Loader2 size={13} className="animate-spin" />
+                                  ) : (
+                                    <span className="h-[13px] w-[13px] rounded-full border border-current/40" />
+                                  )}
+                                </div>
+                                <div className="text-[9px] font-black uppercase tracking-wide">
+                                  {step === 'parsing' && 'Baca'}
+                                  {step === 'converting' && 'Mesin'}
+                                  {step === 'generating' && 'Export'}
+                                  {step === 'finishing' && 'Simpan'}
+                                </div>
+                              </div>
+                            )
+                          }
+                        )}
+                      </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-[11px] leading-relaxed text-slate-400">
+                        <span className="font-bold text-slate-300">Tips:</span> Anda boleh
+                        minimalkan proses ini dan tetap menyiapkan lagu lain. Jangan tutup aplikasi
+                        sampai import selesai.
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* Footer Buttons */}
-                <div className="mt-6 flex justify-end border-t border-white/5 pt-3.5">
+                <div className="flex items-center justify-between border-t border-white/10 bg-black/20 px-5 py-4">
+                  <span className="text-[10px] font-semibold text-slate-500">
+                    Berjalan {Math.max(1, Math.round((importNow - importStatus.startedAt) / 1000))}d
+                  </span>
                   {importStatus.step === 'failed' ? (
                     <Button
                       variant="secondary"
@@ -858,9 +1033,15 @@ export function LocalMediaPanel(): React.JSX.Element {
                       Tutup
                     </Button>
                   ) : (
-                    <span className="text-[10px] text-zinc-500 font-bold select-none">
-                      Jangan tutup aplikasi SION Media selama proses impor
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setImportStatus((prev) => (prev ? { ...prev, isMinimized: true } : null))
+                      }
+                      className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] font-bold text-slate-200 transition hover:bg-white/[0.08]"
+                    >
+                      Jalankan di latar belakang
+                    </button>
                   )}
                 </div>
               </div>
@@ -873,7 +1054,7 @@ export function LocalMediaPanel(): React.JSX.Element {
               onClick={() =>
                 setImportStatus((prev) => (prev ? { ...prev, isMinimized: false } : null))
               }
-              className="fixed bottom-6 right-6 z-50 flex items-center gap-3.5 rounded-xl border border-white/10 bg-[#0c101d]/90 p-3.5 shadow-2xl backdrop-blur-md cursor-pointer hover:border-brand-primary/30 transition-all group"
+              className="group fixed bottom-6 right-6 z-50 flex cursor-pointer items-center gap-3.5 rounded-2xl border border-sky-300/20 bg-slate-950/92 p-3.5 shadow-2xl backdrop-blur-md transition-all hover:border-sky-300/40"
             >
               {/* Circular Progress Indicator */}
               <div className="relative flex h-8 w-8 items-center justify-center">
@@ -907,29 +1088,24 @@ export function LocalMediaPanel(): React.JSX.Element {
 
               {/* Progress Copy */}
               <div className="flex flex-col">
-                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
-                  Mengimpor...
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  PPT {importStatus.fileIndex}/{importStatus.fileTotal} ·{' '}
+                  {
+                    PRESENTATION_IMPORT_COPY[
+                      importStatus.step === 'failed' || importStatus.step === 'done'
+                        ? 'finishing'
+                        : importStatus.step
+                    ].title
+                  }
                 </span>
-                <span className="max-w-[180px] text-xs font-bold text-white truncate leading-tight mt-0.5 group-hover:text-brand-primary transition-colors">
+                <span className="mt-0.5 max-w-[220px] truncate text-xs font-bold leading-tight text-white transition-colors group-hover:text-sky-200">
                   {importStatus.fileName}
                 </span>
               </div>
 
               {/* Maximize Icon */}
-              <div className="rounded-lg p-1 text-zinc-400 hover:bg-white/5 hover:text-white transition-all">
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0l-6-6"
-                  />
-                </svg>
+              <div className="rounded-lg p-1 text-slate-400 transition-all hover:bg-white/5 hover:text-white">
+                <Maximize2 size={14} />
               </div>
             </div>
           )}

@@ -28,4 +28,36 @@ describe('SION Link persistent connection contract', () => {
     expect(source).toContain("'obs-browser-source'")
     expect(source).toContain('setInterval(()=>void poll(),500)')
   })
+
+  it('returns logout to a clear role-selection home instead of a bare code screen', () => {
+    expect(source).toContain("location.replace('/connect?logout=1')")
+    expect(source).toContain('Pilih mode SION Link')
+    expect(source).toContain('data-role-label="Pemateri"')
+    expect(source).toContain('data-role-label="Operator"')
+    expect(source).toContain('data-role-label="Live Viewer"')
+    expect(source).toContain('data-role-label="Stage Display"')
+    expect(source).toContain("new URLSearchParams(location.search).get('logout') === '1'")
+    expect(source).toContain('Anda sudah keluar')
+  })
+
+  it('renders PowerPoint Bridge frames directly for presenter clients instead of /media wrapping', () => {
+    expect(source).toContain('function presentationFrameUrl(value)')
+    expect(source).toContain("target.pathname.startsWith('/api/presentation-frame/')")
+    expect(source).toContain('target.host = location.host')
+    expect(source).toContain('const bridgeFrame = presentationFrameUrl(slide.visualPath)')
+    expect(source).toContain('if (bridgeFrame) return bridgeFrame')
+  })
+
+  it('positions SION Link Web as browser access and sends advanced features to Desktop releases', () => {
+    expect(source).toContain('Pilih mode SION Link Web')
+    expect(source).toContain(
+      'SION Link Web cocok untuk Pemateri, Operator, Live Viewer, dan Stage Display lewat browser'
+    )
+    expect(source).toContain('PowerPoint Bridge real-time')
+    expect(source).toContain('Download SION Link Desktop')
+    expect(source).toContain('https://github.com/AiWerek-Tech/SION-Media/releases/latest')
+    expect(source).not.toContain('id="installButton"')
+    expect(source).not.toContain('beforeinstallprompt')
+    expect(source).not.toContain('installPwa')
+  })
 })
