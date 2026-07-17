@@ -14,12 +14,12 @@ const changelog = readFileSync(resolve(root, 'CHANGELOG.md'), 'utf8')
 
 describe('production release metadata', () => {
   test('keeps beta release version synchronized across package metadata', () => {
-    expect(packageJson.version).toBe('1.1.0-beta.1')
+    expect(packageJson.version).toBe('1.1.0-beta.2')
     expect(packageLock.version).toBe(packageJson.version)
     expect(packageLock.packages['']?.version).toBe(packageJson.version)
   })
 
   test('includes release notes for the packaged version', () => {
-    expect(changelog).toContain(`## ${packageJson.version} - 2026-07-13`)
+    expect(changelog).toContain(`## ${packageJson.version} - 2026-07-17`)
   })
 })
