@@ -770,7 +770,9 @@ export function setupIPC(): void {
     const id = ensurePositiveInteger(playlistId, 'Invalid playlist id.')
     const raw = ensureObject(media, 'Invalid media playlist payload.')
     const presentationRaw = raw.presentation
-    let presentation: { slides: Array<{ index: number; title: string; notes: string }> } | undefined
+    let presentation:
+      | { slides: Array<{ index: number; title: string; notes: string; imagePath?: string }> }
+      | undefined
     if (presentationRaw !== undefined) {
       const presentationObject = ensureObject(presentationRaw, 'Invalid presentation metadata.')
       if (!Array.isArray(presentationObject.slides) || presentationObject.slides.length > 2_000) {
@@ -785,7 +787,10 @@ export function setupIPC(): void {
           return {
             index: slideIndex,
             title: String(slide.title ?? `Slide ${index + 1}`).slice(0, 300),
-            notes: String(slide.notes ?? '').slice(0, 100_000)
+            notes: String(slide.notes ?? '').slice(0, 100_000),
+            ...(typeof slide.imagePath === 'string' && slide.imagePath.trim()
+              ? { imagePath: slide.imagePath.trim().slice(0, 2_000) }
+              : {})
           }
         })
       }

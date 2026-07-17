@@ -226,7 +226,7 @@ interface PresenterRemoteStatus {
 interface PresenterRemoteSlideSummary {
   text: string
   label?: string | null
-  contentType?: 'song' | 'bible' | 'reading' | 'custom'
+  contentType?: 'song' | 'bible' | 'reading' | 'custom' | 'media'
   bibleReference?: string | null
   stageNotes?: string | null
   stageChord?: string | null
@@ -237,6 +237,8 @@ interface PresenterRemoteSlideSummary {
   visualPath?: string
   visualDataUrl?: string
   pageNumber?: number
+  mediaKind?: 'image' | 'video' | 'pdf' | 'presentation' | 'unknown'
+  mediaSourcePath?: string
   canPresenterNavigate?: boolean
 }
 
@@ -252,6 +254,16 @@ interface PresenterRemoteSnapshot {
   isSmartMode: boolean
   timerElapsed?: number
   timerRunning?: boolean
+  rundownName?: string
+  rundownItemCount?: number
+  rundownTotalSeconds?: number
+  rundownElapsedSeconds?: number
+  rundownRemainingSeconds?: number
+  rundownProgressPercent?: number
+  currentRundownItemIndex?: number
+  currentRundownItemTitle?: string
+  currentRundownItemEstimatedSeconds?: number
+  currentRundownItemRemainingSeconds?: number
   updatedAt: number
 }
 

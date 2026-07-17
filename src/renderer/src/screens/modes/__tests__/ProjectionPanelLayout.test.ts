@@ -6,6 +6,10 @@ const projectionModeSource = readFileSync(
   resolve(process.cwd(), 'src/renderer/src/screens/modes/ProjectionMode.tsx'),
   'utf8'
 )
+const localMediaPanelSource = readFileSync(
+  resolve(process.cwd(), 'src/renderer/src/components/projection/LocalMediaPanel.tsx'),
+  'utf8'
+)
 const mainCssSource = readFileSync(
   resolve(process.cwd(), 'src/renderer/src/assets/main.css'),
   'utf8'
@@ -22,9 +26,19 @@ describe('Projection utility panel source contract', () => {
     )
   })
 
-  it('does not expose the unused Notifications panel', () => {
-    expect(projectionModeSource).not.toContain("'notifications'")
-    expect(projectionModeSource).not.toContain('<NotificationPanel />')
-    expect(projectionModeSource).not.toContain('notificationUnread')
+  it('notifies operators when a PowerPoint Bridge request needs approval', () => {
+    expect(projectionModeSource).toContain('notifiedPowerPointRequestIds')
+    expect(projectionModeSource).toContain('Permintaan PowerPoint Bridge')
+    expect(projectionModeSource).toContain('Buka tab PPT untuk Izinkan atau Tolak')
+    expect(projectionModeSource).toContain('pendingPowerPointRequests')
+  })
+
+  it('keeps local media classified separately from info/custom slides', () => {
+    expect(projectionModeSource).toContain('resolveMediaKind')
+    expect(projectionModeSource).toContain("contentType: 'media'")
+    expect(localMediaPanelSource).toContain('getMediaKindLabel')
+    expect(localMediaPanelSource).toContain('getMediaKindCapability')
+    expect(localMediaPanelSource).toContain('Muat media ini ke Preview')
+    expect(localMediaPanelSource).toContain('Tekan TAKE untuk menayangkan')
   })
 })

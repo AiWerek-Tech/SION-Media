@@ -17,6 +17,36 @@ describe('media playlist descriptor', () => {
     })
   })
 
+  it('round-trips optional per-slide image paths for imported PPTX packages', () => {
+    const raw = serializeMediaPlaylistDescriptor({
+      path: 'C:\\media\\deck.pdf',
+      presentation: {
+        slides: [
+          {
+            index: 0,
+            title: 'Pembukaan',
+            notes: 'Sapa jemaat.',
+            imagePath: 'C:\\AppData\\presentation-packages\\deck\\slides\\slide1.png'
+          }
+        ]
+      }
+    })
+
+    expect(parseMediaPlaylistDescriptor(raw)).toMatchObject({
+      path: 'C:\\media\\deck.pdf',
+      presentation: {
+        slides: [
+          {
+            index: 0,
+            title: 'Pembukaan',
+            notes: 'Sapa jemaat.',
+            imagePath: 'C:\\AppData\\presentation-packages\\deck\\slides\\slide1.png'
+          }
+        ]
+      }
+    })
+  })
+
   it('does not interpret unrelated JSON as a descriptor', () => {
     const raw = '{"path":"spoof.pdf"}'
     expect(parseMediaPlaylistDescriptor(raw).path).toBe(raw)

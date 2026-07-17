@@ -41,7 +41,7 @@ export function PlaylistSelector({
     }
   }, [isOpen])
 
-  const activeName = activePlaylist?.name ?? 'Belum ada playlist aktif'
+  const activeName = activePlaylist?.name ?? 'Belum ada Rundown Worship aktif'
 
   return (
     <div ref={rootRef} className="playlist-selector">
@@ -52,7 +52,9 @@ export function PlaylistSelector({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label={
-          activePlaylist ? `Pilih playlist, ${activePlaylist.name} aktif` : 'Pilih playlist'
+          activePlaylist
+            ? `Pilih Rundown Worship, ${activePlaylist.name} aktif`
+            : 'Pilih Rundown Worship'
         }
       >
         <span className="playlist-panel__icon">
@@ -71,7 +73,7 @@ export function PlaylistSelector({
                 <span>{slideCount} slide</span>
               </>
             ) : (
-              <span>{playlists.length} playlist tersimpan</span>
+              <span>{playlists.length} rundown tersimpan</span>
             )}
           </span>
         </span>
@@ -82,12 +84,12 @@ export function PlaylistSelector({
       {isOpen && (
         <div className="playlist-selector__dropdown">
           <div className="playlist-selector__dropdown-header">
-            <span>Semua Playlist</span>
-            <small>{playlists.length} playlist tersimpan</small>
+            <span>Semua Rundown Worship</span>
+            <small>{playlists.length} rundown tersimpan</small>
           </div>
-          <div className="playlist-selector__list" role="listbox" aria-label="Semua playlist">
+          <div className="playlist-selector__list" role="listbox" aria-label="Semua rundown">
             {playlists.length === 0 ? (
-              <div className="playlist-selector__empty">Belum ada playlist tersimpan.</div>
+              <div className="playlist-selector__empty">Belum ada rundown tersimpan.</div>
             ) : (
               playlists.map((playlist) => {
                 const isActive = activePlaylist?.id === playlist.id
@@ -121,14 +123,14 @@ export function PlaylistSelector({
           <button
             type="button"
             className="playlist-selector__create"
-            aria-label="Buat playlist baru"
+            aria-label="Buat rundown baru"
             onClick={() => {
               setIsOpen(false)
               onCreate()
             }}
           >
             <Plus size={14} />
-            Buat Playlist Baru
+            Buat Rundown Baru
           </button>
         </div>
       )}

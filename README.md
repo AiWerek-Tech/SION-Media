@@ -2,7 +2,7 @@
 
 **Professional Worship Presentation System** — Electron + React + TypeScript
 
-> Untuk dokumentasi lengkap, lihat folder [`.docs/`](./.docs/)
+> Untuk dokumentasi lengkap, lihat folder [`.dev-docs/`](./.dev-docs/)
 
 ---
 
@@ -45,10 +45,10 @@ npm run build        # Full production build
 
 | Dokumen                                                                                          | Deskripsi                                 |
 | ------------------------------------------------------------------------------------------------ | ----------------------------------------- |
-| [`.docs/STATUS.md`](./.docs/STATUS.md)                                                           | Status implementasi terkini (fitur ✅/❌) |
-| [`.docs/00-index/README.md`](./.docs/00-index/README.md)                                         | Hub dokumentasi lengkap                   |
-| [`.docs/11-source-architecture/`](./.docs/11-source-architecture/)                               | Arsitektur domain per layer               |
-| [`.docs/10-enterprise-refactor-system/INDEX.md`](./.docs/10-enterprise-refactor-system/INDEX.md) | Status enterprise refactor (12/12 ✅)     |
+| [`.dev-docs/STATUS.md`](./.dev-docs/STATUS.md)                                                           | Status implementasi terkini (fitur ✅/❌) |
+| [`.dev-docs/00-index/README.md`](./.dev-docs/00-index/README.md)                                         | Hub dokumentasi lengkap                   |
+| [`.dev-docs/11-source-architecture/`](./.dev-docs/11-source-architecture/)                               | Arsitektur domain per layer               |
+| [`.dev-docs/10-enterprise-refactor-system/INDEX.md`](./.dev-docs/10-enterprise-refactor-system/INDEX.md) | Status enterprise refactor (12/12 ✅)     |
 
 ## Struktur Src
 

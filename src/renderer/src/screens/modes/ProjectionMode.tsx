@@ -31,10 +31,16 @@ import { LocalMediaPanel } from '@renderer/components/projection/LocalMediaPanel
 import { PowerPointBridgePanel } from '@renderer/components/projection/PowerPointBridgePanel'
 import { getPdfPageCount } from '@renderer/utils/pdfUtils'
 import { parseMediaPlaylistDescriptor } from '../../../../shared/media-playlist'
+import {
+  getProjectionMediaMode,
+  isPagedMediaKind,
+  resolveMediaKind
+} from '../../../../shared/media-kind'
 import { AudioPanel } from '@renderer/components/projection/AudioPanel'
 import { usePlaylistStore } from '@renderer/store/usePlaylistStore'
 import { useAppStore } from '@renderer/store/useAppStore'
 import { useProjectionStore } from '@renderer/store/useProjectionStore'
+import { useNotificationStore } from '@renderer/store/useNotificationStore'
 import { generateSlidesForSong, generateSlidesForPlaylistItem } from '@core/projection'
 import { mediaEngine } from '@renderer/engine/mediaEngine'
 import { useSongStore } from '@renderer/store/useSongStore'
@@ -1101,21 +1107,51 @@ function SongInfoPanel(): React.JSX.Element {
 
 export function ProjectionMode(): React.JSX.Element {
   const { playlistItems } = usePlaylistStore()
-  const { isFocusMode, toggleFocusMode, loadHymnals, loadSongs, setSelectedSong, songs } =
-    useAppStore()
+  const {
+    isFocusMode,
+    toggleFocusMode,
+    loadHymnals,
+    loadSongs,
+    setSelectedSong,
+    songs,
+    showToast
+  } = useAppStore()
   const { setSlides, programSlide, isAudioPanelVisible, toggleAudioPanel } = useProjectionStore()
   const [scenePreset, setScenePreset] = useState('1')
   const [bottomRightTab, setBottomRightTab] = useState<BottomRightTab>('song-info')
   const [pendingPowerPointRequests, setPendingPowerPointRequests] = useState(0)
+  const notifiedPowerPointRequestIds = useRef<Set<string>>(new Set())
   useEffect(() => {
-    const updatePending = (status: { requests: Array<{ status: string }> }): void => {
-      setPendingPowerPointRequests(
-        status.requests.filter((request) => request.status === 'pending').length
-      )
+    const updatePending = (status: {
+      requests: Array<{
+        id: string
+        status: string
+        deviceName?: string
+        deckName?: string
+        address?: string
+      }>
+    }): void => {
+      const pendingRequests = status.requests.filter((request) => request.status === 'pending')
+      setPendingPowerPointRequests(pendingRequests.length)
+      for (const request of pendingRequests) {
+        if (notifiedPowerPointRequestIds.current.has(request.id)) continue
+        notifiedPowerPointRequestIds.current.add(request.id)
+        const deviceName = request.deviceName || 'Perangkat pemateri'
+        const deckName = request.deckName || 'PowerPoint'
+        showToast(`${deviceName} meminta izin PowerPoint Bridge`, 'info')
+        useNotificationStore.getState().add({
+          title: 'Permintaan PowerPoint Bridge',
+          message: `${deviceName} ingin mengirim "${deckName}". Buka tab PPT untuk Izinkan atau Tolak.`,
+          level: 'warning',
+          category: 'projection',
+          actionLabel: 'Buka tab PPT',
+          actionKey: 'open-powerpoint-bridge'
+        })
+      }
     }
     void window.api.presenterRemote.powerPointStatus().then(updatePending)
     return window.api.presenterRemote.onPowerPointStatus(updatePending)
-  }, [])
+  }, [showToast])
   const projectedSongId = programSlide?.songId ?? null
 
   /** Phase 4: Preload next song's background asset 500ms after selection */
@@ -1171,16 +1207,11 @@ export function ProjectionMode(): React.JSX.Element {
       setSelectedSong(null)
       const mediaDescriptor = parseMediaPlaylistDescriptor(item.notes)
       const mediaPath = mediaDescriptor.path
-      const isPdf = mediaPath.toLowerCase().endsWith('.pdf')
-      const isVideo =
-        mediaPath.toLowerCase().endsWith('.mp4') ||
-        mediaPath.toLowerCase().endsWith('.webm') ||
-        mediaPath.toLowerCase().endsWith('.mov') ||
-        mediaPath.toLowerCase().endsWith('.mkv')
-
-      let mode: 'video' | 'image' | 'pdf' = 'image'
-      if (isVideo) mode = 'video'
-      else if (isPdf) mode = 'pdf'
+      const mediaKind = resolveMediaKind({
+        path: mediaPath,
+        hasPresentationPackage: Boolean(mediaDescriptor.presentation?.slides.length)
+      })
+      const mode = getProjectionMediaMode(mediaKind)
 
       const mediaConfig = JSON.stringify({
         mode,
@@ -1192,26 +1223,39 @@ export function ProjectionMode(): React.JSX.Element {
       })
 
       let slides = generateSlidesForPlaylistItem(item)
-      if (isPdf && mediaPath) {
+      if (isPagedMediaKind(mediaKind) && mediaPath) {
         try {
           const pageCount = await getPdfPageCount(mediaPath)
-          slides = Array.from({ length: pageCount }).map((_, idx) => ({
-            contentType: 'custom',
-            songId: null,
-            playlistItemId: item.id,
-            slideIndex: idx,
-            text: '',
-            sectionLabel: mediaDescriptor.presentation?.slides[idx]?.title || `Halaman ${idx + 1}`,
-            speakerNotes: mediaDescriptor.presentation?.slides[idx]?.notes || '',
-            pdfPath: mediaPath
-          }))
+          const hasSlideImages = mediaDescriptor.presentation?.slides.some((slide) =>
+            Boolean(slide.imagePath)
+          )
+          slides = Array.from({ length: pageCount }).map((_, idx) => {
+            const slideImagePath = hasSlideImages
+              ? mediaDescriptor.presentation?.slides[idx]?.imagePath
+              : undefined
+            return {
+              contentType: 'media',
+              songId: null,
+              playlistItemId: item.id,
+              slideIndex: idx,
+              text: '',
+              sectionLabel:
+                mediaDescriptor.presentation?.slides[idx]?.title || `Halaman ${idx + 1}`,
+              speakerNotes: mediaDescriptor.presentation?.slides[idx]?.notes || '',
+              pdfPath: slideImagePath ? undefined : mediaPath,
+              visualImagePath: slideImagePath,
+              mediaKind,
+              mediaSourcePath: mediaPath,
+              mediaPageNumber: idx + 1
+            }
+          })
         } catch (err) {
           console.error('Failed to get PDF page count:', err)
         }
       }
 
       setSlides(slides, {
-        hymnalCode: isPdf ? 'PDF' : 'MEDIA',
+        hymnalCode: isPagedMediaKind(mediaKind) ? 'PDF' : 'MEDIA',
         hymnalName: item.title || 'Media',
         songBackgroundConfig: mediaConfig
       })

@@ -6,6 +6,12 @@
 - Menambahkan distribusi LL-HLS/WebRTC, audio AAC, auto-start, Stream ID persisten, diagnostik, dan reset manual.
 - Menambahkan verifikasi checksum build serta smoke test nyata H.264/AAC dari SRT sampai HLS dan WebRTC.
 
+## 1.1.0-beta.2 - 2026-07-17
+
+- Menyelaraskan versi rilis ekosistem: SION Media Desktop menjadi `1.1.0-beta.2` dan SION Link Desktop menjadi `0.5.0-beta.1`.
+- Memperbarui berkas status proyek (`STATUS.md`) untuk mencerminkan status pengujian beta (*Beta Hardening Stage*).
+- Menambahkan detail petunjuk fitur PowerPoint Bridge Tahap 2 pada dokumentasi website.
+
 ## 1.1.0-beta.1 - 2026-07-13
 
 ### Fitur dan peningkatan utama

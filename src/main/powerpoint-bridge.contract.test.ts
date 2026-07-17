@@ -9,6 +9,8 @@ describe('PowerPoint Bridge operator approval contract', () => {
     'utf8'
   )
   const app = readFileSync(join(process.cwd(), 'src/renderer/src/App.tsx'), 'utf8')
+  const indexHtml = readFileSync(join(process.cwd(), 'src/renderer/index.html'), 'utf8')
+  const projectionHtml = readFileSync(join(process.cwd(), 'src/renderer/projection.html'), 'utf8')
 
   it('requires an approved device token before accepting native bridge frames', () => {
     expect(server).toContain("url.pathname === '/api/powerpoint-bridge/request'")
@@ -33,8 +35,27 @@ describe('PowerPoint Bridge operator approval contract', () => {
   it('keeps preview and live decisions in the SION Media operator panel', () => {
     expect(panel).toContain('approvePowerPointRequest')
     expect(panel).toContain('rejectPowerPointRequest')
-    expect(panel).toContain('Muat ke Preview')
-    expect(panel).toContain('Tayangkan')
-    expect(panel).toContain('Ikuti Live setelah TAKE')
+    expect(panel).toContain('Load to Preview')
+    expect(panel).toContain('TAKE')
+    expect(panel).toContain('Follow Live')
+    expect(panel).toContain('Program mengikuti perubahan pemateri')
+  })
+
+  it('exposes per-device state so another presenter cannot silently take over', () => {
+    expect(server).toContain('powerPointBridgeDeviceStates')
+    expect(server).toContain('devices: Array.from(powerPointBridgeDeviceStates.values())')
+    expect(panel).toContain('Perangkat Presentasi')
+    expect(panel).toContain('selectDevice(device.deviceId)')
+    expect(panel).toContain('Jadikan Sumber Aktif')
+    expect(panel).toContain('Diagnostics')
+    expect(app).toContain('activeDeviceId !== bridgeSource.deviceId')
+  })
+
+  it('allows localhost frame fetches required by memory-first bridge previews', () => {
+    expect(indexHtml).toContain('http://127.0.0.1:*')
+    expect(indexHtml).toContain('http://localhost:*')
+    expect(projectionHtml).toContain('http://127.0.0.1:*')
+    expect(panel).toContain("fetch(src, { cache: 'no-store' })")
+    expect(panel).toContain('window.setTimeout(() => void loadFrame(attempt + 1)')
   })
 })

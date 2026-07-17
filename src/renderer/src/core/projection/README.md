@@ -1,6 +1,6 @@
 # Core: Projection System
 
-> **Dokumentasi lengkap:** `.docs/11-source-architecture/core/projection-system.md`
+> **Dokumentasi lengkap:** `.dev-docs/11-source-architecture/core/projection-system.md`
 
 **Status:** ✅ Active — Formal state machine, DEOS verification, deterministic replay.
 

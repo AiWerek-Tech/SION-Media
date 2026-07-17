@@ -1,0 +1,47 @@
+{
+  "pack_type": "bible",
+  "format_version": 1,
+  "generated_at": "2026-06-20T03:13:07+00:00",
+  "version_code": "tb",
+  "version_name": "Alkitab Terjemahan Baru",
+  "short_name": "TB",
+  "language": "id",
+  "publisher": "Lembaga Alkitab Indonesia",
+  "copyright": "Dikutip dari ALKITAB (TB) © LAI 1974",
+  "license_status": "licensed_by_user",
+  "source_type": "authorized_html_scrape",
+  "source_base_url": "https://alkitab.me/in-tb",
+  "books": 66,
+  "chapters": 1189,
+  "verses": 31102,
+  "validation_ok": true,
+  "fts5_created": true,
+  "fts5_error": null,
+  "files": [
+    {
+      "filename": "tb_lai_1974.sqlite",
+      "size_bytes": 19841024,
+      "sha256": "8f54e04bdb7e2c1e0188cda26889fe4a5e1260da8085db6567561fc287325e4d"
+    },
+    {
+      "filename": "tb_lai_1974.books.json",
+      "size_bytes": 11144,
+      "sha256": "18b5c6da7f846878ab9b4fd6bf3400caf2a4a30355343fdeda4d49056db910bb"
+    },
+    {
+      "filename": "tb_lai_1974.verses.jsonl",
+      "size_bytes": 12343491,
+      "sha256": "3beb6618c44b3babe345e1eadb75486fa36b49ce25a0ad0b53184840f882ced2"
+    },
+    {
+      "filename": "tb_lai_1974.verses.csv",
+      "size_bytes": 7328095,
+      "sha256": "29f096687958ec92306173354a03b3757dc764d463ab4cea9bc318d4882d3381"
+    },
+    {
+      "filename": "tb_lai_1974.import_report.json",
+      "size_bytes": 368,
+      "sha256": "333f2225fa204ae4f13edd4cb187cec0ee9cc046ddb35bc870253c7794813360"
+    }
+  ]
+}

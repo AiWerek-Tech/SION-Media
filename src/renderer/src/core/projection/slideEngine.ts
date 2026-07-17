@@ -342,16 +342,20 @@ export function generateSlidesForPlaylistItem(
       const pageCounts = usePlaylistStore.getState().pdfPageCounts || {}
       const cachedCount = pageCounts[path]
       if (cachedCount !== undefined) {
-        return Array.from({ length: cachedCount }).map((_, idx) => ({
-          contentType: 'custom',
-          songId: null,
-          playlistItemId: item.id,
-          slideIndex: idx,
-          text: '',
-          sectionLabel: descriptor.presentation?.slides[idx]?.title || `Halaman ${idx + 1}`,
-          speakerNotes: descriptor.presentation?.slides[idx]?.notes || '',
-          pdfPath: path
-        }))
+        return Array.from({ length: cachedCount }).map((_, idx) => {
+          const slideImagePath = descriptor.presentation?.slides[idx]?.imagePath
+          return {
+            contentType: 'custom',
+            songId: null,
+            playlistItemId: item.id,
+            slideIndex: idx,
+            text: '',
+            sectionLabel: descriptor.presentation?.slides[idx]?.title || `Halaman ${idx + 1}`,
+            speakerNotes: descriptor.presentation?.slides[idx]?.notes || '',
+            pdfPath: slideImagePath ? undefined : path,
+            visualImagePath: slideImagePath
+          }
+        })
       } else {
         // Trigger background fetch
         setTimeout(() => {

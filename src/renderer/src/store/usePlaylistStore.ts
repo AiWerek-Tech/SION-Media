@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+﻿import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Playlist, PlaylistItem, Song } from '@renderer/types'
 import { logger } from '@renderer/utils/logger'
@@ -46,7 +46,9 @@ interface PlaylistStore {
   addMediaToPlaylist: (media: {
     title: string
     path: string
-    presentation?: { slides: Array<{ index: number; title: string; notes: string }> }
+    presentation?: {
+      slides: Array<{ index: number; title: string; notes: string; imagePath?: string }>
+    }
   }) => Promise<void>
   removeItem: (itemId: number) => Promise<void>
   clearPlaylist: () => Promise<void>
@@ -125,7 +127,7 @@ export const usePlaylistStore = create<PlaylistStore>()(
           set({ playlists })
         } catch (err) {
           logger.error('Failed to load playlists:', err)
-          showToast('Gagal memuat playlist', 'error')
+          showToast('Gagal memuat rundown', 'error')
         }
       },
 
@@ -145,7 +147,7 @@ export const usePlaylistStore = create<PlaylistStore>()(
           })
         } catch (err) {
           logger.error('Failed to create playlist:', err)
-          showToast('Gagal membuat playlist', 'error')
+          showToast('Gagal membuat rundown', 'error')
           throw err
         }
       },
@@ -161,7 +163,7 @@ export const usePlaylistStore = create<PlaylistStore>()(
           })
         } catch (err) {
           logger.error('Failed to load playlist items:', err)
-          showToast('Gagal memuat item playlist', 'error')
+          showToast('Gagal memuat item rundown', 'error')
         }
       },
 
@@ -177,7 +179,7 @@ export const usePlaylistStore = create<PlaylistStore>()(
           })
         } catch (err) {
           logger.error('Failed to add song to playlist:', err)
-          showToast('Gagal menambahkan lagu ke playlist', 'error')
+          showToast('Gagal menambahkan lagu ke rundown', 'error')
           throw err
         }
       },
@@ -185,7 +187,7 @@ export const usePlaylistStore = create<PlaylistStore>()(
       addBibleToPlaylist: async (bible) => {
         const { activePlaylist } = get()
         if (!activePlaylist) {
-          showToast('Pilih rundown/playlist terlebih dahulu', 'error')
+          showToast('Pilih Rundown Worship terlebih dahulu', 'error')
           return
         }
         try {
@@ -195,17 +197,17 @@ export const usePlaylistStore = create<PlaylistStore>()(
             playlistItems: items,
             activeItemIndex: get().activeItemIndex >= 0 ? get().activeItemIndex : items.length - 1
           })
-          showToast('Ayat ditambahkan ke playlist', 'success')
+          showToast('Ayat ditambahkan ke rundown', 'success')
         } catch (err) {
           logger.error('Failed to add bible to playlist:', err)
-          showToast('Gagal menambahkan ayat ke playlist', 'error')
+          showToast('Gagal menambahkan ayat ke rundown', 'error')
         }
       },
 
       addInfoToPlaylist: async (info) => {
         const { activePlaylist } = get()
         if (!activePlaylist) {
-          showToast('Pilih rundown/playlist terlebih dahulu', 'error')
+          showToast('Pilih Rundown Worship terlebih dahulu', 'error')
           return
         }
         try {
@@ -215,10 +217,10 @@ export const usePlaylistStore = create<PlaylistStore>()(
             playlistItems: items,
             activeItemIndex: get().activeItemIndex >= 0 ? get().activeItemIndex : items.length - 1
           })
-          showToast('Info ditambahkan ke playlist', 'success')
+          showToast('Info ditambahkan ke rundown', 'success')
         } catch (err) {
           logger.error('Failed to add info to playlist:', err)
-          showToast('Gagal menambahkan Info ke playlist', 'error')
+          showToast('Gagal menambahkan Info ke rundown', 'error')
         }
       },
 
@@ -236,11 +238,11 @@ export const usePlaylistStore = create<PlaylistStore>()(
 
         try {
           await window.api.playlists.updateItem(itemId, { title, notes })
-          showToast('Info playlist diperbarui', 'success')
+          showToast('Info rundown diperbarui', 'success')
         } catch (err) {
           logger.error('Failed to update info playlist item:', err)
           set({ playlistItems: prevItems })
-          showToast('Gagal memperbarui Info playlist', 'error')
+          showToast('Gagal memperbarui Info rundown', 'error')
           throw err
         }
       },
@@ -260,7 +262,7 @@ export const usePlaylistStore = create<PlaylistStore>()(
         } catch (err) {
           logger.error('Failed to replace playlist song:', err)
           set({ playlistItems: previousItems })
-          showToast('Gagal mengganti lagu playlist', 'error')
+          showToast('Gagal mengganti lagu rundown', 'error')
           throw err
         }
       },
@@ -268,7 +270,7 @@ export const usePlaylistStore = create<PlaylistStore>()(
       addMediaToPlaylist: async (media) => {
         const { activePlaylist } = get()
         if (!activePlaylist) {
-          showToast('Pilih rundown/playlist terlebih dahulu', 'error')
+          showToast('Pilih Rundown Worship terlebih dahulu', 'error')
           return
         }
         try {
@@ -278,10 +280,10 @@ export const usePlaylistStore = create<PlaylistStore>()(
             playlistItems: items,
             activeItemIndex: get().activeItemIndex >= 0 ? get().activeItemIndex : items.length - 1
           })
-          showToast('Media ditambahkan ke playlist', 'success')
+          showToast('Media ditambahkan ke rundown', 'success')
         } catch (err) {
           logger.error('Failed to add media to playlist:', err)
-          showToast('Gagal menambahkan Media ke playlist', 'error')
+          showToast('Gagal menambahkan Media ke rundown', 'error')
         }
       },
 
@@ -306,7 +308,7 @@ export const usePlaylistStore = create<PlaylistStore>()(
           set({ playlistItems: items, activeItemIndex: nextIndex })
         } catch (err) {
           logger.error('Failed to remove playlist item:', err)
-          showToast('Gagal menghapus item playlist', 'error')
+          showToast('Gagal menghapus item rundown', 'error')
         }
       },
 
@@ -322,7 +324,7 @@ export const usePlaylistStore = create<PlaylistStore>()(
           }
         } catch (err) {
           logger.error('Failed to clear playlist:', err)
-          showToast('Gagal mengosongkan playlist', 'error')
+          showToast('Gagal mengosongkan rundown', 'error')
         }
       },
 
@@ -362,7 +364,7 @@ export const usePlaylistStore = create<PlaylistStore>()(
         } catch (err) {
           logger.error('Failed to reorder playlist items:', err)
           set({ playlistItems: prevItems })
-          showToast('Gagal mengurutkan playlist', 'error')
+          showToast('Gagal mengurutkan rundown', 'error')
         }
       },
 
@@ -399,3 +401,4 @@ export const usePlaylistStore = create<PlaylistStore>()(
     }
   )
 )
+

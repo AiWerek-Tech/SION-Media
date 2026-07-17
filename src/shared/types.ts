@@ -138,7 +138,8 @@ export interface BibleVerse {
 export type ProjectionState = 'LIVE' | 'BLACK' | 'FREEZE' | 'CLEAR' | 'LOGO'
 
 export interface SlideData {
-  contentType?: 'song' | 'bible' | 'reading' | 'custom'
+  contentType?: 'song' | 'bible' | 'reading' | 'custom' | 'media'
+  mediaKind?: 'image' | 'video' | 'pdf' | 'presentation' | 'unknown'
   songId?: number | null
   playlistItemId?: number | null
   slideIndex: number

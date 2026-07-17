@@ -31,9 +31,11 @@ describe('PlaylistSelector', () => {
       />
     )
 
-    await user.click(screen.getByRole('button', { name: 'Pilih playlist, Rabu Malam aktif' }))
+    await user.click(
+      screen.getByRole('button', { name: 'Pilih Rundown Worship, Rabu Malam aktif' })
+    )
 
-    expect(screen.getByText('2 playlist tersimpan')).toBeInTheDocument()
+    expect(screen.getByText('2 rundown tersimpan')).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Rabu Malam, Kapan saja, aktif' })).toHaveAttribute(
       'aria-selected',
       'true'
@@ -56,9 +58,11 @@ describe('PlaylistSelector', () => {
       />
     )
 
-    const trigger = screen.getByRole('button', { name: 'Pilih playlist, Rabu Malam aktif' })
+    const trigger = screen.getByRole('button', {
+      name: 'Pilih Rundown Worship, Rabu Malam aktif'
+    })
     await user.click(trigger)
-    await user.click(screen.getByRole('button', { name: 'Buat playlist baru' }))
+    await user.click(screen.getByRole('button', { name: 'Buat rundown baru' }))
     expect(onCreate).toHaveBeenCalledTimes(1)
 
     await user.click(trigger)

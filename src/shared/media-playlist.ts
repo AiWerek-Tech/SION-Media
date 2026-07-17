@@ -2,6 +2,7 @@ export interface PresentationPlaylistSlide {
   index: number
   title: string
   notes: string
+  imagePath?: string
 }
 
 export interface MediaPlaylistDescriptor {
@@ -39,7 +40,14 @@ export function parseMediaPlaylistDescriptor(
               typeof slide.title === 'string' &&
               typeof slide.notes === 'string'
           )
-          .map((slide) => ({ index: slide.index, title: slide.title, notes: slide.notes }))
+          .map((slide) => ({
+            index: slide.index,
+            title: slide.title,
+            notes: slide.notes,
+            ...(typeof slide.imagePath === 'string' && slide.imagePath.trim()
+              ? { imagePath: slide.imagePath.trim() }
+              : {})
+          }))
       : undefined
     return {
       version: 1,

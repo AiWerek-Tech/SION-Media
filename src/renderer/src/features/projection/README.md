@@ -1,6 +1,6 @@
 # Feature: Projection
 
-> **Dokumentasi lengkap:** `.docs/11-source-architecture/features/feature-projection.md`
+> **Dokumentasi lengkap:** `.dev-docs/11-source-architecture/features/feature-projection.md`
 
 **Status:** ✅ Active — **OPERATIONAL CRITICAL**
 

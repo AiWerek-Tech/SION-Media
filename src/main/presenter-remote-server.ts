@@ -85,7 +85,7 @@ export interface SionLinkCommandLogEntry {
 export interface PresenterRemoteSlideSummary {
   text: string
   label?: string | null
-  contentType?: 'song' | 'bible' | 'reading' | 'custom'
+  contentType?: 'song' | 'bible' | 'reading' | 'custom' | 'media'
   bibleReference?: string | null
   stageNotes?: string | null
   stageChord?: string | null
@@ -97,6 +97,8 @@ export interface PresenterRemoteSlideSummary {
   visualDataUrl?: string
   visualUrl?: string
   pageNumber?: number
+  mediaKind?: 'image' | 'video' | 'pdf' | 'presentation' | 'unknown'
+  mediaSourcePath?: string
   canPresenterNavigate?: boolean
 }
 
@@ -112,6 +114,16 @@ export interface PresenterRemoteSnapshot {
   isSmartMode: boolean
   timerElapsed?: number
   timerRunning?: boolean
+  rundownName?: string
+  rundownItemCount?: number
+  rundownTotalSeconds?: number
+  rundownElapsedSeconds?: number
+  rundownRemainingSeconds?: number
+  rundownProgressPercent?: number
+  currentRundownItemIndex?: number
+  currentRundownItemTitle?: string
+  currentRundownItemEstimatedSeconds?: number
+  currentRundownItemRemainingSeconds?: number
   updatedAt: number
 }
 
@@ -169,6 +181,7 @@ export interface PowerPointBridgeStatus {
     connectedAt: number
     lastSeenAt: number
   }>
+  devices: PowerPointBridgeSource[]
   source: PowerPointBridgeSource | null
 }
 
@@ -378,6 +391,9 @@ export function getPowerPointBridgeStatus(): PowerPointBridgeStatus {
       connectedAt: session.connectedAt,
       lastSeenAt: session.lastSeenAt
     })),
+    devices: Array.from(powerPointBridgeDeviceStates.values()).sort(
+      (a, b) => b.updatedAt - a.updatedAt
+    ),
     source: latestPowerPointBridgeSource
   }
 }
@@ -701,13 +717,20 @@ function sendPresentationFrame(res: ServerResponse, url: URL): void {
   )
   const frame = powerPointBridgeFrameStore.get(frameId)
   if (!frame) {
-    sendJson(res, 404, { ok: false, error: 'Frame presentasi tidak ditemukan' })
+    res.writeHead(404, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'Access-Control-Allow-Origin': '*',
+      'X-Content-Type-Options': 'nosniff'
+    })
+    res.end(JSON.stringify({ ok: false, error: 'Frame presentasi tidak ditemukan' }))
     return
   }
   res.writeHead(200, {
     'Content-Type': frame.mimeType,
     'Content-Length': frame.bytes.length,
     'Cache-Control': 'no-store',
+    'Access-Control-Allow-Origin': '*',
     'X-Content-Type-Options': 'nosniff'
   })
   res.end(frame.bytes)
@@ -2139,12 +2162,12 @@ function getPresenterRemoteHtml(role: SionLinkRole): string {
   const nextPanelLabel = role === 'stage' ? 'Layar Berikutnya' : 'Layar Lanjutan'
   const controlsHtml: Record<SionLinkRole, string> = {
     presenter: `
-          <button data-presenter-nav="true" data-command="PREV" onclick="sendCommand('PREV')">← Sebelumnya</button>
-          <button data-presenter-nav="true" data-command="NEXT" class="primary" onclick="sendCommand('NEXT')">Berikutnya →</button>
+          <button data-presenter-nav="true" data-command="PREV" onclick="sendCommand('PREV')">&larr; Sebelumnya</button>
+          <button data-presenter-nav="true" data-command="NEXT" class="primary" onclick="sendCommand('NEXT')">Berikutnya &rarr;</button>
           <div id="presenterLock" class="control-note">Kontrol aktif hanya saat materi PDF/PPT sedang live.</div>`,
     operator: `
-          <button data-command="PREV" onclick="sendCommand('PREV')">← Sebelumnya</button>
-          <button data-command="NEXT" class="primary" onclick="sendCommand('NEXT')">Berikutnya →</button>
+          <button data-command="PREV" onclick="sendCommand('PREV')">&larr; Sebelumnya</button>
+          <button data-command="NEXT" class="primary" onclick="sendCommand('NEXT')">Berikutnya &rarr;</button>
           <button data-command="TAKE" class="small primary-soft" onclick="sendCommand('TAKE')">Tayangkan</button>
           <button data-command="CLEAR" class="small" onclick="sendCommand('CLEAR')">Clear</button>
           <button data-command="BLACK" class="small danger" onclick="sendCommand('BLACK')">Black</button>
@@ -2178,9 +2201,7 @@ function getPresenterRemoteHtml(role: SionLinkRole): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>${roleTitle[role]}</title>
-  <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="/icon.svg" />
   <meta name="theme-color" content="#0f2a56" />
   <style>
     :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #050811; color: #f8fafc; }
@@ -2255,6 +2276,19 @@ function getPresenterRemoteHtml(role: SionLinkRole): string {
     .stage-stat__label { color: #7f91aa; font-size: 9px; text-transform: uppercase; letter-spacing: .11em; font-weight: 900; }
     .stage-stat__value { margin-top: 4px; color: #f8fafc; font-size: 13px; line-height: 1.3; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .stage-stat--wide { grid-column: 1 / -1; }
+    .rundown-clock { display: none; border: 1px solid rgba(56, 189, 248, .18); border-radius: 20px; background: linear-gradient(135deg, rgba(14, 165, 233, .12), rgba(15, 23, 42, .72)); padding: 11px; box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
+    .role-presenter .rundown-clock, .role-stage .rundown-clock { display: block; }
+    .rundown-clock__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+    .rundown-clock__label { color: #7dd3fc; font-size: 9px; text-transform: uppercase; letter-spacing: .14em; font-weight: 950; }
+    .rundown-clock__name { min-width: 0; color: #f8fafc; font-size: 12px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rundown-clock__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .rundown-clock__stat { border: 1px solid rgba(148, 163, 184, .12); border-radius: 14px; background: rgba(2, 6, 23, .32); padding: 8px; }
+    .rundown-clock__stat span { display: block; color: #7f91aa; font-size: 8px; text-transform: uppercase; letter-spacing: .11em; font-weight: 950; }
+    .rundown-clock__stat strong { display: block; margin-top: 3px; color: #f8fafc; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 15px; font-weight: 950; }
+    .rundown-clock__item { margin-top: 9px; display: flex; justify-content: space-between; gap: 10px; color: #a7b6cf; font-size: 10px; font-weight: 800; }
+    .rundown-clock__item b { color: #dbeafe; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rundown-clock__bar { margin-top: 9px; height: 7px; overflow: hidden; border-radius: 999px; background: rgba(148, 163, 184, .14); }
+    .rundown-clock__bar > div { width: 0%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #22d3ee, #2563eb); transition: width .25s ease; }
     button:disabled { opacity: .42; cursor: not-allowed; transform: none !important; filter: none !important; }
     .footer { color: #70819c; text-align: center; font-size: 10px; line-height: 1.35; padding: 0 10px 2px; }
     .role-viewer .footer { display: none; }
@@ -2405,7 +2439,6 @@ function getPresenterRemoteHtml(role: SionLinkRole): string {
         </div>
       </div>
       <div class="header-right">
-        <button id="installButton" class="top-action is-hidden" type="button" onclick="installPwa()">Pasang</button>
         <button class="top-action" type="button" onclick="toggleFullscreen()">Layar Penuh</button>
         <button class="top-action" type="button" onclick="logout()">Keluar</button>
         <div id="connection" class="status">Menyambung</div>
@@ -2486,6 +2519,19 @@ function getPresenterRemoteHtml(role: SionLinkRole): string {
         </section>`
             : ''
         }
+        <section class="rundown-clock" id="rundownClock">
+          <div class="rundown-clock__top">
+            <div class="rundown-clock__label">Rundown Worship</div>
+            <div class="rundown-clock__name" id="rundownName">Belum ada rundown</div>
+          </div>
+          <div class="rundown-clock__grid">
+            <div class="rundown-clock__stat"><span>Total</span><strong id="rundownTotal">00:00</strong></div>
+            <div class="rundown-clock__stat"><span>Sisa</span><strong id="rundownRemaining">00:00</strong></div>
+            <div class="rundown-clock__stat"><span>Progress</span><strong id="rundownProgress">0%</strong></div>
+          </div>
+          <div class="rundown-clock__item"><b id="rundownCurrentItem">Belum mulai</b><span id="rundownItemPosition">0/0</span></div>
+          <div class="rundown-clock__bar"><div id="rundownProgressBar"></div></div>
+        </section>
         <section class="controls">
 ${controlsHtml[role]}
         </section>
@@ -2499,13 +2545,11 @@ ${controlsHtml[role]}
     const code = params.get('code') || params.get('token') || '';
     const role = '${role}';
     const connection = document.getElementById('connection');
-    const installButton = document.getElementById('installButton');
     const presenterNavButtons = Array.from(document.querySelectorAll('[data-presenter-nav="true"]'));
     const presenterLock = document.getElementById('presenterLock');
     const clientId = getClientId();
     const deviceName = getDeviceName();
     const trustedDevice = localStorage.getItem('sion-link-trusted-device') === '1';
-    let deferredInstallPrompt = null;
     let latestSnapshot = null;
     let pendingRiskCommand = null;
     let pendingRiskTimer = null;
@@ -2543,6 +2587,13 @@ ${controlsHtml[role]}
     }
     function contentLabel(slide) {
       if (!slide) return '-';
+      if (slide.contentType === 'media') {
+        if (slide.mediaKind === 'presentation') return 'PPT Lokal';
+        if (slide.mediaKind === 'pdf' || slide.visualType === 'pdf') return 'PDF';
+        if (slide.mediaKind === 'video' || slide.visualType === 'video') return 'Video';
+        if (slide.mediaKind === 'image' || slide.visualType === 'image') return 'Gambar';
+        return 'Media Lokal';
+      }
       if (slide.visualType === 'pdf') return 'Materi PDF/PPT';
       if (slide.visualType === 'video') return 'Video';
       if (slide.visualType === 'image') return 'Gambar';
@@ -2557,10 +2608,25 @@ ${controlsHtml[role]}
       target.searchParams.set('code', code);
       return target.toString();
     }
+    function presentationFrameUrl(value) {
+      if (!value) return '';
+      try {
+        const target = new URL(value, location.origin);
+        if (target.pathname.startsWith('/api/presentation-frame/')) {
+          target.protocol = location.protocol;
+          target.host = location.host;
+          target.searchParams.set('v', Date.now());
+          return target.toString();
+        }
+      } catch {}
+      return '';
+    }
     function mediaUrl(slide) {
       if (!slide) return '';
       if (slide.visualUrl) return authenticatedUrl(slide.visualUrl);
       if (!slide.visualPath) return '';
+      const bridgeFrame = presentationFrameUrl(slide.visualPath);
+      if (bridgeFrame) return bridgeFrame;
       const base = '/media?code=' + encodeURIComponent(code) + '&path=' + encodeURIComponent(slide.visualPath);
       if (slide.visualType === 'pdf') {
         return base + '#page=' + encodeURIComponent(slide.pageNumber || 1) + '&toolbar=0&navpanes=0&scrollbar=0';
@@ -2600,6 +2666,11 @@ ${controlsHtml[role]}
       const label = document.createElement('div');
       label.className = 'visual-label';
       label.textContent = slide.text || slide.label || 'Media';
+      media.addEventListener('error', () => {
+        container.innerHTML = '';
+        container.classList.remove('is-visible');
+        textNode.style.display = '';
+      });
       container.appendChild(media);
       container.appendChild(label);
       container.classList.add('is-visible');
@@ -2619,6 +2690,7 @@ ${controlsHtml[role]}
       updateStageInsights(snapshot);
       updatePresenterControls(snapshot);
       updateOperatorControls(snapshot);
+      updateRundownClock(snapshot);
       const notesNode = document.getElementById('slideNotes');
       if (notesNode) {
         notesNode.textContent = (snapshot.currentSlide && snapshot.currentSlide.stageNotes) || 'Tidak ada catatan slide';
@@ -2690,6 +2762,27 @@ ${controlsHtml[role]}
         node.textContent = formatTimer(snapshot.timerElapsed || 0);
         node.classList.toggle('is-running', snapshot.timerRunning === true);
       }
+    }
+    function updateRundownClock(snapshot) {
+      const clock = document.getElementById('rundownClock');
+      if (!clock) return;
+      const total = Number(snapshot.rundownTotalSeconds || 0);
+      const remaining = Number(snapshot.rundownRemainingSeconds || 0);
+      const progress = Math.max(0, Math.min(100, Number(snapshot.rundownProgressPercent || 0)));
+      const itemCount = Number(snapshot.rundownItemCount || 0);
+      const itemIndex = Number(snapshot.currentRundownItemIndex ?? -1);
+      const setText = (id, value) => {
+        const node = document.getElementById(id);
+        if (node) node.textContent = value;
+      };
+      setText('rundownName', snapshot.rundownName || (itemCount > 0 ? 'Rundown aktif' : 'Belum ada rundown'));
+      setText('rundownTotal', formatTimer(total));
+      setText('rundownRemaining', formatTimer(remaining));
+      setText('rundownProgress', Math.round(progress) + '%');
+      setText('rundownCurrentItem', snapshot.currentRundownItemTitle || 'Belum mulai');
+      setText('rundownItemPosition', itemIndex >= 0 ? (itemIndex + 1) + '/' + itemCount : '0/' + itemCount);
+      const bar = document.getElementById('rundownProgressBar');
+      if (bar) bar.style.width = progress + '%';
     }
     function updateStageInsights(snapshot) {
       if (role !== 'stage') return;
@@ -2797,36 +2890,6 @@ ${controlsHtml[role]}
           : 'Rundown belum tersedia.';
       }
     }
-    function isInstalledPwa() {
-      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-    }
-    function updateInstallButton() {
-      if (!installButton) return;
-      installButton.classList.toggle('is-hidden', isInstalledPwa());
-    }
-    async function installPwa() {
-      if (!deferredInstallPrompt) {
-        connection.textContent = 'Gunakan menu browser > Install app';
-        return;
-      }
-      deferredInstallPrompt.prompt();
-      await deferredInstallPrompt.userChoice.catch(() => null);
-      deferredInstallPrompt = null;
-      updateInstallButton();
-    }
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => null);
-    }
-    window.addEventListener('beforeinstallprompt', (event) => {
-      event.preventDefault();
-      deferredInstallPrompt = event;
-      updateInstallButton();
-    });
-    window.addEventListener('appinstalled', () => {
-      deferredInstallPrompt = null;
-      updateInstallButton();
-    });
-    window.matchMedia('(display-mode: standalone)').addEventListener?.('change', updateInstallButton);
     window.addEventListener('keydown', (event) => {
       const target = event.target;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
@@ -2843,7 +2906,7 @@ ${controlsHtml[role]}
       }
     });
     function logout() {
-      location.replace('/connect');
+      location.replace('/connect?logout=1');
     }
     function needsRiskConfirm(command) {
       return command === 'BLACK' || command === 'CLEAR';
@@ -2907,7 +2970,6 @@ ${controlsHtml[role]}
     document.addEventListener('fullscreenchange', () => {
       document.body.classList.toggle('is-fullscreen', !!document.fullscreenElement);
     });
-    updateInstallButton();
     if (!code) {
       connection.textContent = 'Kode hilang';
     } else {
@@ -2967,22 +3029,46 @@ function getSionLinkConnectHtml(): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>SION Link</title>
-  <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="/icon.svg" />
   <meta name="theme-color" content="#0f2a56" />
   <style>
     :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #050811; color: #f8fafc; }
     * { box-sizing: border-box; }
     html, body { min-height: 100%; }
     body { margin: 0; min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; background: radial-gradient(circle at 18% 0%, rgba(14, 165, 233, .3) 0, transparent 34%), radial-gradient(circle at 82% 20%, rgba(16, 185, 129, .16) 0, transparent 30%), #050811; padding: max(16px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
-    main { width: min(100%, 430px); border: 1px solid rgba(148, 163, 184, .16); border-radius: 28px; background: linear-gradient(180deg, rgba(15, 23, 42, .92), rgba(5, 8, 17, .96)); box-shadow: 0 26px 80px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.05); padding: 22px; }
-    .brand { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 28px; }
+    main { width: min(100%, 860px); border: 1px solid rgba(148, 163, 184, .16); border-radius: 30px; background: linear-gradient(180deg, rgba(15, 23, 42, .94), rgba(5, 8, 17, .97)); box-shadow: 0 26px 80px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.05); padding: 24px; }
+    .brand { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
+    .brand-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     h1 { margin: 0; font-size: 22px; letter-spacing: .02em; font-weight: 850; color: #ffffff; }
     h1 span { color: #38bdf8; font-weight: 850; }
-    .pill { padding: 7px 10px; border-radius: 999px; background: rgba(14, 165, 233, .14); border: 1px solid rgba(56, 189, 248, .2); color: #bfdbfe; font-size: 11px; font-weight: 900; }
-    .install { width: auto; min-height: 34px; margin: 0; padding: 0 11px; border-radius: 999px; border-color: rgba(52, 211, 153, .22); background: rgba(6, 78, 59, .2); color: #a7f3d0; font-size: 11px; box-shadow: none; }
-    .install.is-hidden { display: none; }
+    h2 { margin: 0; font-size: clamp(24px, 4vw, 34px); line-height: 1.05; letter-spacing: -.04em; }
+    .lead { margin: 10px 0 0; max-width: 560px; color: #a7b6cf; font-size: 14px; line-height: 1.6; }
+    .home-copy { margin-bottom: 18px; }
+    .pill { padding: 7px 10px; border-radius: 999px; background: rgba(14, 165, 233, .14); border: 1px solid rgba(56, 189, 248, .2); color: #bfdbfe; font-size: 11px; font-weight: 900; white-space: nowrap; }
+    .pill-muted { background: rgba(148, 163, 184, .08); border-color: rgba(148, 163, 184, .14); color: #cbd5e1; }
+    .logout-banner { display: none; margin: 0 0 16px; border: 1px solid rgba(52, 211, 153, .24); border-radius: 18px; background: rgba(6, 78, 59, .16); color: #d1fae5; padding: 12px 14px; font-size: 13px; font-weight: 750; }
+    .logout-banner.is-visible { display: block; }
+    .role-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+    .role-card { min-height: 132px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 22px; background: rgba(2, 6, 23, .48); color: #e5edf9; padding: 14px; text-align: left; cursor: pointer; transition: border-color .16s ease, background .16s ease, transform .16s ease; }
+    .role-card:hover, .role-card.is-selected { border-color: rgba(56, 189, 248, .42); background: rgba(14, 165, 233, .12); transform: translateY(-1px); }
+    .role-card__icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 12px; margin-bottom: 10px; background: rgba(56, 189, 248, .12); font-size: 18px; }
+    .role-card strong { display: block; font-size: 13px; margin-bottom: 5px; }
+    .role-card span { display: block; color: #8ea0bc; font-size: 11px; line-height: 1.45; }
+    .connect-panel { display: grid; grid-template-columns: minmax(0, .85fr) minmax(280px, 1fr); gap: 16px; align-items: stretch; margin-top: 12px; }
+    .help-card { border: 1px solid rgba(148, 163, 184, .12); border-radius: 22px; background: rgba(15, 23, 42, .44); padding: 16px; }
+    .help-card strong { display: block; margin-bottom: 8px; color: #dbeafe; font-size: 13px; }
+    .help-card ol { margin: 0; padding-left: 18px; color: #92a3bf; font-size: 12px; line-height: 1.65; }
+    .desktop-card { margin-top: 16px; border: 1px solid rgba(56, 189, 248, .22); border-radius: 20px; background: linear-gradient(145deg, rgba(14, 165, 233, .13), rgba(15, 23, 42, .46)); padding: 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
+    .desktop-card__eyebrow { color: #7dd3fc; font-size: 10px; letter-spacing: .13em; text-transform: uppercase; font-weight: 950; margin-bottom: 8px; }
+    .desktop-card h3 { margin: 0; color: #f8fafc; font-size: 17px; line-height: 1.2; letter-spacing: -.02em; }
+    .desktop-card p { margin: 8px 0 0; color: #a7b6cf; font-size: 12px; line-height: 1.55; }
+    .desktop-feature-list { display: grid; gap: 6px; margin: 12px 0; }
+    .desktop-feature-list span { display: flex; align-items: center; gap: 8px; color: #dbeafe; font-size: 12px; font-weight: 750; }
+    .desktop-feature-list span::before { content: ''; width: 7px; height: 7px; border-radius: 999px; background: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, .12); flex: 0 0 auto; }
+    .desktop-download { display: inline-flex; width: 100%; min-height: 44px; align-items: center; justify-content: center; border: 1px solid rgba(52, 211, 153, .34); border-radius: 15px; background: linear-gradient(135deg, rgba(16, 185, 129, .24), rgba(14, 165, 233, .18)); color: #ecfeff; text-decoration: none; font-size: 13px; font-weight: 950; box-shadow: 0 12px 26px rgba(14, 165, 233, .12); }
+    .desktop-download:hover { border-color: rgba(125, 211, 252, .55); transform: translateY(-1px); }
+    .desktop-note { margin-top: 9px; color: #7f91aa; font-size: 11px; line-height: 1.45; }
+    .form-card { border: 1px solid rgba(56, 189, 248, .12); border-radius: 22px; background: rgba(2, 6, 23, .34); padding: 16px; }
     label { display: block; color: #9fb2d0; font-size: 11px; text-transform: uppercase; letter-spacing: .12em; font-weight: 900; margin-bottom: 8px; }
     input { width: 100%; height: 62px; border: 1px solid rgba(148, 163, 184, .18); border-radius: 18px; outline: none; background: rgba(2, 6, 23, .72); color: #f8fafc; font-size: 26px; font-weight: 900; text-align: center; letter-spacing: .12em; text-transform: uppercase; box-shadow: inset 0 1px 0 rgba(255,255,255,.04); }
     input.device-name { height: 48px; margin-bottom: 12px; font-size: 15px; letter-spacing: 0; text-transform: none; }
@@ -2992,8 +3078,15 @@ function getSionLinkConnectHtml(): string {
     .hint { margin: 14px 0 0; color: #7f91aa; font-size: 12px; line-height: 1.5; text-align: center; }
     .status { min-height: 18px; margin-top: 12px; color: #a7f3d0; font-size: 12px; text-align: center; font-weight: 800; }
     .status.error { color: #fecaca; }
-    @media (min-width: 900px) {
-      main { width: 460px; padding: 26px; }
+    @media (max-width: 720px) {
+      main { padding: 18px; }
+      .role-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .connect-panel { grid-template-columns: 1fr; }
+      .brand { align-items: flex-start; }
+      .role-card { min-height: 118px; }
+    }
+    @media (max-width: 420px) {
+      .role-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -3004,58 +3097,96 @@ function getSionLinkConnectHtml(): string {
         <img src="/icon.svg" alt="SION Logo" style="width: 32px; height: 32px; border-radius: 9px; box-shadow: 0 4px 10px rgba(0,0,0,0.25);" />
         <h1>SION <span>Link</span></h1>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button id="installButton" class="install is-hidden" type="button">Install</button>
+      <div class="brand-actions">
+        <div class="pill pill-muted">Web Link</div>
         <div class="pill">Local WiFi</div>
       </div>
     </div>
-    <form id="connectForm">
-      <label for="code">Kode akses</label>
-      <input id="deviceName" class="device-name" name="deviceName" autocomplete="nickname" maxlength="64" placeholder="Nama perangkat" spellcheck="false" />
-      <input id="code" name="code" inputmode="text" autocomplete="one-time-code" maxlength="8" placeholder="ABC123" spellcheck="false" />
-      <button type="submit">Masuk</button>
-      <p class="hint">Masukkan kode dari operator. Kode akan membuka mode Pemateri, Operator, Live Viewer, atau Stage Display.</p>
-      <div id="status" class="status"></div>
-    </form>
+    <div id="logoutBanner" class="logout-banner">Anda sudah keluar. Pilih mode yang ingin digunakan, lalu masukkan kode dari operator.</div>
+    <section class="home-copy">
+      <h2>Pilih mode SION Link Web</h2>
+      <p class="lead">Gunakan halaman ini untuk akses cepat lewat browser. Kode dari operator menentukan mode yang terbuka.</p>
+    </section>
+    <div class="role-grid" aria-label="Mode SION Link">
+      <button class="role-card" type="button" data-role-label="Pemateri" data-placeholder="Kode Pemateri">
+        <span class="role-card__icon">PR</span>
+        <strong>Pemateri</strong>
+        <span>Kontrol Previous/Next untuk materi presentasi yang sedang live.</span>
+      </button>
+      <button class="role-card" type="button" data-role-label="Operator" data-placeholder="Kode Operator">
+        <span class="role-card__icon">OP</span>
+        <strong>Operator</strong>
+        <span>Kontrol produksi seperti TAKE, BLACK, CLEAR, dan navigasi.</span>
+      </button>
+      <button class="role-card" type="button" data-role-label="Live Viewer" data-placeholder="Kode Viewer">
+        <span class="role-card__icon">LV</span>
+        <strong>Live Viewer</strong>
+        <span>Tampilan bersih Program Output untuk layar atau viewer tambahan.</span>
+      </button>
+      <button class="role-card" type="button" data-role-label="Stage Display" data-placeholder="Kode Stage">
+        <span class="role-card__icon">ST</span>
+        <strong>Stage Display</strong>
+        <span>Notes, cue berikutnya, timer, chord, dan status panggung.</span>
+      </button>
+    </div>
+    <div class="connect-panel">
+      <aside class="help-card">
+        <strong>Cara masuk paling mudah</strong>
+        <ol>
+          <li>Minta operator membuka Pengaturan Sistem > SION Link.</li>
+          <li>Pilih kode sesuai tugas Anda: Pemateri, Operator, Viewer, atau Stage.</li>
+          <li>Masukkan nama perangkat dan kode, lalu tekan Masuk.</li>
+        </ol>
+        <div class="desktop-card" aria-label="SION Link Desktop untuk fitur lanjutan">
+          <div class="desktop-card__eyebrow">Butuh fitur lanjutan?</div>
+          <h3>Gunakan SION Link Desktop</h3>
+          <p>SION Link Web cocok untuk Pemateri, Operator, Live Viewer, dan Stage Display lewat browser.</p>
+          <div class="desktop-feature-list">
+            <span>PowerPoint Bridge real-time</span>
+            <span>Presentation Agent native Windows</span>
+            <span>Diagnostik dan recovery lebih lengkap</span>
+          </div>
+          <a class="desktop-download" href="https://github.com/AiWerek-Tech/SION-Media/releases/latest" target="_blank" rel="noopener noreferrer">Download SION Link Desktop</a>
+          <div class="desktop-note">Tautan membuka GitHub Releases terbaru. Pilih installer SION Link Desktop untuk Windows.</div>
+        </div>
+      </aside>
+      <form id="connectForm" class="form-card">
+        <label for="deviceName">Nama perangkat</label>
+        <input id="deviceName" class="device-name" name="deviceName" autocomplete="nickname" maxlength="64" placeholder="Contoh: Laptop Pemateri 1" spellcheck="false" />
+        <label for="code" id="codeLabel">Kode akses</label>
+        <input id="code" name="code" inputmode="text" autocomplete="one-time-code" maxlength="8" placeholder="ABC123" spellcheck="false" />
+        <button type="submit">Masuk ke SION Link</button>
+        <p class="hint" id="roleHint">Belum yakin? Pilih kartu mode di atas. Untuk PowerPoint Bridge, gunakan SION Link Desktop.</p>
+        <div id="status" class="status"></div>
+      </form>
+    </div>
   </main>
   <script>
     const form = document.getElementById('connectForm');
     const input = document.getElementById('code');
     const deviceNameInput = document.getElementById('deviceName');
     const status = document.getElementById('status');
-    const installButton = document.getElementById('installButton');
-    let deferredInstallPrompt = null;
-    function isInstalledPwa() {
-      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const roleHint = document.getElementById('roleHint');
+    const codeLabel = document.getElementById('codeLabel');
+    const logoutBanner = document.getElementById('logoutBanner');
+    const roleCards = Array.from(document.querySelectorAll('.role-card'));
+    if (new URLSearchParams(location.search).get('logout') === '1') {
+      logoutBanner.classList.add('is-visible');
+      status.textContent = 'Silakan masuk kembali dengan mode yang dibutuhkan.';
+      status.className = 'status';
     }
-    function updateInstallButton() {
-      installButton.classList.toggle('is-hidden', isInstalledPwa());
-    }
-    async function installPwa() {
-      if (!deferredInstallPrompt) {
-        status.textContent = 'Jika prompt install tidak muncul, gunakan menu browser > Install app / Tambahkan ke layar utama.';
-        status.className = 'status';
-        return;
-      }
-      deferredInstallPrompt.prompt();
-      await deferredInstallPrompt.userChoice.catch(() => null);
-      deferredInstallPrompt = null;
-      updateInstallButton();
-    }
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => null);
-    }
-    window.addEventListener('beforeinstallprompt', (event) => {
-      event.preventDefault();
-      deferredInstallPrompt = event;
-      updateInstallButton();
+    roleCards.forEach((card) => {
+      card.addEventListener('click', () => {
+        roleCards.forEach((item) => item.classList.remove('is-selected'));
+        card.classList.add('is-selected');
+        const roleLabel = card.dataset.roleLabel || 'mode ini';
+        const placeholder = card.dataset.placeholder || 'ABC123';
+        input.placeholder = placeholder;
+        codeLabel.textContent = 'Kode ' + roleLabel;
+        roleHint.textContent = 'Masukkan kode ' + roleLabel + ' dari operator. Jika kodenya benar, mode akan terbuka otomatis.';
+        input.focus();
+      });
     });
-    window.addEventListener('appinstalled', () => {
-      deferredInstallPrompt = null;
-      updateInstallButton();
-    });
-    installButton.addEventListener('click', installPwa);
-    updateInstallButton();
     deviceNameInput.value = localStorage.getItem('sion-link-device-name') || navigator.platform || '';
     input.focus();
     input.addEventListener('input', () => {
