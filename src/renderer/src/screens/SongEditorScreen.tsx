@@ -38,6 +38,7 @@ import type {
   MediaAssetRecord,
   MediaCollectionRecord
 } from '@renderer/atmosphere/types'
+import { toLocalMediaUrl } from '@renderer/utils/localMediaUrl'
 
 function formatRuntime(seconds: number): string {
   const safeSeconds = Math.max(0, seconds)
@@ -47,9 +48,7 @@ function formatRuntime(seconds: number): string {
 }
 
 function toFileUrl(path?: string): string {
-  if (!path) return ''
-  if (path.startsWith('http')) return path
-  return `file://${path.replace(/\\/g, '/')}`
+  return toLocalMediaUrl(path)
 }
 
 interface SlideInspectorSettings {

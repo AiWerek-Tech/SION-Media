@@ -46,6 +46,7 @@ import type {
   MediaCollectionRecord
 } from '../../atmosphere/types'
 import { HymnalFilterDropdown } from '../../components/library/HymnalFilterDropdown'
+import { toLocalMediaUrl } from '../../utils/localMediaUrl'
 
 type StatusTone = 'published' | 'draft' | 'review' | 'archived'
 
@@ -115,9 +116,7 @@ const getSongAtmosphereSummary = (
 }
 
 function toFileUrl(path?: string): string {
-  if (!path) return ''
-  if (path.startsWith('http')) return path
-  return `file://${path.replace(/\\/g, '/')}`
+  return toLocalMediaUrl(path)
 }
 
 function buildSongAssetAtmosphere(asset: MediaAssetRecord): AtmosphereConfig {

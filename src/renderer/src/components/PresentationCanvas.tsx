@@ -5,6 +5,7 @@ import { AtmosphereRenderer, DecodedImageBackground } from '@renderer/atmosphere
 import { useAtmosphereStore } from '@renderer/store/useAtmosphereStore'
 import { BibleAutoFitText } from './presentation/BibleAutoFitText'
 import { PdfSlideViewer } from './presentation/PdfSlideViewer'
+import { toLocalMediaUrl } from '@renderer/utils/localMediaUrl'
 
 interface PresentationCanvasProps {
   slide: SlideData | null
@@ -96,8 +97,7 @@ function getTransitionConfig(type: string, duration: number): TransitionConfig {
 }
 
 function toFileUrl(path: string): string {
-  if (path.startsWith('http') || path.startsWith('file://')) return path
-  return `file://${path.replace(/\\/g, '/')}`
+  return toLocalMediaUrl(path)
 }
 
 export function PresentationCanvas({
