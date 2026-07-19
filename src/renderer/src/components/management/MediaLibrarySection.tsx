@@ -12,6 +12,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Film, HardDrive, Image as ImageIcon, LoaderCircle, Search, Upload, X } from 'lucide-react'
 import { useAppStore } from '@renderer/store/useAppStore'
 import type { MediaAssetRecord, MediaCollectionRecord } from '@renderer/atmosphere/types'
+import { toLocalMediaUrl } from '@renderer/utils/localMediaUrl'
 
 type MediaFilter = 'all' | 'image' | 'video'
 type ImportProgress = {
@@ -22,9 +23,7 @@ type ImportProgress = {
 }
 
 function toFileUrl(path?: string): string {
-  if (!path) return ''
-  if (path.startsWith('http')) return path
-  return `file://${path.replace(/\\/g, '/')}`
+  return toLocalMediaUrl(path)
 }
 
 export function MediaLibrarySection(): React.JSX.Element {

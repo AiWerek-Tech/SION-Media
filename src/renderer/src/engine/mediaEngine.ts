@@ -11,6 +11,7 @@
  */
 
 import { logger } from '@renderer/utils/logger'
+import { toLocalMediaUrl } from '@renderer/utils/localMediaUrl'
 
 // ═══════════════════════════════════════════════════════════════
 // Configuration
@@ -109,7 +110,7 @@ class MediaEngine {
     return this.withConcurrencyLimit(() => {
       return new Promise<void>((resolve, reject) => {
         const img = new Image()
-        const src = url.startsWith('http') ? url : `file://${url.replace(/\\/g, '/')}`
+        const src = toLocalMediaUrl(url)
         img.src = src
 
         const timeout = setTimeout(() => {
@@ -155,7 +156,7 @@ class MediaEngine {
     return this.withConcurrencyLimit(() => {
       return new Promise<void>((resolve, reject) => {
         const video = document.createElement('video')
-        const src = url.startsWith('http') ? url : `file://${url.replace(/\\/g, '/')}`
+        const src = toLocalMediaUrl(url)
         video.src = src
         video.preload = 'auto'
 

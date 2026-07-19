@@ -33,6 +33,7 @@ import type {
 } from '@renderer/atmosphere/types'
 import { useModalStore } from '@renderer/store/useModalStore'
 import { useAppStore } from '@renderer/store/useAppStore'
+import { toLocalMediaUrl } from '@renderer/utils/localMediaUrl'
 
 interface BackgroundSettingsProps {
   settings: Record<string, string>
@@ -125,9 +126,7 @@ const MAX_VIDEO_SIZE_BYTES = 500 * 1024 * 1024
 const MAX_THEME_PACK_BYTES = 1024 * 1024
 
 function toFileUrl(path?: string): string {
-  if (!path) return ''
-  if (path.startsWith('http')) return path
-  return `file://${path.replace(/\\/g, '/')}`
+  return toLocalMediaUrl(path)
 }
 
 function parseAtmosphereConfig(raw?: string): AtmosphereConfig | null {
@@ -1379,10 +1378,18 @@ export function BackgroundSettings({
                 const isApplied = asset.id === activeAssetId
                 const isSelected = selectedAssetIds.has(asset.id)
                 return (
-                  <button
+                  <div
                     key={asset.id}
                     onClick={() => setSelectedAssetId(asset.id)}
                     className={`sp-asset-card ${isActive ? 'is-active' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setSelectedAssetId(asset.id)
+                      }
+                    }}
                   >
                     <div className="sp-asset-card__thumb">
                       {asset.thumbnailPath ? (
@@ -1440,7 +1447,7 @@ export function BackgroundSettings({
                         })}
                       </div>
                     </div>
-                  </button>
+                  </div>
                 )
               })}
             </div>

@@ -35,6 +35,7 @@ import { stripLrcTimestamps, hasLrcTimestamps } from '@renderer/utils/lrcParser'
 import { logger } from '@renderer/utils/logger'
 import { DEFAULT_GLOBAL_ATMOSPHERE } from '../../atmosphere/presets'
 import type { AtmosphereConfig, MediaAssetRecord } from '../../atmosphere/types'
+import { toLocalMediaUrl } from '@renderer/utils/localMediaUrl'
 
 type LyricsBlock = {
   label: string
@@ -57,9 +58,7 @@ function normalizeDisplayNumber(input: string | null | undefined): string {
 }
 
 function toFileUrl(path?: string): string {
-  if (!path) return ''
-  if (path.startsWith('http')) return path
-  return `file://${path.replace(/\\/g, '/')}`
+  return toLocalMediaUrl(path)
 }
 
 function parseAtmosphereConfig(raw?: string): AtmosphereConfig | null {
